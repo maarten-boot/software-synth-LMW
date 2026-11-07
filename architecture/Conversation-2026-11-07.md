@@ -98,3 +98,8 @@ Project now at `.../DEV/github.com/maarten-boot/software-synth-LMW`. Assistant r
 > merge, then rebuild and run the tests
 
 Assistant: merged `origin/main` with `--allow-unrelated-histories` (commit 62cf326). Conflicts resolved: `.gitignore` = GitHub's C++/CMake list + local `*.user`, `.DS_Store`; README = local version plus GitHub's one-line description. No tracked files are ignored by the new `.gitignore`. Deleted `build/`, reconfigured (JUCE re-downloaded), built Release: OK (only JUCE splash-screen notice and LTO serial-compilation warnings). `ctest`: 2/2 passed (T-S6.2-contrast, T-S5-engine). Not pushed yet.
+
+## 19. Push + CI (user)
+> pushed / ok, wait for CI
+
+User pushed (origin now SSH; assistant's shell has no SSH key, uses `gh` for read-only checks). CI run 42385798382: build + ctest passed on ubuntu-latest, macos-latest, windows-latest. Annotations: actions/checkout@v4 targets deprecated Node.js 20. Tests.md T-S2.1 updated.

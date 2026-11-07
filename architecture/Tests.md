@@ -2,7 +2,7 @@
 
 | ID | Spec | Test | Status |
 |---|---|---|---|
-| T-S2.1 | S2.1 | Project builds and starts on Linux, macOS, Windows | Linux build OK; macOS/Windows via CI pending |
+| T-S2.1 | S2.1 | Project builds and starts on Linux, macOS, Windows | Build + ctest OK on Linux, macOS, Windows (CI run 42385798382, 2026-11-07); "starts" not yet verified (no display) |
 | T-S1.2a | S1.2 | With no cables, default patch produces sound on a MIDI note | planned |
 | T-S1.2b | S1.2 | A cable into an input replaces (not adds to) its normalled source | planned |
 | T-S3.2 | S3.2 | Computer keyboard keys trigger notes in standalone | implemented (JUCE MidiKeyboardComponent); manual check pending |
