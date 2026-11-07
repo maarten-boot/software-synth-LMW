@@ -33,7 +33,7 @@ private:
     juce::ComboBox wave;
     juce::Label waveLabel;
     std::unique_ptr<ComboAttachment> waveAttachment;
-    Knob attack, decay, sustain, release, gain;
+    Knob voices, attack, decay, sustain, release, gain;
     juce::MidiKeyboardComponent keyboard;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(LMWSynthEditor)

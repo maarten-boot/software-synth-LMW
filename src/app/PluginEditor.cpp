@@ -52,6 +52,7 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     addAndMakeVisible(wave);
     addAndMakeVisible(waveLabel);
 
+    setupKnob(voices,  lmw::param::voices,  "Voices");
     setupKnob(attack,  lmw::param::attack,  "Attack");
     setupKnob(decay,   lmw::param::decay,   "Decay");
     setupKnob(sustain, lmw::param::sustain, "Sustain");
@@ -61,7 +62,7 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     keyboard.setWantsKeyboardFocus(true);       // QWERTY keys play notes (Spec S3.2)
     addAndMakeVisible(keyboard);
 
-    setSize(720, 360);
+    setSize(820, 360);
     juce::MessageManager::callAsync([safe = juce::Component::SafePointer<juce::Component>(&keyboard)] {
         if (safe != nullptr && safe->isShowing()) safe->grabKeyboardFocus();
     });
@@ -92,11 +93,11 @@ void LMWSynthEditor::resized() {
     keyboard.setBounds(area.removeFromBottom(90));
     area.removeFromBottom(10);
 
-    const int w = area.getWidth() / 6;
+    const int w = area.getWidth() / 7;
     auto col = area.removeFromLeft(w).reduced(6);
     waveLabel.setBounds(col.removeFromTop(22));
     wave.setBounds(col.removeFromTop(28));
-    for (Knob* k : {&attack, &decay, &sustain, &release, &gain}) {
+    for (Knob* k : {&voices, &attack, &decay, &sustain, &release, &gain}) {
         auto c = area.removeFromLeft(w).reduced(6);
         k->label.setBounds(c.removeFromTop(22));
         k->slider.setBounds(c);

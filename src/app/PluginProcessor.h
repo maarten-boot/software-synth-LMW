@@ -14,6 +14,7 @@ inline constexpr const char* decay   = "env.decay";
 inline constexpr const char* sustain = "env.sustain";
 inline constexpr const char* release = "env.release";
 inline constexpr const char* gain    = "out.gain";
+inline constexpr const char* voices  = "voice.count";
 }
 
 class LMWSynthProcessor final : public juce::AudioProcessor {
@@ -58,6 +59,7 @@ private:
 
     std::atomic<float>* pWave{}; std::atomic<float>* pAttack{}; std::atomic<float>* pDecay{};
     std::atomic<float>* pSustain{}; std::atomic<float>* pRelease{}; std::atomic<float>* pGain{};
+    std::atomic<float>* pVoices{};
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(LMWSynthProcessor)
 };

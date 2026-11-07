@@ -21,6 +21,8 @@ APVTS::ParameterLayout LMWSynthProcessor::createLayout() {
         std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{lmw::param::release, 1}, "Release", time(10.0f), 0.3f, seconds),
         std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{lmw::param::gain, 1}, "Volume",
             juce::NormalisableRange<float>(0.0f, 1.0f), 0.8f),
+        std::make_unique<juce::AudioParameterInt>(juce::ParameterID{lmw::param::voices, 1}, "Voices",
+            1, lmw::dsp::Engine::maxVoices, 8),
     };
 }
 
@@ -33,6 +35,7 @@ LMWSynthProcessor::LMWSynthProcessor()
     pSustain = apvts.getRawParameterValue(lmw::param::sustain);
     pRelease = apvts.getRawParameterValue(lmw::param::release);
     pGain    = apvts.getRawParameterValue(lmw::param::gain);
+    pVoices  = apvts.getRawParameterValue(lmw::param::voices);
 }
 
 void LMWSynthProcessor::prepareToPlay(double sampleRate, int) {
@@ -55,6 +58,7 @@ void LMWSynthProcessor::pullParameters() noexcept {
     p.release = pRelease->load();
     engine.setParams(p);
     engine.setGain(pGain->load());
+    engine.setVoiceCount(static_cast<int>(pVoices->load()));
 }
 
 void LMWSynthProcessor::handleMidi(const juce::MidiMessage& m) noexcept {

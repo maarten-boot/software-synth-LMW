@@ -67,12 +67,77 @@ int main() {
         CHECK(finite && same);
 
         eng.noteOff(61);                                   // wrong note: keeps sounding
-        CHECK(eng.getVoice().isActive());
+        CHECK(eng.voice(0).isActive());
         eng.noteOff(60);
         eng.render(l.data(), r.data(), 4800);              // 100 ms > 20 ms release
-        CHECK(!eng.getVoice().isActive());
+        CHECK(!eng.voice(0).isActive());
         CHECK(l.back() == 0.0f);
         eng.render(l.data(), nullptr, 4800);               // mono output path
+    }
+
+    // T-S4.1: voice count N allows exactly N simultaneous notes.
+    for (int n : {1, 8, 32}) {
+        Engine eng; eng.prepare(SR); eng.setVoiceCount(n);
+        for (int k = 0; k < n; ++k) eng.noteOn(40 + k, 1.0f);
+        std::vector<float> l(64); eng.render(l.data(), nullptr, 64);
+        CHECK(eng.activeVoices() == n);
+        eng.noteOn(100, 1.0f);                         // N+1
+        CHECK(eng.activeVoices() == n);
+    }
+    // Range clamps to 1..32.
+    { Engine e; e.setVoiceCount(0); CHECK(e.getVoiceCount() == 1); e.setVoiceCount(99); CHECK(e.getVoiceCount() == 32); }
+
+    // T-S4.2: N+1 notes steal the oldest held voice.
+    {
+        Engine eng; eng.prepare(SR); eng.setVoiceCount(3);
+        eng.noteOn(60, 1); eng.noteOn(62, 1); eng.noteOn(64, 1);
+        eng.noteOn(65, 1);
+        bool has60 = false, has65 = false;
+        for (int i = 0; i < 3; ++i) { has60 |= eng.voice(i).getNote() == 60; has65 |= eng.voice(i).getNote() == 65; }
+        CHECK(!has60 && has65);
+    }
+    // ... but a released voice is stolen before an older held one.
+    {
+        Engine eng; eng.prepare(SR); eng.setVoiceCount(3);
+        VoiceParams p; p.release = 2.0f; eng.setParams(p);
+        eng.noteOn(60, 1); eng.noteOn(62, 1); eng.noteOn(64, 1);
+        eng.noteOff(62);                               // 62 rings out
+        eng.noteOn(67, 1);
+        bool has60 = false, has62 = false;
+        for (int i = 0; i < 3; ++i) { has60 |= eng.voice(i).getNote() == 60; has62 |= eng.voice(i).getNote() == 62; }
+        CHECK(has60 && !has62);
+    }
+    // Same note retriggers its own voice instead of doubling.
+    {
+        Engine eng; eng.prepare(SR); eng.setVoiceCount(4);
+        eng.noteOn(60, 1); eng.noteOn(60, 1);
+        CHECK(eng.activeVoices() == 1);
+    }
+    // Stealing is click-free: no sample-to-sample jump larger than the waveform allows.
+    {
+        Engine eng; eng.prepare(SR); eng.setVoiceCount(1); eng.setGain(1.0f);
+        VoiceParams p; p.wave = Waveform::Sine; p.attack = 0.001f; eng.setParams(p);
+        std::vector<float> l(4800);
+        eng.noteOn(60, 1); eng.render(l.data(), nullptr, 4800);
+        const float before = l.back();
+        eng.noteOn(72, 1); eng.render(l.data(), nullptr, 1);
+        CHECK(std::fabs(l[0] - before) < 0.02f);
+    }
+    // Reducing the voice count releases the excess voices.
+    {
+        Engine eng; eng.prepare(SR); eng.setVoiceCount(8);
+        VoiceParams p; p.release = 0.01f; eng.setParams(p);
+        for (int k = 0; k < 8; ++k) eng.noteOn(50 + k, 1);
+        eng.setVoiceCount(2);
+        std::vector<float> l(4800); eng.render(l.data(), nullptr, 4800);
+        CHECK(eng.activeVoices() == 2);
+    }
+    // 32 voices at full velocity and gain stay finite.
+    {
+        Engine eng; eng.prepare(SR); eng.setVoiceCount(32); eng.setGain(1.0f);
+        for (int k = 0; k < 32; ++k) eng.noteOn(30 + k, 1);
+        std::vector<float> l(4800); eng.render(l.data(), nullptr, 4800);
+        bool finite = true; for (float v : l) finite &= std::isfinite(v); CHECK(finite);
     }
 
     std::printf(failures ? "%d failure(s)\n" : "all engine tests passed\n", failures);

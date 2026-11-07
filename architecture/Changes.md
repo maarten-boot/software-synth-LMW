@@ -9,3 +9,4 @@ Changes between releases.
 - Decided GUI/engine split over self-implemented 9P2000; external GUI in Kukel.
 - Phase 0: CMake + JUCE 8.0.4 skeleton (Standalone + VST3, outputs silence), WCAG contrast module + tests, GitHub Actions CI for Linux/macOS/Windows.
 - Phase 1: single-voice engine (polyBLEP VCO: sine/saw/square/triangle; linear ADSR; smoothed volume), parameters saved with host/standalone state, GUI with knobs + on-screen/QWERTY keyboard, black-on-white theme with tested colour pairs.
+- Phase 2: polyphony 1–32 (voice.count), oldest-voice stealing preferring released voices, same-note retrigger, click-free stealing.

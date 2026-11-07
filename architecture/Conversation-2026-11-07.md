@@ -63,3 +63,18 @@ Assistant: built Phase 0 — CMake + JUCE 8.0.4 (FetchContent), targets Standalo
 
 Spec S10.8: Kukel GUI lives in the Kukel project.
 Assistant: implemented Phase 1 (src/dsp: Oscillator, Adsr, Voice, Engine; APVTS parameters; editor with knobs + keyboard; src/ui/Theme.h). Tests: 2/2 pass. Explained what a GitHub remote is and the steps to add one.
+
+## 12. Question (user)
+> what licence do i choose on github when creating the repo? or do i not select a licence now?
+
+Assistant: select "None" (and no README/.gitignore); repo already has LICENSE (AGPLv3) which GitHub detects automatically after push. Choosing one creates a conflicting first commit.
+
+## 13. Go-ahead (user)
+> repo created, go ahead with Phase 2; repo will be: https://github.com/maarten-boot/software-synth-LMW
+
+Assistant: added remote `origin`; push failed (403: gh fine-grained PAT lacks write access to the new repo; no SSH key). Ran `gh auth setup-git` (git now uses gh credentials for github.com). Implemented Phase 2 (polyphony 1–32, voice stealing, Voices knob); tests pass.
+
+## 14. Mid-turn message (user)
+> i can do the write
+
+Interpreted as "I can do the push (write access) myself" — suggested correction write -> push, to confirm. No further push attempts by assistant.

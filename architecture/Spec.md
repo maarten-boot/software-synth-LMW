@@ -16,7 +16,10 @@ S3.2 Input: MIDI keyboard; computer keyboard as fallback in standalone.
 
 ## S4 Polyphony
 S4.1 Voice count configurable at runtime, range 1–32.
-S4.2 When all voices are busy, a new note steals the oldest voice.
+S4.2 When all voices are busy, a new note steals the oldest voice, preferring voices already in release over held ones (refinement, to confirm).
+S4.3 A note-on for a note that is already sounding retriggers that voice (no doubling).
+S4.4 Stealing/retriggering keeps phase and envelope level continuous (no click).
+S4.5 Lowering the voice count releases the excess voices (they ring out); parameter id voice.count, default 8.
 
 ## S5 Modules (initial set)
 S5.1 VCO, VCF, VCA, ADSR, LFO, Mixer, Noise, MIDI-in, Audio-out.
