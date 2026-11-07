@@ -48,11 +48,40 @@ LMWSynthProcessor::LMWSynthProcessor()
     pRelease = apvts.getRawParameterValue(lmw::param::release);
     pGain    = apvts.getRawParameterValue(lmw::param::gain);
     pVoices  = apvts.getRawParameterValue(lmw::param::voices);
+    keyboard.addListener(this);
+}
+
+LMWSynthProcessor::~LMWSynthProcessor() { keyboard.removeListener(this); }
+
+void LMWSynthProcessor::handleNoteOn(juce::MidiKeyboardState*, int channel, int note, float velocity) {
+    if (applyingMidiInput) return;
+    guiToAudio.push({lmw::dsp::NoteEvent::Kind::On, static_cast<unsigned char>(channel),
+                     static_cast<unsigned char>(note), velocity});
+}
+
+void LMWSynthProcessor::handleNoteOff(juce::MidiKeyboardState*, int channel, int note, float) {
+    if (applyingMidiInput) return;
+    guiToAudio.push({lmw::dsp::NoteEvent::Kind::Off, static_cast<unsigned char>(channel),
+                     static_cast<unsigned char>(note), 0.0f});
+}
+
+void LMWSynthProcessor::resetKeyboardDisplay() {
+    audioToGui.clear();
+    keyboard.reset();            // clears the display only; does not notify listeners
+}
+
+void LMWSynthProcessor::updateKeyboardFromMidiInput() {
+    const juce::ScopedValueSetter<bool> guard(applyingMidiInput, true);
+    lmw::dsp::NoteEvent e;
+    while (audioToGui.pop(e)) {
+        if (e.kind == lmw::dsp::NoteEvent::Kind::On)       keyboard.noteOn(e.channel, e.note, e.velocity);
+        else if (e.kind == lmw::dsp::NoteEvent::Kind::Off) keyboard.noteOff(e.channel, e.note, 0.0f);
+        else                                                keyboard.allNotesOff(e.channel);
+    }
 }
 
 void LMWSynthProcessor::prepareToPlay(double sampleRate, int) {
     engine.prepare(sampleRate);
-    keyboard.reset();
     pullParameters();
 }
 
@@ -73,17 +102,41 @@ void LMWSynthProcessor::pullParameters() noexcept {
     engine.setVoiceCount(static_cast<int>(pVoices->load()));
 }
 
-void LMWSynthProcessor::handleMidi(const juce::MidiMessage& m) noexcept {
-    if (m.isNoteOn())                               engine.noteOn(m.getNoteNumber(), m.getFloatVelocity());
-    else if (m.isNoteOff())                         engine.noteOff(m.getNoteNumber());
-    else if (m.isAllNotesOff() || m.isAllSoundOff()) engine.allNotesOff();
+void LMWSynthProcessor::applyNoteEvent(const lmw::dsp::NoteEvent& e) noexcept {
+    using K = lmw::dsp::NoteEvent::Kind;
+    if (e.kind == K::On)       engine.noteOn(e.note, e.velocity);
+    else if (e.kind == K::Off) engine.noteOff(e.note);
+    else                       engine.allNotesOff();
+}
+
+// External MIDI (host / MIDI device), audio thread: play it and queue notes for the keyboard display.
+// Raw bytes are decoded in place (no MidiMessage copy, which allocates for SysEx) — Spec S10.2.
+void LMWSynthProcessor::handleMidi(const juce::uint8* data, int size) noexcept {
+    using M = lmw::dsp::MidiEvent::Kind;
+    using K = lmw::dsp::NoteEvent::Kind;
+    const auto m = lmw::dsp::parseMidi(data, size);
+    lmw::dsp::NoteEvent e;
+    e.channel = static_cast<unsigned char>(m.channel);
+    e.note    = static_cast<unsigned char>(m.note);
+    switch (m.kind) {
+        case M::NoteOn:      e.kind = K::On; e.velocity = m.value; break;
+        case M::NoteOff:     e.kind = K::Off; break;
+        case M::AllNotesOff: e.kind = K::AllOff; break;
+        case M::Sustain:     engine.setSustain(m.value > 0.5f); return;                       // Spec S3.3
+        case M::PitchBend:   engine.setPitchBend(m.value * pitchBendRangeSemitones); return;   // Spec S3.4
+        case M::None:        return;
+    }
+    applyNoteEvent(e);
+    audioToGui.push(e);                              // dropped if the GUI is not draining (editor closed)
 }
 
 void LMWSynthProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi) {
     juce::ScopedNoDenormals noDenormals;
     const int n = buffer.getNumSamples();
-    keyboard.processNextMidiBuffer(midi, 0, n, true);   // merge on-screen/QWERTY notes
     pullParameters();
+
+    lmw::dsp::NoteEvent e;                               // on-screen / QWERTY notes, lock-free
+    while (guiToAudio.pop(e)) applyNoteEvent(e);
 
     float* left  = buffer.getWritePointer(0);
     float* right = buffer.getNumChannels() > 1 ? buffer.getWritePointer(1) : nullptr;
@@ -93,7 +146,7 @@ void LMWSynthProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Mid
         const int at = juce::jlimit(pos, n, meta.samplePosition);
         engine.render(left + pos, right ? right + pos : nullptr, at - pos);
         pos = at;
-        handleMidi(meta.getMessage());
+        handleMidi(meta.data, meta.numBytes);
     }
     engine.render(left + pos, right ? right + pos : nullptr, n - pos);
     for (int ch = 2; ch < buffer.getNumChannels(); ++ch) buffer.clear(ch, 0, n);

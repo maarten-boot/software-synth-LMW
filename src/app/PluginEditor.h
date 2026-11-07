@@ -16,14 +16,21 @@ public:
     int getSliderThumbRadius(juce::Slider&) override { return 7; }
 };
 
-class LMWSynthEditor final : public juce::AudioProcessorEditor {
+class LMWSynthEditor final : public juce::AudioProcessorEditor, private juce::Timer {
 public:
     explicit LMWSynthEditor(LMWSynthProcessor&);
     ~LMWSynthEditor() override;
     void paint(juce::Graphics&) override;
     void resized() override;
+    // QWERTY notes work whichever control has focus (Spec S3.2): letter keys not used by the
+    // focused control reach the editor and are passed to the on-screen keyboard.
+    bool keyPressed(const juce::KeyPress&) override;
+    bool keyStateChanged(bool isKeyDown) override;
 
 private:
+    void timerCallback() override { processor.updateKeyboardFromMidiInput(); }
+    static bool isTypingText();
+
     using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
     using ComboAttachment  = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
 

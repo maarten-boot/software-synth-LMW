@@ -174,3 +174,13 @@ Yes: user ran build/ (built on Ubuntu 26.04, GLIBC_2.43) instead of build-u24/ (
 > yes, add the build script; looks already great but the theme with the black opstions menu should all be identical to the main screen later , there is sound and multiple voiced and double click on a lider goes to the default, perfect
 
 Read as "options menu", "multiple voices", "slider" (typos). Assistant added scripts/build-ubuntu24.sh (podman/docker; ubuntu:24.04 pinned by index digest sha256:fe815609…f852; cached build volume; stage dir + copy out). First run failed after tests: `chown` to host UID inside rootless podman mapped to a sub-UID → fixed (chown only for docker); leftover staging dirs removed with `podman unshare`. Verified: full build 7m, cached 33 s, GLIBC_2.38, 3/3 tests. Spec S6.1 (+double-click reset), S6.2 (all windows incl. title bar, Options menu, settings dialog identical to main panel); Tests T-S2.1c, T-S4.0, T-S6.1b pass (user-verified), T-S6.2d updated; Plan, README, Changes updated.
+
+## 34. Requests (user)
+> yes, fix the audio-thread lock now; i tried playing notes with the keyborad but it seems not to work, the normal letter keys should play something right ?
+> sustain pedal, pitch bend and mod whee: yes   (mid-turn; "mod wheel")
+> Licence: AGPL-3.0-or-later or AGPL-3.0-only: explain first   (mid-turn)
+
+CI run 42410364130 (commit 0aa53a3): all 4 jobs pass.
+QWERTY: reproduced on Xvfb with xdotool — 'a' plays C4 right after start, but not after clicking a fader (focus moves to the slider; JUCE's keyboard only reads keys while focused). Fix: editor forwards keyPressed/keyStateChanged to the keyboard unless a TextEditor (value box) has focus. Verified: start, after fader click, and typing "250 ms" into a value box (sets value, no note).
+Lock: replaced MidiKeyboardState::processNextMidiBuffer on the audio thread with two lock-free SPSC queues (src/dsp/SpscQueue.h; GUI→audio notes, audio→GUI display via 30 Hz editor timer); raw-byte MIDI decoder src/dsp/MidiParse.h (no MidiMessage copies).
+Sustain pedal + pitch bend (±2 st) implemented in Engine; mod wheel specified for Phase 3 (vibrato depth, to confirm). Spec S3.2–S3.5, tests added; ctest 4/4 pass. Licence explanation given in the reply.

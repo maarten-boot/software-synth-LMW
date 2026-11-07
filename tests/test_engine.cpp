@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Phase 1 engine tests (Spec S5.1): oscillator pitch, ADSR timing, voice/engine output.
 #include "dsp/Engine.h"
+#include "dsp/MidiParse.h"
 #include <cmath>
 #include <cstdio>
 #include <vector>
@@ -138,6 +139,69 @@ int main() {
         for (int k = 0; k < 32; ++k) eng.noteOn(30 + k, 1);
         std::vector<float> l(4800); eng.render(l.data(), nullptr, 4800);
         bool finite = true; for (float v : l) finite &= std::isfinite(v); CHECK(finite);
+    }
+
+    // T-S3.3: sustain pedal keeps released notes sounding until the pedal goes up.
+    {
+        Engine eng; eng.prepare(SR); eng.setGain(1.0f);
+        VoiceParams p; p.attack = 0.001f; p.release = 0.01f; eng.setParams(p);
+        std::vector<float> l(4800);
+        eng.setSustain(true);
+        eng.noteOn(60, 1); eng.render(l.data(), nullptr, 480);
+        eng.noteOff(60);   eng.render(l.data(), nullptr, 4800);     // 100 ms > 10 ms release
+        CHECK(eng.activeVoices() == 1);
+        eng.noteOn(60, 1); CHECK(eng.activeVoices() == 1);          // same note retriggers, no doubling
+        eng.noteOff(60);
+        eng.noteOn(64, 1); eng.render(l.data(), nullptr, 480);      // 64 still held by its key
+        eng.setSustain(false); eng.render(l.data(), nullptr, 4800);
+        CHECK(eng.activeVoices() == 1 && eng.voice(1).isKeyDown()); // 60 released, 64 still down
+        eng.noteOff(64); eng.render(l.data(), nullptr, 4800);
+        CHECK(eng.activeVoices() == 0);
+        // Without pedal: note-off releases immediately.
+        eng.noteOn(60, 1); eng.render(l.data(), nullptr, 480); eng.noteOff(60);
+        eng.render(l.data(), nullptr, 4800); CHECK(eng.activeVoices() == 0);
+        // All-notes-off also lifts the pedal.
+        eng.setSustain(true); eng.allNotesOff(); CHECK(!eng.isSustainDown());
+    }
+    // T-S3.4: pitch bend +2 semitones on A4 gives 493.88 Hz, applied to a sounding voice.
+    {
+        Engine eng; eng.prepare(SR); eng.setGain(1.0f);
+        VoiceParams p; p.wave = Waveform::Sine; p.attack = 0.0f; p.sustain = 1.0f; eng.setParams(p);
+        auto zeroCrossings = [&](int n) {
+            std::vector<float> l(static_cast<size_t>(n)); eng.render(l.data(), nullptr, n);
+            int z = 0; for (size_t i = 1; i < l.size(); ++i) z += (l[i - 1] < 0 && l[i] >= 0) ? 1 : 0;
+            return z;
+        };
+        eng.noteOn(69, 1);
+        int z = zeroCrossings(static_cast<int>(SR)); CHECK(z >= 439 && z <= 441);
+        eng.setPitchBend(2.0);
+        z = zeroCrossings(static_cast<int>(SR));     CHECK(z >= 493 && z <= 495);
+        eng.setPitchBend(-12.0);
+        z = zeroCrossings(static_cast<int>(SR));     CHECK(z >= 219 && z <= 221);
+        eng.setPitchBend(0.0); eng.noteOn(57, 1);     // new note uses current bend (0)
+    }
+
+    // T-S3.2-midi: raw MIDI decoding (audio-thread safe, no MidiMessage copies).
+    {
+        using K = MidiEvent::Kind;
+        auto parse = [](std::initializer_list<int> bytes) {
+            std::uint8_t b[8]{}; int n = 0; for (int x : bytes) b[n++] = static_cast<std::uint8_t>(x);
+            return parseMidi(b, n);
+        };
+        auto on = parse({0x93, 60, 127});
+        CHECK(on.kind == K::NoteOn && on.channel == 4 && on.note == 60 && on.value == 1.0f);
+        CHECK(parse({0x90, 60, 0}).kind == K::NoteOff);                 // velocity 0 = note-off
+        CHECK(parse({0x80, 61, 40}).kind == K::NoteOff && parse({0x80, 61, 40}).note == 61);
+        CHECK(parse({0xB0, 64, 127}).kind == K::Sustain && parse({0xB0, 64, 127}).value == 1.0f);
+        CHECK(parse({0xB0, 64, 63}).value == 0.0f);
+        CHECK(parse({0xB0, 123, 0}).kind == K::AllNotesOff && parse({0xB0, 120, 0}).kind == K::AllNotesOff);
+        CHECK(parse({0xB0, 1, 64}).kind == K::None);                     // mod wheel: Phase 3 (S3.5)
+        CHECK(parse({0xE0, 0x00, 0x40}).kind == K::PitchBend && parse({0xE0, 0x00, 0x40}).value == 0.0f);
+        CHECK(parse({0xE0, 0x00, 0x00}).value == -1.0f);
+        CHECK(parse({0xE0, 0x7F, 0x7F}).value > 0.999f);
+        CHECK(parse({0xF0, 0x7E, 0x7F, 0x09, 0x01, 0xF7}).kind == K::None); // SysEx ignored
+        CHECK(parse({0x90, 60}).kind == K::None);                        // truncated
+        CHECK(parseMidi(nullptr, 0).kind == K::None);
     }
 
     std::printf(failures ? "%d failure(s)\n" : "all engine tests passed\n", failures);

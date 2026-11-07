@@ -29,24 +29,32 @@ public:
     // continuous, so stealing a voice does not click.
     void noteOn(int n, float vel) noexcept {
         if (!env.isActive()) osc.reset();
-        note = n; velocity = vel; gate = true;
-        osc.setFrequency(midiNoteToHz(n));
+        note = n; velocity = vel; gate = true; keyDown = true;
+        updateFrequency();
         env.noteOn();
     }
-    void noteOff() noexcept { gate = false; env.noteOff(); }
+    void noteOff() noexcept { gate = false; keyDown = false; env.noteOff(); }
+    // Key released: with the sustain pedal down the voice keeps sounding (gate stays open).
+    void releaseKey(bool sustainPedal) noexcept { keyDown = false; if (!sustainPedal) noteOff(); }
+    void setPitchBend(double semitones) noexcept { bend = semitones; updateFrequency(); }
     float next() noexcept { return env.isActive() ? osc.next() * env.next() * velocity : 0.0f; }
 
     bool isActive() const noexcept { return env.isActive(); }
-    bool isHeld() const noexcept { return gate && env.isActive(); }   // key still down
+    bool isHeld() const noexcept { return gate && env.isActive(); }   // key down or sustained by pedal
+    bool isKeyDown() const noexcept { return keyDown && env.isActive(); }
     int getNote() const noexcept { return note; }
     const Adsr& envelope() const noexcept { return env; }
 
 private:
+    void updateFrequency() noexcept { if (note >= 0) osc.setFrequency(midiNoteToHz(note) * std::exp2(bend / 12.0)); }
+
     Oscillator osc;
     Adsr env;
     int note = -1;
     float velocity = 0.0f;
-    bool gate = false;
+    double bend = 0.0;          // semitones
+    bool gate = false;          // envelope open (key down or sustained)
+    bool keyDown = false;       // physical key still down
 };
 
 // Polyphonic engine (Spec S4). Voice count 1..maxVoices, changeable at runtime.
@@ -59,6 +67,7 @@ public:
 
     void prepare(double sr) noexcept {
         for (auto& v : voices) v.prepare(sr);
+        sustainPedal = false;
         order.fill(0);
         counter = 0;
         gainStep = static_cast<float>(1.0 / (0.02 * sr)); // 20 ms gain smoothing
@@ -79,9 +88,19 @@ public:
         order[static_cast<std::size_t>(i)] = ++counter;
     }
     void noteOff(int note) noexcept {
-        for (auto& v : voices) if (v.isHeld() && v.getNote() == note) v.noteOff();
+        for (auto& v : voices) if (v.isKeyDown() && v.getNote() == note) v.releaseKey(sustainPedal);
     }
-    void allNotesOff() noexcept { for (auto& v : voices) v.noteOff(); }
+    void allNotesOff() noexcept { sustainPedal = false; for (auto& v : voices) v.noteOff(); }
+
+    // Spec S3.3: sustain pedal (CC64). Releasing the pedal releases voices whose key is up.
+    void setSustain(bool down) noexcept {
+        sustainPedal = down;
+        if (!down) for (auto& v : voices) if (v.isHeld() && !v.isKeyDown()) v.noteOff();
+    }
+    bool isSustainDown() const noexcept { return sustainPedal; }
+
+    // Spec S3.4: pitch bend in semitones, applied to all voices (sounding and new).
+    void setPitchBend(double semitones) noexcept { for (auto& v : voices) v.setPitchBend(semitones); }
 
     // Renders `n` samples into left/right (right may be null). Overwrites output.
     void render(float* left, float* right, int n) noexcept {
@@ -121,6 +140,7 @@ private:
     std::array<std::uint64_t, maxVoices> order{};
     std::uint64_t counter = 0;
     int voiceCount = 8;
+    bool sustainPedal = false;
     float gain = 0.0f, targetGain = 1.0f, gainStep = 0.001f;
 };
 

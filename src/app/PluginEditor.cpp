@@ -93,12 +93,26 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     sendLookAndFeelChange();
 
     setSize(628, 450);
+    p.resetKeyboardDisplay();
+    startTimerHz(30);                            // show external MIDI notes on the keyboard
     juce::MessageManager::callAsync([safe = juce::Component::SafePointer<juce::Component>(&keyboard)] {
         if (safe != nullptr && safe->isShowing()) safe->grabKeyboardFocus();
     });
 }
 
-LMWSynthEditor::~LMWSynthEditor() { setLookAndFeel(nullptr); }
+LMWSynthEditor::~LMWSynthEditor() { stopTimer(); setLookAndFeel(nullptr); }
+
+bool LMWSynthEditor::isTypingText() {
+    return dynamic_cast<juce::TextEditor*>(juce::Component::getCurrentlyFocusedComponent()) != nullptr;
+}
+
+bool LMWSynthEditor::keyPressed(const juce::KeyPress& key) {
+    return !isTypingText() && keyboard.keyPressed(key);
+}
+
+bool LMWSynthEditor::keyStateChanged(bool isKeyDown) {
+    return !isTypingText() && keyboard.keyStateChanged(isKeyDown);
+}
 
 void LMWSynthEditor::setupFader(Fader& k, const char* paramId, const juce::String& text) {
     k.slider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 72, 26);

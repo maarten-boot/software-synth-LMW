@@ -8,7 +8,11 @@
 | T-S2.3 | S2.3 | Every `uses:` in `.github/workflows/*.yml` references a 40-hex commit SHA with a `# vX.Y.Z` comment, and FetchContent dependencies are pinned by commit + URL_HASH; each is the latest workable release (or the exception is documented) | pass (checkout@3d3c42e = v7.0.1; JUCE d60b7a7 = 9.0.5, latest — 2026-11-07) |
 | T-S1.2a | S1.2 | With no cables, default patch produces sound on a MIDI note | planned |
 | T-S1.2b | S1.2 | A cable into an input replaces (not adds to) its normalled source | planned |
-| T-S3.2 | S3.2 | Computer keyboard keys trigger notes in standalone | implemented (JUCE MidiKeyboardComponent); manual check pending |
+| T-S3.2 | S3.2 | Computer keyboard keys trigger notes in standalone, also after clicking a fader; typing in a value box plays no notes | pass (Xvfb + xdotool 2026-11-07: 'a' → C4 at start and after fader click; typing "250 ms" sets Attack, no note). User re-check pending (user reported it not working before the fix) |
+| T-S3.2-midi | S3.2 | Raw MIDI decoding: note on/off (vel 0 = off), CC64, CC120/123, pitch bend, SysEx/truncated ignored | pass (`test_engine`) |
+| T-S3.3 | S3.3 | Sustain pedal holds released notes; pedal up releases only notes whose key is up; same-note retrigger; all-notes-off lifts pedal | pass (`test_engine`) |
+| T-S3.4 | S3.4 | Pitch bend +2 / -12 semitones on a sounding A4 gives 494 / 220 Hz | pass (`test_engine`) |
+| T-S3.5 | S3.5 | Mod wheel sets vibrato depth | planned (Phase 3) |
 | T-S5.1-osc | S5.1 | Each waveform has correct pitch (440 Hz ±1) and bounded output | pass (`test_engine`) |
 | T-S5.1-adsr | S5.1 | ADSR attack/decay/release durations exact to ±2 samples; zero times safe | pass (`test_engine`) |
 | T-S5.1-engine | S5.1 | Silence before note, sound during, silence after release; only matching note-off releases | pass (`test_engine`) |
@@ -32,7 +36,8 @@
 | T-S8.2 | S8.2 | Every dependency has an AGPLv3-compatible licence (list in repo) | planned |
 | T-S9.2 | S9.2 | VST3 loads, plays and saves state in at least 2 hosts (e.g. Reaper, Bitwig) | planned |
 | T-S10.2 | S10.2 | Under 9P load (1000 writes/s) no audio dropouts; RT thread does no syscalls (checked with RT sanitizer/trace) | planned |
-| T-S10.2a | S10.2 | processBlock takes no locks and does no allocation | **fails** today: JUCE MidiKeyboardState::processNextMidiBuffer locks a CriticalSection and may grow the MidiBuffer on the audio thread (crosscheck 2026-11-07) |
+| T-S10.2a | S10.2 | processBlock takes no locks and does no allocation | pass by code review 2026-11-07: keyboard notes via lock-free SPSC queues (no MidiKeyboardState call on the audio thread), MIDI decoded from raw bytes (no MidiMessage copy). Automated check (e.g. Clang RealtimeSanitizer) still to add |
+| T-S10.2-spsc | S10.2 | SPSC queue: FIFO order, full/empty, wrap-around, 1M-item two-thread stress | pass (`test_spsc`) |
 | T-S10.1 | S10.1 | 9P2000 conformance: version/attach/walk/open/read/write/clunk/stat against the plan9port `9p` client | planned |
 | T-S10.1b | S10.1 | `echo 1000 > params/vcf/cutoff` via 9P changes the audible/internal value | planned |
 | T-S10.4 | S10.4 | Engine reachable over Unix socket on Linux/macOS/Windows and over TCP when enabled | planned |

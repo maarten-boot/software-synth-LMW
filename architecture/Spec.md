@@ -13,7 +13,10 @@ S2.3 CI and other external build steps (GitHub Actions `uses:` etc.) are pinned 
 
 ## S3 Audio & MIDI
 S3.1 Audio output via JUCE audio device layer (standalone) / host (plugin).
-S3.2 Input: MIDI keyboard; computer keyboard as fallback in standalone.
+S3.2 Input: MIDI keyboard; computer keyboard as fallback in standalone. Computer-keyboard notes (keys a w s e d f t g y h u j k o l p ;, starting at C4) work whichever control has focus, except while typing into a value box.
+S3.3 Sustain pedal (CC64): while down, released keys keep sounding; pedal up releases them. Re-striking a sustained note retriggers it (no doubling).
+S3.4 Pitch bend: applies to all sounding and new voices; range ±2 semitones (fixed for now; may become a parameter).
+S3.5 Mod wheel (CC1): controls vibrato depth (LFO → VCO pitch) once the LFO exists (Phase 3). Target to confirm with the user.
 
 ## S4 Polyphony
 S4.1 Voice count configurable at runtime, range 1–32.
