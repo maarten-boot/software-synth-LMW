@@ -12,6 +12,9 @@ option(LMW_BUILD_TESTS  "Build unit tests" ON)
 add_library(lmw_ui_core STATIC src/ui/Contrast.cpp)
 target_include_directories(lmw_ui_core PUBLIC src)
 
+add_library(lmw_dsp INTERFACE)          # header-only DSP engine
+target_include_directories(lmw_dsp INTERFACE src)
+
 # JUCE app / plugin ------------------------------------------------------
 if(LMW_BUILD_PLUGIN)
     include(FetchContent)
@@ -47,6 +50,7 @@ if(LMW_BUILD_PLUGIN)
     target_link_libraries(LMWSynth
         PRIVATE
             lmw_ui_core
+            lmw_dsp
             juce::juce_audio_utils
             juce::juce_dsp
         PUBLIC
@@ -61,4 +65,7 @@ if(LMW_BUILD_TESTS)
     add_executable(test_contrast tests/test_contrast.cpp)
     target_link_libraries(test_contrast PRIVATE lmw_ui_core)
     add_test(NAME T-S6.2-contrast COMMAND test_contrast)
+    add_executable(test_engine tests/test_engine.cpp)
+    target_link_libraries(test_engine PRIVATE lmw_dsp)
+    add_test(NAME T-S5-engine COMMAND test_engine)
 endif()

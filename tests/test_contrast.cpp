@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // T-S6.2 / T-S6.3: contrast utilities.
 #include "ui/Contrast.h"
+#include "ui/Theme.h"
 #include <cmath>
 #include <cstdio>
 
@@ -34,6 +35,9 @@ int main() {
     // Default theme (S6.2): black on white passes AA unchanged.
     const Rgb t = enforceContrast(black, white, 4.5);
     CHECK(t.r == 0 && t.g == 0 && t.b == 0);
+
+    // Every theme pair used by the GUI meets AA (S6.2).
+    for (const auto& [fg, bg] : lmw::ui::theme::pairs) CHECK(contrastRatio(fg, bg) >= 4.5);
 
     std::printf(failures ? "%d failure(s)\n" : "all contrast tests passed\n", failures);
     return failures ? 1 : 0;

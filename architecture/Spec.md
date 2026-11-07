@@ -22,6 +22,10 @@ S4.2 When all voices are busy, a new note steals the oldest voice.
 S5.1 VCO, VCF, VCA, ADSR, LFO, Mixer, Noise, MIDI-in, Audio-out.
 S5.2 Default normalled patch: MIDI→VCO pitch, VCO→VCF→VCA→Out, ADSR→VCA, ADSR→VCF cutoff (? exact set)
 
+## S5a Parameters (Phase 1)
+S5a.1 Parameter IDs are dotted paths that map 1:1 to 9P files: vco.wave (Sine/Saw/Square/Triangle), env.attack (0–5 s), env.decay (0–5 s), env.sustain (0–1), env.release (0–10 s), out.gain (0–1, smoothed 20 ms).
+S5a.2 MIDI events are applied sample-accurately within an audio block.
+
 ## S6 User interface
 S6.1 Simple GUI with knobs/sliders and patch points for cables.
 S6.2 Default white background, black text; all colour pairs >= 4.5:1 (WCAG AA).
@@ -46,5 +50,5 @@ S10.4 Transports: Unix domain socket (default, all 3 OSes; Windows 10+) and opti
 S10.5 Each engine instance (standalone or each plugin instance) gets a unique socket path/port.
 S10.6 Telemetry (meters, scope) is served as 9P files read repeatedly by the client; ZeroMQ deferred until measurements show a need.
 S10.7 Plugin and standalone keep a built-in JUCE GUI; the external GUI is an additional 9P client.
-S10.8 External GUI is written in Kukel (MIT), runs as a separate process (repo location ?).
+S10.8 External GUI is written in Kukel (MIT), runs as a separate process, and lives in the Kukel project (not this repo).
 S10.9 Engine exposes /source (URL of source code) to satisfy AGPLv3 §13 for remote users.

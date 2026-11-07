@@ -5,7 +5,11 @@
 | T-S2.1 | S2.1 | Project builds and starts on Linux, macOS, Windows | Linux build OK; macOS/Windows via CI pending |
 | T-S1.2a | S1.2 | With no cables, default patch produces sound on a MIDI note | planned |
 | T-S1.2b | S1.2 | A cable into an input replaces (not adds to) its normalled source | planned |
-| T-S3.2 | S3.2 | Computer keyboard keys trigger notes in standalone | planned |
+| T-S3.2 | S3.2 | Computer keyboard keys trigger notes in standalone | implemented (JUCE MidiKeyboardComponent); manual check pending |
+| T-S5.1-osc | S5.1 | Each waveform has correct pitch (440 Hz ±1) and bounded output | pass (`test_engine`) |
+| T-S5.1-adsr | S5.1 | ADSR attack/decay/release durations exact to ±2 samples; zero times safe | pass (`test_engine`) |
+| T-S5.1-engine | S5.1 | Silence before note, sound during, silence after release; only matching note-off releases | pass (`test_engine`) |
+| T-S6.2b | S6.2 | All theme colour pairs (src/ui/Theme.h) >= 4.5:1 | pass (`test_contrast`) |
 | T-S4.1 | S4.1 | Setting polyphony to N allows exactly N simultaneous notes (N=1,8,32) | planned |
 | T-S4.2 | S4.2 | Playing N+1 notes steals the oldest voice, no crash/click burst | planned |
 | T-S6.2 | S6.2 | Every UI colour pair computes >= 4.5:1 contrast | unit test `test_contrast` passes; UI-wide check pending |
