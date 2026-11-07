@@ -12,3 +12,4 @@ Changes between releases.
 - Phase 2: polyphony 1–32 (voice.count), oldest-voice stealing preferring released voices, same-note retrigger, click-free stealing.
 - Added architecture/Handover.md.
 - CI: `actions/checkout` v4 → v7 (Node.js 24; removes Node 20 deprecation warning).
+- CI: `actions/checkout` pinned to commit SHA `3d3c42e5…` (v7.0.1); all actions are now pinned by hash (Spec S2.3).

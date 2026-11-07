@@ -108,3 +108,8 @@ User pushed (origin now SSH; assistant's shell has no SSH key, uses `gh` for rea
 > yes, bump checkout to v5 (do we have later versions ?)
 
 Latest releases: v7.0.1, v6.1.0, v5.1.0. v5 = Node 24; v6 = credentials persisted to a separate file; v7 = ESM module + blocks fork-PR checkout for `pull_request_target`/`workflow_run` (not used here: triggers are push/pull_request). Assistant bumped `.github/workflows/build.yml` to `actions/checkout@v7`.
+
+## 21. Rule (user)
+> When using github actions or other action steps, pin them on the version hash and try to use the latest workable version. Explain when that is not possible.
+
+Added Spec S2.3 + Tests T-S2.3. `actions/checkout` pinned to `3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1` (= current `v7`, latest release). Only action in the workflow. Noted: JUCE (FetchContent) is pinned by tag `8.0.4`, not hash; latest are 8.0.17-security and 9.0.5 (2026-11-02) — raised with user, not changed.

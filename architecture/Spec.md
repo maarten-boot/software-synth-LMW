@@ -9,6 +9,7 @@ S1.2 Semi-modular: a default signal path is prewired ("normalled"); inserting a 
 ## S2 Platforms & language
 S2.1 Runs on Linux, macOS and Windows from one codebase.
 S2.2 C++20, CMake, JUCE 8.
+S2.3 CI and other external build steps (GitHub Actions `uses:` etc.) are pinned to a full commit SHA with the version as a comment, using the latest workable version; any exception is documented with its reason.
 
 ## S3 Audio & MIDI
 S3.1 Audio output via JUCE audio device layer (standalone) / host (plugin).
