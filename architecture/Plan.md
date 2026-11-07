@@ -1,12 +1,13 @@
 # Plan — software-synth-LMW
 
-Status: waiting for confirmation of Spec decisions.
-
 | Phase | Content | Spec | Status |
 |---|---|---|---|
-| 0 | Repo, docs, CMake skeleton, CI build on 3 OSes | S2 | docs done, rest pending |
-| 1 | Audio out + single sine voice | S3.1 | pending |
-| 2 | MIDI in, voice allocator, variable polyphony | S3.2, S4 | pending |
-| 3 | Module graph engine + basic modules | S5 | pending |
-| 4 | GUI: node editor, knobs, contrast settings | S6 | pending |
+| 0 | Repo, docs, licence, CMake + JUCE skeleton (standalone), CI on 3 OSes | S2, S8 | docs/licence done; skeleton waits on S10 decisions |
+| 1 | Audio out + single voice (VCO→VCA, ADSR) | S3.1, S5 | pending |
+| 2 | MIDI + computer keyboard, voice allocator, polyphony 1–32 | S3.2, S4 | pending |
+| 3 | Module graph with normalled connections + cable override | S1.2, S5 | pending |
+| 4 | In-process GUI: panel, knobs, cables, contrast settings | S6 | pending |
 | 5 | Patch save/load | S7 | pending |
+| 6 | 9P server in engine (non-RT thread + lock-free queues) | S10 | pending (draft) |
+| 7 | External GUI as 9P client | S10 | pending (draft) |
+| 8 | VST3 build target, host testing | S9.2 | pending |
