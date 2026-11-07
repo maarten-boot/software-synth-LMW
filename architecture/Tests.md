@@ -3,7 +3,7 @@
 | ID | Spec | Test | Status |
 |---|---|---|---|
 | T-S2.1 | S2.1 | Project builds and starts on Linux, macOS, Windows | Build + ctest OK on Linux, macOS, Windows (CI run 42385798382, 2026-11-07); "starts" not yet verified (no display) |
-| T-S2.3 | S2.3 | Every `uses:` in `.github/workflows/*.yml` references a 40-hex commit SHA with a `# vX.Y.Z` comment, and FetchContent dependencies are pinned by commit + URL_HASH; each is the latest workable release (or the exception is documented) | pass (checkout@3d3c42e = v7.0.1; JUCE dabd5ad = 8.0.17-security, latest 8.x; JUCE 9 under review — 2026-11-07) |
+| T-S2.3 | S2.3 | Every `uses:` in `.github/workflows/*.yml` references a 40-hex commit SHA with a `# vX.Y.Z` comment, and FetchContent dependencies are pinned by commit + URL_HASH; each is the latest workable release (or the exception is documented) | pass (checkout@3d3c42e = v7.0.1; JUCE d60b7a7 = 9.0.5, latest — 2026-11-07) |
 | T-S1.2a | S1.2 | With no cables, default patch produces sound on a MIDI note | planned |
 | T-S1.2b | S1.2 | A cable into an input replaces (not adds to) its normalled source | planned |
 | T-S3.2 | S3.2 | Computer keyboard keys trigger notes in standalone | implemented (JUCE MidiKeyboardComponent); manual check pending |

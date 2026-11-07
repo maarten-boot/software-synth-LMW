@@ -123,3 +123,8 @@ Tag 8.0.17-security (annotated) → commit dabd5ad13cd869cba41046947fffc8e5ce5cd
 > look at the status of JUCE 9
 
 Assistant: JUCE 9 status — releases 9.0.0 (2026-07-21) … 9.0.5 (2026-11-02), all stable. Licence still AGPLv3 / commercial (JUCE 9 EULA), so compatible. CMake minimum still 3.22. Breaking changes checked against our code: none of the affected APIs used (MessageBox, Drawable, ThreadPool, OpenGL, ValueTree/JSON/XML parsing, ZipFile, createNewPeer). New Linux build deps: libxi-dev (required unless JUCE_USE_XINPUT=0), libegl-dev (OpenGL now via EGL). Trial build in scratchpad against 9.0.5 (commit d60b7a78…, archive SHA-256 8237b297…d9f5): build OK, only 2 warnings inside JUCE's bundled opus codec, ctest 2/2 pass. Project unchanged; CI would need libxi-dev (+ libegl-dev) added. Awaiting user decision.
+
+## 24. Request (user)
+> yes, switch to JUCE 9.0.5
+
+Assistant: FetchContent now pins JUCE 9.0.5 commit d60b7a78030661574a615b586d9325ba7a7fa7dd archive, SHA256=8237b2976871982eb9107fd67b576d95bf02355d99540a0127c4e7c001ecd9f5 (re-verified). CI Linux deps + libxi-dev libegl-dev. Spec S2.2 → JUCE 9; Handover, Changes, Tests T-S2.3 updated. Clean rebuild OK (JUCE reports 9.0.5; only 2 warnings inside JUCE's bundled opus), ctest 2/2 pass, Standalone + VST3 produced. No source changes needed. GUI still not visually verified; macOS/Windows pending CI.
