@@ -6,3 +6,4 @@ Changes between releases.
 - Project started: architecture docs (Spec, Plan, Tests, conversation log).
 - Decisions: C++20, JUCE 8, AGPLv3, semi-modular design, standalone + VST3 targets.
 - Added LICENSE (GNU AGPLv3).
+- Decided GUI/engine split over self-implemented 9P2000; external GUI in Kukel.

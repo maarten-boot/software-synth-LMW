@@ -38,7 +38,13 @@ S8.2 Every dependency must be AGPLv3-compatible.
 S9.1 Standalone application (first).
 S9.2 VST3 plugin from the same codebase (end goal).
 
-## S10 GUI / engine split (DRAFT ?)
-S10.1 Engine and GUI communicate over 9P; engine is the 9P server and the single source of truth for state.
-S10.2 The audio thread never performs socket I/O, locking or allocation; it exchanges data with the 9P thread through lock-free queues.
-S10.3 Open: external GUI language (Kukel?), 9P dialect/library, transports, telemetry channel, in-plugin editor.
+## S10 GUI / engine split
+S10.1 Engine and GUI communicate over 9P2000; the engine is the 9P server and the single source of truth for state.
+S10.2 The audio thread never performs socket I/O, locking or allocation; it exchanges data with the 9P thread through lock-free SPSC queues.
+S10.3 The 9P2000 server is implemented in this project (C++20, no external 9P library).
+S10.4 Transports: Unix domain socket (default, all 3 OSes; Windows 10+) and optional TCP.
+S10.5 Each engine instance (standalone or each plugin instance) gets a unique socket path/port.
+S10.6 Telemetry (meters, scope) is served as 9P files read repeatedly by the client; ZeroMQ deferred until measurements show a need.
+S10.7 Plugin and standalone keep a built-in JUCE GUI; the external GUI is an additional 9P client.
+S10.8 External GUI is written in Kukel (MIT), runs as a separate process (repo location ?).
+S10.9 Engine exposes /source (URL of source code) to satisfy AGPLv3 §13 for remote users.

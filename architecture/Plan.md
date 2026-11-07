@@ -8,6 +8,6 @@
 | 3 | Module graph with normalled connections + cable override | S1.2, S5 | pending |
 | 4 | In-process GUI: panel, knobs, cables, contrast settings | S6 | pending |
 | 5 | Patch save/load | S7 | pending |
-| 6 | 9P server in engine (non-RT thread + lock-free queues) | S10 | pending (draft) |
-| 7 | External GUI as 9P client | S10 | pending (draft) |
+| 6 | Own 9P2000 server in engine (non-RT thread + lock-free queues), Unix socket + TCP | S10 | pending |
+| 7 | External Kukel GUI as 9P client | S10.8 | pending |
 | 8 | VST3 build target, host testing | S9.2 | pending |

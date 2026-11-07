@@ -45,3 +45,10 @@ Assistant: suggested corrections (teh->the, instrumennt->instrument, not->note).
 Confirmed: JUCE 8, AGPLv3, C++20, semi-modular (prewired, cables override), standalone + VST3 (end goal).
 Corrections suggested: alao->also, protocoll->protocol, independant->independent, aternatives->alternatives.
 Assistant: updated Spec/Plan/Tests/Changes for confirmed items; reviewed the 9P/ZMQ proposal (RT-safety, VST3 in-process editor constraints, inter-process audio routing, inproc misuse) and proposed alternatives. 9P split recorded in Spec S10 as DRAFT pending answers.
+
+## 9. Decisions (user)
+> yes Kukel (mit licence but as it is a external process talking to a instrument i would expect no problem it hac be hosted also by the kukel project), 9P2000, write it yourself, rest as recommended
+
+Decided: external GUI in Kukel (MIT, separate process); 9P2000; own 9P server implementation in C++; built-in JUCE GUI in plugin/standalone; 9P only for telemetry (ZMQ deferred); Unix socket default + optional TCP.
+Corrections suggested: "a instrument" -> "an instrument", "hac" -> "can". Open: does the Kukel GUI live in the Kukel project repo instead of this repo?
+Assistant: licence note — separate processes over 9P are separate works; MIT client + AGPL engine is fine. AGPL §13: remote users of the engine must be offered its source (satisfied by public repo; add an /about or /source file).
