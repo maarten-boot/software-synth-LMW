@@ -33,6 +33,7 @@
 | T-S6.2 | S6.2 | Every UI colour pair computes >= 4.5:1 contrast | unit test `test_contrast` passes; UI-wide check pending |
 | T-S6.3 | S6.3 | Each preset/custom ratio from config and UI is enforced | enforcer unit-tested; config/UI pending |
 | T-S7.1 | S7.1 | Save then load a patch restores all parameters and cables exactly | planned |
+| T-S8.1 | S8.1 | Every file in src/, tests/, scripts/ has `SPDX-License-Identifier: AGPL-3.0-or-later` | pass (grep, 2026-11-07) |
 | T-S8.2 | S8.2 | Every dependency has an AGPLv3-compatible licence (list in repo) | planned |
 | T-S9.2 | S9.2 | VST3 loads, plays and saves state in at least 2 hosts (e.g. Reaper, Bitwig) | planned |
 | T-S10.2 | S10.2 | Under 9P load (1000 writes/s) no audio dropouts; RT thread does no syscalls (checked with RT sanitizer/trace) | planned |

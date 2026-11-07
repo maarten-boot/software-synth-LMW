@@ -189,3 +189,8 @@ Sustain pedal + pitch bend (±2 st) implemented in Engine; mod wheel specified f
 > pushed, wait for CI
 
 CI run 42413041183 (commit 7ab8750): all 4 jobs pass — windows (8m08s), fedora-45 (5m58s), ubuntu-24.04 (4m53s), macos (3m40s); 4 test suites each, incl. the two-thread SPSC stress test.
+
+## 36. Decisions (user)
+> keep or-later, remove the splash flag, mod wheel ok
+
+Spec S8.1 → AGPL-3.0-or-later (matches SPDX headers; JUCE used under AGPLv3, so built app/plugin is AGPLv3); test T-S8.1 added (all files have the header). Removed JUCE_DISPLAY_SPLASH_SCREEN=0 from CMakeLists.txt — rebuild shows no splash warning, ctest 4/4 pass. S3.5 mod wheel = vibrato depth confirmed (Phase 3).

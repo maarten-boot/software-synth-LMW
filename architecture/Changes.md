@@ -23,3 +23,4 @@ Changes between releases.
 - Fix: computer-keyboard notes stopped working after clicking a fader or the Wave box (focus moved away from the on-screen keyboard). Letter keys now play from any control, except while typing into a value box.
 - Fix (Spec S10.2): the audio thread no longer locks or allocates — on-screen/QWERTY notes reach the engine through a lock-free SPSC queue; external MIDI notes are shown on the keyboard via a second queue; MIDI is decoded from raw bytes.
 - New: sustain pedal (CC64) and pitch bend (±2 semitones). Tests: T-S3.2-midi, T-S3.3, T-S3.4, T-S10.2-spsc (4 test suites).
+- Removed obsolete `JUCE_DISPLAY_SPLASH_SCREEN=0` (ignored by JUCE 9, caused a build warning). Spec S8.1: licence is AGPL-3.0-or-later.

@@ -16,7 +16,7 @@ S3.1 Audio output via JUCE audio device layer (standalone) / host (plugin).
 S3.2 Input: MIDI keyboard; computer keyboard as fallback in standalone. Computer-keyboard notes (keys a w s e d f t g y h u j k o l p ;, starting at C4) work whichever control has focus, except while typing into a value box.
 S3.3 Sustain pedal (CC64): while down, released keys keep sounding; pedal up releases them. Re-striking a sustained note retriggers it (no doubling).
 S3.4 Pitch bend: applies to all sounding and new voices; range ±2 semitones (fixed for now; may become a parameter).
-S3.5 Mod wheel (CC1): controls vibrato depth (LFO → VCO pitch) once the LFO exists (Phase 3). Target to confirm with the user.
+S3.5 Mod wheel (CC1): controls vibrato depth (LFO → VCO pitch) once the LFO exists (Phase 3).
 
 ## S4 Polyphony
 S4.1 Voice count configurable at runtime, range 1–32.
@@ -42,7 +42,7 @@ S6.3 Contrast adjustable interactively and via config file: presets AA (4.5:1), 
 S7.1 Save/load patches (parameters + cable connections) to a file.
 
 ## S8 Licence
-S8.1 Project code is AGPLv3 (required by the JUCE 9 open-source licence; JUCE is dual AGPLv3/commercial).
+S8.1 Project code is licensed AGPL-3.0-or-later (SPDX header in every source file). JUCE 9 is used under its AGPLv3 option (JUCE is dual AGPLv3/commercial), so the built app/plugin is distributed under AGPLv3.
 S8.2 Every dependency must be AGPLv3-compatible.
 
 ## S9 Deliverables
