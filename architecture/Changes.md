@@ -11,3 +11,4 @@ Changes between releases.
 - Phase 1: single-voice engine (polyBLEP VCO: sine/saw/square/triangle; linear ADSR; smoothed volume), parameters saved with host/standalone state, GUI with knobs + on-screen/QWERTY keyboard, black-on-white theme with tested colour pairs.
 - Phase 2: polyphony 1–32 (voice.count), oldest-voice stealing preferring released voices, same-note retrigger, click-free stealing.
 - Added architecture/Handover.md.
+- CI: `actions/checkout` v4 → v7 (Node.js 24; removes Node 20 deprecation warning).
