@@ -13,7 +13,7 @@ An external GUI written in **Kukel** (separate project) will talk to the engine 
 | Topic | Decision |
 |---|---|
 | Language / build | C++20, CMake (≥ 3.22), Ninja |
-| Framework | JUCE 8.0.4 via CMake FetchContent (downloaded at configure time) |
+| Framework | JUCE 8.0.17-security via CMake FetchContent (commit archive pinned by hash + SHA-256; downloaded at configure time) |
 | Licence | GNU AGPLv3 (`LICENSE`); all dependencies must be AGPLv3-compatible |
 | Targets | Standalone + VST3 (both already build) |
 | Architecture | Semi-modular: default ("normalled") connections, patch cables override them |

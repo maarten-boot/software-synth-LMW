@@ -13,3 +13,4 @@ Changes between releases.
 - Added architecture/Handover.md.
 - CI: `actions/checkout` v4 → v7 (Node.js 24; removes Node 20 deprecation warning).
 - CI: `actions/checkout` pinned to commit SHA `3d3c42e5…` (v7.0.1); all actions are now pinned by hash (Spec S2.3).
+- JUCE 8.0.4 → 8.0.17-security (security fixes: WAV/AIFF, ZipFile, XML, GIF/PNG, OSC, JSON, ValueTree parsing); pinned to commit `dabd5ad1…` archive + SHA-256 (Spec S2.3).

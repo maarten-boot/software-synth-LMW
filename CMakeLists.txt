@@ -18,10 +18,11 @@ target_include_directories(lmw_dsp INTERFACE src)
 # JUCE app / plugin ------------------------------------------------------
 if(LMW_BUILD_PLUGIN)
     include(FetchContent)
+    # JUCE 8.0.17-security, pinned to its commit and verified by SHA-256 (Spec S2.3).
+    # A shallow git clone cannot fetch a bare commit hash, so the commit's source archive is used.
     FetchContent_Declare(JUCE
-        GIT_REPOSITORY https://github.com/juce-framework/JUCE.git
-        GIT_TAG        8.0.4
-        GIT_SHALLOW    ON)
+        URL      https://github.com/juce-framework/JUCE/archive/dabd5ad13cd869cba41046947fffc8e5ce5cd662.tar.gz
+        URL_HASH SHA256=302949ee39f8fce798ee2bbd30445f8f31a4ecf4643463c68c54882020e16c13)
     FetchContent_MakeAvailable(JUCE)
 
     juce_add_plugin(LMWSynth

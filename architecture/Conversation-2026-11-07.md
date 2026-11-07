@@ -113,3 +113,11 @@ Latest releases: v7.0.1, v6.1.0, v5.1.0. v5 = Node 24; v6 = credentials persiste
 > When using github actions or other action steps, pin them on the version hash and try to use the latest workable version. Explain when that is not possible.
 
 Added Spec S2.3 + Tests T-S2.3. `actions/checkout` pinned to `3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1` (= current `v7`, latest release). Only action in the workflow. Noted: JUCE (FetchContent) is pinned by tag `8.0.4`, not hash; latest are 8.0.17-security and 9.0.5 (2026-11-02) — raised with user, not changed.
+
+## 22. Request (user)
+> yes, update JUCE to 8.0.17-security pinned by hash
+
+Tag 8.0.17-security (annotated) → commit dabd5ad13cd869cba41046947fffc8e5ce5cd662. Shallow git clone can't fetch a bare SHA, so FetchContent now uses the commit's GitHub archive URL + URL_HASH SHA256=302949ee…6c13 (two downloads gave identical hash). Clean rebuild OK (JUCE reports 8.0.17), ctest 2/2 pass. Handover, Changes, Tests T-S2.3 updated.
+
+## 23. Request (user, mid-turn)
+> look at the status of JUCE 9
