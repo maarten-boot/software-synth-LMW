@@ -88,3 +88,13 @@ Assistant: wrote architecture/Handover.md (decisions, status, code map, open que
 > what commit name did you use ? / what email ?
 
 Assistant: author = Maarten Boot <11140490+maarten-boot@users.noreply.github.com> (from global git config), co-author trailer Claude Opus 5.5 <noreply@anthropic.com>, branch main; listed all 7 commit messages. User: "excellent thanks". Session ends here; next: move project, push, Phase 3.
+
+## 17. New session after the move (user)
+> ok read the handover and report
+
+Project now at `.../DEV/github.com/maarten-boot/software-synth-LMW`. Assistant reported status from Handover.md and found: stale `build/` (CMake cache pointed to old path `.../share-local/workspace/...`); `origin/main` has an unrelated "Initial commit" (f659ada: GitHub `.gitignore` + 2-line README), so a plain push would be rejected.
+
+## 18. Request (user)
+> merge, then rebuild and run the tests
+
+Assistant: merged `origin/main` with `--allow-unrelated-histories` (commit 62cf326). Conflicts resolved: `.gitignore` = GitHub's C++/CMake list + local `*.user`, `.DS_Store`; README = local version plus GitHub's one-line description. No tracked files are ignored by the new `.gitignore`. Deleted `build/`, reconfigured (JUCE re-downloaded), built Release: OK (only JUCE splash-screen notice and LTO serial-compilation warnings). `ctest`: 2/2 passed (T-S6.2-contrast, T-S5-engine). Not pushed yet.
