@@ -78,3 +78,8 @@ Assistant: added remote `origin`; push failed (403: gh fine-grained PAT lacks wr
 > i can do the write
 
 Interpreted as "I can do the push (write access) myself" — suggested correction write -> push, to confirm. No further push attempts by assistant.
+
+## 15. Request (user)
+> write a handover , to make push work for me i have to move the whole project to a different path.
+
+Assistant: wrote architecture/Handover.md (decisions, status, code map, open questions, move checklist incl. deleting build/, push/token notes, global git credential-helper change, Claude memory being path-bound). Committed.
