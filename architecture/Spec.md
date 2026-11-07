@@ -39,7 +39,7 @@ S6.3 Contrast adjustable interactively and via config file: presets AA (4.5:1), 
 S7.1 Save/load patches (parameters + cable connections) to a file.
 
 ## S8 Licence
-S8.1 Project code is AGPLv3 (required by JUCE 8 free licence).
+S8.1 Project code is AGPLv3 (required by the JUCE 9 open-source licence; JUCE is dual AGPLv3/commercial).
 S8.2 Every dependency must be AGPLv3-compatible.
 
 ## S9 Deliverables

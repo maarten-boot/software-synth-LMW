@@ -1,5 +1,7 @@
 # Handover — software-synth-LMW (2026-11-07)
 
+> **Snapshot of 2026-11-07 (before the move).** Current status: see `Plan.md`, `Tests.md` and `Changes.md`. Since then: pushed to GitHub, CI green on 4 platforms, JUCE 9.0.5, Linux targets Ubuntu 24.04+ / Fedora 45, faders replace knobs.
+
 Read this first when you continue the project in a new location or a new Claude Code session.
 The full history is in `Conversation-2026-11-07.md`; requirements in `Spec.md`; phases in `Plan.md`;
 tests in `Tests.md`; release notes in `Changes.md`.

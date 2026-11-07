@@ -159,3 +159,8 @@ Assistant: replaced knobs with vertical faders (custom drawLinearSlider, black/w
 > pushed, wait for CI
 
 CI run 42406322210 (commit 64c7863): all 4 jobs pass — ubuntu-24.04 (5m06s), fedora-45 (5m09s, first run), macos (4m29s), windows (7m54s); 3 test suites each. Tests.md T-S2.1b → pass.
+
+## 31. Request (user)
+> do the crosscheck now
+
+Crosscheck Spec ↔ Plan ↔ Tests ↔ code. Doc drift fixed: Plan.md rewritten (status of phases 0–2, new 2a faders, Phase 4/8 scope), README JUCE 8→9, Spec S8.1 JUCE 8→9 licence wording, Tests T-S2.1 status, Handover marked as pre-move snapshot; added test rows T-S5a.1, T-S5a.2 (no tests yet) and T-S10.2a (fails: MidiKeyboardState lock/MidiBuffer growth on the audio thread). Code findings and questions reported to user (see reply): RT-safety violation, headroom/clipping, theme pairs incomplete, standalone title bar, obsolete JUCE_DISPLAY_SPLASH_SCREEN flag, SPDX "or-later" vs Spec "AGPLv3", no sustain pedal / pitch bend (not in Spec).
