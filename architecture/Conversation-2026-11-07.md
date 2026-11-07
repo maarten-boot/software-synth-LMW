@@ -128,3 +128,8 @@ Assistant: JUCE 9 status — releases 9.0.0 (2026-07-21) … 9.0.5 (2026-11-02),
 > yes, switch to JUCE 9.0.5
 
 Assistant: FetchContent now pins JUCE 9.0.5 commit d60b7a78030661574a615b586d9325ba7a7fa7dd archive, SHA256=8237b2976871982eb9107fd67b576d95bf02355d99540a0127c4e7c001ecd9f5 (re-verified). CI Linux deps + libxi-dev libegl-dev. Spec S2.2 → JUCE 9; Handover, Changes, Tests T-S2.3 updated. Clean rebuild OK (JUCE reports 9.0.5; only 2 warnings inside JUCE's bundled opus), ctest 2/2 pass, Standalone + VST3 produced. No source changes needed. GUI still not visually verified; macOS/Windows pending CI.
+
+## 25. Push + CI (user)
+> pushed, wait for CI
+
+CI run 42388746667 (commit 90f94cb, JUCE 9.0.5, checkout pinned v7.0.1): build + ctest passed on windows-latest (6m01s), ubuntu-latest (5m02s), macos-latest (4m31s). Node 20 deprecation warning gone. Tests.md T-S2.1 updated.
