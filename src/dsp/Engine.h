@@ -5,6 +5,7 @@
 #pragma once
 #include "dsp/Adsr.h"
 #include "dsp/Oscillator.h"
+#include "dsp/SoftLimiter.h"
 #include <array>
 #include <cmath>
 #include <cstdint>
@@ -109,7 +110,7 @@ public:
             else if (gain > targetGain) gain = std::fmax(gain - gainStep, targetGain);
             float sum = 0.0f;
             for (auto& v : voices) sum += v.next();   // includes voices ringing out after a count reduction
-            const float s = sum * gain * headroom;
+            const float s = SoftLimiter::process(sum * gain * headroom);   // Spec S4.6
             left[i] = s;
             if (right) right[i] = s;
         }

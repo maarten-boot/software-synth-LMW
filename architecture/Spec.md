@@ -20,18 +20,20 @@ S3.5 Mod wheel (CC1): controls vibrato depth (LFO → VCO pitch) once the LFO ex
 
 ## S4 Polyphony
 S4.1 Voice count configurable at runtime, range 1–32.
-S4.2 When all voices are busy, a new note steals the oldest voice, preferring voices already in release over held ones (refinement, to confirm).
+S4.2 When all voices are busy, a new note steals the oldest voice, preferring voices already in release over held ones.
 S4.3 A note-on for a note that is already sounding retriggers that voice (no doubling).
 S4.4 Stealing/retriggering keeps phase and envelope level continuous (no click).
 S4.5 Lowering the voice count releases the excess voices (they ring out); parameter id voice.count, default 8.
+S4.6 The summed output passes a soft limiter: unchanged below -6 dBFS, smooth (tanh) knee above, never above -0.04 dBFS — no hard clipping with many voices.
 
 ## S5 Modules (initial set)
 S5.1 VCO, VCF, VCA, ADSR, LFO, Mixer, Noise, MIDI-in, Audio-out.
-S5.2 Default normalled patch: MIDI→VCO pitch, VCO→VCF→VCA→Out, ADSR→VCA, ADSR→VCF cutoff (? exact set)
+S5.2 Default normalled patch (confirmed 2026-11-07): MIDI→VCO pitch; VCO→Mixer→VCF→VCA→Out; Noise→Mixer (level 0); ENV1→VCA; ENV2→VCF cutoff; LFO→VCO pitch with depth set by the mod wheel (0 by default).
 
 ## S5a Parameters (Phase 1)
 S5a.1 Parameter IDs are dotted paths that map 1:1 to 9P files: vco.wave (Sine/Saw/Square/Triangle), env.attack (0–5 s), env.decay (0–5 s), env.sustain (0–1), env.release (0–10 s), out.gain (0–1, smoothed 20 ms).
 S5a.2 MIDI events are applied sample-accurately within an audio block.
+S5a.3 Parameter changes act on sounding notes: volume immediately (20 ms smoothing); attack/decay times change the running stage; release time is taken at key release; a sustain-level change on a held note glides (no click — to do in Phase 3, today it jumps).
 
 ## S6 User interface
 S6.1 Simple GUI with vertical sliders (faders, no rotary knobs) grouped per module (VCO | ENV | OUT), each with a value box showing units (ms/s, %, dB), and patch points for cables. Values can be typed into the box; double-click on a fader resets it to its default.

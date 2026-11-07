@@ -199,3 +199,13 @@ Spec S8.1 → AGPL-3.0-or-later (matches SPDX headers; JUCE used under AGPLv3, s
 > keyboard works ok now and after click or change a fader the change is actual
 
 Read as: computer keyboard works, also after clicking/changing a fader, and fader changes take effect immediately ("actual" ≈ Dutch "actueel" = current/effective) — to confirm. T-S3.2 → pass (user-verified).
+
+## 38. Decisions (user)
+> yes, fader changes apply immediately on volume but on next note for adsr; use your Phase 3 proposal; soft limiter
+
+CI run 42417760809 (95dbd40): all 4 jobs pass.
+Assistant checked Adsr: attack/decay changes affect the running stage, sustain level jumps on held notes (possible click), release time fixed at key release → Spec S5a.3 (sustain glide to do in Phase 3). S5.2 default patch confirmed (assistant's proposal); S4.2 stealing order confirmed (implied by "use your proposal" — to verify). Soft limiter implemented (src/dsp/SoftLimiter.h, S4.6); first test run failed: float tanh rounds to exactly 1.0 → ceiling 0.995 added; tests 4/4 pass.
+
+## 39. Questions (user, mid-turn)
+> The Standalone build is newer then the u24 , is the default build now also u24 ?
+> best remove the space bwteeen `LWM Synth` to LWM-Synth`

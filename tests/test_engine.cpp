@@ -133,12 +133,30 @@ int main() {
         std::vector<float> l(4800); eng.render(l.data(), nullptr, 4800);
         CHECK(eng.activeVoices() == 2);
     }
-    // 32 voices at full velocity and gain stay finite.
+    // T-S4.6: 32 voices at full velocity and gain stay finite and below full scale (soft limiter).
     {
         Engine eng; eng.prepare(SR); eng.setVoiceCount(32); eng.setGain(1.0f);
+        VoiceParams p; p.wave = Waveform::Square; p.attack = 0.0f; p.sustain = 1.0f; eng.setParams(p);
         for (int k = 0; k < 32; ++k) eng.noteOn(30 + k, 1);
-        std::vector<float> l(4800); eng.render(l.data(), nullptr, 4800);
-        bool finite = true; for (float v : l) finite &= std::isfinite(v); CHECK(finite);
+        std::vector<float> l(48000); eng.render(l.data(), nullptr, 48000);
+        bool ok = true; float peak = 0;
+        for (float v : l) { ok &= std::isfinite(v) && std::fabs(v) < 1.0f; peak = std::fmax(peak, std::fabs(v)); }
+        CHECK(ok); CHECK(peak > 0.5f);                                  // limiter was actually engaged
+    }
+    // T-S4.6: limiter is transparent below -6 dBFS, smooth (continuous, slope ~1) at the knee,
+    // monotonic, symmetric, and never reaches 1.
+    {
+        for (float x : {0.0f, 0.1f, -0.3f, 0.5f, -0.5f}) CHECK(SoftLimiter::process(x) == x);
+        CHECK(std::fabs(SoftLimiter::process(0.5001f) - 0.5001f) < 1e-4f);
+        float prev = 0.0f; bool mono = true, bounded = true;
+        for (int i = 1; i <= 100000; ++i) {
+            const float x = static_cast<float>(i) * 0.001f, y = SoftLimiter::process(x);
+            mono &= y >= prev; bounded &= y <= SoftLimiter::ceiling; prev = y;
+            CHECK(SoftLimiter::process(-x) == -y);
+            if (!mono || !bounded) break;
+        }
+        CHECK(mono); CHECK(bounded);
+        CHECK(SoftLimiter::process(1e9f) <= SoftLimiter::ceiling); CHECK(SoftLimiter::ceiling < 1.0f);
     }
 
     // T-S3.3: sustain pedal keeps released notes sounding until the pedal goes up.

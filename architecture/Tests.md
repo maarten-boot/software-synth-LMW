@@ -28,6 +28,8 @@
 | T-S4.3 | S4.3 | Same note twice uses one voice | pass (`test_engine`) |
 | T-S4.4 | S4.4 | Steal causes no sample jump > 0.02 | pass (`test_engine`) |
 | T-S4.5 | S4.5 | Lowering voice count 8→2 leaves 2 active after release | pass (`test_engine`) |
+| T-S4.6 | S4.6 | Limiter transparent below -6 dBFS, continuous, monotonic, symmetric, <= ceiling; 32 square voices at full level stay below full scale | pass (`test_engine`) |
+| T-S5a.3 | S5a.3 | Sustain-level change on a held note glides without a jump | planned (Phase 3) |
 | T-S5a.1 | S5a.1 | Parameter IDs, ranges and defaults match Spec (vco.wave, env.*, out.gain, voice.count) | planned (no test yet) |
 | T-S5a.2 | S5a.2 | A note-on at sample k of a block starts sound at sample k (not at block start) | planned (implemented in processBlock, no test yet) |
 | T-S6.2 | S6.2 | Every UI colour pair computes >= 4.5:1 contrast | unit test `test_contrast` passes; UI-wide check pending |
