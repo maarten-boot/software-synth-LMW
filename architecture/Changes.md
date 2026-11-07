@@ -7,3 +7,4 @@ Changes between releases.
 - Decisions: C++20, JUCE 8, AGPLv3, semi-modular design, standalone + VST3 targets.
 - Added LICENSE (GNU AGPLv3).
 - Decided GUI/engine split over self-implemented 9P2000; external GUI in Kukel.
+- Phase 0: CMake + JUCE 8.0.4 skeleton (Standalone + VST3, outputs silence), WCAG contrast module + tests, GitHub Actions CI for Linux/macOS/Windows.

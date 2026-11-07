@@ -52,3 +52,8 @@ Assistant: updated Spec/Plan/Tests/Changes for confirmed items; reviewed the 9P/
 Decided: external GUI in Kukel (MIT, separate process); 9P2000; own 9P server implementation in C++; built-in JUCE GUI in plugin/standalone; 9P only for telemetry (ZMQ deferred); Unix socket default + optional TCP.
 Corrections suggested: "a instrument" -> "an instrument", "hac" -> "can". Open: does the Kukel GUI live in the Kukel project repo instead of this repo?
 Assistant: licence note — separate processes over 9P are separate works; MIT client + AGPL engine is fine. AGPL §13: remote users of the engine must be offered its source (satisfied by public repo; add an /about or /source file).
+
+## 10. Confirmation (user)
+> hac=can
+
+Assistant: built Phase 0 — CMake + JUCE 8.0.4 (FetchContent), targets Standalone + VST3 (silent processor, white/black editor), pure-C++ WCAG contrast module (lmw_ui_core) with ctest `test_contrast`, GitHub Actions matrix CI, README, .gitignore. Linux: build OK, tests pass, standalone starts (no display available, GUI not visually verified). Kukel GUI repo location: interpreted as "may live in the Kukel project" — still to confirm.

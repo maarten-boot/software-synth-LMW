@@ -2,7 +2,7 @@
 
 | Phase | Content | Spec | Status |
 |---|---|---|---|
-| 0 | Repo, docs, licence, CMake + JUCE skeleton (standalone), CI on 3 OSes | S2, S8 | docs/licence done; skeleton waits on S10 decisions |
+| 0 | Repo, docs, licence, CMake + JUCE skeleton (standalone + VST3), contrast module, CI on 3 OSes | S2, S6.2, S8 | done on Linux; CI workflow written, not yet run (no remote) |
 | 1 | Audio out + single voice (VCO→VCA, ADSR) | S3.1, S5 | pending |
 | 2 | MIDI + computer keyboard, voice allocator, polyphony 1–32 | S3.2, S4 | pending |
 | 3 | Module graph with normalled connections + cable override | S1.2, S5 | pending |
