@@ -133,3 +133,19 @@ Assistant: FetchContent now pins JUCE 9.0.5 commit d60b7a78030661574a615b586d932
 > pushed, wait for CI
 
 CI run 42388746667 (commit 90f94cb, JUCE 9.0.5, checkout pinned v7.0.1): build + ctest passed on windows-latest (6m01s), ubuntu-latest (5m02s), macos-latest (4m31s). Node 20 deprecation warning gone. Tests.md T-S2.1 updated.
+
+## 26. Report (user)
+> i am on ubu 24 so i get ./LMW Synth: ... version `GLIBC_2.43' not found ... `ALSA_1.2.13' not found
+
+Cause: build machine is Ubuntu 26.04 (glibc 2.43, ALSA 1.2.15); binaries only run on same-or-newer systems. Assistant built in an ubuntu:24.04 podman container (container root can't write NFS → built in-container, copied out) to `build-u24/` (git-ignored): max GLIBC_2.38, GLIBCXX_3.4.32; ctest 2/2 pass.
+
+## 27. Feedback (user, mid-turn)
+> ok initial layout ok but i prefer horizontal or vertical sliders over round wheel like
+
+GUI shown for the first time (by the user). Orientation (horizontal vs vertical) to confirm.
+
+## 28. Requirement (user, mid-turn)
+> targets would also include Fedora latest
+> if fedora 44 is compatible with 45 you can use 44 if it is easier
+
+Fedora latest = 45. Local fedora:45 container build (needed host CA bundle mounted: TLS-inspecting proxy on this network) OK with GCC 16.2.1 / CMake 4.3.0, ctest 2/2 pass — so 45 used, no need for 44. Fixed CMake dev warning (CMP0135). Spec S2.1 updated (Ubuntu 24.04+, Fedora latest); CI: ubuntu-latest → ubuntu-24.04, new fedora-45 container job pinned by index digest sha256:5db96836…e699. Tests T-S2.1b added.

@@ -7,7 +7,7 @@ S1.1 A polyphonic software synthesizer, inspired by AlsaModularSynth (modules + 
 S1.2 Semi-modular: a default signal path is prewired ("normalled"); inserting a patch cable into an input overrides its default connection. Own design, inspired by the ARP 2600 concept (not a replica).
 
 ## S2 Platforms & language
-S2.1 Runs on Linux, macOS and Windows from one codebase.
+S2.1 Runs on Linux, macOS and Windows from one codebase. Linux targets: Ubuntu 24.04 LTS and newer, and the latest Fedora release (currently 45). Linux binaries are built on the oldest supported distro so they also run on newer ones.
 S2.2 C++20, CMake, JUCE 9.
 S2.3 CI and other external build steps (GitHub Actions `uses:` etc.) are pinned to a full commit SHA with the version as a comment, using the latest workable version; any exception is documented with its reason.
 

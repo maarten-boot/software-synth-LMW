@@ -18,6 +18,9 @@ target_include_directories(lmw_dsp INTERFACE src)
 # JUCE app / plugin ------------------------------------------------------
 if(LMW_BUILD_PLUGIN)
     include(FetchContent)
+    if(POLICY CMP0135)                   # extracted files get extraction time (rebuild-safe)
+        cmake_policy(SET CMP0135 NEW)
+    endif()
     # JUCE 9.0.5, pinned to its commit and verified by SHA-256 (Spec S2.3).
     # A shallow git clone cannot fetch a bare commit hash, so the commit's source archive is used.
     FetchContent_Declare(JUCE

@@ -2,15 +2,33 @@ name: build
 on: [push, pull_request]
 jobs:
   build:
+    name: build (${{ matrix.name }})
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          # Ubuntu pinned to 24.04 (not -latest): binaries built here also run on 24.04 and newer (Spec S2.1).
+          - name: ubuntu-24.04
+            os: ubuntu-24.04
+          - name: fedora-45
+            os: ubuntu-24.04
+            container: registry.fedoraproject.org/fedora:45@sha256:5db9683660938d440b057d412247ee245172b9724f42428ae95ae01253bae699
+          - name: macos
+            os: macos-latest
+          - name: windows
+            os: windows-latest
     runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container }}
     steps:
+      - name: Fedora deps
+        if: startsWith(matrix.name, 'fedora')
+        run: |
+          dnf install -y git cmake ninja-build gcc-c++ pkgconf-pkg-config alsa-lib-devel freetype-devel \
+            fontconfig-devel libX11-devel libXrandr-devel libXinerama-devel libXcursor-devel libXext-devel \
+            mesa-libGL-devel libXi-devel mesa-libEGL-devel
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Linux deps
-        if: runner.os == 'Linux'
+      - name: Ubuntu deps
+        if: startsWith(matrix.name, 'ubuntu')
         run: |
           sudo apt-get update
           sudo apt-get install -y ninja-build libasound2-dev libfreetype-dev libfontconfig1-dev \
