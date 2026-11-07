@@ -52,7 +52,7 @@ private:
     juce::Label waveLabel;
     std::unique_ptr<ComboAttachment> waveAttachment;
     Fader attack, decay, sustain, release, gain, voices;
-    std::array<Group, 3> groups{{{"VCO", {}}, {"ENV", {}}, {"OUT", {}}}};
+    std::array<Group, 4> groups{{{"POLY", {}}, {"VCO", {}}, {"ENV", {}}, {"OUT", {}}}};
     juce::MidiKeyboardComponent keyboard;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(LMWSynthEditor)

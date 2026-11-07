@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Build LMW Synth for Ubuntu 24.04 (and newer) inside a container, on any Linux host (Spec S2.1).
-# Result: build-u24/Standalone/LMW Synth and build-u24/VST3/LMW Synth.vst3
+# Build LMW-Synth for Ubuntu 24.04 (and newer) inside a container, on any Linux host (Spec S2.1).
+# Result: build-u24/Standalone/LMW-Synth and build-u24/VST3/LMW-Synth.vst3
 #
 # Usage:  scripts/build-ubuntu24.sh [--clean]
 #   --clean   drop the cached container build (forces a full rebuild, re-downloads JUCE)
@@ -47,6 +47,7 @@ trap 'rm -rf "$stage"' EXIT
         echo "== configuring"
         cmake -S /src -B /build -G Ninja -DCMAKE_BUILD_TYPE=Release >/dev/null
         echo "== building"
+        rm -rf /build/LMWSynth_artefacts      # no stale outputs (e.g. after a product rename); relink only
         cmake --build /build
         echo "== testing"
         ctest --test-dir /build --output-on-failure
@@ -61,5 +62,5 @@ mkdir -p "$out_dir"
 cp -r "$stage"/. "$out_dir"/
 echo
 echo "Done (runs on Ubuntu 24.04 and newer):"
-echo "  standalone: $out_dir/Standalone/LMW Synth"
-echo "  VST3:       $out_dir/VST3/LMW Synth.vst3   (copy to ~/.vst3/ to use in a host)"
+echo "  standalone: $out_dir/Standalone/LMW-Synth"
+echo "  VST3:       $out_dir/VST3/LMW-Synth.vst3   (copy to ~/.vst3/ to use in a host)"

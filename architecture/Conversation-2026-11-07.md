@@ -209,3 +209,12 @@ Assistant checked Adsr: attack/decay changes affect the running stage, sustain l
 ## 39. Questions (user, mid-turn)
 > The Standalone build is newer then the u24 , is the default build now also u24 ?
 > best remove the space bwteeen `LWM Synth` to LWM-Synth`
+
+Answers via question dialog: name → `LMW-Synth` everywhere (user typed "LWM", confirmed LMW); VCF → 24 dB lowpass ladder; LFO → one shared LFO (Spec S5.1, S9.0).
+Rename done (PRODUCT_NAME, README, script, editor heading); old artefacts removed; build script now clears its cached artefacts dir (cache still had "LMW Synth" files).
+
+## 40. Request (user, mid-turn)
+> best move the voices selector to the very beginning
+
+Voices fader moved to a new POLY group at the far left (POLY | VCO | ENV | OUT); window 614×450; screenshot checked.
+Answer to 39: no — `build/` is the native build for this Ubuntu 26.04 machine (always rebuilt first while working); `build-u24/` only changes when scripts/build-ubuntu24.sh runs.

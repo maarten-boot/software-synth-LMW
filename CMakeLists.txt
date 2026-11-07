@@ -30,7 +30,7 @@ if(LMW_BUILD_PLUGIN)
 
     juce_add_plugin(LMWSynth
         COMPANY_NAME             "LMW"
-        PRODUCT_NAME             "LMW Synth"
+        PRODUCT_NAME             "LMW-Synth"
         IS_SYNTH                 TRUE
         NEEDS_MIDI_INPUT         TRUE
         NEEDS_MIDI_OUTPUT        FALSE

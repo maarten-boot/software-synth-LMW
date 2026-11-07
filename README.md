@@ -1,4 +1,4 @@
-# LMW Synth
+# LMW-Synth
 
 A software synth with GUI and VST, using 9P for remote control.
 

@@ -27,7 +27,7 @@ S4.5 Lowering the voice count releases the excess voices (they ring out); parame
 S4.6 The summed output passes a soft limiter: unchanged below -6 dBFS, smooth (tanh) knee above, never above -0.04 dBFS — no hard clipping with many voices.
 
 ## S5 Modules (initial set)
-S5.1 VCO, VCF, VCA, ADSR, LFO, Mixer, Noise, MIDI-in, Audio-out.
+S5.1 VCO, VCF, VCA, ADSR, LFO, Mixer, Noise, MIDI-in, Audio-out. VCF: 24 dB/oct lowpass ladder with resonance. LFO: one shared (global) LFO for all voices.
 S5.2 Default normalled patch (confirmed 2026-11-07): MIDI→VCO pitch; VCO→Mixer→VCF→VCA→Out; Noise→Mixer (level 0); ENV1→VCA; ENV2→VCF cutoff; LFO→VCO pitch with depth set by the mod wheel (0 by default).
 
 ## S5a Parameters (Phase 1)
@@ -36,7 +36,7 @@ S5a.2 MIDI events are applied sample-accurately within an audio block.
 S5a.3 Parameter changes act on sounding notes: volume immediately (20 ms smoothing); attack/decay times change the running stage; release time is taken at key release; a sustain-level change on a held note glides (no click — to do in Phase 3, today it jumps).
 
 ## S6 User interface
-S6.1 Simple GUI with vertical sliders (faders, no rotary knobs) grouped per module (VCO | ENV | OUT), each with a value box showing units (ms/s, %, dB), and patch points for cables. Values can be typed into the box; double-click on a fader resets it to its default.
+S6.1 Simple GUI with vertical sliders (faders, no rotary knobs) grouped per module, left to right POLY (Voices) | VCO | ENV | OUT, each with a value box showing units (ms/s, %, dB), and patch points for cables. Values can be typed into the box; double-click on a fader resets it to its default.
 S6.2 Default white background, black text; all colour pairs >= 4.5:1 (WCAG AA). This covers every window, including the standalone title bar, its Options menu and the audio/MIDI settings dialog: they look identical to the main panel.
 S6.3 Contrast adjustable interactively and via config file: presets AA (4.5:1), AAA (7:1), Max (21:1) and custom minimum ratio.
 
@@ -48,6 +48,7 @@ S8.1 Project code is licensed AGPL-3.0-or-later (SPDX header in every source fil
 S8.2 Every dependency must be AGPLv3-compatible.
 
 ## S9 Deliverables
+S9.0 Product name: `LMW-Synth` (no space) for the app file, VST3 bundle, window title and plugin name.
 S9.1 Standalone application (first).
 S9.2 VST3 plugin from the same codebase (end goal).
 

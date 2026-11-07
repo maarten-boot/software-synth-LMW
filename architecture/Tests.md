@@ -17,7 +17,7 @@
 | T-S5.1-adsr | S5.1 | ADSR attack/decay/release durations exact to ±2 samples; zero times safe | pass (`test_engine`) |
 | T-S5.1-engine | S5.1 | Silence before note, sound during, silence after release; only matching note-off releases | pass (`test_engine`) |
 | T-S6.2b | S6.2 | All theme colour pairs (src/ui/Theme.h) >= 4.5:1 | pass (`test_contrast`) |
-| T-S6.1a | S6.1 | Controls are vertical faders grouped VCO / ENV / OUT; value box under each fader shows the value with units | pass (screenshot on Xvfb 2026-11-07: 10 ms, 200 ms, 70 %, 312 ms, -1.9 dB, 12) |
+| T-S6.1a | S6.1 | Controls are vertical faders grouped POLY / VCO / ENV / OUT (Voices first); value box under each fader shows the value with units | pass (screenshot on Xvfb 2026-11-07, after moving Voices first: 8, Saw, 10 ms, 200 ms, 70 %, 300 ms, -1.9 dB) |
 | T-S6.1b | S6.1 | Double-click on a fader resets it to the parameter default | pass (user, Ubuntu 24.04, 2026-11-07) |
 | T-S6.1-text | S6.1 | Value text/parse: time ms/s, sustain %, volume dB, round trip | pass (`test_paramtext`) |
 | T-S6.2c | S6.2 | Slider value boxes use theme colours (black text/outline on white), not JUCE default dark scheme | pass (screenshot; fixed by re-sending look-and-feel) |
@@ -35,6 +35,7 @@
 | T-S6.2 | S6.2 | Every UI colour pair computes >= 4.5:1 contrast | unit test `test_contrast` passes; UI-wide check pending |
 | T-S6.3 | S6.3 | Each preset/custom ratio from config and UI is enforced | enforcer unit-tested; config/UI pending |
 | T-S7.1 | S7.1 | Save then load a patch restores all parameters and cables exactly | planned |
+| T-S9.0 | S9 | Product name is `LMW-Synth` (no space): standalone binary, VST3 bundle, window title, host plugin name | pass (build + moduleinfo.json + screenshot, 2026-11-07) |
 | T-S8.1 | S8.1 | Every file in src/, tests/, scripts/ has `SPDX-License-Identifier: AGPL-3.0-or-later` | pass (grep, 2026-11-07) |
 | T-S8.2 | S8.2 | Every dependency has an AGPLv3-compatible licence (list in repo) | planned |
 | T-S9.2 | S9.2 | VST3 loads, plays and saves state in at least 2 hosts (e.g. Reaper, Bitwig) | planned |

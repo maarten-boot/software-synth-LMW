@@ -25,3 +25,5 @@ Changes between releases.
 - New: sustain pedal (CC64) and pitch bend (±2 semitones). Tests: T-S3.2-midi, T-S3.3, T-S3.4, T-S10.2-spsc (4 test suites).
 - Removed obsolete `JUCE_DISPLAY_SPLASH_SCREEN=0` (ignored by JUCE 9, caused a build warning). Spec S8.1: licence is AGPL-3.0-or-later.
 - Soft limiter on the output (Spec S4.6): transparent below -6 dBFS, tanh knee, ceiling -0.04 dBFS. Spec: S4.2 stealing order and S5.2 default patch confirmed; S5a.3 parameter-change behaviour.
+- Renamed product "LMW Synth" → `LMW-Synth` (app file, VST3 bundle, window title, host name; plugin ID unchanged). Build script clears stale outputs before building.
+- GUI: Voices fader moved to the far left in its own POLY group; window 614×450.

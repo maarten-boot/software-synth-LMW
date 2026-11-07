@@ -92,7 +92,7 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     // look-and-feel; re-send it so every child uses the black-on-white theme (Spec S6.2).
     sendLookAndFeelChange();
 
-    setSize(628, 450);
+    setSize(614, 450);   // 12 + 7 columns x 80 + 3 gaps x 10 + 12
     p.resetKeyboardDisplay();
     startTimerHz(30);                            // show external MIDI notes on the keyboard
     juce::MessageManager::callAsync([safe = juce::Component::SafePointer<juce::Component>(&keyboard)] {
@@ -128,7 +128,7 @@ void LMWSynthEditor::paint(juce::Graphics& g) {
     g.fillAll(kBg);
     g.setColour(kFg);
     g.setFont(juce::FontOptions(20.0f, juce::Font::bold));
-    g.drawText("LMW Synth", getLocalBounds().removeFromTop(40).reduced(12, 0), juce::Justification::centredLeft);
+    g.drawText("LMW-Synth", getLocalBounds().removeFromTop(40).reduced(12, 0), juce::Justification::centredLeft);
     g.drawLine(12.0f, 40.0f, static_cast<float>(getWidth() - 12), 40.0f, 1.0f);
 
     g.setFont(juce::FontOptions(15.0f, juce::Font::bold));
@@ -153,20 +153,20 @@ void LMWSynthEditor::resized() {
     keyboard.setBounds(area.removeFromBottom(90));
     area.removeFromBottom(10);
 
-    // Groups: VCO (1 column) | ENV (A D S R) | OUT (Volume, Voices)
-    const std::array<int, 3> columns{1, 4, 2};
+    // Groups: POLY (Voices) | VCO (Wave) | ENV (A D S R) | OUT (Volume)
+    const std::array<int, 4> columns{1, 1, 4, 1};
     for (size_t i = 0; i < groups.size(); ++i) {
         groups[i].bounds = area.removeFromLeft(columns[i] * colW);
         area.removeFromLeft(gap);
     }
     auto inner = [&](size_t i) { return groups[i].bounds.reduced(0, 4).withTrimmedTop(header); };
 
-    auto vco = inner(0).reduced(6, 0);
+    layoutFader(voices, inner(0));
+    auto vco = inner(1).reduced(6, 0);
     waveLabel.setBounds(vco.removeFromTop(22));
     wave.setBounds(vco.removeFromTop(28));
 
-    auto env = inner(1);
+    auto env = inner(2);
     for (Fader* f : {&attack, &decay, &sustain, &release}) layoutFader(*f, env.removeFromLeft(colW));
-    auto out = inner(2);
-    for (Fader* f : {&gain, &voices}) layoutFader(*f, out.removeFromLeft(colW));
+    layoutFader(gain, inner(3));
 }
