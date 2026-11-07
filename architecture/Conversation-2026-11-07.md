@@ -194,3 +194,8 @@ CI run 42413041183 (commit 7ab8750): all 4 jobs pass — windows (8m08s), fedora
 > keep or-later, remove the splash flag, mod wheel ok
 
 Spec S8.1 → AGPL-3.0-or-later (matches SPDX headers; JUCE used under AGPLv3, so built app/plugin is AGPLv3); test T-S8.1 added (all files have the header). Removed JUCE_DISPLAY_SPLASH_SCREEN=0 from CMakeLists.txt — rebuild shows no splash warning, ctest 4/4 pass. S3.5 mod wheel = vibrato depth confirmed (Phase 3).
+
+## 37. Feedback (user, mid-turn)
+> keyboard works ok now and after click or change a fader the change is actual
+
+Read as: computer keyboard works, also after clicking/changing a fader, and fader changes take effect immediately ("actual" ≈ Dutch "actueel" = current/effective) — to confirm. T-S3.2 → pass (user-verified).

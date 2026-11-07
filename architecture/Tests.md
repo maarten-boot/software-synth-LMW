@@ -8,7 +8,7 @@
 | T-S2.3 | S2.3 | Every `uses:` in `.github/workflows/*.yml` references a 40-hex commit SHA with a `# vX.Y.Z` comment, and FetchContent dependencies are pinned by commit + URL_HASH; each is the latest workable release (or the exception is documented) | pass (checkout@3d3c42e = v7.0.1; JUCE d60b7a7 = 9.0.5, latest — 2026-11-07) |
 | T-S1.2a | S1.2 | With no cables, default patch produces sound on a MIDI note | planned |
 | T-S1.2b | S1.2 | A cable into an input replaces (not adds to) its normalled source | planned |
-| T-S3.2 | S3.2 | Computer keyboard keys trigger notes in standalone, also after clicking a fader; typing in a value box plays no notes | pass (Xvfb + xdotool 2026-11-07: 'a' → C4 at start and after fader click; typing "250 ms" sets Attack, no note). User re-check pending (user reported it not working before the fix) |
+| T-S3.2 | S3.2 | Computer keyboard keys trigger notes in standalone, also after clicking a fader; typing in a value box plays no notes | pass (Xvfb + xdotool 2026-11-07: 'a' → C4 at start and after fader click; typing "250 ms" sets Attack, no note). User confirmed on Ubuntu 24.04 (2026-11-07), also after clicking/changing a fader |
 | T-S3.2-midi | S3.2 | Raw MIDI decoding: note on/off (vel 0 = off), CC64, CC120/123, pitch bend, SysEx/truncated ignored | pass (`test_engine`) |
 | T-S3.3 | S3.3 | Sustain pedal holds released notes; pedal up releases only notes whose key is up; same-note retrigger; all-notes-off lifts pedal | pass (`test_engine`) |
 | T-S3.4 | S3.4 | Pitch bend +2 / -12 semitones on a sounding A4 gives 494 / 220 Hz | pass (`test_engine`) |
