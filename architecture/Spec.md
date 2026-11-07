@@ -29,11 +29,16 @@ S4.6 The summed output passes a soft limiter: unchanged below -6 dBFS, smooth (t
 ## S5 Modules (initial set)
 S5.1 VCO, VCF, VCA, ADSR, LFO, Mixer, Noise, MIDI-in, Audio-out. VCF: 24 dB/oct lowpass ladder with resonance. LFO: one shared (global) LFO for all voices.
 S5.2 Default normalled patch (confirmed 2026-11-07): MIDI→VCO pitch; VCO→Mixer→VCF→VCA→Out; Noise→Mixer (level 0); ENV1→VCA; ENV2→VCF cutoff; LFO→VCO pitch with depth set by the mod wheel (0 by default).
+S5.3 Ports. Outputs: vco.out, noise.out, lfo.out, env1.out, env2.out, mix.out, vcf.out, vca.out. Inputs, with their normalled source: vco.fm ← lfo.out × mod wheel; mix.in1 ← vco.out; mix.in2 ← noise.out; vcf.in ← mix.out; vcf.cutoff ← env2.out; vca.in ← vcf.out; vca.cv ← env1.out; out.in ← vca.out.
+S5.4 Cables. A cable connects one output to one input; an output may feed several inputs; an input takes at most one cable. A cable replaces the input's normalled source (it does not add to it); removing it restores the normalled source. Input amounts (vco.fm, mixer levels, vcf.env) still apply to a patched signal. A cable from a module computed later in the same sample (feedback) reads that output's previous sample. Cable changes reach the audio thread through a lock-free queue (S10.2).
+S5.5 Signal levels: audio ±1; envelopes 0..1; LFO ±1; noise white, uniform ±1. vco.fm: 1.0 in = vco.fm semitones. vcf.cutoff: 1.0 in = vcf.env octaves. vca.cv: gain = cv clamped to 0..1. out.in: per-voice signals are summed; a global source (lfo, noise) is output once.
+S5.6 Shared (global) modules: LFO, Noise. Per voice: VCO, ENV1, ENV2, Mixer, VCF, VCA. When a patch takes the sound path around the VCA or ENV1 (out.in or vca.cv patched), voices that have played keep running after release (drone), as on a modular.
+S5.7 VCF: 24 dB/oct lowpass ladder (zero-delay-feedback, 4 one-pole stages, tanh-limited feedback), resonance 0..1 (self-oscillates near 1); cutoff 20 Hz–18 kHz, smoothed 20 ms in the log domain.
 
-## S5a Parameters (Phase 1)
-S5a.1 Parameter IDs are dotted paths that map 1:1 to 9P files: vco.wave (Sine/Saw/Square/Triangle), env.attack (0–5 s), env.decay (0–5 s), env.sustain (0–1), env.release (0–10 s), out.gain (0–1, smoothed 20 ms).
+## S5a Parameters
+S5a.1 Parameter IDs are dotted paths that map 1:1 to 9P files (default in brackets): voice.count 1–32 [8]; vco.wave Sine/Saw/Square/Triangle [Saw]; vco.fm 0–12 st [1]; mix.vco 0–1 [1]; mix.noise 0–1 [0]; vcf.cutoff 20 Hz–18 kHz [18 kHz]; vcf.res 0–1 [0]; vcf.env −5…+5 oct [0]; env1.attack 0–5 s [10 ms]; env1.decay 0–5 s [200 ms]; env1.sustain 0–1 [0.7]; env1.release 0–10 s [300 ms]; env2.* same ranges [10 ms, 300 ms, 0, 300 ms]; lfo.rate 0.05–20 Hz [5]; lfo.wave Sine/Triangle/Saw/Square [Sine]; out.gain 0–1 [0.8]. With these defaults the sound equals Phase 2 (filter open, no noise, no vibrato). Phase-2 ids env.* were renamed env1.* (old saved state loses the envelope values).
 S5a.2 MIDI events are applied sample-accurately within an audio block.
-S5a.3 Parameter changes act on sounding notes: volume immediately (20 ms smoothing); attack/decay times change the running stage; release time is taken at key release; a sustain-level change on a held note glides (no click — to do in Phase 3, today it jumps).
+S5a.3 Parameter changes act on sounding notes: volume immediately (20 ms smoothing); attack/decay times change the running stage; release time is taken at key release; a sustain-level change on a held note glides over 20 ms (no click). Filter cutoff is smoothed (S5.7); other parameters apply at the next block.
 
 ## S6 User interface
 S6.1 Simple GUI with vertical sliders (faders, no rotary knobs) grouped per module, left to right POLY (Voices) | VCO | ENV | OUT, each with a value box showing units (ms/s, %, dB), and patch points for cables. Values can be typed into the box; double-click on a fader resets it to its default.

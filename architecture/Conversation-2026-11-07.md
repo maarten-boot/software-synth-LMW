@@ -218,3 +218,10 @@ Rename done (PRODUCT_NAME, README, script, editor heading); old artefacts remove
 
 Voices fader moved to a new POLY group at the far left (POLY | VCO | ENV | OUT); window 614×450; screenshot checked.
 Answer to 39: no — `build/` is the native build for this Ubuntu 26.04 machine (always rebuilt first while working); `build-u24/` only changes when scripts/build-ubuntu24.sh runs.
+
+## 41. Request (user)
+> yes, start Phase 3
+
+CI run 42421894326 (2194699, rename): all 4 jobs pass.
+Spec S5.3–S5.7 (ports, cable semantics, signal levels, shared vs per-voice modules, drone, VCF) and S5a.1 (all parameters, defaults = Phase-2 sound; env.* renamed env1.*) written first.
+Engine (checkpoint): src/dsp/Lfo.h, Noise.h, Ladder.h (ZDF 4-pole, tanh-limited feedback, k = 4.4·res), Patch.h (ports, normalled table, cables, PatchCommand), Adsr sustain glide; Engine.h rewritten (per-voice ENV1/ENV2/VCO/MIX/VCF/VCA reading inputs via patch, shared LFO/noise, mod wheel, cutoff smoothing, drone). tests/test_modules.cpp (T-S5-modules). First run: 2 test assumptions wrong (k = 4 is only the marginal threshold → k = 4.4·res; ENV2 test measured during filter start-up) — fixed; also -Wfloat-equal on intentional exact cache checks. ctest 5/5 pass. Next: processor parameters, MIDI CC1, GUI.

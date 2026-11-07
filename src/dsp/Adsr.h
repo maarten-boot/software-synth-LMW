@@ -12,7 +12,7 @@ public:
     void setSampleRate(double sr) noexcept { sampleRate = sr; }
     void setParameters(float a, float d, float s, float r) noexcept {
         attack = a; decay = d; sustain = std::clamp(s, 0.0f, 1.0f); release = r;
-        if (stage == Stage::Sustain) level = sustain;
+        // A sustain change on a held note glides in next() (Spec S5a.3) instead of jumping.
     }
     // Retriggers from the current level (no jump to 0 -> no click).
     void noteOn() noexcept { stage = Stage::Attack; }
@@ -34,7 +34,11 @@ public:
                 level -= decay > 0.0f ? (1.0f - sustain) / static_cast<float>(decay * sampleRate) : 1.0f;
                 if (level <= sustain) { level = sustain; stage = Stage::Sustain; }
                 break;
-            case Stage::Sustain: level = sustain; break;
+            case Stage::Sustain: {                     // glide to a changed sustain level over 20 ms
+                const float step = 1.0f / static_cast<float>(0.02 * sampleRate);
+                level += std::clamp(sustain - level, -step, step);
+                break;
+            }
             case Stage::Release:
                 level -= releaseStep;
                 if (level <= 0.0f) { level = 0.0f; stage = Stage::Idle; }
