@@ -83,3 +83,8 @@ Interpreted as "I can do the push (write access) myself" — suggested correctio
 > write a handover , to make push work for me i have to move the whole project to a different path.
 
 Assistant: wrote architecture/Handover.md (decisions, status, code map, open questions, move checklist incl. deleting build/, push/token notes, global git credential-helper change, Claude memory being path-bound). Committed.
+
+## 16. Questions (user)
+> what commit name did you use ? / what email ?
+
+Assistant: author = Maarten Boot <11140490+maarten-boot@users.noreply.github.com> (from global git config), co-author trailer Claude Opus 5.5 <noreply@anthropic.com>, branch main; listed all 7 commit messages. User: "excellent thanks". Session ends here; next: move project, push, Phase 3.
