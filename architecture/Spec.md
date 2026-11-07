@@ -31,8 +31,8 @@ S5a.1 Parameter IDs are dotted paths that map 1:1 to 9P files: vco.wave (Sine/Sa
 S5a.2 MIDI events are applied sample-accurately within an audio block.
 
 ## S6 User interface
-S6.1 Simple GUI with vertical sliders (faders, no rotary knobs) grouped per module (VCO | ENV | OUT), each with a value box showing units (ms/s, %, dB), and patch points for cables. Values can be typed into the box.
-S6.2 Default white background, black text; all colour pairs >= 4.5:1 (WCAG AA).
+S6.1 Simple GUI with vertical sliders (faders, no rotary knobs) grouped per module (VCO | ENV | OUT), each with a value box showing units (ms/s, %, dB), and patch points for cables. Values can be typed into the box; double-click on a fader resets it to its default.
+S6.2 Default white background, black text; all colour pairs >= 4.5:1 (WCAG AA). This covers every window, including the standalone title bar, its Options menu and the audio/MIDI settings dialog: they look identical to the main panel.
 S6.3 Contrast adjustable interactively and via config file: presets AA (4.5:1), AAA (7:1), Max (21:1) and custom minimum ratio.
 
 ## S7 Persistence

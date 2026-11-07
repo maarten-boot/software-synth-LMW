@@ -12,3 +12,10 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 Standalone app: `build/LMWSynth_artefacts/Release/Standalone/`.
+
+A binary only runs on Linux systems at least as new as the one that built it.
+To build for **Ubuntu 24.04 and newer** from any Linux host (needs podman or docker):
+```sh
+scripts/build-ubuntu24.sh          # result in build-u24/Standalone and build-u24/VST3
+scripts/build-ubuntu24.sh --clean  # full rebuild
+```

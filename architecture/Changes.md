@@ -19,3 +19,4 @@ Changes between releases.
 - GUI: rotary knobs replaced by vertical faders (black/white only: thin track, thick value bar, black cap with white line), grouped VCO | ENV | OUT; window 628×450.
 - GUI fix: slider value boxes were white text on white (JUCE default colours, created before our look-and-feel was set) — now black on white.
 - Parameter values shown with units (ms/s, %, dB) in the GUI and in plugin hosts; typed values accept units. New test T-S6.1-text.
+- `scripts/build-ubuntu24.sh`: container build for Ubuntu 24.04+ (image pinned by digest, cached build volume, podman or docker) → `build-u24/`.

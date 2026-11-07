@@ -164,3 +164,13 @@ CI run 42406322210 (commit 64c7863): all 4 jobs pass — ubuntu-24.04 (5m06s), f
 > do the crosscheck now
 
 Crosscheck Spec ↔ Plan ↔ Tests ↔ code. Doc drift fixed: Plan.md rewritten (status of phases 0–2, new 2a faders, Phase 4/8 scope), README JUCE 8→9, Spec S8.1 JUCE 8→9 licence wording, Tests T-S2.1 status, Handover marked as pre-move snapshot; added test rows T-S5a.1, T-S5a.2 (no tests yet) and T-S10.2a (fails: MidiKeyboardState lock/MidiBuffer growth on the audio thread). Code findings and questions reported to user (see reply): RT-safety violation, headroom/clipping, theme pairs incomplete, standalone title bar, obsolete JUCE_DISPLAY_SPLASH_SCREEN flag, SPDX "or-later" vs Spec "AGPLv3", no sustain pedal / pitch bend (not in Spec).
+
+## 32. Question (user)
+> do i have the wrong path ? ... GLIBC_2.43 not found ...
+
+Yes: user ran build/ (built on Ubuntu 26.04, GLIBC_2.43) instead of build-u24/ (GLIBC_2.38).
+
+## 33. Request + feedback (user)
+> yes, add the build script; looks already great but the theme with the black opstions menu should all be identical to the main screen later , there is sound and multiple voiced and double click on a lider goes to the default, perfect
+
+Read as "options menu", "multiple voices", "slider" (typos). Assistant added scripts/build-ubuntu24.sh (podman/docker; ubuntu:24.04 pinned by index digest sha256:fe815609…f852; cached build volume; stage dir + copy out). First run failed after tests: `chown` to host UID inside rootless podman mapped to a sub-UID → fixed (chown only for docker); leftover staging dirs removed with `podman unshare`. Verified: full build 7m, cached 33 s, GLIBC_2.38, 3/3 tests. Spec S6.1 (+double-click reset), S6.2 (all windows incl. title bar, Options menu, settings dialog identical to main panel); Tests T-S2.1c, T-S4.0, T-S6.1b pass (user-verified), T-S6.2d updated; Plan, README, Changes updated.

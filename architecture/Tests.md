@@ -4,6 +4,7 @@
 |---|---|---|---|
 | T-S2.1 | S2.1 | Project builds and starts on Linux, macOS, Windows | Build + ctest pass on all (CI run 42406322210); starts on Linux (user on Ubuntu 24.04; Xvfb screenshot); start on macOS/Windows not verified |
 | T-S2.1b | S2.1 | CI builds + tests on Ubuntu 24.04 and Fedora 45 (container, pinned by digest); Ubuntu-24.04-built standalone starts on Ubuntu 24.04 | pass: CI run 42406322210 (ubuntu-24.04, fedora-45, macos, windows; 3 test suites each); user ran Ubuntu 24.04 build (layout OK) |
+| T-S2.1c | S2.1 | `scripts/build-ubuntu24.sh` builds + tests in an Ubuntu 24.04 container (image pinned by digest) and produces binaries needing glibc <= 2.39 | pass (podman rootless, 2026-11-07: GLIBC_2.38, 3/3 tests) |
 | T-S2.3 | S2.3 | Every `uses:` in `.github/workflows/*.yml` references a 40-hex commit SHA with a `# vX.Y.Z` comment, and FetchContent dependencies are pinned by commit + URL_HASH; each is the latest workable release (or the exception is documented) | pass (checkout@3d3c42e = v7.0.1; JUCE d60b7a7 = 9.0.5, latest — 2026-11-07) |
 | T-S1.2a | S1.2 | With no cables, default patch produces sound on a MIDI note | planned |
 | T-S1.2b | S1.2 | A cable into an input replaces (not adds to) its normalled source | planned |
@@ -13,9 +14,11 @@
 | T-S5.1-engine | S5.1 | Silence before note, sound during, silence after release; only matching note-off releases | pass (`test_engine`) |
 | T-S6.2b | S6.2 | All theme colour pairs (src/ui/Theme.h) >= 4.5:1 | pass (`test_contrast`) |
 | T-S6.1a | S6.1 | Controls are vertical faders grouped VCO / ENV / OUT; value box under each fader shows the value with units | pass (screenshot on Xvfb 2026-11-07: 10 ms, 200 ms, 70 %, 312 ms, -1.9 dB, 12) |
+| T-S6.1b | S6.1 | Double-click on a fader resets it to the parameter default | pass (user, Ubuntu 24.04, 2026-11-07) |
 | T-S6.1-text | S6.1 | Value text/parse: time ms/s, sustain %, volume dB, round trip | pass (`test_paramtext`) |
 | T-S6.2c | S6.2 | Slider value boxes use theme colours (black text/outline on white), not JUCE default dark scheme | pass (screenshot; fixed by re-sending look-and-feel) |
-| T-S6.2d | S6.2 | JUCE standalone window title bar (dark, "Options" button, red close) meets >= 4.5:1 | open — not themed yet |
+| T-S6.2d | S6.2 | Standalone title bar, Options menu and audio/MIDI settings dialog use the main theme (white bg, black text, >= 4.5:1) | open — still JUCE dark default (user confirmed: must match main panel later) |
+| T-S4.0 | S4, S3.1 | Sound is heard and several notes sound at once (manual) | pass (user, Ubuntu 24.04, 2026-11-07) |
 | T-S4.1 | S4.1 | Setting polyphony to N allows exactly N simultaneous notes (N=1,8,32); range clamps to 1..32 | pass (`test_engine`) |
 | T-S4.2 | S4.2 | Playing N+1 notes steals the oldest voice; released voices stolen first | pass (`test_engine`) |
 | T-S4.3 | S4.3 | Same note twice uses one voice | pass (`test_engine`) |
