@@ -149,3 +149,8 @@ GUI shown for the first time (by the user). Orientation (horizontal vs vertical)
 > if fedora 44 is compatible with 45 you can use 44 if it is easier
 
 Fedora latest = 45. Local fedora:45 container build (needed host CA bundle mounted: TLS-inspecting proxy on this network) OK with GCC 16.2.1 / CMake 4.3.0, ctest 2/2 pass — so 45 used, no need for 44. Fixed CMake dev warning (CMP0135). Spec S2.1 updated (Ubuntu 24.04+, Fedora latest); CI: ubuntu-latest → ubuntu-24.04, new fedora-45 container job pinned by index digest sha256:5db96836…e699. Tests T-S2.1b added.
+
+## 29. Decision (user)
+Slider orientation question → **Vertical (Recommended)**.
+
+Assistant: replaced knobs with vertical faders (custom drawLinearSlider, black/white only; filled vs empty track by thickness), groups VCO | ENV | OUT with framed headers, window 628×450. Screenshots on Xvfb revealed value boxes were empty: white text on white — the slider value boxes were created with JUCE's default dark colour scheme before the editor's look-and-feel was set (also true for the old knobs). Fixed with sendLookAndFeelChange(). Added value formatting with units (src/ui/ParamText.h: ms/s, %, dB; parsing of typed values) used by APVTS parameters (also shown by hosts); new test test_paramtext (T-S6.1-text). ctest 3/3 pass. Open: JUCE standalone title bar is dark (not themed) — T-S6.2d. Ubuntu 24.04 build refreshed in build-u24/.

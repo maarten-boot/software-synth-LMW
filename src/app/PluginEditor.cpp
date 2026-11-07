@@ -14,9 +14,9 @@ LMWLookAndFeel::LMWLookAndFeel() {
     setColourScheme(C{kBg, kBg, kBg, kFg, kFg, kFg, kBg, kFg, kFg});
     // windowBackground, widgetBackground, menuBackground, outline, defaultText,
     // defaultFill, highlightedText, highlightedFill, menuText
-    setColour(juce::Slider::rotarySliderFillColourId, kFg);
-    setColour(juce::Slider::rotarySliderOutlineColourId, kFg.withAlpha(0.25f));
     setColour(juce::Slider::thumbColourId, kFg);
+    setColour(juce::Slider::trackColourId, kFg);
+    setColour(juce::Slider::backgroundColourId, kFg);
     setColour(juce::Slider::textBoxTextColourId, kFg);
     setColour(juce::Slider::textBoxBackgroundColourId, kBg);
     setColour(juce::Slider::textBoxOutlineColourId, kFg);
@@ -40,6 +40,32 @@ LMWLookAndFeel::LMWLookAndFeel() {
     setColour(juce::MidiKeyboardComponent::upDownButtonArrowColourId, kFg);
 }
 
+void LMWLookAndFeel::drawLinearSlider(juce::Graphics& g, int x, int y, int width, int height,
+                                      float sliderPos, float minSliderPos, float maxSliderPos,
+                                      juce::Slider::SliderStyle style, juce::Slider& s) {
+    if (style != juce::Slider::LinearVertical) {
+        LookAndFeel_V4::drawLinearSlider(g, x, y, width, height, sliderPos, minSliderPos, maxSliderPos, style, s);
+        return;
+    }
+    // Empty track = thin line, filled part (value) = thick bar, thumb = black cap with a white centre line.
+    // Distinguished by shape, not by colour, so every pair stays black/white (21:1).
+    const float cx     = static_cast<float>(x) + static_cast<float>(width) * 0.5f;
+    const float top    = static_cast<float>(y);
+    const float bottom = static_cast<float>(y + height);
+    g.setColour(kFg);
+    g.fillRect(juce::Rectangle<float>(cx - 1.0f, top, 2.0f, bottom - top));
+    g.fillRect(juce::Rectangle<float>(cx - 3.0f, sliderPos, 6.0f, bottom - sliderPos));
+
+    const auto thumb = juce::Rectangle<float>(30.0f, 14.0f).withCentre({cx, sliderPos});
+    g.fillRect(thumb);
+    g.setColour(kBg);
+    g.fillRect(juce::Rectangle<float>(thumb.getX() + 4.0f, sliderPos - 1.0f, thumb.getWidth() - 8.0f, 2.0f));
+    if (s.hasKeyboardFocus(false)) {           // visible focus ring, black on white
+        g.setColour(kFg);
+        g.drawRect(juce::Rectangle<float>(static_cast<float>(x), top, static_cast<float>(width), bottom - top).expanded(2.0f), 1.0f);
+    }
+}
+
 LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     : AudioProcessorEditor(&p), processor(p),
       keyboard(p.keyboardState(), juce::MidiKeyboardComponent::horizontalKeyboard) {
@@ -47,22 +73,26 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
 
     wave.addItemList({"Sine", "Saw", "Square", "Triangle"}, 1);
     waveAttachment = std::make_unique<ComboAttachment>(p.state(), lmw::param::wave, wave);
-    waveLabel.setText("VCO", juce::dontSendNotification);
+    waveLabel.setText("Wave", juce::dontSendNotification);
     waveLabel.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(wave);
     addAndMakeVisible(waveLabel);
 
-    setupKnob(voices,  lmw::param::voices,  "Voices");
-    setupKnob(attack,  lmw::param::attack,  "Attack");
-    setupKnob(decay,   lmw::param::decay,   "Decay");
-    setupKnob(sustain, lmw::param::sustain, "Sustain");
-    setupKnob(release, lmw::param::release, "Release");
-    setupKnob(gain,    lmw::param::gain,    "Volume");
+    setupFader(attack,  lmw::param::attack,  "Attack");
+    setupFader(decay,   lmw::param::decay,   "Decay");
+    setupFader(sustain, lmw::param::sustain, "Sustain");
+    setupFader(release, lmw::param::release, "Release");
+    setupFader(gain,    lmw::param::gain,    "Volume");
+    setupFader(voices,  lmw::param::voices,  "Voices");
 
     keyboard.setWantsKeyboardFocus(true);       // QWERTY keys play notes (Spec S3.2)
     addAndMakeVisible(keyboard);
 
-    setSize(820, 360);
+    // Child widgets (e.g. slider value boxes) take their colours when created, before they had this
+    // look-and-feel; re-send it so every child uses the black-on-white theme (Spec S6.2).
+    sendLookAndFeelChange();
+
+    setSize(628, 450);
     juce::MessageManager::callAsync([safe = juce::Component::SafePointer<juce::Component>(&keyboard)] {
         if (safe != nullptr && safe->isShowing()) safe->grabKeyboardFocus();
     });
@@ -70,8 +100,9 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
 
 LMWSynthEditor::~LMWSynthEditor() { setLookAndFeel(nullptr); }
 
-void LMWSynthEditor::setupKnob(Knob& k, const char* paramId, const juce::String& text) {
-    k.slider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 70, 20);
+void LMWSynthEditor::setupFader(Fader& k, const char* paramId, const juce::String& text) {
+    k.slider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 72, 26);
+    k.slider.setSliderSnapsToMousePosition(false);   // drag moves relative; a click does not jump the value
     k.attachment = std::make_unique<SliderAttachment>(processor.state(), paramId, k.slider);
     k.label.setText(text, juce::dontSendNotification);
     k.label.setJustificationType(juce::Justification::centred);
@@ -85,21 +116,43 @@ void LMWSynthEditor::paint(juce::Graphics& g) {
     g.setFont(juce::FontOptions(20.0f, juce::Font::bold));
     g.drawText("LMW Synth", getLocalBounds().removeFromTop(40).reduced(12, 0), juce::Justification::centredLeft);
     g.drawLine(12.0f, 40.0f, static_cast<float>(getWidth() - 12), 40.0f, 1.0f);
+
+    g.setFont(juce::FontOptions(15.0f, juce::Font::bold));
+    for (const auto& grp : groups) {
+        g.drawRect(grp.bounds, 1);
+        g.drawText(grp.title, grp.bounds.withHeight(24), juce::Justification::centred);
+        g.drawHorizontalLine(grp.bounds.getY() + 24, static_cast<float>(grp.bounds.getX()),
+                             static_cast<float>(grp.bounds.getRight()));
+    }
+}
+
+void LMWSynthEditor::layoutFader(Fader& f, juce::Rectangle<int> column) {
+    column.reduce(4, 0);
+    f.label.setBounds(column.removeFromTop(22));
+    f.slider.setBounds(column);
 }
 
 void LMWSynthEditor::resized() {
+    constexpr int colW = 80, gap = 10, header = 28;
     auto area = getLocalBounds().reduced(12);
     area.removeFromTop(36);
     keyboard.setBounds(area.removeFromBottom(90));
     area.removeFromBottom(10);
 
-    const int w = area.getWidth() / 7;
-    auto col = area.removeFromLeft(w).reduced(6);
-    waveLabel.setBounds(col.removeFromTop(22));
-    wave.setBounds(col.removeFromTop(28));
-    for (Knob* k : {&voices, &attack, &decay, &sustain, &release, &gain}) {
-        auto c = area.removeFromLeft(w).reduced(6);
-        k->label.setBounds(c.removeFromTop(22));
-        k->slider.setBounds(c);
+    // Groups: VCO (1 column) | ENV (A D S R) | OUT (Volume, Voices)
+    const std::array<int, 3> columns{1, 4, 2};
+    for (size_t i = 0; i < groups.size(); ++i) {
+        groups[i].bounds = area.removeFromLeft(columns[i] * colW);
+        area.removeFromLeft(gap);
     }
+    auto inner = [&](size_t i) { return groups[i].bounds.reduced(0, 4).withTrimmedTop(header); };
+
+    auto vco = inner(0).reduced(6, 0);
+    waveLabel.setBounds(vco.removeFromTop(22));
+    wave.setBounds(vco.removeFromTop(28));
+
+    auto env = inner(1);
+    for (Fader* f : {&attack, &decay, &sustain, &release}) layoutFader(*f, env.removeFromLeft(colW));
+    auto out = inner(2);
+    for (Fader* f : {&gain, &voices}) layoutFader(*f, out.removeFromLeft(colW));
 }

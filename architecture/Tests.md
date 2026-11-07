@@ -12,6 +12,10 @@
 | T-S5.1-adsr | S5.1 | ADSR attack/decay/release durations exact to ±2 samples; zero times safe | pass (`test_engine`) |
 | T-S5.1-engine | S5.1 | Silence before note, sound during, silence after release; only matching note-off releases | pass (`test_engine`) |
 | T-S6.2b | S6.2 | All theme colour pairs (src/ui/Theme.h) >= 4.5:1 | pass (`test_contrast`) |
+| T-S6.1a | S6.1 | Controls are vertical faders grouped VCO / ENV / OUT; value box under each fader shows the value with units | pass (screenshot on Xvfb 2026-11-07: 10 ms, 200 ms, 70 %, 312 ms, -1.9 dB, 12) |
+| T-S6.1-text | S6.1 | Value text/parse: time ms/s, sustain %, volume dB, round trip | pass (`test_paramtext`) |
+| T-S6.2c | S6.2 | Slider value boxes use theme colours (black text/outline on white), not JUCE default dark scheme | pass (screenshot; fixed by re-sending look-and-feel) |
+| T-S6.2d | S6.2 | JUCE standalone window title bar (dark, "Options" button, red close) meets >= 4.5:1 | open — not themed yet |
 | T-S4.1 | S4.1 | Setting polyphony to N allows exactly N simultaneous notes (N=1,8,32); range clamps to 1..32 | pass (`test_engine`) |
 | T-S4.2 | S4.2 | Playing N+1 notes steals the oldest voice; released voices stolen first | pass (`test_engine`) |
 | T-S4.3 | S4.3 | Same note twice uses one voice | pass (`test_engine`) |

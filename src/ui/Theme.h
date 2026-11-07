@@ -13,8 +13,8 @@ inline constexpr Rgb keyDown{0x76, 0x76, 0x76};   // 4.54:1 on white
 
 // (foreground, background) pairs actually drawn by the GUI.
 inline constexpr std::array<std::pair<Rgb, Rgb>, 3> pairs{{
-    {foreground, background},   // text, knobs, outlines, black keys
-    {background, foreground},   // highlighted menu text
+    {foreground, background},   // text, faders, value boxes, outlines, black keys
+    {background, foreground},   // highlighted menu text, fader cap centre line
     {keyDown, background},      // pressed white key
 }};
 } // namespace lmw::ui::theme

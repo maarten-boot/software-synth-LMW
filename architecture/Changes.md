@@ -16,3 +16,6 @@ Changes between releases.
 - JUCE 8.0.4 → 8.0.17-security (security fixes: WAV/AIFF, ZipFile, XML, GIF/PNG, OSC, JSON, ValueTree parsing); pinned to commit `dabd5ad1…` archive + SHA-256 (Spec S2.3).
 - JUCE 8.0.17-security → 9.0.5, pinned to commit `d60b7a78…` archive + SHA-256. CI Linux deps: added libxi-dev, libegl-dev (JUCE 9 requirements). Spec S2.2 now JUCE 9. No source changes needed.
 - Linux targets: Ubuntu 24.04+ and Fedora latest (45). CI: ubuntu-latest → ubuntu-24.04 (binaries run on 24.04 and newer); new Fedora 45 job in container pinned by digest. CMake: policy CMP0135 NEW (fixes FetchContent timestamp warning).
+- GUI: rotary knobs replaced by vertical faders (black/white only: thin track, thick value bar, black cap with white line), grouped VCO | ENV | OUT; window 628×450.
+- GUI fix: slider value boxes were white text on white (JUCE default colours, created before our look-and-feel was set) — now black on white.
+- Parameter values shown with units (ms/s, %, dB) in the GUI and in plugin hosts; typed values accept units. New test T-S6.1-text.
