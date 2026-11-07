@@ -154,3 +154,8 @@ Fedora latest = 45. Local fedora:45 container build (needed host CA bundle mount
 Slider orientation question → **Vertical (Recommended)**.
 
 Assistant: replaced knobs with vertical faders (custom drawLinearSlider, black/white only; filled vs empty track by thickness), groups VCO | ENV | OUT with framed headers, window 628×450. Screenshots on Xvfb revealed value boxes were empty: white text on white — the slider value boxes were created with JUCE's default dark colour scheme before the editor's look-and-feel was set (also true for the old knobs). Fixed with sendLookAndFeelChange(). Added value formatting with units (src/ui/ParamText.h: ms/s, %, dB; parsing of typed values) used by APVTS parameters (also shown by hosts); new test test_paramtext (T-S6.1-text). ctest 3/3 pass. Open: JUCE standalone title bar is dark (not themed) — T-S6.2d. Ubuntu 24.04 build refreshed in build-u24/.
+
+## 30. Push + CI (user)
+> pushed, wait for CI
+
+CI run 42406322210 (commit 64c7863): all 4 jobs pass — ubuntu-24.04 (5m06s), fedora-45 (5m09s, first run), macos (4m29s), windows (7m54s); 3 test suites each. Tests.md T-S2.1b → pass.
