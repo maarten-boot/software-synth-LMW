@@ -37,7 +37,7 @@
 | T-S9.2 | S9.2 | VST3 loads, plays and saves state in at least 2 hosts (e.g. Reaper, Bitwig) | planned |
 | T-S10.2 | S10.2 | Under 9P load (1000 writes/s) no audio dropouts; RT thread does no syscalls (checked with RT sanitizer/trace) | planned |
 | T-S10.2a | S10.2 | processBlock takes no locks and does no allocation | pass by code review 2026-11-07: keyboard notes via lock-free SPSC queues (no MidiKeyboardState call on the audio thread), MIDI decoded from raw bytes (no MidiMessage copy). Automated check (e.g. Clang RealtimeSanitizer) still to add |
-| T-S10.2-spsc | S10.2 | SPSC queue: FIFO order, full/empty, wrap-around, 1M-item two-thread stress | pass (`test_spsc`) |
+| T-S10.2-spsc | S10.2 | SPSC queue: FIFO order, full/empty, wrap-around, 1M-item two-thread stress | pass (`test_spsc`; CI run 42413041183 on Ubuntu 24.04, Fedora 45, macOS arm64, Windows) |
 | T-S10.1 | S10.1 | 9P2000 conformance: version/attach/walk/open/read/write/clunk/stat against the plan9port `9p` client | planned |
 | T-S10.1b | S10.1 | `echo 1000 > params/vcf/cutoff` via 9P changes the audible/internal value | planned |
 | T-S10.4 | S10.4 | Engine reachable over Unix socket on Linux/macOS/Windows and over TCP when enabled | planned |

@@ -184,3 +184,8 @@ CI run 42410364130 (commit 0aa53a3): all 4 jobs pass.
 QWERTY: reproduced on Xvfb with xdotool — 'a' plays C4 right after start, but not after clicking a fader (focus moves to the slider; JUCE's keyboard only reads keys while focused). Fix: editor forwards keyPressed/keyStateChanged to the keyboard unless a TextEditor (value box) has focus. Verified: start, after fader click, and typing "250 ms" into a value box (sets value, no note).
 Lock: replaced MidiKeyboardState::processNextMidiBuffer on the audio thread with two lock-free SPSC queues (src/dsp/SpscQueue.h; GUI→audio notes, audio→GUI display via 30 Hz editor timer); raw-byte MIDI decoder src/dsp/MidiParse.h (no MidiMessage copies).
 Sustain pedal + pitch bend (±2 st) implemented in Engine; mod wheel specified for Phase 3 (vibrato depth, to confirm). Spec S3.2–S3.5, tests added; ctest 4/4 pass. Licence explanation given in the reply.
+
+## 35. Push + CI (user)
+> pushed, wait for CI
+
+CI run 42413041183 (commit 7ab8750): all 4 jobs pass — windows (8m08s), fedora-45 (5m58s), ubuntu-24.04 (4m53s), macos (3m40s); 4 test suites each, incl. the two-thread SPSC stress test.
