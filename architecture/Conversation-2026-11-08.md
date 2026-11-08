@@ -71,3 +71,11 @@ Asked (the wording "in left" vs "from A to B" pointed both ways); answer: source
 > also on the vco the fm slider and the fm connector are now on different palces best put the fm slider on the left to lighn up with the fm input
 
 Done: VCO items reordered (FM, Wave). Checked on Xvfb together with the new hover text order. CI for c16cde9 (42525793781) green on all four targets.
+
+## 13. KEYS module planned
+> should we show the cv from the keyboard/midi and the gate signal inputs ? and the keyboard having a output an dgate ? (and perhaps a midi module with output cv and gate ?)
+
+Proposed one KEYS module (keyboard, computer keys and MIDI merge before voice allocation), POLY panel renamed KEYS with Pitch/Gate/Vel outputs, new normalled inputs vco.pitch, env1.gate, env2.gate.
+> yes, add it as step 2b with velocity output
+
+Added to Plan (Phase 4 step 2b), Spec S5.8, Tests T-S5.8a–e.

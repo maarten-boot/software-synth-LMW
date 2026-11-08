@@ -35,3 +35,4 @@ Changes between releases.
 - Phase 4 step 2, cables (Spec S6.6): socket row on every panel (inputs white, outputs black), drag to patch / move / remove cables, cables drawn above the panels and following rack moves and compact view, keyboard and menu patching, Delete removes; cables saved in the state as text (`src/dsp/PatchText.h`, unit test T-S5.4-text, 7 suites). Menus no longer show greyed (low-contrast) items. Rows are 36/30 px taller for the sockets (window 1046×740 / compact 774×562).
 - Hover texts and cable menu headers now read in signal-flow order, source left: "lfo.out → vco.fm (normalled)" (was "Input vco.fm ← lfo.out"); Spec S5.3 port list written the same way (user request).
 - VCO panel: FM fader moved to the left, above the FM input socket; Wave second (user request).
+- Plan: Phase 4 step 2b, KEYS module (pitch, gate and velocity outputs; vco.pitch, env1.gate, env2.gate inputs), Spec S5.8, planned tests T-S5.8a–e.
