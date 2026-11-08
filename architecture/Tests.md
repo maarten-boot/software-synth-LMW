@@ -73,3 +73,9 @@
 | T-S5.8d | S5.8 | ENV 2 → vco.pitch sweeps pitch independent of the key; keys.vel → vcf.cutoff opens the filter with velocity | pass (test_keys: ENV 2 → vco.pitch gives C5 for keys C3 and C6; keys.vel → cutoff brighter at higher velocity) |
 | T-S5.8e | S5.8, S6.6 | GUI: KEYS panel with Voices fader and Pitch/Gate/Vel sockets; Gate sockets on ENV 1/2; VCO Pitch socket; hover texts in source → input order | pass (Xvfb: KEYS panel, sockets aligned, LFO → env1.gate cable and hover text, compact view) |
 | T-S5.8-keys | S5.8 | ctest T-S5.8-keys (`tests/test_keys.cpp`) runs T-S5.8a–d | pass |
+| T-S5.9a | S5.9 | Each slope/type: measured response matches (LP/HP slopes 6/12/24 dB/oct within 2 dB; BP peak at cutoff; notch ≥ 30 dB dip at cutoff) | planned |
+| T-S5.9b | S5.9 | Resonance self-oscillates in every mode; mode change on a sounding note has no step larger than normal signal change | planned |
+| T-S5.10a | S5.10 | Octave ±2 and Tune ±7 st give the expected frequencies; VCO 2/3 at level 0 leave the default sound bit-identical | planned |
+| T-S5.10b | S5.10 | Old saved state (vco.*, mix.vco, cables with mix.in2 = noise) loads into the new names with the same values and cables | planned |
+| T-S5.11a | S5.11 | VCF 2 at default is an exact bypass (default sound bit-identical); moving its cutoff crossfades without a click | planned |
+| T-S5.11b | S5.11 | Series: VCF 2 lowpass after VCF 1 highpass gives a bandpass; old vcf.* state translated to vcf1.* | planned |

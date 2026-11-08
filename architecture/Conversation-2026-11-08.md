@@ -88,3 +88,7 @@ Engine: Out/In enums extended (keys first), Voice computes keys outputs first, e
 > would it be to difficult to add a second or third vco and a second vcf? and perhaps make the vcf switchable 6/12/24 db and lo/hi/band/notch ?
 
 Answered with an estimate (see reply); not started.
+
+> phase 4b is fine before contrast an theming, VCF2 in series and open
+
+Added Phase 4b to the Plan (a modes, b VCO 1–3 + mixer, c VCF 2), Spec S5.9–S5.11, planned tests. Decisions: VCF 2 in series after VCF 1, fully open by default = exact bypass; old names translated on load.
