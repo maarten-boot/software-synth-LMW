@@ -39,3 +39,8 @@ Decisions (question dialog): FM fader = base vibrato depth, mod wheel adds up to
 > how difficult would it be to make each component movable and dockable as in a rack? the user can then move VCO VCF and so to different postions they prefer
 
 Implemented: engine (FM depth = fm + wheel; VCA initial; drone when initial > 0), tests updated (first vibrato bounds were wrong: ±1 st at 440 Hz = spread ~13 samples, not ~6); processor (vca.initial, vco.fm default 0, GUI patch mirror, mod wheel value); editor (TipSlider hover texts via TooltipWindow 2000 ms, VCA panel, compact toggle with Metrics normal/compact stored as state property uiCompact, title line fix, custom combo drawing with 16 px arrow). Verified on Xvfb: hover text, compact size 774×496, persistence after a normal close, toggle back. Rack question answered in reply (estimate, not implemented).
+
+## 9. Rack in the Plan
+> yes, add the rack to the Plan as Phase 4 step 1
+
+Plan Phase 4 reordered: (1) rack, (2) patch points + cables, (3) contrast settings, (4) themed standalone windows. Spec S6.5 added (row-snapping panels, drop marker, keyboard/menu moves, saved layout, Reset layout; floating windows out of scope). Tests T-S6.5a–c planned.

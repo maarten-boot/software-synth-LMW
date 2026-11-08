@@ -53,3 +53,6 @@
 | T-S10.4 | S10.4 | Engine reachable over Unix socket on Linux/macOS/Windows and over TCP when enabled | planned |
 | T-S10.5 | S10.5 | Two plugin instances in one host expose two distinct 9P endpoints | planned |
 | T-S10.9 | S10.9 | `cat source` returns the repository URL | planned |
+| T-S6.5a | S6.5 | Drag a panel's title bar to another row position: drop marker shown, panel lands there, others reflow; window size unchanged | planned |
+| T-S6.5b | S6.5 | Move a panel with keyboard/menu only (no mouse): same result as dragging | planned |
+| T-S6.5c | S6.5 | Layout survives close/reopen; Reset layout restores the default order; works in compact view | planned |

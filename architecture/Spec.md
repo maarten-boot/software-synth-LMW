@@ -45,6 +45,7 @@ S6.1 Simple GUI with vertical sliders (faders, no rotary knobs) grouped per modu
 S6.2 Default white background, black text; all colour pairs >= 4.5:1 (WCAG AA). This covers every window, including the standalone title bar, its Options menu and the audio/MIDI settings dialog: they look identical to the main panel.
 S6.3 Contrast adjustable interactively and via config file: presets AA (4.5:1), AAA (7:1), Max (21:1) and custom minimum ratio.
 S6.4 Compact view: a "Compact" toggle in the header switches to narrower columns, shorter faders, smaller labels and value boxes (window 774×496 instead of 1046×658). The choice is stored with the saved state (later also in the config file, with S6.3).
+S6.5 Rack layout: each module panel (POLY, VCO, MIXER, VCF, VCA, LFO, OUT, ENV 1, ENV 2) can be moved by dragging its title bar; it snaps into a row position (within or between rows) with a drop marker, and the other panels move aside. The same moves are possible without a mouse (keyboard / menu: move left/right/up/down). The layout is stored with the saved state (later also in the config file) and a "Reset layout" control restores the default. Cables (Phase 4 step 2) follow the panels. Floating/undocked module windows are out of scope.
 
 ## S7 Persistence
 S7.1 Save/load patches (parameters + cable connections) to a file.
