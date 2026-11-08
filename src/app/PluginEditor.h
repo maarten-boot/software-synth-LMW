@@ -164,7 +164,7 @@ private:
     void removeAllCables();
     void showJackMenu(Jack&);
     juce::String describeOutput(lmw::dsp::Out) const;     // "<output> → <inputs it feeds>"
-    juce::String describeInput(lmw::dsp::In) const;   // "<input> ← <source> (normalled|cable)"
+    juce::String describeInput(lmw::dsp::In) const;   // "<source> → <input> (normalled|cable)"
 
     LMWSynthProcessor& processor;
     LMWLookAndFeel lookAndFeel;

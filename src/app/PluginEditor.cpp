@@ -127,8 +127,9 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     // Titles name the normalled destination (S5.2) so the prewired patch is visible.
     groups = {
         {"POLY", 0, {addFader(P::voices, "Voices")}, {}},
-        {"VCO", 0, {addChoice(P::wave, "Wave", {"Sine", "Saw", "Square", "Triangle"}),
-                    addFader(P::fm, "FM", fmTip)}, {}},
+        // FM fader first, above the FM input socket (sockets: FM in, then Out).
+        {"VCO", 0, {addFader(P::fm, "FM", fmTip),
+                    addChoice(P::wave, "Wave", {"Sine", "Saw", "Square", "Triangle"})}, {}},
         {"MIXER", 0, {addFader(P::mixVco, "VCO", inputTip(In::MixIn1, "Level of mixer input 1")),
                       addFader(P::mixNoise, "Noise", inputTip(In::MixIn2, "Level of mixer input 2"))}, {}},
         {"VCF", 0, {addFader(P::cutoff, "Cutoff", inputTip(In::VcfIn, "Lowpass 24 dB/oct cutoff")),
@@ -265,7 +266,8 @@ juce::String LMWSynthEditor::describeInput(lmw::dsp::In in) const {
     const juce::String inName(lmw::dsp::inputNames[idx(in)].data(), lmw::dsp::inputNames[idx(in)].size());
     const auto src = patch.source(in);
     const juce::String srcName(lmw::dsp::outputNames[idx(src)].data(), lmw::dsp::outputNames[idx(src)].size());
-    return "Input " + inName + " " + juce::String::fromUTF8("\xe2\x86\x90") + " " + srcName
+    // Signal flow reads left to right: source → input (Spec S6.1).
+    return srcName + " " + juce::String::fromUTF8("\xe2\x86\x92") + " " + inName
          + (patch.isPatched(in) ? " (cable)" : " (normalled)");
 }
 
@@ -743,8 +745,8 @@ juce::String LMWSynthEditor::describeOutput(lmw::dsp::Out out) const {
         const auto in = static_cast<lmw::dsp::In>(i);
         if (patch.source(in) == out) fed.add(portName(false, i) + (patch.isPatched(in) ? " (cable)" : " (normalled)"));
     }
-    return "Output " + portName(true, static_cast<int>(out)) + " " + juce::String::fromUTF8("\xe2\x86\x92") + " "
-         + (fed.isEmpty() ? juce::String("not connected") : fed.joinIntoString(", "));
+    return portName(true, static_cast<int>(out)) + " " + juce::String::fromUTF8("\xe2\x86\x92") + " "
+         + (fed.isEmpty() ? juce::String("(not connected)") : fed.joinIntoString(", "));
 }
 
 void LMWSynthEditor::showJackMenu(Jack& jack) {

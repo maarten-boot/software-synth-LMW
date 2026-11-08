@@ -62,3 +62,12 @@ Found: mini-daw opens plugin editors only on Windows (plugin_window.cpp: "Plugin
 > yes, start Phase 4 step 2, the cables
 
 Implemented PatchText (state text + test), processor setPatch/patchVersion and cable state save/restore, Jack sockets, CableLayer, drag/menu/keyboard patching. Xvfb (own display :93 — :77 was in use by another session): cable drag, feedback cable, cable loop under the output fixed (quadratic sag), restart keeps cables, drag-off and Delete remove, output menu + submenu, greyed menu items removed (contrast), compact view and keyboard panel move with a cable. CI for the rack commit (42519996883) green on all four targets.
+
+## 12. Hover text direction
+> when u make hover texts that mention in -> out always put the in component on the left and the out component on the right it reads better as in from A to B.
+
+Asked (the wording "in left" vs "from A to B" pointed both ways); answer: source left — "lfo.out → vco.fm (normalled)". Changed describeInput/describeOutput and Spec S5.3/S6.1.
+
+> also on the vco the fm slider and the fm connector are now on different palces best put the fm slider on the left to lighn up with the fm input
+
+Done: VCO items reordered (FM, Wave). Checked on Xvfb together with the new hover text order. CI for c16cde9 (42525793781) green on all four targets.

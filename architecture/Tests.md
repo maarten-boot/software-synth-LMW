@@ -65,3 +65,5 @@
 | T-S6.6e | S6.6, S6.4, S6.5 | Cables follow compact view and a panel moved with the keyboard | pass (Xvfb) |
 | T-S6.6f | S6.6 | Cables are restored after close/reopen | pass (Xvfb) |
 | T-S6.6g | S6.6, S5.4 | Listening test: LFO → VCA CV gives tremolo; ENV 2 → FM gives a pitch sweep; VCF Out → VCF In feedback stays stable | planned (user) |
+| T-S6.1e | S6.1 | Hover texts and menu headers name connections as "source → input" (e.g. FM: "lfo.out → vco.fm (normalled)") | pass (Xvfb) |
+| T-S6.1f | S6.1, S6.6 | VCO panel: FM fader is the left column, directly above the FM socket | pass (Xvfb) |
