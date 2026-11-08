@@ -7,3 +7,13 @@ Processor: all 19 parameters (Spec S5a.1) with unit text (new: Hz/kHz, octaves, 
 
 ## 2. Question (user)
 > status?
+
+## 3. Push + CI (user)
+> pushed, wait for CI
+
+CI run 42474471773 (9aa93cd): ubuntu-24.04 and fedora-45 pass (5 suites); macOS and Windows failed at configure — GitHub returned 504 for the JUCE archive download (503 from here too at that moment). Not a code problem.
+
+## 4. Request (user)
+> yes, add the JUCE cache
+
+JUCE pin moved to cmake/JuceVersion.cmake; cmake/FetchJuceArchive.cmake downloads with 6 retries (10–50 s backoff) and verifies SHA-256 (skips if a verified copy exists); CMake option LMW_JUCE_ARCHIVE uses a local copy (hash still checked by FetchContent). Workflow: actions/cache v6.1.0 (latest, pinned 55cc8345…) on .juce-cache keyed by hashFiles(cmake/JuceVersion.cmake), then fetch, then configure with the archive. Verified locally (cached / corrupt copy, configure from local file). JUCE 9.0.5 still latest. Tests T-S2.3 updated, T-S2.3b added.

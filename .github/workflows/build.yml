@@ -34,8 +34,19 @@ jobs:
           sudo apt-get install -y ninja-build libasound2-dev libfreetype-dev libfontconfig1-dev \
             libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxext-dev libgl1-mesa-dev \
             libxi-dev libegl-dev
+      # JUCE archive cached between runs (key = pinned version file), so a GitHub download hiccup
+      # cannot fail the build; the archive's SHA-256 is verified on every use (Spec S2.3).
+      - name: JUCE archive cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .juce-cache
+          key: juce-${{ hashFiles('cmake/JuceVersion.cmake') }}
+      - name: Fetch JUCE archive (cache miss only; retries)
+        shell: bash
+        run: cmake -DDEST="$GITHUB_WORKSPACE/.juce-cache/juce.tar.gz" -P cmake/FetchJuceArchive.cmake
       - name: Configure
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+        shell: bash
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DLMW_JUCE_ARCHIVE="$GITHUB_WORKSPACE/.juce-cache/juce.tar.gz"
       - name: Build
         run: cmake --build build --config Release --parallel
       - name: Test

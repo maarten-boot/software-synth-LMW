@@ -28,3 +28,4 @@ Changes between releases.
 - Renamed product "LMW Synth" → `LMW-Synth` (app file, VST3 bundle, window title, host name; plugin ID unchanged). Build script clears stale outputs before building.
 - GUI: Voices fader moved to the far left in its own POLY group; window 614×450.
 - Phase 3: VCF (24 dB ladder, resonance, self-oscillation), shared LFO (4 shapes) and noise, mixer, second envelope (→ VCF cutoff), mod wheel vibrato, normalled patch with cable override (engine + lock-free patch queue), sustain-level glide. 19 parameters (env.* renamed env1.*), new value units (Hz/kHz, oct, st). GUI in two rows. New test suite T-S5-modules (5 suites).
+- CI: JUCE archive cached with `actions/cache` v6.1.0 (pinned by SHA) and fetched with retries by `cmake/FetchJuceArchive.cmake`; JUCE pin moved to `cmake/JuceVersion.cmake` (one place). Prompted by a GitHub 504 on the archive download that failed macOS/Windows.

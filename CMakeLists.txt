@@ -21,11 +21,18 @@ if(LMW_BUILD_PLUGIN)
     if(POLICY CMP0135)                   # extracted files get extraction time (rebuild-safe)
         cmake_policy(SET CMP0135 NEW)
     endif()
-    # JUCE 9.0.5, pinned to its commit and verified by SHA-256 (Spec S2.3).
-    # A shallow git clone cannot fetch a bare commit hash, so the commit's source archive is used.
+    # JUCE pinned to a commit and verified by SHA-256 (Spec S2.3); version in cmake/JuceVersion.cmake.
+    # LMW_JUCE_ARCHIVE: optional local copy of the same archive (CI cache); the hash is checked either way.
+    include(cmake/JuceVersion.cmake)
+    set(LMW_JUCE_ARCHIVE "" CACHE FILEPATH "Local JUCE ${LMW_JUCE_VERSION} archive (optional)")
+    if(LMW_JUCE_ARCHIVE)
+        set(lmw_juce_source "${LMW_JUCE_ARCHIVE}")
+    else()
+        set(lmw_juce_source "${LMW_JUCE_URL}")
+    endif()
     FetchContent_Declare(JUCE
-        URL      https://github.com/juce-framework/JUCE/archive/d60b7a78030661574a615b586d9325ba7a7fa7dd.tar.gz
-        URL_HASH SHA256=8237b2976871982eb9107fd67b576d95bf02355d99540a0127c4e7c001ecd9f5)
+        URL      "${lmw_juce_source}"
+        URL_HASH SHA256=${LMW_JUCE_SHA256})
     FetchContent_MakeAvailable(JUCE)
 
     juce_add_plugin(LMWSynth

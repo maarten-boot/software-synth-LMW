@@ -70,3 +70,6 @@ Testing/
 # Editor / OS
 *.user
 .DS_Store
+
+# CI download cache
+.juce-cache/
