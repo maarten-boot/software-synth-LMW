@@ -60,10 +60,12 @@ private:
         juce::Label label;
         std::unique_ptr<ComboAttachment> attachment;
     };
-    struct Item {                       // one column in a module group: a fader or a choice box
+    struct Item {                       // one column in a module group: a fader or one/two choice boxes
         Fader* fader = nullptr;
         Choice* choice = nullptr;
+        Choice* choice2 = nullptr;      // stacked below `choice`
     };
+    static Item stacked(Item top, Item bottom) { return {nullptr, top.choice, bottom.choice}; }
     struct Group {                      // a framed module panel (Spec S6.1)
         juce::String title;
         int row = 0;                    // row in the default layout (Spec S6.5)
@@ -146,7 +148,8 @@ private:
     static constexpr Metrics compactMetrics{60,  6, 22, 200, 17, 56, 20, 70, 30, 30, 13.0f, 13.0f};
 
     Item addFader(const char* paramId, const juce::String& text, std::function<juce::String()> tip = {});
-    Item addChoice(const char* paramId, const juce::String& text, const juce::StringArray& options);
+    Item addChoice(const char* paramId, const juce::String& text, const juce::StringArray& options,
+                   const juce::String& tip = {});
     void layoutItem(const Item&, juce::Rectangle<int> column) const;
     void setCompact(bool compact);
     void updateSize();                                    // window size from metrics and row count
@@ -173,7 +176,7 @@ private:
     LMWLookAndFeel lookAndFeel;
     Metrics m = normalMetrics;
     std::array<Fader, 18> faders;
-    std::array<Choice, 2> choices;
+    std::array<Choice, 4> choices;
     std::size_t usedFaders = 0, usedChoices = 0;
     std::vector<Group> groups;
     std::vector<std::unique_ptr<PanelHeader>> headers;    // one per group, same index

@@ -92,3 +92,8 @@ Answered with an estimate (see reply); not started.
 > phase 4b is fine before contrast an theming, VCF2 in series and open
 
 Added Phase 4b to the Plan (a modes, b VCO 1–3 + mixer, c VCF 2), Spec S5.9–S5.11, planned tests. Decisions: VCF 2 in series after VCF 1, fully open by default = exact bypass; old names translated on load.
+
+## 15. Phase 4b a: VCF modes
+> yes, start Phase 4b step a, the filter modes
+
+Ladder mixes y0..y4 per mode (coefficients derived by hand; notch exactly 0 at fc for both orders). First test run: every mode measured as LP24 — the shortcut flag for the original path survived reset() → set it in setMode. LP24 slope measured 26.5 dB/oct at 8→16 kHz: bilinear warping at 96 kHz (tan 30°/tan 15° = 2.15 → 1.1 octave) → measured at 4→8 kHz. Default render bit-identical. GUI: Slope/Type stacked in a fourth VCF column; checked dropdown and compact view on Xvfb. CI for a0424a7 still running at the time.

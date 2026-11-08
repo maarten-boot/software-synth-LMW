@@ -18,6 +18,8 @@ inline constexpr const char* mixNoise    = "mix.noise";
 inline constexpr const char* cutoff      = "vcf.cutoff";
 inline constexpr const char* resonance   = "vcf.res";
 inline constexpr const char* vcfEnv      = "vcf.env";
+inline constexpr const char* vcfSlope    = "vcf.slope";   // Spec S5.9
+inline constexpr const char* vcfType     = "vcf.type";
 inline constexpr const char* vcaInitial  = "vca.initial";
 inline constexpr const char* env1Attack  = "env1.attack";
 inline constexpr const char* env1Decay   = "env1.decay";
@@ -123,7 +125,7 @@ private:
 
     struct RawParams {                 // atomics owned by apvts, read on the audio thread
         std::atomic<float> *voices{}, *wave{}, *fm{}, *mixVco{}, *mixNoise{}, *cutoff{}, *resonance{}, *vcfEnv{}, *vcaInitial{},
-            *e1a{}, *e1d{}, *e1s{}, *e1r{}, *e2a{}, *e2d{}, *e2s{}, *e2r{}, *lfoRate{}, *lfoWave{}, *gain{};
+            *e1a{}, *e1d{}, *e1s{}, *e1r{}, *e2a{}, *e2d{}, *e2s{}, *e2r{}, *lfoRate{}, *lfoWave{}, *gain{}, *vcfSlope{}, *vcfType{};
     } raw;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(LMWSynthProcessor)

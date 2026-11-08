@@ -136,9 +136,14 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
                     addChoice(P::wave, "Wave", {"Sine", "Saw", "Square", "Triangle"})}, {}},
         {"MIXER", 0, {addFader(P::mixVco, "VCO", inputTip(In::MixIn1, "Level of mixer input 1")),
                       addFader(P::mixNoise, "Noise", inputTip(In::MixIn2, "Level of mixer input 2"))}, {}},
-        {"VCF", 0, {addFader(P::cutoff, "Cutoff", inputTip(In::VcfIn, "Lowpass 24 dB/oct cutoff")),
+        {"VCF", 0, {addFader(P::cutoff, "Cutoff", inputTip(In::VcfIn, "Cutoff frequency")),
                     addFader(P::resonance, "Reso", inputTip(In::VcfIn, "Resonance; self-oscillates near the top")),
-                    addFader(P::vcfEnv, "Env 2", inputTip(In::VcfCutoff, "Cutoff modulation depth in octaves"))}, {}},
+                    addFader(P::vcfEnv, "Env 2", inputTip(In::VcfCutoff, "Cutoff modulation depth in octaves")),
+                    // Spec S5.9: filter mode
+                    stacked(addChoice(P::vcfSlope, "Slope", {"24 dB", "12 dB", "6 dB"},
+                                      "Steepness. Bandpass and notch: 12 or 24 dB (6 dB acts as 12 dB)."),
+                            addChoice(P::vcfType, "Type", {"Low", "High", "Band", "Notch"},
+                                      "Lowpass, highpass, bandpass or notch"))}, {}},
         {"VCA", 0, {addFader(P::vcaInitial, "Initial", [this] {
                         return describeInput(In::VcaIn) + "\n" + describeInput(In::VcaCv)
                              + "\nGain = Initial + CV (0..1). Above 0, notes keep sounding after release.";
@@ -193,7 +198,7 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
             {2, 1, false, in(In::MixIn2), "In 2"},     {2, 1, true, out(Out::Noise), "Noise"},
             {2, 1, true, out(Out::Mix), "Out"},
             {3, 0, false, in(In::VcfIn), "In"},
-            {3, 2, false, in(In::VcfCutoff), "Cut"},   {3, 2, true, out(Out::Vcf), "Out"},
+            {3, 2, false, in(In::VcfCutoff), "Cut"},   {3, 3, true, out(Out::Vcf), "Out"},
             {4, 0, false, in(In::VcaIn), "In"},        {4, 0, false, in(In::VcaCv), "CV"},
             {4, 0, true, out(Out::Vca), "Out"},
             {5, 1, true, out(Out::Lfo), "Out"},
@@ -296,15 +301,16 @@ LMWSynthEditor::Item LMWSynthEditor::addFader(const char* paramId, const juce::S
 }
 
 LMWSynthEditor::Item LMWSynthEditor::addChoice(const char* paramId, const juce::String& text,
-                                               const juce::StringArray& options) {
+                                               const juce::StringArray& options, const juce::String& tip) {
     Choice& c = choices[usedChoices++];
     c.box.addItemList(options, 1);
+    c.box.setTooltip(tip);
     c.attachment = std::make_unique<ComboAttachment>(processor.state(), paramId, c.box);
     c.label.setText(text, juce::dontSendNotification);
     c.label.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(c.box);
     addAndMakeVisible(c.label);
-    return {nullptr, &c};
+    return {nullptr, &c, nullptr};
 }
 
 void LMWSynthEditor::setCompact(bool compact) {
@@ -519,6 +525,11 @@ void LMWSynthEditor::layoutItem(const Item& item, juce::Rectangle<int> column) c
         column.reduce(2, 0);
         item.choice->label.setBounds(column.removeFromTop(m.labelH));
         item.choice->box.setBounds(column.removeFromTop(m.boxH + 2));
+        if (item.choice2 != nullptr) {
+            column.removeFromTop(m.gap);
+            item.choice2->label.setBounds(column.removeFromTop(m.labelH));
+            item.choice2->box.setBounds(column.removeFromTop(m.boxH + 2));
+        }
     }
 }
 

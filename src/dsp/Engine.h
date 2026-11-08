@@ -32,6 +32,8 @@ struct ModParams {
     float cutoff = 18000.0f;                    // vcf.cutoff (Hz)
     float resonance = 0.0f;                     // vcf.res
     float envOctaves = 0.0f;                    // vcf.env
+    FilterSlope vcfSlope = FilterSlope::Db24;   // vcf.slope (Spec S5.9)
+    FilterType vcfType = FilterType::Lowpass;   // vcf.type
     float vcaInitial = 0.0f;                    // vca.initial (base gain added to vca.cv)
     float lfoRate = 5.0f;                       // lfo.rate (Hz)
     LfoWave lfoWave = LfoWave::Sine;            // lfo.wave
@@ -65,6 +67,7 @@ public:
         env2.setParameters(p.env2Attack, p.env2Decay, p.env2Sustain, p.env2Release);
     }
     void setResonance(float r) noexcept { vcf.setResonance(r); }
+    void setFilterMode(FilterSlope slope, FilterType type) noexcept { vcf.setMode(slope, type); }
 
     // Retriggering an active voice keeps oscillator phase, filter state and envelope level
     // continuous, so stealing a voice does not click. An envelope whose gate input is keys.gate
@@ -194,7 +197,7 @@ public:
         updateDrone();
         cutoffTarget = std::log2(std::clamp(static_cast<double>(p.cutoff), Ladder::minCutoff, Ladder::maxCutoff));
         lfo.setRate(p.lfoRate); lfo.setWave(p.lfoWave);
-        for (auto& v : voices) v.setResonance(p.resonance);
+        for (auto& v : voices) { v.setResonance(p.resonance); v.setFilterMode(p.vcfSlope, p.vcfType); }
     }
     void setGain(float g) noexcept { targetGain = g; }
     void setModWheel(float v) noexcept { modWheel = std::clamp(v, 0.0f, 1.0f); }   // Spec S3.5

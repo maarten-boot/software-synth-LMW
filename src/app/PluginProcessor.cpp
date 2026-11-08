@@ -46,6 +46,10 @@ APVTS::ParameterLayout LMWSynthProcessor::createLayout() {
           f(P::cutoff,    "VCF Cutoff",    logRange(20.0f, 18000.0f, 600.0f), 18000.0f, hertz),
           f(P::resonance, "VCF Resonance", Range(0.0f, 1.0f), 0.0f, percent),
           f(P::vcfEnv,    "VCF Env",       Range(-5.0f, 5.0f), 0.0f, octaves),
+          std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{P::vcfSlope, 1}, "VCF Slope",   // Spec S5.9
+              juce::StringArray{"24 dB", "12 dB", "6 dB"}, 0),
+          std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{P::vcfType, 1}, "VCF Type",
+              juce::StringArray{"Lowpass", "Highpass", "Bandpass", "Notch"}, 0),
           f(P::vcaInitial, "VCA Initial",  Range(0.0f, 1.0f), 0.0f, percent));
     envelope(l, P::env1Attack, P::env1Decay, P::env1Sustain, P::env1Release, "Env1", 0.01f, 0.2f, 0.7f, 0.3f);
     envelope(l, P::env2Attack, P::env2Decay, P::env2Sustain, P::env2Release, "Env2", 0.01f, 0.3f, 0.0f, 0.3f);
@@ -64,7 +68,7 @@ LMWSynthProcessor::LMWSynthProcessor()
     raw = {get(P::voices), get(P::wave), get(P::fm), get(P::mixVco), get(P::mixNoise), get(P::cutoff),
            get(P::resonance), get(P::vcfEnv), get(P::vcaInitial), get(P::env1Attack), get(P::env1Decay), get(P::env1Sustain),
            get(P::env1Release), get(P::env2Attack), get(P::env2Decay), get(P::env2Sustain), get(P::env2Release),
-           get(P::lfoRate), get(P::lfoWave), get(P::gain)};
+           get(P::lfoRate), get(P::lfoWave), get(P::gain), get(P::vcfSlope), get(P::vcfType)};
     keyboard.addListener(this);
 }
 
@@ -121,6 +125,8 @@ void LMWSynthProcessor::pullParameters() noexcept {
     m.mixVco      = raw.mixVco->load();   m.mixNoise   = raw.mixNoise->load();
     m.cutoff      = raw.cutoff->load();   m.resonance  = raw.resonance->load();
     m.envOctaves  = raw.vcfEnv->load();
+    m.vcfSlope    = static_cast<lmw::dsp::FilterSlope>(static_cast<int>(raw.vcfSlope->load()));
+    m.vcfType     = static_cast<lmw::dsp::FilterType>(static_cast<int>(raw.vcfType->load()));
     m.vcaInitial  = raw.vcaInitial->load();
     m.lfoRate     = raw.lfoRate->load();
     m.lfoWave     = static_cast<lmw::dsp::LfoWave>(static_cast<int>(raw.lfoWave->load()));
