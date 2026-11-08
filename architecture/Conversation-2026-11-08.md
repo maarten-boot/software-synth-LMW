@@ -97,3 +97,8 @@ Added Phase 4b to the Plan (a modes, b VCO 1–3 + mixer, c VCF 2), Spec S5.9–
 > yes, start Phase 4b step a, the filter modes
 
 Ladder mixes y0..y4 per mode (coefficients derived by hand; notch exactly 0 at fc for both orders). First test run: every mode measured as LP24 — the shortcut flag for the original path survived reset() → set it in setMode. LP24 slope measured 26.5 dB/oct at 8→16 kHz: bilinear warping at 96 kHz (tan 30°/tan 15° = 2.15 → 1.1 octave) → measured at 4→8 kHz. Default render bit-identical. GUI: Slope/Type stacked in a fourth VCF column; checked dropdown and compact view on Xvfb. CI for a0424a7 still running at the time.
+
+## 16. Phase 4b b: VCO 1–3
+> yes, start Phase 4b step b, the VCOs
+
+Engine: Out/In for VCO 1–3 and mix.in1–4; per-VCO octave/tune/FM; VCOs computed only when used (so VCO 2/3 at level 0 cost nothing); reference render bit-identical. StateMigration.h (old parameter IDs and cable names, mix.in2 → mix.in4) with tests; processor translates states without stateVersion. Existing tests updated for renamed fields; new test_vcos. GUI: three rows (VCO 1–3, LFO, OUT / MIXER, VCF, VCA / KEYS, ENV 1, ENV 2), shorter rows so it fits 1080p (884 px) and compact fits 768 (678 px). Build errors fixed: ?: over name arrays of different length; a non-ASCII ± in a plain char string (JUCE treats those as ASCII) replaced by text. Xvfb: layout, Tune hover text, compact. CI for 3e6bcc7 (42532484057) green.

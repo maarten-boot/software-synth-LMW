@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "PluginProcessor.h"
 #include "dsp/PatchText.h"
+#include "app/StateMigration.h"
 #include "PluginEditor.h"
 #include "ui/ParamText.h"
 
@@ -37,12 +38,19 @@ APVTS::ParameterLayout LMWSynthProcessor::createLayout() {
     };
 
     APVTS::ParameterLayout l;   // Spec S5a.1 — defaults reproduce the Phase-2 sound
-    l.add(std::make_unique<juce::AudioParameterInt>(juce::ParameterID{P::voices, 1}, "Voices", 1, lmw::dsp::Engine::maxVoices, 8),
-          std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{P::wave, 1}, "VCO Wave",
-              juce::StringArray{"Sine", "Saw", "Square", "Triangle"}, 1),
-          f(P::fm,        "VCO FM",        Range(0.0f, 12.0f), 0.0f, semis),
-          f(P::mixVco,    "Mixer VCO",     Range(0.0f, 1.0f), 1.0f, percent),
-          f(P::mixNoise,  "Mixer Noise",   Range(0.0f, 1.0f), 0.0f, percent),
+    l.add(std::make_unique<juce::AudioParameterInt>(juce::ParameterID{P::voices, 1}, "Voices", 1, lmw::dsp::Engine::maxVoices, 8));
+    for (std::size_t n = 0; n < 3; ++n) {          // Spec S5.10: VCO 1-3
+        const juce::String name = "VCO " + juce::String(static_cast<int>(n) + 1);
+        Range tune(-7.0f, 7.0f, 0.01f);
+        l.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{P::vcoWave[n], 1}, name + " Wave",
+                  juce::StringArray{"Sine", "Saw", "Square", "Triangle"}, 1),
+              std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{P::vcoOctave[n], 1}, name + " Octave",
+                  juce::StringArray{"-2", "-1", "0", "+1", "+2"}, 2),
+              f(P::vcoTune[n], (name + " Tune").toRawUTF8(), tune, 0.0f, semis),
+              f(P::vcoFm[n],   (name + " FM").toRawUTF8(), Range(0.0f, 12.0f), 0.0f, semis),
+              f(P::mixVco[n],  ("Mixer " + name).toRawUTF8(), Range(0.0f, 1.0f), n == 0 ? 1.0f : 0.0f, percent));
+    }
+    l.add(f(P::mixNoise,  "Mixer Noise",   Range(0.0f, 1.0f), 0.0f, percent),
           f(P::cutoff,    "VCF Cutoff",    logRange(20.0f, 18000.0f, 600.0f), 18000.0f, hertz),
           f(P::resonance, "VCF Resonance", Range(0.0f, 1.0f), 0.0f, percent),
           f(P::vcfEnv,    "VCF Env",       Range(-5.0f, 5.0f), 0.0f, octaves),
@@ -65,10 +73,16 @@ LMWSynthProcessor::LMWSynthProcessor()
       apvts(*this, nullptr, "LMWSynth", createLayout()) {
     namespace P = lmw::param;
     auto get = [this](const char* id) { auto* p = apvts.getRawParameterValue(id); jassert(p != nullptr); return p; };
-    raw = {get(P::voices), get(P::wave), get(P::fm), get(P::mixVco), get(P::mixNoise), get(P::cutoff),
-           get(P::resonance), get(P::vcfEnv), get(P::vcaInitial), get(P::env1Attack), get(P::env1Decay), get(P::env1Sustain),
-           get(P::env1Release), get(P::env2Attack), get(P::env2Decay), get(P::env2Sustain), get(P::env2Release),
-           get(P::lfoRate), get(P::lfoWave), get(P::gain), get(P::vcfSlope), get(P::vcfType)};
+    raw.voices = get(P::voices); raw.mixNoise = get(P::mixNoise); raw.cutoff = get(P::cutoff);
+    raw.resonance = get(P::resonance); raw.vcfEnv = get(P::vcfEnv); raw.vcaInitial = get(P::vcaInitial);
+    raw.e1a = get(P::env1Attack); raw.e1d = get(P::env1Decay); raw.e1s = get(P::env1Sustain); raw.e1r = get(P::env1Release);
+    raw.e2a = get(P::env2Attack); raw.e2d = get(P::env2Decay); raw.e2s = get(P::env2Sustain); raw.e2r = get(P::env2Release);
+    raw.lfoRate = get(P::lfoRate); raw.lfoWave = get(P::lfoWave); raw.gain = get(P::gain);
+    raw.vcfSlope = get(P::vcfSlope); raw.vcfType = get(P::vcfType);
+    for (std::size_t n = 0; n < 3; ++n) {
+        raw.wave[n] = get(P::vcoWave[n]); raw.fm[n] = get(P::vcoFm[n]); raw.octave[n] = get(P::vcoOctave[n]);
+        raw.tune[n] = get(P::vcoTune[n]); raw.mixVco[n] = get(P::mixVco[n]);
+    }
     keyboard.addListener(this);
 }
 
@@ -113,7 +127,7 @@ bool LMWSynthProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
 
 void LMWSynthProcessor::pullParameters() noexcept {
     lmw::dsp::VoiceParams p;
-    p.wave        = static_cast<lmw::dsp::Waveform>(static_cast<int>(raw.wave->load()));
+    for (std::size_t n = 0; n < 3; ++n) p.waves[n] = static_cast<lmw::dsp::Waveform>(static_cast<int>(raw.wave[n]->load()));
     p.attack      = raw.e1a->load(); p.decay      = raw.e1d->load();
     p.sustain     = raw.e1s->load(); p.release    = raw.e1r->load();
     p.env2Attack  = raw.e2a->load(); p.env2Decay  = raw.e2d->load();
@@ -121,8 +135,13 @@ void LMWSynthProcessor::pullParameters() noexcept {
     engine.setParams(p);
 
     lmw::dsp::ModParams m;
-    m.fmSemitones = raw.fm->load();
-    m.mixVco      = raw.mixVco->load();   m.mixNoise   = raw.mixNoise->load();
+    for (std::size_t n = 0; n < 3; ++n) {
+        m.fmSemitones[n] = raw.fm[n]->load();
+        m.octave[n]      = static_cast<int>(raw.octave[n]->load()) - 2;    // choice index 0..4 = -2..+2
+        m.tune[n]        = raw.tune[n]->load();
+        m.mixVco[n]      = raw.mixVco[n]->load();
+    }
+    m.mixNoise    = raw.mixNoise->load();
     m.cutoff      = raw.cutoff->load();   m.resonance  = raw.resonance->load();
     m.envOctaves  = raw.vcfEnv->load();
     m.vcfSlope    = static_cast<lmw::dsp::FilterSlope>(static_cast<int>(raw.vcfSlope->load()));
@@ -193,19 +212,33 @@ void LMWSynthProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Mid
     for (int ch = 2; ch < buffer.getNumChannels(); ++ch) buffer.clear(ch, 0, n);
 }
 
-namespace { const juce::Identifier kPatchProp{"patch"}; }   // cables as text (Spec S6.6, PatchText.h)
+namespace {
+const juce::Identifier kPatchProp{"patch"};          // cables as text (Spec S6.6, PatchText.h)
+const juce::Identifier kVersionProp{"stateVersion"}; // absent = version 1 (before VCO 1-3)
+}   // cables as text (Spec S6.6, PatchText.h)
 
 void LMWSynthProcessor::getStateInformation(juce::MemoryBlock& dest) {
     auto copy = apvts.copyState();
     copy.setProperty(kPatchProp, juce::String(lmw::dsp::patchToText(guiPatch)), nullptr);
+    copy.setProperty(kVersionProp, lmw::migration::currentStateVersion, nullptr);
     if (auto xml = copy.createXml()) copyXmlToBinary(*xml, dest);
 }
 
 void LMWSynthProcessor::setStateInformation(const void* data, int size) {
     if (auto xml = getXmlFromBinary(data, size); xml && xml->hasTagName(apvts.state.getType())) {
         auto tree = juce::ValueTree::fromXml(*xml);
-        const auto text = tree.getProperty(kPatchProp).toString().toStdString();
+        auto text = tree.getProperty(kPatchProp).toString().toStdString();
+        if (static_cast<int>(tree.getProperty(kVersionProp, 1)) < 2) {     // Spec S5.10: before VCO 1-3
+            for (auto child : tree)
+                if (child.hasProperty("id")) {
+                    const auto id = child.getProperty("id").toString().toStdString();
+                    const auto newId = lmw::migration::parameterIdFromV1(id);
+                    if (newId != id) child.setProperty("id", juce::String(std::string(newId)), nullptr);
+                }
+            text = lmw::migration::cablesFromV1(text);
+        }
         tree.removeProperty(kPatchProp, nullptr);
+        tree.removeProperty(kVersionProp, nullptr);
         apvts.replaceState(tree);
         // An unreadable cable list is ignored (no cables) rather than failing the whole state.
         setPatch(lmw::dsp::patchFromText(text).value_or(lmw::dsp::Patch{}));

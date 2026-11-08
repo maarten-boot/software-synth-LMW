@@ -20,15 +20,18 @@ namespace lmw::dsp {
 
 // Per-voice parameters (Spec S5a.1). Field names without prefix belong to ENV1.
 struct VoiceParams {
-    Waveform wave = Waveform::Saw;
+    std::array<Waveform, numVcos> waves{Waveform::Saw, Waveform::Saw, Waveform::Saw};   // vcoN.wave
     float attack = 0.01f, decay = 0.2f, sustain = 0.7f, release = 0.3f;              // ENV1 -> VCA
     float env2Attack = 0.01f, env2Decay = 0.3f, env2Sustain = 0.0f, env2Release = 0.3f; // ENV2 -> VCF
 };
 
 // Module parameters shared by all voices (Spec S5a.1).
 struct ModParams {
-    float fmSemitones = 0.0f;                   // vco.fm (base depth; the mod wheel adds up to +1 st)
-    float mixVco = 1.0f, mixNoise = 0.0f;       // mix.vco, mix.noise
+    std::array<float, numVcos> fmSemitones{};   // vcoN.fm (base depth; the mod wheel adds up to +1 st)
+    std::array<int, numVcos> octave{};          // vcoN.octave, -2..+2 (Spec S5.10)
+    std::array<float, numVcos> tune{};          // vcoN.tune, semitones
+    std::array<float, numVcos> mixVco{1.0f, 0.0f, 0.0f};   // mix.vco1..3
+    float mixNoise = 0.0f;                      // mix.noise
     float cutoff = 18000.0f;                    // vcf.cutoff (Hz)
     float resonance = 0.0f;                     // vcf.res
     float envOctaves = 0.0f;                    // vcf.env
@@ -56,13 +59,14 @@ struct GlobalSignals {
 class Voice {
 public:
     void prepare(double sr) noexcept {
-        osc.setSampleRate(sr); env1.setSampleRate(sr); env2.setSampleRate(sr); vcf.setSampleRate(sr);
+        for (auto& o : osc) o.setSampleRate(sr);
+        env1.setSampleRate(sr); env2.setSampleRate(sr); vcf.setSampleRate(sr);
         env1.reset(); env2.reset(); vcf.reset(); out.fill(0.0f);
-        gate = keyDown = false; played = false; lastPitch = 1e9;
+        gate = keyDown = false; played = false; lastPitch.fill(1e9);
         env1GateWasOn = env2GateWasOn = false; env1KeyGated = env2KeyGated = true;
     }
     void setParams(const VoiceParams& p) noexcept {
-        osc.setWaveform(p.wave);
+        for (std::size_t n = 0; n < osc.size(); ++n) osc[n].setWaveform(p.waves[n]);
         env1.setParameters(p.attack, p.decay, p.sustain, p.release);
         env2.setParameters(p.env2Attack, p.env2Decay, p.env2Sustain, p.env2Release);
     }
@@ -74,9 +78,9 @@ public:
     // (normalled or by cable) follows the key events directly, so a repeated note retriggers it;
     // an envelope gated by another signal follows that signal's edges in process() (Spec S5.8).
     void noteOn(int n, float vel, const Patch& patch) noexcept {
-        if (!env1.isActive()) { osc.reset(); vcf.reset(); }
+        if (!env1.isActive()) { for (auto& o : osc) o.reset(); vcf.reset(); }
         note = n; velocity = vel; gate = true; keyDown = true; played = true;
-        lastPitch = 1e9;                          // force frequency update
+        lastPitch.fill(1e9);                      // force frequency update
         if (keyGated(In::Env1Gate, patch)) env1.noteOn();
         if (keyGated(In::Env2Gate, patch)) env2.noteOn();
     }
@@ -89,10 +93,11 @@ public:
     void releaseKey(bool sustainPedal, const Patch& patch) noexcept { keyDown = false; if (!sustainPedal) noteOff(patch); }
     void setPitchBend(double semitones) noexcept { bend = semitones; }
 
-    // One sample through the voice's modules, in order KEYS, ENV1, ENV2, VCO, MIX, VCF, VCA.
+    // One sample through the voice's modules, in order KEYS, ENV1, ENV2, VCO 1-3, MIX, VCF, VCA.
+    // `vcoUsed`: VCOs whose output is heard or patched somewhere (others are not computed).
     // Returns this voice's contribution to out.in (only meaningful for per-voice sources).
     float process(const GlobalSignals& g, const Patch& patch, const ModParams& mp,
-                  double cutoffLog2) noexcept {
+                  double cutoffLog2, const std::array<bool, numVcos>& vcoUsed) noexcept {
         const double keySemitones = static_cast<double>(note - keysPitchZeroNote) + bend;   // Spec S5.8
         out[o(Out::KeysPitch)] = static_cast<float>(keySemitones / 12.0);
         out[o(Out::KeysGate)] = gate ? 1.0f : 0.0f;
@@ -103,16 +108,23 @@ public:
         out[o(Out::Env1)] = env1.next();
         out[o(Out::Env2)] = env2.next();
 
-        // vco.pitch: from the keys it is used in full precision; any other source is 1.0 per octave.
-        const double semitones = patch.source(In::VcoPitch) == Out::KeysPitch
-            ? keySemitones : 12.0 * static_cast<double>(read(In::VcoPitch, g, patch));
-        const float fmDepth = mp.fmSemitones + g.modWheel * modWheelFmSemitones;   // Spec S3.5
-        const double pitch = semitones + static_cast<double>(read(In::VcoFm, g, patch) * fmDepth);
-        if (pitch < lastPitch || pitch > lastPitch) { lastPitch = pitch;   // changed (exact cache check)
-            osc.setFrequency(midiNoteToHz(keysPitchZeroNote) * std::exp2(pitch / 12.0)); }
-        out[o(Out::Vco)] = osc.next();
+        for (int n = 0; n < numVcos; ++n) {
+            if (!vcoUsed[static_cast<std::size_t>(n)]) continue;
+            const auto i = static_cast<std::size_t>(n);
+            // vcoN.pitch: from the keys it is used in full precision; any other source is 1.0 per octave.
+            const In pitchIn = vcoPitchIn(n);
+            const double semitones = patch.source(pitchIn) == Out::KeysPitch
+                ? keySemitones : 12.0 * static_cast<double>(read(pitchIn, g, patch));
+            const float fmDepth = mp.fmSemitones[i] + g.modWheel * modWheelFmSemitones;   // Spec S3.5
+            const double pitch = semitones + static_cast<double>(read(vcoFmIn(n), g, patch) * fmDepth)
+                               + (12.0 * mp.octave[i] + static_cast<double>(mp.tune[i]));   // Spec S5.10
+            if (pitch < lastPitch[i] || pitch > lastPitch[i]) { lastPitch[i] = pitch;   // changed (exact check)
+                osc[i].setFrequency(midiNoteToHz(keysPitchZeroNote) * std::exp2(pitch / 12.0)); }
+            out[o(vcoOut(n))] = osc[i].next();
+        }
 
-        out[o(Out::Mix)] = read(In::MixIn1, g, patch) * mp.mixVco + read(In::MixIn2, g, patch) * mp.mixNoise;
+        out[o(Out::Mix)] = read(In::MixIn1, g, patch) * mp.mixVco[0] + read(In::MixIn2, g, patch) * mp.mixVco[1]
+                         + read(In::MixIn3, g, patch) * mp.mixVco[2] + read(In::MixIn4, g, patch) * mp.mixNoise;
 
         vcf.setCutoff(std::exp2(cutoffLog2 + static_cast<double>(read(In::VcfCutoff, g, patch) * mp.envOctaves)));
         out[o(Out::Vcf)] = vcf.process(read(In::VcfIn, g, patch));
@@ -159,13 +171,14 @@ private:
         return out[o(src)];                    // computed earlier this sample, or previous sample (feedback)
     }
 
-    Oscillator osc;
+    std::array<Oscillator, numVcos> osc;
     Adsr env1, env2;
     Ladder vcf;
     std::array<float, numOutputs> out{};
     int note = 60;
     float velocity = 0.0f;
-    double bend = 0.0, lastPitch = 1e9;        // semitones
+    double bend = 0.0;                         // semitones
+    std::array<double, numVcos> lastPitch{1e9, 1e9, 1e9};
     bool gate = false;                         // ENV1 open (key down or sustained)
     bool keyDown = false;                      // physical key still down
     bool played = false;                       // has had a note since prepare()
@@ -194,7 +207,7 @@ public:
     void setParams(const VoiceParams& p) noexcept { for (auto& v : voices) v.setParams(p); }
     void setModParams(const ModParams& p) noexcept {
         mod = p;
-        updateDrone();
+        updateRouting();
         cutoffTarget = std::log2(std::clamp(static_cast<double>(p.cutoff), Ladder::minCutoff, Ladder::maxCutoff));
         lfo.setRate(p.lfoRate); lfo.setWave(p.lfoWave);
         for (auto& v : voices) { v.setResonance(p.resonance); v.setFilterMode(p.vcfSlope, p.vcfType); }
@@ -203,8 +216,8 @@ public:
     void setModWheel(float v) noexcept { modWheel = std::clamp(v, 0.0f, 1.0f); }   // Spec S3.5
 
     // Patch (Spec S5.4). Call on the audio thread (the processor feeds it from a lock-free queue).
-    void connect(In in, Out from) noexcept { patch.connect(in, from); updateDrone(); }
-    void disconnect(In in) noexcept { patch.disconnect(in); updateDrone(); }
+    void connect(In in, Out from) noexcept { patch.connect(in, from); updateRouting(); }
+    void disconnect(In in) noexcept { patch.disconnect(in); updateRouting(); }
     void apply(const PatchCommand& c) noexcept {
         if (c.output == Patch::none) disconnect(c.input);
         else connect(c.input, static_cast<Out>(c.output));
@@ -251,7 +264,7 @@ public:
             const GlobalSignals g{lfo.next(), noise.next(), modWheel};
             float sum = 0.0f;
             for (auto& v : voices)                    // includes voices ringing out after a count reduction
-                if (v.isActive() || (drone && v.hasPlayed())) sum += v.process(g, patch, mod, cutoffLog2);
+                if (v.isActive() || (drone && v.hasPlayed())) sum += v.process(g, patch, mod, cutoffLog2, vcoUsed);
             if (globalOut) sum = outSrc == Out::Lfo ? g.lfo : g.noise;   // a global source is output once
 
             const float s = SoftLimiter::process(sum * gain * headroom);   // Spec S4.6
@@ -268,9 +281,21 @@ public:
 private:
     // Spec S5.6, S5.8: with out.in or vca.cv patched, a VCA initial gain, or ENV1 gated by something
     // other than the keys, the sound no longer ends with the key, so voices that have played keep running.
-    void updateDrone() noexcept {
+    void updateRouting() noexcept {
         drone = patch.isPatched(In::OutIn) || patch.isPatched(In::VcaCv) || mod.vcaInitial > 0.0f
              || patch.source(In::Env1Gate) != Out::KeysGate;
+        // Spec S5.10: a VCO is computed only when something uses it: a mixer input with its level
+        // above 0, or any other input. VCO 2 and 3 at level 0 cost nothing and leave the sound as is.
+        const std::array<float, 4> mixLevel{mod.mixVco[0], mod.mixVco[1], mod.mixVco[2], mod.mixNoise};
+        vcoUsed.fill(false);
+        for (int i = 0; i < numInputs; ++i) {
+            const auto in = static_cast<In>(i);
+            const int vco = static_cast<int>(patch.source(in)) - static_cast<int>(Out::Vco1);
+            if (vco < 0 || vco >= numVcos) continue;
+            const int mixIndex = i - static_cast<int>(In::MixIn1);
+            if (mixIndex >= 0 && mixIndex < 4 && !(mixLevel[static_cast<std::size_t>(mixIndex)] > 0.0f)) continue;
+            vcoUsed[static_cast<std::size_t>(vco)] = true;
+        }
     }
 
     int allocate(int note) const noexcept {
@@ -297,6 +322,7 @@ private:
     std::uint64_t counter = 0;
     int voiceCount = 8;
     bool sustainPedal = false, drone = false;
+    std::array<bool, numVcos> vcoUsed{true, false, false};
     float gain = 0.0f, targetGain = 1.0f, gainStep = 0.001f, modWheel = 0.0f;
     double cutoffLog2 = std::log2(18000.0), cutoffTarget = std::log2(18000.0), cutoffStep = 0.01;
 };

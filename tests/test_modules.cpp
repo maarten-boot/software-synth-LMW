@@ -29,7 +29,7 @@ static double ladderGain(double cutoff, float res, double hz) {
 static std::vector<float> render(Engine& e, int n) { std::vector<float> l(static_cast<size_t>(n)); e.render(l.data(), nullptr, n); return l; }
 static Engine makeEngine(Waveform w = Waveform::Sine) {
     Engine e; e.prepare(SR); e.setGain(1.0f);
-    VoiceParams p; p.wave = w; p.attack = 0.0f; p.decay = 0.0f; p.sustain = 1.0f; p.release = 0.01f; e.setParams(p);
+    VoiceParams p; p.waves[0] = w; p.attack = 0.0f; p.decay = 0.0f; p.sustain = 1.0f; p.release = 0.01f; e.setParams(p);
     e.setModParams(ModParams{});
     return e;
 }
@@ -92,15 +92,15 @@ int main() {
         e.apply(PatchCommand{In::MixIn1, static_cast<std::int8_t>(Out::Noise)});
         CHECK(e.getPatch().source(In::MixIn1) == Out::Noise);
         e.apply(PatchCommand{In::MixIn1, Patch::none});
-        CHECK(e.getPatch().source(In::MixIn1) == Out::Vco);
+        CHECK(e.getPatch().source(In::MixIn1) == Out::Vco1);
     }
     // Mixer levels act on patched and normalled signals; both at 0 = silence.
     {
         Engine e = makeEngine(Waveform::Saw);
-        ModParams m; m.mixVco = 0.0f; m.mixNoise = 0.0f; e.setModParams(m);
+        ModParams m; m.mixVco[0] = 0.0f; m.mixNoise = 0.0f; e.setModParams(m);
         e.noteOn(60, 1.0f); render(e, 480);
         CHECK(rms(render(e, 4800)) < 1e-6);
-        m.mixNoise = 1.0f; e.setModParams(m);                  // noise on (normalled mix.in2)
+        m.mixNoise = 1.0f; e.setModParams(m);                  // noise on (normalled mix.in4)
         render(e, 480);
         CHECK(crossings(render(e, 48000)) > 3000);
     }
@@ -118,17 +118,17 @@ int main() {
         e.connect(In::OutIn, Out::Lfo);
         const int z = crossings(render(e, 48000)); CHECK(z >= 4 && z <= 6);
     }
-    // Feedback cable (vco.fm <- vca.out) reads the previous sample and stays finite/bounded.
+    // Feedback cable (vco1.fm <- vca.out) reads the previous sample and stays finite/bounded.
     {
         Engine e = makeEngine(Waveform::Saw);
-        ModParams m; m.fmSemitones = 12.0f; e.setModParams(m);
-        e.connect(In::VcoFm, Out::Vca);
+        ModParams m; m.fmSemitones[0] = 12.0f; e.setModParams(m);
+        e.connect(In::Vco1Fm, Out::Vca);
         e.noteOn(60, 1.0f);
         const auto x = render(e, 48000);
         bool ok = true; for (float v : x) ok &= std::isfinite(v) && std::fabs(v) < 1.0f; CHECK(ok);
         CHECK(rms(x) > 0.01);
     }
-    // T-S3.5: vco.fm <- lfo.out; depth = FM fader + mod wheel x 1 st. Both 0 = steady pitch.
+    // T-S3.5: lfo.out -> vco1.fm; depth = FM fader + mod wheel x 1 st. Both 0 = steady pitch.
     {
         auto periodSpread = [](Engine& e) {                    // max - min distance between rising zero crossings
             const auto x = render(e, 48000); int last = -1, lo = 1 << 30, hi = 0;
@@ -137,12 +137,12 @@ int main() {
             return hi - lo;
         };
         Engine e = makeEngine(Waveform::Sine);
-        ModParams m; m.fmSemitones = 0.0f; m.lfoRate = 5.0f; e.setModParams(m);
+        ModParams m; m.fmSemitones[0] = 0.0f; m.lfoRate = 5.0f; e.setModParams(m);
         e.noteOn(69, 1.0f); render(e, 480);
         CHECK(periodSpread(e) <= 1);                           // FM 0, wheel 0: no vibrato (default)
-        m.fmSemitones = 2.0f; e.setModParams(m);
+        m.fmSemitones[0] = 2.0f; e.setModParams(m);
         CHECK(periodSpread(e) >= 22);                          // FM 2 st, no wheel: periods 97..122 samples (spread ~25)
-        m.fmSemitones = 0.0f; e.setModParams(m); e.setModWheel(1.0f);
+        m.fmSemitones[0] = 0.0f; e.setModParams(m); e.setModWheel(1.0f);
         const int s = periodSpread(e);
         CHECK(s >= 11 && s <= 15);                             // wheel alone: ±1 st, periods 103..116 (spread ~13)
     }
@@ -159,7 +159,7 @@ int main() {
     // S5.2: ENV2 -> VCF cutoff — with vcf.env +5 oct the attack is brighter than the sustain.
     {
         Engine e = makeEngine(Waveform::Saw);
-        VoiceParams p; p.wave = Waveform::Saw; p.attack = 0; p.decay = 0; p.sustain = 1; p.release = 0.01f;
+        VoiceParams p; p.waves[0] = Waveform::Saw; p.attack = 0; p.decay = 0; p.sustain = 1; p.release = 0.01f;
         p.env2Attack = 0.0f; p.env2Decay = 0.2f; p.env2Sustain = 0.0f; e.setParams(p);
         ModParams m; m.cutoff = 150.0f; m.envOctaves = 5.0f; e.setModParams(m);
         e.prepare(SR);                                         // cutoff smoothing starts at 150 Hz

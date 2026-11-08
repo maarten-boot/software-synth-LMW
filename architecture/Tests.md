@@ -75,8 +75,9 @@
 | T-S5.8-keys | S5.8 | ctest T-S5.8-keys (`tests/test_keys.cpp`) runs T-S5.8a–d | pass |
 | T-S5.9a | S5.9 | Each slope/type: measured response matches (LP/HP slopes 6/12/24 dB/oct within 2 dB; BP peak at cutoff; notch ≥ 30 dB dip at cutoff) | pass (test_vcfmodes at 96 kHz: LP/HP 6/12/24 dB per octave within 2 dB; BP 0 dB peak; notch < −30 dB at cutoff) |
 | T-S5.9b | S5.9 | Resonance self-oscillates in every mode; mode change on a sounding note has no step larger than normal signal change | pass (test_vcfmodes: all 12 modes self-oscillate, bounded; LP→HP switch max step < 0.01; default render bit-identical; Xvfb: VCF Slope/Type boxes, compact) |
-| T-S5.10a | S5.10 | Octave ±2 and Tune ±7 st give the expected frequencies; VCO 2/3 at level 0 leave the default sound bit-identical | planned |
-| T-S5.10b | S5.10 | Old saved state (vco.*, mix.vco, cables with mix.in2 = noise) loads into the new names with the same values and cables | planned |
+| T-S5.10a | S5.10 | Octave ±2 and Tune ±7 st give the expected frequencies; VCO 2/3 at level 0 leave the default sound bit-identical | pass (test_vcos: octave ±2, tune ±7 st on each VCO within 2 Hz; VCO 2/3 settings at level 0 change nothing; default render bit-identical; Xvfb layout + compact) |
+| T-S5.10b | S5.10 | Old saved state (vco.*, mix.vco, cables with mix.in2 = noise) loads into the new names with the same values and cables | pass (test_patchtext: old cable names and parameter IDs translated; processor applies it to states without stateVersion — end-to-end with a real old state still to be confirmed by the user) |
 | T-S5.11a | S5.11 | VCF 2 at default is an exact bypass (default sound bit-identical); moving its cutoff crossfades without a click | planned |
 | T-S5.11b | S5.11 | Series: VCF 2 lowpass after VCF 1 highpass gives a bandpass; old vcf.* state translated to vcf1.* | planned |
 | T-S5.9-vcfmodes | S5.9 | ctest T-S5.9-vcfmodes (`tests/test_vcfmodes.cpp`) runs T-S5.9a–b | pass |
+| T-S5.10-vcos | S5.10 | ctest T-S5.10-vcos (`tests/test_vcos.cpp`): T-S5.10a plus mixer level, VCO used only by a cable (vco2.out → out.in), vco3.pitch from ENV 2 | pass |

@@ -112,59 +112,82 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     const juce::String arrow = juce::String::fromUTF8("\xe2\x86\x92");
 
     // Hover texts (Spec S6.1): where each input comes from and what the fader does to it.
-    auto fmTip = [this] {
-        const float wheel = processor.modWheel();
-        const float fm = processor.state().getRawParameterValue(lmw::param::fm)->load();
-        return describeInput(In::VcoFm) + "\nVibrato depth = FM + mod wheel x 1 st"
-             + "\nNow: FM " + juce::String(fm, 1) + " st + wheel " + pct(wheel) + " = "
-             + juce::String(fm + wheel * lmw::dsp::modWheelFmSemitones, 1) + " st";
+    auto fmTip = [this](int n) {
+        return [this, n] {
+            const float wheel = processor.modWheel();
+            const float fm = processor.state().getRawParameterValue(lmw::param::vcoFm[static_cast<std::size_t>(n)])->load();
+            return describeInput(lmw::dsp::vcoFmIn(n)) + "\nVibrato depth = FM + mod wheel x 1 st"
+                 + "\nNow: FM " + juce::String(fm, 1) + " st + wheel " + pct(wheel) + " = "
+                 + juce::String(fm + wheel * lmw::dsp::modWheelFmSemitones, 1) + " st";
+        };
     };
     auto inputTip = [this](In in, const juce::String& what) {
         return [this, in, what] { return describeInput(in) + "\n" + what; };
     };
 
-    // Spec S6.1: module panels. Row 0: VCO | MIXER | VCF | VCA | LFO | OUT; row 1: KEYS | envelopes.
-    // Titles name the normalled destination (S5.2) so the prewired patch is visible.
-    groups = {
-        // KEYS starts row 2: next to the envelopes it gates, above the keyboard; 2 columns for 3 sockets.
-        {"KEYS", 1, {addFader(P::voices, "Voices", [] {          // Spec S5.8: keyboard, computer keys, MIDI
-                        return juce::String("Number of voices. Keyboard, computer keys and MIDI play the voices;\n"
-                                            "the sockets below give each voice's pitch, gate and velocity.");
-                    })}, {}, 2},
-        // FM fader first, above the FM input socket (sockets: FM in, then Out).
-        {"VCO", 0, {addFader(P::fm, "FM", fmTip),
-                    addChoice(P::wave, "Wave", {"Sine", "Saw", "Square", "Triangle"})}, {}},
-        {"MIXER", 0, {addFader(P::mixVco, "VCO", inputTip(In::MixIn1, "Level of mixer input 1")),
-                      addFader(P::mixNoise, "Noise", inputTip(In::MixIn2, "Level of mixer input 2"))}, {}},
-        {"VCF", 0, {addFader(P::cutoff, "Cutoff", inputTip(In::VcfIn, "Cutoff frequency")),
-                    addFader(P::resonance, "Reso", inputTip(In::VcfIn, "Resonance; self-oscillates near the top")),
-                    addFader(P::vcfEnv, "Env 2", inputTip(In::VcfCutoff, "Cutoff modulation depth in octaves")),
-                    // Spec S5.9: filter mode
-                    stacked(addChoice(P::vcfSlope, "Slope", {"24 dB", "12 dB", "6 dB"},
-                                      "Steepness. Bandpass and notch: 12 or 24 dB (6 dB acts as 12 dB)."),
-                            addChoice(P::vcfType, "Type", {"Low", "High", "Band", "Notch"},
-                                      "Lowpass, highpass, bandpass or notch"))}, {}},
-        {"VCA", 0, {addFader(P::vcaInitial, "Initial", [this] {
-                        return describeInput(In::VcaIn) + "\n" + describeInput(In::VcaCv)
-                             + "\nGain = Initial + CV (0..1). Above 0, notes keep sounding after release.";
-                    })}, {}},
-        {"LFO", 0, {addChoice(P::lfoWave, "Wave", {"Sine", "Triangle", "Saw", "Square"}),
-                    addFader(P::lfoRate, "Rate", [] { return juce::String("Shared LFO; lfo.out feeds vco.fm (normalled)"); })}, {}},
-        {"OUT", 0, {addFader(P::gain, "Volume", inputTip(In::OutIn, "All voices summed, then soft limiter"))}, {}},
-        {"ENV 1 " + arrow + " VCA", 1,
-            {addFader(P::env1Attack, "Attack"), addFader(P::env1Decay, "Decay"),
-             addFader(P::env1Sustain, "Sustain"), addFader(P::env1Release, "Release")}, {}},
-        {"ENV 2 " + arrow + " VCF", 1,
-            {addFader(P::env2Attack, "Attack"), addFader(P::env2Decay, "Decay"),
-             addFader(P::env2Sustain, "Sustain"), addFader(P::env2Release, "Release")}, {}},
-    };
+    // Spec S6.1, S5.10: module panels in three rows (signal flow left to right, top to bottom):
+    // VCO 1 | VCO 2 | VCO 3 | LFO | OUT;  MIXER | VCF | VCA;  KEYS | ENV 1 | ENV 2.
+    // Titles of the envelopes name their normalled destination (S5.2).
+    std::array<std::size_t, 3> vcoPanel{};
+    for (int n = 0; n < 3; ++n) {
+        const auto i = static_cast<std::size_t>(n);
+        vcoPanel[i] = groups.size();
+        groups.push_back({"VCO " + juce::String(n + 1), 0,
+            {addFader(P::vcoFm[i], "FM", fmTip(n)),                // above the FM input socket
+             addFader(P::vcoTune[i], "Tune", inputTip(lmw::dsp::vcoPitchIn(n),
+                      "Detune, -7 to +7 semitones; Oct shifts by whole octaves")),
+             stacked(addChoice(P::vcoWave[i], "Wave", {"Sine", "Saw", "Square", "Triangle"}),
+                     addChoice(P::vcoOctave[i], "Oct", {"-2", "-1", "0", "+1", "+2"}, "Octave"))}, {}});
+    }
+    const std::size_t lfoPanel = groups.size();
+    groups.push_back({"LFO", 0, {addChoice(P::lfoWave, "Wave", {"Sine", "Triangle", "Saw", "Square"}),
+                                 addFader(P::lfoRate, "Rate", [] {
+                                     return juce::String("Shared LFO; lfo.out feeds vco1.fm, vco2.fm and vco3.fm (normalled)");
+                                 })}, {}});
+    const std::size_t outPanel = groups.size();
+    groups.push_back({"OUT", 0, {addFader(P::gain, "Volume", inputTip(In::OutIn, "All voices summed, then soft limiter"))}, {}});
+    const std::size_t mixPanel = groups.size();
+    groups.push_back({"MIXER", 1,
+        {addFader(P::mixVco[0], "VCO 1", inputTip(In::MixIn1, "Level of mixer input 1")),
+         addFader(P::mixVco[1], "VCO 2", inputTip(In::MixIn2, "Level of mixer input 2")),
+         addFader(P::mixVco[2], "VCO 3", inputTip(In::MixIn3, "Level of mixer input 3")),
+         addFader(P::mixNoise, "Noise", inputTip(In::MixIn4, "Level of mixer input 4"))}, {}});
+    const std::size_t vcfPanel = groups.size();
+    groups.push_back({"VCF", 1,
+        {addFader(P::cutoff, "Cutoff", inputTip(In::VcfIn, "Cutoff frequency")),
+         addFader(P::resonance, "Reso", inputTip(In::VcfIn, "Resonance; self-oscillates near the top")),
+         addFader(P::vcfEnv, "Env 2", inputTip(In::VcfCutoff, "Cutoff modulation depth in octaves")),
+         stacked(addChoice(P::vcfSlope, "Slope", {"24 dB", "12 dB", "6 dB"},          // Spec S5.9: filter mode
+                           "Steepness. Bandpass and notch: 12 or 24 dB (6 dB acts as 12 dB)."),
+                 addChoice(P::vcfType, "Type", {"Low", "High", "Band", "Notch"},
+                           "Lowpass, highpass, bandpass or notch"))}, {}});
+    const std::size_t vcaPanel = groups.size();
+    groups.push_back({"VCA", 1, {addFader(P::vcaInitial, "Initial", [this] {
+                         return describeInput(In::VcaIn) + "\n" + describeInput(In::VcaCv)
+                              + "\nGain = Initial + CV (0..1). Above 0, notes keep sounding after release.";
+                     })}, {}});
+    const std::size_t keysPanel = groups.size();        // Spec S5.8; 2 columns for 3 sockets
+    groups.push_back({"KEYS", 2, {addFader(P::voices, "Voices", [] {
+                          return juce::String("Number of voices. Keyboard, computer keys and MIDI play the voices;\n"
+                                              "the sockets below give each voice's pitch, gate and velocity.");
+                      })}, {}, 2});
+    const std::size_t env1Panel = groups.size();
+    groups.push_back({"ENV 1 " + arrow + " VCA", 2,
+        {addFader(P::env1Attack, "Attack"), addFader(P::env1Decay, "Decay"),
+         addFader(P::env1Sustain, "Sustain"), addFader(P::env1Release, "Release")}, {}});
+    const std::size_t env2Panel = groups.size();
+    groups.push_back({"ENV 2 " + arrow + " VCF", 2,
+        {addFader(P::env2Attack, "Attack"), addFader(P::env2Decay, "Decay"),
+         addFader(P::env2Sustain, "Sustain"), addFader(P::env2Release, "Release")}, {}});
     jassert(usedFaders == faders.size() && usedChoices == choices.size());
 
     // Spec S6.5: rack. A row holds at most as many columns as the widest default row, so the window
     // width never changes; panels can be moved into up to 4 rows. The layout is remembered.
     {
         std::vector<int> columns;
-        lmw::ui::RackLayout::Rows defaultRows(2);
+        int rowCount = 0;
+        for (const auto& g : groups) rowCount = std::max(rowCount, g.row + 1);
+        lmw::ui::RackLayout::Rows defaultRows(static_cast<std::size_t>(rowCount));
         for (std::size_t i = 0; i < groups.size(); ++i) {
             columns.push_back(groups[i].columns());
             defaultRows[static_cast<std::size_t>(groups[i].row)].push_back(static_cast<int>(i));
@@ -180,8 +203,8 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
         rack.emplace(columns, defaultRows, maxColumns, kMaxRows);
         rack->parse(processor.state().state.getProperty(kLayoutProp).toString().toStdString());
     }
-    // Spec S6.6: patch points per panel (inputs first, then outputs). Noise has no panel of its own;
-    // its output sits on the MIXER panel next to the mixer input it is normalled to.
+    // Spec S6.6: patch points per panel. Noise has no panel of its own; its output sits on the MIXER
+    // panel next to the mixer input it is normalled to (In 4).
     {
         using lmw::dsp::Out;
         // `column`: the fader column the socket sits under; an input sits under the fader that sets
@@ -189,23 +212,27 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
         struct PortDef { std::size_t group; int column; bool output; int port; const char* name; };
         const auto in  = [](In i)  { return static_cast<int>(i); };
         const auto out = [](Out o) { return static_cast<int>(o); };
-        const PortDef ports[] = {
-            {0, 0, true, out(Out::KeysPitch), "Pitch"}, {0, 1, true, out(Out::KeysGate), "Gate"},
-            {0, 1, true, out(Out::KeysVel), "Vel"},
-            {1, 0, false, in(In::VcoFm), "FM"},
-            {1, 1, false, in(In::VcoPitch), "Pitch"},  {1, 1, true, out(Out::Vco), "Out"},
-            {2, 0, false, in(In::MixIn1), "In 1"},
-            {2, 1, false, in(In::MixIn2), "In 2"},     {2, 1, true, out(Out::Noise), "Noise"},
-            {2, 1, true, out(Out::Mix), "Out"},
-            {3, 0, false, in(In::VcfIn), "In"},
-            {3, 2, false, in(In::VcfCutoff), "Cut"},   {3, 3, true, out(Out::Vcf), "Out"},
-            {4, 0, false, in(In::VcaIn), "In"},        {4, 0, false, in(In::VcaCv), "CV"},
-            {4, 0, true, out(Out::Vca), "Out"},
-            {5, 1, true, out(Out::Lfo), "Out"},
-            {6, 0, false, in(In::OutIn), "In"},
-            {7, 0, false, in(In::Env1Gate), "Gate"},   {7, 3, true, out(Out::Env1), "Out"},
-            {8, 0, false, in(In::Env2Gate), "Gate"},   {8, 3, true, out(Out::Env2), "Out"},
+        std::vector<PortDef> ports = {
+            {keysPanel, 0, true, out(Out::KeysPitch), "Pitch"}, {keysPanel, 1, true, out(Out::KeysGate), "Gate"},
+            {keysPanel, 1, true, out(Out::KeysVel), "Vel"},
+            {mixPanel, 0, false, in(In::MixIn1), "In 1"},       {mixPanel, 1, false, in(In::MixIn2), "In 2"},
+            {mixPanel, 2, false, in(In::MixIn3), "In 3"},       {mixPanel, 3, false, in(In::MixIn4), "In 4"},
+            {mixPanel, 3, true, out(Out::Noise), "Noise"},      {mixPanel, 3, true, out(Out::Mix), "Out"},
+            {vcfPanel, 0, false, in(In::VcfIn), "In"},
+            {vcfPanel, 2, false, in(In::VcfCutoff), "Cut"},     {vcfPanel, 3, true, out(Out::Vcf), "Out"},
+            {vcaPanel, 0, false, in(In::VcaIn), "In"},          {vcaPanel, 0, false, in(In::VcaCv), "CV"},
+            {vcaPanel, 0, true, out(Out::Vca), "Out"},
+            {lfoPanel, 1, true, out(Out::Lfo), "Out"},
+            {outPanel, 0, false, in(In::OutIn), "In"},
+            {env1Panel, 0, false, in(In::Env1Gate), "Gate"},    {env1Panel, 3, true, out(Out::Env1), "Out"},
+            {env2Panel, 0, false, in(In::Env2Gate), "Gate"},    {env2Panel, 3, true, out(Out::Env2), "Out"},
         };
+        for (int n = 0; n < 3; ++n) {                         // FM under FM, Pitch under Tune, Out last
+            const auto g = vcoPanel[static_cast<std::size_t>(n)];
+            ports.push_back({g, 0, false, in(lmw::dsp::vcoFmIn(n)), "FM"});
+            ports.push_back({g, 1, false, in(lmw::dsp::vcoPitchIn(n)), "Pitch"});
+            ports.push_back({g, 2, true, out(lmw::dsp::vcoOut(n)), "Out"});
+        }
         groupJacks.resize(groups.size());
         for (const auto& d : ports) {
             jacks.push_back(std::make_unique<Jack>(*this, d.output, d.port, d.name));
@@ -578,8 +605,8 @@ void LMWSynthEditor::resized() {
 
 namespace {
 juce::String portName(bool output, int port) {
-    const auto& names = output ? lmw::dsp::outputNames : lmw::dsp::inputNames;
-    const auto& n = names[static_cast<std::size_t>(port)];
+    const auto n = output ? lmw::dsp::outputNames[static_cast<std::size_t>(port)]
+                          : lmw::dsp::inputNames[static_cast<std::size_t>(port)];
     return juce::String(n.data(), n.size());
 }
 }

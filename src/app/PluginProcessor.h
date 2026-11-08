@@ -8,12 +8,16 @@
 #include "dsp/Engine.h"
 #include "dsp/SpscQueue.h"
 #include "dsp/MidiParse.h"
+#include <array>
 
 namespace lmw::param {   // Spec S5a.1
 inline constexpr const char* voices      = "voice.count";
-inline constexpr const char* wave        = "vco.wave";
-inline constexpr const char* fm          = "vco.fm";
-inline constexpr const char* mixVco      = "mix.vco";
+// Spec S5.10: per VCO (index 0..2 = VCO 1..3).
+inline constexpr std::array<const char*, 3> vcoWave  {"vco1.wave",   "vco2.wave",   "vco3.wave"};
+inline constexpr std::array<const char*, 3> vcoFm    {"vco1.fm",     "vco2.fm",     "vco3.fm"};
+inline constexpr std::array<const char*, 3> vcoOctave{"vco1.octave", "vco2.octave", "vco3.octave"};
+inline constexpr std::array<const char*, 3> vcoTune  {"vco1.tune",   "vco2.tune",   "vco3.tune"};
+inline constexpr std::array<const char*, 3> mixVco   {"mix.vco1",    "mix.vco2",    "mix.vco3"};
 inline constexpr const char* mixNoise    = "mix.noise";
 inline constexpr const char* cutoff      = "vcf.cutoff";
 inline constexpr const char* resonance   = "vcf.res";
@@ -124,8 +128,9 @@ private:
     static constexpr double pitchBendRangeSemitones = 2.0;   // Spec S3.4
 
     struct RawParams {                 // atomics owned by apvts, read on the audio thread
-        std::atomic<float> *voices{}, *wave{}, *fm{}, *mixVco{}, *mixNoise{}, *cutoff{}, *resonance{}, *vcfEnv{}, *vcaInitial{},
+        std::atomic<float> *voices{}, *mixNoise{}, *cutoff{}, *resonance{}, *vcfEnv{}, *vcaInitial{},
             *e1a{}, *e1d{}, *e1s{}, *e1r{}, *e2a{}, *e2d{}, *e2s{}, *e2r{}, *lfoRate{}, *lfoWave{}, *gain{}, *vcfSlope{}, *vcfType{};
+        std::array<std::atomic<float>*, 3> wave{}, fm{}, octave{}, tune{}, mixVco{};
     } raw;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(LMWSynthProcessor)

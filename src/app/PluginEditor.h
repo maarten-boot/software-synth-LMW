@@ -144,8 +144,8 @@ private:
         int colW, gap, header, rowH, labelH, boxW, boxH, keysH, titleH, jackH;
         float labelFont, titleFont;
     };
-    static constexpr Metrics normalMetrics {80, 10, 28, 266, 22, 72, 26, 90, 36, 36, 15.0f, 15.0f};
-    static constexpr Metrics compactMetrics{60,  6, 22, 200, 17, 56, 20, 70, 30, 30, 13.0f, 13.0f};
+    static constexpr Metrics normalMetrics {80, 10, 28, 222, 22, 72, 26, 90, 36, 36, 15.0f, 15.0f};
+    static constexpr Metrics compactMetrics{60,  6, 22, 170, 17, 56, 20, 70, 30, 30, 13.0f, 13.0f};
 
     Item addFader(const char* paramId, const juce::String& text, std::function<juce::String()> tip = {});
     Item addChoice(const char* paramId, const juce::String& text, const juce::StringArray& options,
@@ -175,8 +175,8 @@ private:
     LMWSynthProcessor& processor;
     LMWLookAndFeel lookAndFeel;
     Metrics m = normalMetrics;
-    std::array<Fader, 18> faders;
-    std::array<Choice, 4> choices;
+    std::array<Fader, 25> faders;
+    std::array<Choice, 9> choices;
     std::size_t usedFaders = 0, usedChoices = 0;
     std::vector<Group> groups;
     std::vector<std::unique_ptr<PanelHeader>> headers;    // one per group, same index

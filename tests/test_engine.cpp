@@ -117,7 +117,7 @@ int main() {
     // Stealing is click-free: no sample-to-sample jump larger than the waveform allows.
     {
         Engine eng; eng.prepare(SR); eng.setVoiceCount(1); eng.setGain(1.0f);
-        VoiceParams p; p.wave = Waveform::Sine; p.attack = 0.001f; eng.setParams(p);
+        VoiceParams p; p.waves[0] = Waveform::Sine; p.attack = 0.001f; eng.setParams(p);
         std::vector<float> l(4800);
         eng.noteOn(60, 1); eng.render(l.data(), nullptr, 4800);
         const float before = l.back();
@@ -136,7 +136,7 @@ int main() {
     // T-S4.6: 32 voices at full velocity and gain stay finite and below full scale (soft limiter).
     {
         Engine eng; eng.prepare(SR); eng.setVoiceCount(32); eng.setGain(1.0f);
-        VoiceParams p; p.wave = Waveform::Square; p.attack = 0.0f; p.sustain = 1.0f; eng.setParams(p);
+        VoiceParams p; p.waves[0] = Waveform::Square; p.attack = 0.0f; p.sustain = 1.0f; eng.setParams(p);
         for (int k = 0; k < 32; ++k) eng.noteOn(30 + k, 1);
         std::vector<float> l(48000); eng.render(l.data(), nullptr, 48000);
         bool ok = true; float peak = 0;
@@ -184,7 +184,7 @@ int main() {
     // T-S3.4: pitch bend +2 semitones on A4 gives 493.88 Hz, applied to a sounding voice.
     {
         Engine eng; eng.prepare(SR); eng.setGain(1.0f);
-        VoiceParams p; p.wave = Waveform::Sine; p.attack = 0.0f; p.sustain = 1.0f; eng.setParams(p);
+        VoiceParams p; p.waves[0] = Waveform::Sine; p.attack = 0.0f; p.sustain = 1.0f; eng.setParams(p);
         auto zeroCrossings = [&](int n) {
             std::vector<float> l(static_cast<size_t>(n)); eng.render(l.data(), nullptr, n);
             int z = 0; for (size_t i = 1; i < l.size(); ++i) z += (l[i - 1] < 0 && l[i] >= 0) ? 1 : 0;

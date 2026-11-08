@@ -14,7 +14,7 @@ static constexpr double SR = 48000.0;
 static std::vector<float> render(Engine& e, int n) { std::vector<float> l(static_cast<size_t>(n)); e.render(l.data(), nullptr, n); return l; }
 static Engine makeEngine() {
     Engine e; e.prepare(SR); e.setGain(1.0f);
-    VoiceParams p; p.wave = Waveform::Sine; p.attack = 0.0f; p.decay = 0.0f; p.sustain = 1.0f; p.release = 0.005f;
+    VoiceParams p; p.waves[0] = Waveform::Sine; p.attack = 0.0f; p.decay = 0.0f; p.sustain = 1.0f; p.release = 0.005f;
     p.env2Attack = 0.0f; p.env2Decay = 0.0f; p.env2Sustain = 1.0f; p.env2Release = 0.005f;
     e.setParams(p);
     e.setModParams(ModParams{});
@@ -47,7 +47,7 @@ int main() {
     // T-S5.8b: cables from the keys behave exactly like the normalled connections.
     {
         Engine a = makeEngine(), b = makeEngine();
-        b.connect(In::VcoPitch, Out::KeysPitch);
+        b.connect(In::Vco1Pitch, Out::KeysPitch);
         b.connect(In::Env1Gate, Out::KeysGate);
         b.connect(In::Env2Gate, Out::KeysGate);
         bool same = true;
@@ -91,7 +91,7 @@ int main() {
     // T-S5.8d: ENV 2 -> vco.pitch: the pitch no longer follows the key (ENV 2 at 1.0 = C5).
     {
         Engine lo = makeEngine(), hi = makeEngine();
-        for (Engine* e : {&lo, &hi}) e->connect(In::VcoPitch, Out::Env2);
+        for (Engine* e : {&lo, &hi}) e->connect(In::Vco1Pitch, Out::Env2);
         lo.noteOn(48, 1.0f); hi.noteOn(84, 1.0f);
         render(lo, 480); render(hi, 480);                 // let ENV 2 reach 1.0
         const auto a = render(lo, 48000), b = render(hi, 48000);
@@ -102,7 +102,7 @@ int main() {
     {
         auto brightness = [](float vel) {
             Engine e = makeEngine();
-            VoiceParams p; p.wave = Waveform::Saw; p.attack = 0; p.decay = 0; p.sustain = 1; e.setParams(p);
+            VoiceParams p; p.waves[0] = Waveform::Saw; p.attack = 0; p.decay = 0; p.sustain = 1; e.setParams(p);
             ModParams m; m.cutoff = 200.0f; m.envOctaves = 5.0f; e.setModParams(m);
             e.connect(In::VcfCutoff, Out::KeysVel);
             e.noteOn(48, vel);
