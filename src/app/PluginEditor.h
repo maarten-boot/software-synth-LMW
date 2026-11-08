@@ -3,6 +3,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_audio_utils/juce_audio_utils.h>
 #include <array>
+#include <functional>
 #include <vector>
 #include "PluginProcessor.h"
 
@@ -15,6 +16,10 @@ public:
                           float sliderPos, float minSliderPos, float maxSliderPos,
                           juce::Slider::SliderStyle, juce::Slider&) override;
     int getSliderThumbRadius(juce::Slider&) override { return 7; }
+    // Choice boxes with a narrow (16 px) arrow area, so short names fit in compact view.
+    void drawComboBox(juce::Graphics&, int width, int height, bool isButtonDown,
+                      int buttonX, int buttonY, int buttonW, int buttonH, juce::ComboBox&) override;
+    void positionComboBoxText(juce::ComboBox&, juce::Label&) override;
 };
 
 class LMWSynthEditor final : public juce::AudioProcessorEditor, private juce::Timer {
@@ -35,8 +40,15 @@ private:
     using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
     using ComboAttachment  = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
 
+    // A fader whose hover text (Spec S6.1, shown after 2 s) is computed when shown, so it always
+    // reflects the current patch and mod wheel.
+    struct TipSlider : juce::Slider {
+        TipSlider() : juce::Slider(juce::Slider::LinearVertical, juce::Slider::TextBoxBelow) {}
+        std::function<juce::String()> tip;
+        juce::String getTooltip() override { return tip ? tip() : juce::String(); }
+    };
     struct Fader {
-        juce::Slider slider{juce::Slider::LinearVertical, juce::Slider::TextBoxBelow};
+        TipSlider slider;
         juce::Label label;
         std::unique_ptr<SliderAttachment> attachment;
     };
@@ -55,19 +67,30 @@ private:
         std::vector<Item> items;
         juce::Rectangle<int> bounds;
     };
-    Item addFader(const char* paramId, const juce::String& text);
-    Item addChoice(const char* paramId, const juce::String& text, const juce::StringArray& options);
-    static void layoutItem(const Item&, juce::Rectangle<int> column);
+    // Layout sizes; Spec S6.4: normal or compact view.
+    struct Metrics {
+        int colW, gap, header, rowH, labelH, boxW, boxH, keysH, titleH;
+        float labelFont, titleFont;
+    };
+    static constexpr Metrics normalMetrics {80, 10, 28, 230, 22, 72, 26, 90, 36, 15.0f, 15.0f};
+    static constexpr Metrics compactMetrics{60,  6, 22, 170, 17, 56, 20, 70, 30, 13.0f, 13.0f};
 
-    static constexpr int colW = 80, gap = 10, header = 28, rowH = 230;
+    Item addFader(const char* paramId, const juce::String& text, std::function<juce::String()> tip = {});
+    Item addChoice(const char* paramId, const juce::String& text, const juce::StringArray& options);
+    void layoutItem(const Item&, juce::Rectangle<int> column) const;
+    void setCompact(bool compact);
+    juce::String describeInput(lmw::dsp::In) const;   // "<input> ← <source> (normalled|cable)"
 
     LMWSynthProcessor& processor;
     LMWLookAndFeel lookAndFeel;
-    std::array<Fader, 17> faders;
+    Metrics m = normalMetrics;
+    std::array<Fader, 18> faders;
     std::array<Choice, 2> choices;
     std::size_t usedFaders = 0, usedChoices = 0;
     std::vector<Group> groups;
+    juce::TextButton compactButton{"Compact"};
     juce::MidiKeyboardComponent keyboard;
+    juce::TooltipWindow tooltips{this, 2000};   // hover texts appear after 2 s
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(LMWSynthEditor)
 };

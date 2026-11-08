@@ -39,12 +39,13 @@ APVTS::ParameterLayout LMWSynthProcessor::createLayout() {
     l.add(std::make_unique<juce::AudioParameterInt>(juce::ParameterID{P::voices, 1}, "Voices", 1, lmw::dsp::Engine::maxVoices, 8),
           std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{P::wave, 1}, "VCO Wave",
               juce::StringArray{"Sine", "Saw", "Square", "Triangle"}, 1),
-          f(P::fm,        "VCO FM",        Range(0.0f, 12.0f), 1.0f, semis),
+          f(P::fm,        "VCO FM",        Range(0.0f, 12.0f), 0.0f, semis),
           f(P::mixVco,    "Mixer VCO",     Range(0.0f, 1.0f), 1.0f, percent),
           f(P::mixNoise,  "Mixer Noise",   Range(0.0f, 1.0f), 0.0f, percent),
           f(P::cutoff,    "VCF Cutoff",    logRange(20.0f, 18000.0f, 600.0f), 18000.0f, hertz),
           f(P::resonance, "VCF Resonance", Range(0.0f, 1.0f), 0.0f, percent),
-          f(P::vcfEnv,    "VCF Env",       Range(-5.0f, 5.0f), 0.0f, octaves));
+          f(P::vcfEnv,    "VCF Env",       Range(-5.0f, 5.0f), 0.0f, octaves),
+          f(P::vcaInitial, "VCA Initial",  Range(0.0f, 1.0f), 0.0f, percent));
     envelope(l, P::env1Attack, P::env1Decay, P::env1Sustain, P::env1Release, "Env1", 0.01f, 0.2f, 0.7f, 0.3f);
     envelope(l, P::env2Attack, P::env2Decay, P::env2Sustain, P::env2Release, "Env2", 0.01f, 0.3f, 0.0f, 0.3f);
     l.add(f(P::lfoRate, "LFO Rate", logRange(0.05f, 20.0f, 2.0f), 5.0f, hertz),
@@ -60,7 +61,7 @@ LMWSynthProcessor::LMWSynthProcessor()
     namespace P = lmw::param;
     auto get = [this](const char* id) { auto* p = apvts.getRawParameterValue(id); jassert(p != nullptr); return p; };
     raw = {get(P::voices), get(P::wave), get(P::fm), get(P::mixVco), get(P::mixNoise), get(P::cutoff),
-           get(P::resonance), get(P::vcfEnv), get(P::env1Attack), get(P::env1Decay), get(P::env1Sustain),
+           get(P::resonance), get(P::vcfEnv), get(P::vcaInitial), get(P::env1Attack), get(P::env1Decay), get(P::env1Sustain),
            get(P::env1Release), get(P::env2Attack), get(P::env2Decay), get(P::env2Sustain), get(P::env2Release),
            get(P::lfoRate), get(P::lfoWave), get(P::gain)};
     keyboard.addListener(this);
@@ -119,6 +120,7 @@ void LMWSynthProcessor::pullParameters() noexcept {
     m.mixVco      = raw.mixVco->load();   m.mixNoise   = raw.mixNoise->load();
     m.cutoff      = raw.cutoff->load();   m.resonance  = raw.resonance->load();
     m.envOctaves  = raw.vcfEnv->load();
+    m.vcaInitial  = raw.vcaInitial->load();
     m.lfoRate     = raw.lfoRate->load();
     m.lfoWave     = static_cast<lmw::dsp::LfoWave>(static_cast<int>(raw.lfoWave->load()));
     engine.setModParams(m);
@@ -149,7 +151,10 @@ void LMWSynthProcessor::handleMidi(const juce::uint8* data, int size) noexcept {
         case M::AllNotesOff: e.kind = K::AllOff; break;
         case M::Sustain:     engine.setSustain(m.value > 0.5f); return;                       // Spec S3.3
         case M::PitchBend:   engine.setPitchBend(m.value * pitchBendRangeSemitones); return;   // Spec S3.4
-        case M::ModWheel:    engine.setModWheel(m.value); return;                               // Spec S3.5
+        case M::ModWheel:                                                                       // Spec S3.5
+            engine.setModWheel(m.value);
+            modWheelValue.store(m.value, std::memory_order_relaxed);
+            return;
         case M::None:        return;
     }
     applyNoteEvent(e);

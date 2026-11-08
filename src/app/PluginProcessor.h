@@ -18,6 +18,7 @@ inline constexpr const char* mixNoise    = "mix.noise";
 inline constexpr const char* cutoff      = "vcf.cutoff";
 inline constexpr const char* resonance   = "vcf.res";
 inline constexpr const char* vcfEnv      = "vcf.env";
+inline constexpr const char* vcaInitial  = "vca.initial";
 inline constexpr const char* env1Attack  = "env1.attack";
 inline constexpr const char* env1Decay   = "env1.decay";
 inline constexpr const char* env1Sustain = "env1.sustain";
@@ -69,7 +70,16 @@ public:
     void resetKeyboardDisplay();
     // Message thread (GUI, later 9P): patch or unpatch a cable (Spec S5.4). Lock-free; returns
     // false if the queue is full. `from` = Patch::none removes the cable.
-    bool requestPatch(lmw::dsp::In input, std::int8_t from) noexcept { return patchToAudio.push({input, from}); }
+    bool requestPatch(lmw::dsp::In input, std::int8_t from) noexcept {
+        if (!patchToAudio.push({input, from})) return false;
+        if (from == lmw::dsp::Patch::none) guiPatch.disconnect(input);
+        else guiPatch.connect(input, static_cast<lmw::dsp::Out>(from));
+        return true;
+    }
+    // Message thread: the patch as last requested (mirror of the engine's patch) and the latest
+    // mod wheel value — for hover texts in the GUI.
+    const lmw::dsp::Patch& currentPatch() const noexcept { return guiPatch; }
+    float modWheel() const noexcept { return modWheelValue.load(std::memory_order_relaxed); }
 
 private:
     static juce::AudioProcessorValueTreeState::ParameterLayout createLayout();
@@ -90,11 +100,13 @@ private:
     lmw::dsp::SpscQueue<lmw::dsp::NoteEvent, 256> guiToAudio;
     lmw::dsp::SpscQueue<lmw::dsp::NoteEvent, 256> audioToGui;
     lmw::dsp::SpscQueue<lmw::dsp::PatchCommand, 64> patchToAudio;
+    lmw::dsp::Patch guiPatch;                         // message thread only
+    std::atomic<float> modWheelValue{0.0f};           // written by the audio thread
     bool applyingMidiInput = false;   // message thread only: don't echo displayed notes back
     static constexpr double pitchBendRangeSemitones = 2.0;   // Spec S3.4
 
     struct RawParams {                 // atomics owned by apvts, read on the audio thread
-        std::atomic<float> *voices{}, *wave{}, *fm{}, *mixVco{}, *mixNoise{}, *cutoff{}, *resonance{}, *vcfEnv{},
+        std::atomic<float> *voices{}, *wave{}, *fm{}, *mixVco{}, *mixNoise{}, *cutoff{}, *resonance{}, *vcfEnv{}, *vcaInitial{},
             *e1a{}, *e1d{}, *e1s{}, *e1r{}, *e2a{}, *e2d{}, *e2s{}, *e2r{}, *lfoRate{}, *lfoWave{}, *gain{};
     } raw;
 

@@ -20,7 +20,7 @@ inline constexpr std::array<std::string_view, numOutputs> outputNames{
 inline constexpr std::array<std::string_view, numInputs> inputNames{
     "vco.fm", "mix.in1", "mix.in2", "vcf.in", "vcf.cutoff", "vca.in", "vca.cv", "out.in"};
 
-// Spec S5.3 normalled sources. (vco.fm's default is lfo.out scaled by the mod wheel.)
+// Spec S5.3 normalled sources.
 inline constexpr std::array<Out, numInputs> normalled{
     Out::Lfo, Out::Vco, Out::Noise, Out::Mix, Out::Env2, Out::Vcf, Out::Env1, Out::Vca};
 

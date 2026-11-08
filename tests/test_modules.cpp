@@ -128,7 +128,7 @@ int main() {
         bool ok = true; for (float v : x) ok &= std::isfinite(v) && std::fabs(v) < 1.0f; CHECK(ok);
         CHECK(rms(x) > 0.01);
     }
-    // T-S3.5: mod wheel scales the normalled LFO into vco.fm (vibrato); 0 = steady pitch.
+    // T-S3.5: vco.fm <- lfo.out; depth = FM fader + mod wheel x 1 st. Both 0 = steady pitch.
     {
         auto periodSpread = [](Engine& e) {                    // max - min distance between rising zero crossings
             const auto x = render(e, 48000); int last = -1, lo = 1 << 30, hi = 0;
@@ -137,11 +137,24 @@ int main() {
             return hi - lo;
         };
         Engine e = makeEngine(Waveform::Sine);
-        ModParams m; m.fmSemitones = 2.0f; m.lfoRate = 5.0f; e.setModParams(m);
+        ModParams m; m.fmSemitones = 0.0f; m.lfoRate = 5.0f; e.setModParams(m);
         e.noteOn(69, 1.0f); render(e, 480);
-        CHECK(periodSpread(e) <= 1);                           // wheel at 0: no vibrato
-        e.setModWheel(1.0f);
-        CHECK(periodSpread(e) >= 10);                          // ±2 st on 109 samples/period ≈ ±13
+        CHECK(periodSpread(e) <= 1);                           // FM 0, wheel 0: no vibrato (default)
+        m.fmSemitones = 2.0f; e.setModParams(m);
+        CHECK(periodSpread(e) >= 22);                          // FM 2 st, no wheel: periods 97..122 samples (spread ~25)
+        m.fmSemitones = 0.0f; e.setModParams(m); e.setModWheel(1.0f);
+        const int s = periodSpread(e);
+        CHECK(s >= 11 && s <= 15);                             // wheel alone: ±1 st, periods 103..116 (spread ~13)
+    }
+    // S5.5/S5.6: vca.initial is a base gain added to ENV1; > 0 keeps a released voice sounding.
+    {
+        Engine e = makeEngine(Waveform::Saw);
+        e.noteOn(60, 1.0f); render(e, 4800); e.noteOff(60); render(e, 48000);
+        CHECK(rms(render(e, 4800)) == 0.0);                    // initial 0: silent after release
+        ModParams m; m.vcaInitial = 0.5f; e.setModParams(m);
+        CHECK(rms(render(e, 4800)) > 0.02);                    // initial 0.5: drone at half gain
+        m.vcaInitial = 0.0f; e.setModParams(m);
+        CHECK(rms(render(e, 4800)) == 0.0);
     }
     // S5.2: ENV2 -> VCF cutoff — with vcf.env +5 oct the attack is brighter than the sustain.
     {

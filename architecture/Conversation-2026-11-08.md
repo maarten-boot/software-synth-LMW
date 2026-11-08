@@ -22,3 +22,20 @@ JUCE pin moved to cmake/JuceVersion.cmake; cmake/FetchJuceArchive.cmake download
 > push succeeded now   (first push attempt had not reached GitHub; `git status` showed ahead 1)
 
 CI run 42477895758 (457c388): ubuntu-24.04 and macos pass (macOS saved the JUCE cache); fedora-45 and windows failed in "Fetch JUCE archive": GitHub archive returned an HTTP error again, and the script did not retry — file(DOWNLOAD ... EXPECTED_HASH) aborts CMake on a failed download. Fixed: download without EXPECTED_HASH, check status, verify SHA-256 separately; test hooks URL/ATTEMPTS/WAIT. Verified locally: 404 → 3 attempts then clean error, hash mismatch → retried, real download OK. Note: the Windows cache key differs (CRLF checkout changes the file hash) — harmless, caches are per OS anyway.
+
+## 6. Push + CI (user)
+> pushed, wait for CI
+
+CI run 42479785634 (e5b82b3): all 4 jobs pass; Linux, Fedora and macOS restored the JUCE cache, Windows downloaded once and saved its own (different key: CRLF checkout). Tests T-S2.3b → pass.
+
+## 7. Feedback + questions (user)
+> the fm modulation on the vco seems not to work , could we make a hover text after 2 sec on the fm slider whare the fm input is coming from ? all the resr seems ok but the vca as a component is now missing but working, is the vca at the end implicit or is the mixer between vco and vcf the new vca ?
+
+Answer: FM had no effect without a MIDI mod wheel (normalled vco.fm = LFO × wheel, wheel 0). The VCA exists implicitly at the end (VCF → VCA → OUT, CV from ENV 1); the mixer is not a VCA.
+Decisions (question dialog): FM fader = base vibrato depth, mod wheel adds up to +1 st; VCA panel with Initial gain (vca.initial).
+
+## 8. Requests (user, mid-turn)
+> ok we could also use a compact button or seting to make the margins smaller around the sliders aand around the text and box under the slider, the users can then prefer a compact view
+> how difficult would it be to make each component movable and dockable as in a rack? the user can then move VCO VCF and so to different postions they prefer
+
+Implemented: engine (FM depth = fm + wheel; VCA initial; drone when initial > 0), tests updated (first vibrato bounds were wrong: ±1 st at 440 Hz = spread ~13 samples, not ~6); processor (vca.initial, vco.fm default 0, GUI patch mirror, mod wheel value); editor (TipSlider hover texts via TooltipWindow 2000 ms, VCA panel, compact toggle with Metrics normal/compact stored as state property uiCompact, title line fix, custom combo drawing with 16 px arrow). Verified on Xvfb: hover text, compact size 774×496, persistence after a normal close, toggle back. Rack question answered in reply (estimate, not implemented).

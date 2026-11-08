@@ -6,7 +6,7 @@
 | T-S2.1b | S2.1 | CI builds + tests on Ubuntu 24.04 and Fedora 45 (container, pinned by digest); Ubuntu-24.04-built standalone starts on Ubuntu 24.04 | pass: CI run 42406322210 (ubuntu-24.04, fedora-45, macos, windows; 3 test suites each); user ran Ubuntu 24.04 build (layout OK) |
 | T-S2.1c | S2.1 | `scripts/build-ubuntu24.sh` builds + tests in an Ubuntu 24.04 container (image pinned by digest) and produces binaries needing glibc <= 2.39 | pass (podman rootless, 2026-11-07: GLIBC_2.38, 3/3 tests) |
 | T-S2.3 | S2.3 | Every `uses:` in `.github/workflows/*.yml` references a 40-hex commit SHA with a `# vX.Y.Z` comment, and FetchContent dependencies are pinned by commit + URL_HASH; each is the latest workable release (or the exception is documented) | pass (checkout@3d3c42e = v7.0.1, cache@55cc834 = v6.1.0; JUCE d60b7a7 = 9.0.5 in cmake/JuceVersion.cmake — all latest, 2026-11-08) |
-| T-S2.3b | S2.3 | CI survives a GitHub archive outage: JUCE archive cached (key = hash of cmake/JuceVersion.cmake), fetched with retries, SHA-256 verified on download and on use | local 2026-11-08: cached copy accepted, corrupt copy replaced, HTTP 404 retried 3× then clean failure, wrong content (hash mismatch) retried, real download OK, configure from local archive OK. CI run 42477895758 showed the first version never retried (fixed); CI re-check pending |
+| T-S2.3b | S2.3 | CI survives a GitHub archive outage: JUCE archive cached (key = hash of cmake/JuceVersion.cmake), fetched with retries, SHA-256 verified on download and on use | local 2026-11-08: cached copy accepted, corrupt copy replaced, HTTP 404 retried 3× then clean failure, wrong content (hash mismatch) retried, real download OK, configure from local archive OK. CI run 42477895758 showed the first version never retried (fixed); CI run 42479785634: retries in place, cache restored on Linux/Fedora/macOS, Windows saved its own — pass |
 | T-S1.2a | S1.2 | With no cables, default patch produces sound on a MIDI note | pass (`test_modules`) |
 | T-S1.2b | S1.2, S5.4 | A cable into an input replaces (not adds to) its normalled source; removing it restores it; PatchCommand path | pass (`test_modules`: vcf.in ← noise removes the VCO tone) |
 | T-S5-modules | S5.3–S5.7 | VCF (flat passband, ~-12 dB at fc, < -60 dB 3 oct up, resonance peak, self-oscillation at top, decay below), LFO rate/range, noise stats, mixer levels, drone via out.in, global source on out.in, feedback cable bounded, ENV2→cutoff, defaults = Phase-2 level, unique port names | pass (`test_modules`) |
@@ -14,7 +14,8 @@
 | T-S3.2-midi | S3.2 | Raw MIDI decoding: note on/off (vel 0 = off), CC64, CC120/123, pitch bend, SysEx/truncated ignored | pass (`test_engine`) |
 | T-S3.3 | S3.3 | Sustain pedal holds released notes; pedal up releases only notes whose key is up; same-note retrigger; all-notes-off lifts pedal | pass (`test_engine`) |
 | T-S3.4 | S3.4 | Pitch bend +2 / -12 semitones on a sounding A4 gives 494 / 220 Hz | pass (`test_engine`) |
-| T-S3.5 | S3.5 | Mod wheel sets vibrato depth (CC1 decoded; wheel 0 = steady pitch, 1 = ±fm) | pass (`test_modules`, `test_engine`) |
+| T-S3.5 | S3.5 | Vibrato depth = FM + mod wheel × 1 st: FM 0 + wheel 0 steady; FM 2 st without wheel ±2 st; wheel alone ±1 st; CC1 decoded | pass (`test_modules`, `test_engine`) |
+| T-S5.5-vca | S5.5, S5.6 | vca.initial adds to ENV1; 0 = silent after release, 0.5 = drone, back to 0 = silent | pass (`test_modules`) |
 | T-S5.1-osc | S5.1 | Each waveform has correct pitch (440 Hz ±1) and bounded output | pass (`test_engine`) |
 | T-S5.1-adsr | S5.1 | ADSR attack/decay/release durations exact to ±2 samples; zero times safe | pass (`test_engine`) |
 | T-S5.1-engine | S5.1 | Silence before note, sound during, silence after release; only matching note-off releases | pass (`test_engine`) |
@@ -32,7 +33,9 @@
 | T-S4.5 | S4.5 | Lowering voice count 8→2 leaves 2 active after release | pass (`test_engine`) |
 | T-S4.6 | S4.6 | Limiter transparent below -6 dBFS, continuous, monotonic, symmetric, <= ceiling; 32 square voices at full level stay below full scale | pass (`test_engine`) |
 | T-S5a.3 | S5a.3 | Sustain-level change on a held note glides without a jump | pass (`test_modules`) |
-| T-S6.1c | S6.1, S5a.1 | GUI shows all 19 parameters in two rows with correct defaults and units | pass (Xvfb screenshot 2026-11-08) |
+| T-S6.1c | S6.1, S5a.1 | GUI shows all 20 parameters in two rows (incl. VCA panel) with correct defaults and units | pass (Xvfb screenshot 2026-11-08) |
+| T-S6.1d | S6.1 | Hover text appears after 2 s, black on white, naming input, source and effect (FM: depth now) | pass (Xvfb: FM shows "Input vco.fm ← lfo.out (normalled) … = 0.0 st") |
+| T-S6.4 | S6.4 | Compact toggle shrinks the window (1046×658 → 774×496), names still readable, choice kept after restart (normal close), toggles back | pass (Xvfb + xdotool 2026-11-08) |
 | T-S5a.1 | S5a.1 | Parameter IDs, ranges and defaults match Spec (vco.wave, env.*, out.gain, voice.count) | planned (no test yet) |
 | T-S5a.2 | S5a.2 | A note-on at sample k of a block starts sound at sample k (not at block start) | planned (implemented in processBlock, no test yet) |
 | T-S6.2 | S6.2 | Every UI colour pair computes >= 4.5:1 contrast | unit test `test_contrast` passes; UI-wide check pending |

@@ -27,16 +27,20 @@ struct VoiceParams {
 
 // Module parameters shared by all voices (Spec S5a.1).
 struct ModParams {
-    float fmSemitones = 1.0f;                   // vco.fm
+    float fmSemitones = 0.0f;                   // vco.fm (base depth; the mod wheel adds up to +1 st)
     float mixVco = 1.0f, mixNoise = 0.0f;       // mix.vco, mix.noise
     float cutoff = 18000.0f;                    // vcf.cutoff (Hz)
     float resonance = 0.0f;                     // vcf.res
     float envOctaves = 0.0f;                    // vcf.env
+    float vcaInitial = 0.0f;                    // vca.initial (base gain added to vca.cv)
     float lfoRate = 5.0f;                       // lfo.rate (Hz)
     LfoWave lfoWave = LfoWave::Sine;            // lfo.wave
 };
 
 inline double midiNoteToHz(int note) noexcept { return 440.0 * std::pow(2.0, (note - 69) / 12.0); }
+
+// Mod wheel at full adds this much FM depth (Spec S3.5).
+inline constexpr float modWheelFmSemitones = 1.0f;
 
 // Values of the shared modules for the current sample.
 struct GlobalSignals {
@@ -77,7 +81,8 @@ public:
         out[o(Out::Env1)] = env1.next();
         out[o(Out::Env2)] = env2.next();
 
-        const double pitch = bend + static_cast<double>(read(In::VcoFm, g, patch) * mp.fmSemitones);
+        const float fmDepth = mp.fmSemitones + g.modWheel * modWheelFmSemitones;   // Spec S3.5
+        const double pitch = bend + static_cast<double>(read(In::VcoFm, g, patch) * fmDepth);
         if (pitch < lastPitch || pitch > lastPitch) { lastPitch = pitch;   // changed (exact cache check)
             osc.setFrequency(midiNoteToHz(note) * std::exp2(pitch / 12.0)); }
         out[o(Out::Vco)] = osc.next();
@@ -87,7 +92,8 @@ public:
         vcf.setCutoff(std::exp2(cutoffLog2 + static_cast<double>(read(In::VcfCutoff, g, patch) * mp.envOctaves)));
         out[o(Out::Vcf)] = vcf.process(read(In::VcfIn, g, patch));
 
-        out[o(Out::Vca)] = read(In::VcaIn, g, patch) * std::clamp(read(In::VcaCv, g, patch), 0.0f, 1.0f) * velocity;
+        const float vcaGain = std::clamp(mp.vcaInitial + read(In::VcaCv, g, patch), 0.0f, 1.0f);   // Spec S5.5
+        out[o(Out::Vca)] = read(In::VcaIn, g, patch) * vcaGain * velocity;
 
         return read(In::OutIn, g, patch);
     }
@@ -105,7 +111,7 @@ private:
 
     float read(In in, const GlobalSignals& g, const Patch& patch) const noexcept {
         const Out src = patch.source(in);
-        if (src == Out::Lfo)   return (in == In::VcoFm && !patch.isPatched(in)) ? g.lfo * g.modWheel : g.lfo;
+        if (src == Out::Lfo)   return g.lfo;
         if (src == Out::Noise) return g.noise;
         return out[o(src)];                    // computed earlier this sample, or previous sample (feedback)
     }
@@ -143,6 +149,7 @@ public:
     void setParams(const VoiceParams& p) noexcept { for (auto& v : voices) v.setParams(p); }
     void setModParams(const ModParams& p) noexcept {
         mod = p;
+        updateDrone();
         cutoffTarget = std::log2(std::clamp(static_cast<double>(p.cutoff), Ladder::minCutoff, Ladder::maxCutoff));
         lfo.setRate(p.lfoRate); lfo.setWave(p.lfoWave);
         for (auto& v : voices) v.setResonance(p.resonance);
@@ -214,8 +221,11 @@ public:
     const Voice& voice(int i) const noexcept { return voices[static_cast<std::size_t>(i)]; }
 
 private:
-    // Spec S5.6: with out.in or vca.cv patched the sound bypasses ENV1, so voices keep running.
-    void updateDrone() noexcept { drone = patch.isPatched(In::OutIn) || patch.isPatched(In::VcaCv); }
+    // Spec S5.6: with out.in or vca.cv patched, or a VCA initial gain, the sound no longer ends with
+    // ENV1, so voices that have played keep running.
+    void updateDrone() noexcept {
+        drone = patch.isPatched(In::OutIn) || patch.isPatched(In::VcaCv) || mod.vcaInitial > 0.0f;
+    }
 
     int allocate(int note) const noexcept {
         for (int i = 0; i < voiceCount; ++i)                       // 1. same note
