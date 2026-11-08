@@ -75,6 +75,8 @@ void LMWLookAndFeel::drawLinearSlider(juce::Graphics& g, int x, int y, int width
 
 namespace {
 const juce::Identifier kCompactProp{"uiCompact"};   // stored in the plugin/standalone state
+const juce::Identifier kLayoutProp{"uiLayout"};     // rack layout (Spec S6.5), RackLayout::serialize()
+constexpr int kMaxRows = 4;
 
 juce::String pct(float v) { return juce::String(juce::roundToInt(v * 100.0f)) + " %"; }
 }
@@ -147,6 +149,33 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
              addFader(P::env2Sustain, "Sustain"), addFader(P::env2Release, "Release")}, {}},
     };
     jassert(usedFaders == faders.size() && usedChoices == choices.size());
+
+    // Spec S6.5: rack. A row holds at most as many columns as the widest default row, so the window
+    // width never changes; panels can be moved into up to 4 rows. The layout is remembered.
+    {
+        std::vector<int> columns;
+        lmw::ui::RackLayout::Rows defaultRows(2);
+        for (std::size_t i = 0; i < groups.size(); ++i) {
+            columns.push_back(static_cast<int>(groups[i].items.size()));
+            defaultRows[static_cast<std::size_t>(groups[i].row)].push_back(static_cast<int>(i));
+            headers.push_back(std::make_unique<PanelHeader>(*this, static_cast<int>(i)));
+            addAndMakeVisible(*headers.back());
+        }
+        int maxColumns = 0;
+        for (const auto& row : defaultRows) {
+            int c = 0;
+            for (int g : row) c += columns[static_cast<std::size_t>(g)];
+            maxColumns = std::max(maxColumns, c);
+        }
+        rack.emplace(columns, defaultRows, maxColumns, kMaxRows);
+        rack->parse(processor.state().state.getProperty(kLayoutProp).toString().toStdString());
+    }
+    resetLayoutButton.setTooltip("Put all module panels back in their original places");
+    resetLayoutButton.onClick = [this] {
+        rack->reset();
+        layoutChanged(-1);
+    };
+    addAndMakeVisible(resetLayoutButton);
 
     // Spec S6.4: compact view toggle, remembered in the saved state.
     compactButton.setClickingTogglesState(true);
@@ -231,15 +260,182 @@ void LMWSynthEditor::setCompact(bool compact) {
         faders[i].label.setFont(juce::FontOptions(m.labelFont));
     }
     for (std::size_t i = 0; i < usedChoices; ++i) choices[i].label.setFont(juce::FontOptions(m.labelFont));
+    updateSize();
+}
 
-    int columns[2] = {0, 0}, groupsInRow[2] = {0, 0};
-    for (const auto& g : groups) { columns[g.row] += static_cast<int>(g.items.size()); ++groupsInRow[g.row]; }
+void LMWSynthEditor::updateSize() {
+    // Width of the widest row, at least that of the default layout, so moving panels never makes
+    // the window narrower (Spec S6.5).
     int width = 0;
-    for (int r = 0; r < 2; ++r) width = std::max(width, columns[r] * m.colW + (groupsInRow[r] - 1) * m.gap);
+    for (const auto* rows : {&rack->rows(), &rack->defaultRows()})
+        for (const auto& row : *rows)
+            width = std::max(width, rack->rowColumns(row) * m.colW + (static_cast<int>(row.size()) - 1) * m.gap);
+    const int rows = static_cast<int>(rack->rows().size());
     const int pad = m.gap + 2;
-    setSize(pad + width + pad, pad + m.titleH + 2 * m.rowH + m.gap + m.gap + m.keysH + pad);
+    // title, gap, rows with gaps between, gap, keyboard
+    setSize(pad + width + pad, pad + m.titleH + m.gap + rows * m.rowH + (rows - 1) * m.gap + m.gap + m.keysH + pad);
     resized();
     repaint();
+}
+
+// ---- Spec S6.5: rack (movable module panels) ----
+
+LMWSynthEditor::PanelHeader::PanelHeader(LMWSynthEditor& e, int panelIndex) : editor(e), panel(panelIndex) {
+    const auto& title = editor.groups[static_cast<std::size_t>(panel)].title;
+    setWantsKeyboardFocus(true);
+    setMouseCursor(juce::MouseCursor::DraggingHandCursor);
+    setTitle(title + " panel");
+    setDescription("Drag to move. Arrow keys move the panel; Enter opens the move menu.");
+    setTooltip("Drag to move this panel.\nArrow keys (when selected) or right-click: move menu.");
+}
+
+void LMWSynthEditor::PanelHeader::paint(juce::Graphics& g) {
+    g.setColour(kFg);
+    g.setFont(juce::FontOptions(editor.m.titleFont, juce::Font::bold));
+    g.drawText(editor.groups[static_cast<std::size_t>(panel)].title, getLocalBounds(), juce::Justification::centred);
+    g.fillRect(0, getHeight() - 1, getWidth(), 1);
+    if (hasKeyboardFocus(false)) g.drawRect(getLocalBounds().withTrimmedBottom(1), 2);   // focus ring
+}
+
+void LMWSynthEditor::PanelHeader::mouseDown(const juce::MouseEvent& e) {
+    grabKeyboardFocus();
+    if (e.mods.isPopupMenu()) editor.showPanelMenu(panel);
+}
+
+void LMWSynthEditor::PanelHeader::mouseDrag(const juce::MouseEvent& e) {
+    if (e.mods.isPopupMenu() || (!dragging && e.getDistanceFromDragStart() < 4)) return;
+    dragging = true;
+    editor.dragPanel(panel, e.getEventRelativeTo(&editor).getPosition());
+}
+
+void LMWSynthEditor::PanelHeader::mouseUp(const juce::MouseEvent& e) {
+    if (!dragging) return;
+    dragging = false;
+    editor.dropPanel(panel, e.getEventRelativeTo(&editor).getPosition());
+}
+
+bool LMWSynthEditor::PanelHeader::keyPressed(const juce::KeyPress& key) {
+    if (key == juce::KeyPress::escapeKey && dragging) { dragging = false; editor.cancelDrag(); return true; }
+    if (key.getModifiers().isAnyModifierKeyDown() && !key.getModifiers().isShiftDown()) return false;
+    const int code = key.getKeyCode();
+    if (code == juce::KeyPress::leftKey)  { editor.movePanel(panel, 0); return true; }
+    if (code == juce::KeyPress::rightKey) { editor.movePanel(panel, 1); return true; }
+    if (code == juce::KeyPress::upKey)    { editor.movePanel(panel, 2); return true; }
+    if (code == juce::KeyPress::downKey)  { editor.movePanel(panel, 3); return true; }
+    if (code == juce::KeyPress::returnKey || (code == juce::KeyPress::F10Key && key.getModifiers().isShiftDown())) {
+        editor.showPanelMenu(panel);
+        return true;
+    }
+    return false;                        // e.g. QWERTY note keys: handled by the editor
+}
+
+std::optional<LMWSynthEditor::DropTarget> LMWSynthEditor::findDrop(int panel, juce::Point<int> p) const {
+    if (rowBounds.empty()) return std::nullopt;
+    const auto& rows = rack->rows();
+    const int nRows = static_cast<int>(rows.size());
+    const auto& first = rowBounds.front();
+    DropTarget t;
+    if (p.y < first.getY()) {                                   // above the first row: new top row
+        t.newRow = true;
+        t.row = 0;
+    } else if (p.y >= rowBounds.back().getBottom()) {           // below the last row: new bottom row
+        t.newRow = true;
+        t.row = nRows;
+    } else {
+        for (int r = 0; r < nRows; ++r)
+            if (p.y < rowBounds[static_cast<std::size_t>(r)].getBottom() + m.gap) { t.row = r; break; }
+    }
+    if (t.newRow) {
+        const int y = t.row == 0 ? first.getY() - m.gap / 2 : rowBounds.back().getBottom() + m.gap / 2;
+        t.marker = {first.getX(), y - 2, getWidth() - 2 * first.getX(), 4};
+    } else {
+        const auto& rowArea = rowBounds[static_cast<std::size_t>(t.row)];
+        int x = rowArea.getX() - m.gap / 2;
+        for (int q : rows[static_cast<std::size_t>(t.row)]) {    // insert before the first panel right of p
+            if (q == panel) continue;
+            const auto& b = groups[static_cast<std::size_t>(q)].bounds;
+            if (p.x <= b.getCentreX()) break;
+            ++t.index;
+            x = b.getRight() + m.gap / 2;
+        }
+        t.marker = {x - 2, rowArea.getY(), 4, rowArea.getHeight()};
+    }
+    const auto result = rack->preview(panel, t.row, t.index, t.newRow);
+    if (!result || *result == rows) return std::nullopt;        // not allowed (row full) or no change
+    return t;
+}
+
+void LMWSynthEditor::dragPanel(int panel, juce::Point<int> where) {
+    draggedPanel = panel;
+    drop = findDrop(panel, where);
+    repaint();
+}
+
+void LMWSynthEditor::dropPanel(int panel, juce::Point<int> where) {
+    const auto t = findDrop(panel, where);
+    draggedPanel = -1;
+    drop.reset();
+    if (t && rack->move(panel, t->row, t->index, t->newRow)) layoutChanged(panel);
+    else repaint();
+}
+
+void LMWSynthEditor::cancelDrag() {
+    draggedPanel = -1;
+    drop.reset();
+    repaint();
+}
+
+bool LMWSynthEditor::movePanel(int panel, int direction) {
+    bool moved = false;
+    switch (direction) {
+        case 0: moved = rack->moveLeft(panel); break;
+        case 1: moved = rack->moveRight(panel); break;
+        case 2: moved = rack->moveUp(panel); break;
+        case 3: moved = rack->moveDown(panel); break;
+        default: break;
+    }
+    if (moved) layoutChanged(panel);
+    return moved;
+}
+
+void LMWSynthEditor::showPanelMenu(int panel) {
+    const auto can = [this, panel](int direction) {
+        auto copy = *rack;
+        switch (direction) {
+            case 0: return copy.moveLeft(panel);
+            case 1: return copy.moveRight(panel);
+            case 2: return copy.moveUp(panel);
+            default: return copy.moveDown(panel);
+        }
+    };
+    juce::PopupMenu menu;
+    menu.setLookAndFeel(&lookAndFeel);              // black on white like the panel (Spec S6.2)
+    menu.addSectionHeader(groups[static_cast<std::size_t>(panel)].title);
+    menu.addItem(1, "Move left", can(0));
+    menu.addItem(2, "Move right", can(1));
+    menu.addItem(3, "Move up", can(2));
+    menu.addItem(4, "Move down", can(3));
+    menu.addSeparator();
+    menu.addItem(5, "Reset layout");
+    menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(headers[static_cast<std::size_t>(panel)].get()),
+                       [safe = juce::Component::SafePointer<LMWSynthEditor>(this), panel](int result) {
+                           if (safe == nullptr) return;
+                           if (result >= 1 && result <= 4) {
+                               safe->movePanel(panel, result - 1);
+                           } else if (result == 5) {
+                               safe->rack->reset();
+                               safe->layoutChanged(panel);
+                           }
+                       });
+}
+
+void LMWSynthEditor::layoutChanged(int focusPanel) {
+    processor.state().state.setProperty(kLayoutProp, juce::String(rack->serialize()), nullptr);
+    updateSize();
+    if (focusPanel >= 0) {
+        auto& h = *headers[static_cast<std::size_t>(focusPanel)];
+        if (h.isShowing()) h.grabKeyboardFocus();
+    }
 }
 
 void LMWSynthEditor::paint(juce::Graphics& g) {
@@ -251,13 +447,9 @@ void LMWSynthEditor::paint(juce::Graphics& g) {
     const float lineY = static_cast<float>(pad + m.titleH + m.gap / 2);   // between title row and modules
     g.drawLine(static_cast<float>(pad), lineY, static_cast<float>(getWidth() - pad), lineY, 1.0f);
 
-    g.setFont(juce::FontOptions(m.titleFont, juce::Font::bold));
-    for (const auto& grp : groups) {
-        g.drawRect(grp.bounds, 1);
-        g.drawText(grp.title, grp.bounds.withHeight(m.header - 4), juce::Justification::centred);
-        g.drawHorizontalLine(grp.bounds.getY() + m.header - 4, static_cast<float>(grp.bounds.getX()),
-                             static_cast<float>(grp.bounds.getRight()));
-    }
+    for (std::size_t i = 0; i < groups.size(); ++i)          // titles are drawn by the PanelHeaders
+        g.drawRect(groups[i].bounds, static_cast<int>(i) == draggedPanel ? 3 : 1);
+    if (drop) g.fillRect(drop->marker);                     // drop marker (Spec S6.5)
 }
 
 void LMWSynthEditor::layoutItem(const Item& item, juce::Rectangle<int> column) const {
@@ -273,24 +465,31 @@ void LMWSynthEditor::layoutItem(const Item& item, juce::Rectangle<int> column) c
 }
 
 void LMWSynthEditor::resized() {
+    if (!rack) return;
     const int pad = m.gap + 2;
     auto area = getLocalBounds().reduced(pad);
     auto title = area.removeFromTop(m.titleH);
     compactButton.setBounds(title.removeFromRight(90).reduced(0, 2));
+    title.removeFromRight(m.gap);
+    resetLayoutButton.setBounds(title.removeFromRight(110).reduced(0, 2));
     area.removeFromTop(m.gap);
     keyboard.setBounds(area.removeFromBottom(m.keysH));
     area.removeFromBottom(m.gap);
 
-    std::array<juce::Rectangle<int>, 2> rows;
-    rows[0] = area.removeFromTop(m.rowH);
-    area.removeFromTop(m.gap);
-    rows[1] = area.removeFromTop(m.rowH);
-
-    for (auto& grp : groups) {
-        auto& row = rows[static_cast<std::size_t>(grp.row)];
-        grp.bounds = row.removeFromLeft(static_cast<int>(grp.items.size()) * m.colW);
-        row.removeFromLeft(m.gap);
-        auto inner = grp.bounds.reduced(0, 3).withTrimmedTop(m.header);
-        for (const auto& item : grp.items) layoutItem(item, inner.removeFromLeft(m.colW));
+    // Spec S6.5: panels in the order of the rack layout.
+    rowBounds.clear();
+    for (const auto& rowPanels : rack->rows()) {
+        if (!rowBounds.empty()) area.removeFromTop(m.gap);
+        auto row = area.removeFromTop(m.rowH);
+        rowBounds.push_back(row);
+        for (int index : rowPanels) {
+            auto& grp = groups[static_cast<std::size_t>(index)];
+            grp.bounds = row.removeFromLeft(static_cast<int>(grp.items.size()) * m.colW);
+            row.removeFromLeft(m.gap);
+            headers[static_cast<std::size_t>(index)]->setBounds(grp.bounds.getX() + 1, grp.bounds.getY() + 1,
+                                                                 grp.bounds.getWidth() - 2, m.header - 4);
+            auto inner = grp.bounds.reduced(0, 3).withTrimmedTop(m.header);
+            for (const auto& item : grp.items) layoutItem(item, inner.removeFromLeft(m.colW));
+        }
     }
 }

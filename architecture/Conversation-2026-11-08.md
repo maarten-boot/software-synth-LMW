@@ -44,3 +44,12 @@ Implemented: engine (FM depth = fm + wheel; VCA initial; drone when initial > 0)
 > yes, add the rack to the Plan as Phase 4 step 1
 
 Plan Phase 4 reordered: (1) rack, (2) patch points + cables, (3) contrast settings, (4) themed standalone windows. Spec S6.5 added (row-snapping panels, drop marker, keyboard/menu moves, saved layout, Reset layout; floating windows out of scope). Tests T-S6.5a–c planned.
+
+## 10. Phase 4 step 1: rack
+> yes, start Phase 4 step 1, the rack
+
+Implemented RackLayout (pure model + test_rack), PanelHeader per panel (drag, focus ring, arrow keys, menu), drop marker, Reset layout button, saved layout. Xvfb checks: drag LFO to row 2 (marker shown), window first shrank → fixed (width stays at the widest default row), Left arrow move, `a` plays C4 while a title has focus, right-click menu was dark grey → given the editor's look-and-feel (black on white), layout restored after restart, compact view, Reset layout.
+
+> should the vst3 plugin already work and be able to present a gui to a daw ? on linux i mean
+
+Answered: it builds (build-u24/VST3/LMW-Synth.vst3) and uses the same editor, so it should load and show the GUI, but it is untested in a DAW (Phase 8).

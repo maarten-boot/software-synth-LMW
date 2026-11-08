@@ -53,6 +53,7 @@
 | T-S10.4 | S10.4 | Engine reachable over Unix socket on Linux/macOS/Windows and over TCP when enabled | planned |
 | T-S10.5 | S10.5 | Two plugin instances in one host expose two distinct 9P endpoints | planned |
 | T-S10.9 | S10.9 | `cat source` returns the repository URL | planned |
-| T-S6.5a | S6.5 | Drag a panel's title bar to another row position: drop marker shown, panel lands there, others reflow; window size unchanged | planned |
-| T-S6.5b | S6.5 | Move a panel with keyboard/menu only (no mouse): same result as dragging | planned |
-| T-S6.5c | S6.5 | Layout survives close/reopen; Reset layout restores the default order; works in compact view | planned |
+| T-S6.5 | S6.5 | Unit test `test_rack` (ctest T-S6.5-layout): moves within/between rows, row capacity, new/empty rows, max 4 rows, keyboard moves, save/restore and rejection of invalid stored layouts | pass |
+| T-S6.5a | S6.5 | Drag a panel's title bar to another row position: drop marker shown, panel lands there, others reflow; window width unchanged | pass (Xvfb: LFO dragged after ENV 2, marker visible, width stays 1046) |
+| T-S6.5b | S6.5 | Move a panel with keyboard/menu only (no mouse): same result as dragging; menu black on white; QWERTY notes still play while a title has focus | pass (Xvfb: Left arrow, right-click menu, `a` → C4) |
+| T-S6.5c | S6.5 | Layout survives close/reopen; Reset layout restores the default order; works in compact view | pass (Xvfb) |
