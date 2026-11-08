@@ -6,13 +6,14 @@
 | T-S2.1b | S2.1 | CI builds + tests on Ubuntu 24.04 and Fedora 45 (container, pinned by digest); Ubuntu-24.04-built standalone starts on Ubuntu 24.04 | pass: CI run 42406322210 (ubuntu-24.04, fedora-45, macos, windows; 3 test suites each); user ran Ubuntu 24.04 build (layout OK) |
 | T-S2.1c | S2.1 | `scripts/build-ubuntu24.sh` builds + tests in an Ubuntu 24.04 container (image pinned by digest) and produces binaries needing glibc <= 2.39 | pass (podman rootless, 2026-11-07: GLIBC_2.38, 3/3 tests) |
 | T-S2.3 | S2.3 | Every `uses:` in `.github/workflows/*.yml` references a 40-hex commit SHA with a `# vX.Y.Z` comment, and FetchContent dependencies are pinned by commit + URL_HASH; each is the latest workable release (or the exception is documented) | pass (checkout@3d3c42e = v7.0.1; JUCE d60b7a7 = 9.0.5, latest — 2026-11-07) |
-| T-S1.2a | S1.2 | With no cables, default patch produces sound on a MIDI note | planned |
-| T-S1.2b | S1.2 | A cable into an input replaces (not adds to) its normalled source | planned |
+| T-S1.2a | S1.2 | With no cables, default patch produces sound on a MIDI note | pass (`test_modules`) |
+| T-S1.2b | S1.2, S5.4 | A cable into an input replaces (not adds to) its normalled source; removing it restores it; PatchCommand path | pass (`test_modules`: vcf.in ← noise removes the VCO tone) |
+| T-S5-modules | S5.3–S5.7 | VCF (flat passband, ~-12 dB at fc, < -60 dB 3 oct up, resonance peak, self-oscillation at top, decay below), LFO rate/range, noise stats, mixer levels, drone via out.in, global source on out.in, feedback cable bounded, ENV2→cutoff, defaults = Phase-2 level, unique port names | pass (`test_modules`) |
 | T-S3.2 | S3.2 | Computer keyboard keys trigger notes in standalone, also after clicking a fader; typing in a value box plays no notes | pass (Xvfb + xdotool 2026-11-07: 'a' → C4 at start and after fader click; typing "250 ms" sets Attack, no note). User confirmed on Ubuntu 24.04 (2026-11-07), also after clicking/changing a fader |
 | T-S3.2-midi | S3.2 | Raw MIDI decoding: note on/off (vel 0 = off), CC64, CC120/123, pitch bend, SysEx/truncated ignored | pass (`test_engine`) |
 | T-S3.3 | S3.3 | Sustain pedal holds released notes; pedal up releases only notes whose key is up; same-note retrigger; all-notes-off lifts pedal | pass (`test_engine`) |
 | T-S3.4 | S3.4 | Pitch bend +2 / -12 semitones on a sounding A4 gives 494 / 220 Hz | pass (`test_engine`) |
-| T-S3.5 | S3.5 | Mod wheel sets vibrato depth | planned (Phase 3) |
+| T-S3.5 | S3.5 | Mod wheel sets vibrato depth (CC1 decoded; wheel 0 = steady pitch, 1 = ±fm) | pass (`test_modules`, `test_engine`) |
 | T-S5.1-osc | S5.1 | Each waveform has correct pitch (440 Hz ±1) and bounded output | pass (`test_engine`) |
 | T-S5.1-adsr | S5.1 | ADSR attack/decay/release durations exact to ±2 samples; zero times safe | pass (`test_engine`) |
 | T-S5.1-engine | S5.1 | Silence before note, sound during, silence after release; only matching note-off releases | pass (`test_engine`) |
@@ -29,7 +30,8 @@
 | T-S4.4 | S4.4 | Steal causes no sample jump > 0.02 | pass (`test_engine`) |
 | T-S4.5 | S4.5 | Lowering voice count 8→2 leaves 2 active after release | pass (`test_engine`) |
 | T-S4.6 | S4.6 | Limiter transparent below -6 dBFS, continuous, monotonic, symmetric, <= ceiling; 32 square voices at full level stay below full scale | pass (`test_engine`) |
-| T-S5a.3 | S5a.3 | Sustain-level change on a held note glides without a jump | planned (Phase 3) |
+| T-S5a.3 | S5a.3 | Sustain-level change on a held note glides without a jump | pass (`test_modules`) |
+| T-S6.1c | S6.1, S5a.1 | GUI shows all 19 parameters in two rows with correct defaults and units | pass (Xvfb screenshot 2026-11-08) |
 | T-S5a.1 | S5a.1 | Parameter IDs, ranges and defaults match Spec (vco.wave, env.*, out.gain, voice.count) | planned (no test yet) |
 | T-S5a.2 | S5a.2 | A note-on at sample k of a block starts sound at sample k (not at block start) | planned (implemented in processBlock, no test yet) |
 | T-S6.2 | S6.2 | Every UI colour pair computes >= 4.5:1 contrast | unit test `test_contrast` passes; UI-wide check pending |

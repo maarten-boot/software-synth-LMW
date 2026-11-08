@@ -27,3 +27,4 @@ Changes between releases.
 - Soft limiter on the output (Spec S4.6): transparent below -6 dBFS, tanh knee, ceiling -0.04 dBFS. Spec: S4.2 stealing order and S5.2 default patch confirmed; S5a.3 parameter-change behaviour.
 - Renamed product "LMW Synth" → `LMW-Synth` (app file, VST3 bundle, window title, host name; plugin ID unchanged). Build script clears stale outputs before building.
 - GUI: Voices fader moved to the far left in its own POLY group; window 614×450.
+- Phase 3: VCF (24 dB ladder, resonance, self-oscillation), shared LFO (4 shapes) and noise, mixer, second envelope (→ VCF cutoff), mod wheel vibrato, normalled patch with cable override (engine + lock-free patch queue), sustain-level glide. 19 parameters (env.* renamed env1.*), new value units (Hz/kHz, oct, st). GUI in two rows. New test suite T-S5-modules (5 suites).

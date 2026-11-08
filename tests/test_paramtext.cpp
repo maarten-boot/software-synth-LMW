@@ -37,6 +37,22 @@ int main() {
     CHECK(near(parseDecibels("0"), 1.0f));
     CHECK(parseDecibels("-inf dB") == 0.0f);
 
+    CHECK(hertz(5.0f) == "5.00 Hz");
+    CHECK(hertz(50.0f) == "50.0 Hz");
+    CHECK(hertz(440.0f) == "440 Hz");
+    CHECK(hertz(2500.0f) == "2.50 kHz");
+    CHECK(hertz(18000.0f) == "18.0 kHz");
+    CHECK(near(parseHertz("2.5 kHz"), 2500.0f));
+    CHECK(near(parseHertz("2k"), 2000.0f));
+    CHECK(near(parseHertz("440 Hz"), 440.0f));
+    CHECK(octaves(2.0f) == "+2.0 oct");
+    CHECK(octaves(-1.5f) == "-1.5 oct");
+    CHECK(octaves(0.01f) == "0.0 oct");
+    CHECK(semitones(1.0f) == "1.0 st");
+    CHECK(near(parseNumber("+2.0 oct"), 2.0f));
+    CHECK(near(parseNumber("-1.5"), -1.5f));
+    for (float v : {20.0f, 150.0f, 999.0f, 1234.0f, 17000.0f}) CHECK(std::fabs(parseHertz(hertz(v)) - v) / v < 0.006f);
+
     // Round trip: text shown for a value parses back to (nearly) the same value.
     for (float v : {0.005f, 0.2f, 0.75f, 3.3f, 9.0f}) CHECK(std::fabs(parseTime(time(v)) - v) <= 0.006f);
     for (float v : {0.1f, 0.5f, 0.8f, 1.0f})          CHECK(std::fabs(parseDecibels(decibels(v)) - v) <= 0.01f);

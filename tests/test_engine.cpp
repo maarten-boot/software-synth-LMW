@@ -213,7 +213,8 @@ int main() {
         CHECK(parse({0xB0, 64, 127}).kind == K::Sustain && parse({0xB0, 64, 127}).value == 1.0f);
         CHECK(parse({0xB0, 64, 63}).value == 0.0f);
         CHECK(parse({0xB0, 123, 0}).kind == K::AllNotesOff && parse({0xB0, 120, 0}).kind == K::AllNotesOff);
-        CHECK(parse({0xB0, 1, 64}).kind == K::None);                     // mod wheel: Phase 3 (S3.5)
+        CHECK(parse({0xB0, 1, 127}).kind == K::ModWheel && parse({0xB0, 1, 127}).value == 1.0f);   // S3.5
+        CHECK(parse({0xB0, 7, 100}).kind == K::None);                    // other CCs ignored
         CHECK(parse({0xE0, 0x00, 0x40}).kind == K::PitchBend && parse({0xE0, 0x00, 0x40}).value == 0.0f);
         CHECK(parse({0xE0, 0x00, 0x00}).value == -1.0f);
         CHECK(parse({0xE0, 0x7F, 0x7F}).value > 0.999f);

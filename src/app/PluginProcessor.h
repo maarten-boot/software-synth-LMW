@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // JUCE wrapper around lmw::dsp::Engine (Spec S3, S5). Parameters live in an
-// AudioProcessorValueTreeState; IDs are dotted paths ("env.attack") that map
-// 1:1 to future 9P files (/params/env/attack, Spec S10).
+// AudioProcessorValueTreeState; IDs are dotted paths ("env1.attack") that map
+// 1:1 to future 9P files (/params/env1/attack, Spec S5a.1, S10).
 #pragma once
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_audio_utils/juce_audio_utils.h>
@@ -9,14 +9,26 @@
 #include "dsp/SpscQueue.h"
 #include "dsp/MidiParse.h"
 
-namespace lmw::param {
-inline constexpr const char* wave    = "vco.wave";
-inline constexpr const char* attack  = "env.attack";
-inline constexpr const char* decay   = "env.decay";
-inline constexpr const char* sustain = "env.sustain";
-inline constexpr const char* release = "env.release";
-inline constexpr const char* gain    = "out.gain";
-inline constexpr const char* voices  = "voice.count";
+namespace lmw::param {   // Spec S5a.1
+inline constexpr const char* voices      = "voice.count";
+inline constexpr const char* wave        = "vco.wave";
+inline constexpr const char* fm          = "vco.fm";
+inline constexpr const char* mixVco      = "mix.vco";
+inline constexpr const char* mixNoise    = "mix.noise";
+inline constexpr const char* cutoff      = "vcf.cutoff";
+inline constexpr const char* resonance   = "vcf.res";
+inline constexpr const char* vcfEnv      = "vcf.env";
+inline constexpr const char* env1Attack  = "env1.attack";
+inline constexpr const char* env1Decay   = "env1.decay";
+inline constexpr const char* env1Sustain = "env1.sustain";
+inline constexpr const char* env1Release = "env1.release";
+inline constexpr const char* env2Attack  = "env2.attack";
+inline constexpr const char* env2Decay   = "env2.decay";
+inline constexpr const char* env2Sustain = "env2.sustain";
+inline constexpr const char* env2Release = "env2.release";
+inline constexpr const char* lfoRate     = "lfo.rate";
+inline constexpr const char* lfoWave     = "lfo.wave";
+inline constexpr const char* gain        = "out.gain";
 }
 
 class LMWSynthProcessor final : public juce::AudioProcessor,
@@ -55,6 +67,9 @@ public:
     void updateKeyboardFromMidiInput();
     // Message thread: drop queued display events and clear the keyboard display (editor opened).
     void resetKeyboardDisplay();
+    // Message thread (GUI, later 9P): patch or unpatch a cable (Spec S5.4). Lock-free; returns
+    // false if the queue is full. `from` = Patch::none removes the cable.
+    bool requestPatch(lmw::dsp::In input, std::int8_t from) noexcept { return patchToAudio.push({input, from}); }
 
 private:
     static juce::AudioProcessorValueTreeState::ParameterLayout createLayout();
@@ -74,12 +89,14 @@ private:
     // notes go audio -> GUI (display only), each through its own lock-free SPSC queue.
     lmw::dsp::SpscQueue<lmw::dsp::NoteEvent, 256> guiToAudio;
     lmw::dsp::SpscQueue<lmw::dsp::NoteEvent, 256> audioToGui;
-    bool applyingMidiInput = false;
-    static constexpr double pitchBendRangeSemitones = 2.0;   // Spec S3.4   // message thread only: don't echo displayed notes back
+    lmw::dsp::SpscQueue<lmw::dsp::PatchCommand, 64> patchToAudio;
+    bool applyingMidiInput = false;   // message thread only: don't echo displayed notes back
+    static constexpr double pitchBendRangeSemitones = 2.0;   // Spec S3.4
 
-    std::atomic<float>* pWave{}; std::atomic<float>* pAttack{}; std::atomic<float>* pDecay{};
-    std::atomic<float>* pSustain{}; std::atomic<float>* pRelease{}; std::atomic<float>* pGain{};
-    std::atomic<float>* pVoices{};
+    struct RawParams {                 // atomics owned by apvts, read on the audio thread
+        std::atomic<float> *voices{}, *wave{}, *fm{}, *mixVco{}, *mixNoise{}, *cutoff{}, *resonance{}, *vcfEnv{},
+            *e1a{}, *e1d{}, *e1s{}, *e1r{}, *e2a{}, *e2d{}, *e2s{}, *e2r{}, *lfoRate{}, *lfoWave{}, *gain{};
+    } raw;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(LMWSynthProcessor)
 };

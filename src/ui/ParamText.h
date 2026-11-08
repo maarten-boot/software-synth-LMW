@@ -48,4 +48,25 @@ inline float parseDecibels(const std::string& s) {
     return static_cast<float>(std::pow(10.0, std::strtod(s.c_str(), nullptr) / 20.0));
 }
 
+// Frequency: "5.00 Hz", "50.0 Hz", "500 Hz", "5.00 kHz", "18.0 kHz"; accepts "2k", "2 kHz", "440".
+inline std::string hertz(float hz) {
+    if (hz < 10.0f)    return printf1("%.2f Hz", hz);
+    if (hz < 100.0f)   return printf1("%.1f Hz", hz);
+    if (hz < 999.5f)   return printf1("%.0f Hz", hz);
+    if (hz < 9995.0f)  return printf1("%.2f kHz", hz / 1000.0f);
+    return printf1("%.1f kHz", hz / 1000.0f);
+}
+inline float parseHertz(const std::string& s) {
+    const double v = std::strtod(s.c_str(), nullptr);
+    return static_cast<float>(s.find_first_of("kK") != std::string::npos ? v * 1000.0 : v);
+}
+
+// Signed octaves "+2.0 oct", "-1.5 oct", "0.0 oct"; semitones "1.0 st".
+inline std::string octaves(float v) {
+    if (std::fabs(v) < 0.05f) return "0.0 oct";
+    return printf1("%+.1f oct", v);
+}
+inline std::string semitones(float v) { return printf1("%.1f st", v); }
+inline float parseNumber(const std::string& s) { return static_cast<float>(std::strtod(s.c_str(), nullptr)); }
+
 } // namespace lmw::ui::text

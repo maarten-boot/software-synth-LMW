@@ -70,20 +70,28 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     : AudioProcessorEditor(&p), processor(p),
       keyboard(p.keyboardState(), juce::MidiKeyboardComponent::horizontalKeyboard) {
     setLookAndFeel(&lookAndFeel);
+    namespace P = lmw::param;
 
-    wave.addItemList({"Sine", "Saw", "Square", "Triangle"}, 1);
-    waveAttachment = std::make_unique<ComboAttachment>(p.state(), lmw::param::wave, wave);
-    waveLabel.setText("Wave", juce::dontSendNotification);
-    waveLabel.setJustificationType(juce::Justification::centred);
-    addAndMakeVisible(wave);
-    addAndMakeVisible(waveLabel);
-
-    setupFader(attack,  lmw::param::attack,  "Attack");
-    setupFader(decay,   lmw::param::decay,   "Decay");
-    setupFader(sustain, lmw::param::sustain, "Sustain");
-    setupFader(release, lmw::param::release, "Release");
-    setupFader(gain,    lmw::param::gain,    "Volume");
-    setupFader(voices,  lmw::param::voices,  "Voices");
+    // Spec S6.1: module panels. Row 0: POLY | VCO | MIXER | VCF | LFO | OUT; row 1: the envelopes.
+    // Titles name the normalled destination (S5.2) so the prewired patch is visible.
+    groups = {
+        {"POLY", 0, {addFader(P::voices, "Voices")}, {}},
+        {"VCO", 0, {addChoice(P::wave, "Wave", {"Sine", "Saw", "Square", "Triangle"}),
+                    addFader(P::fm, "FM")}, {}},
+        {"MIXER", 0, {addFader(P::mixVco, "VCO"), addFader(P::mixNoise, "Noise")}, {}},
+        {"VCF", 0, {addFader(P::cutoff, "Cutoff"), addFader(P::resonance, "Reso"),
+                    addFader(P::vcfEnv, "Env 2")}, {}},
+        {"LFO", 0, {addChoice(P::lfoWave, "Wave", {"Sine", "Triangle", "Saw", "Square"}),
+                    addFader(P::lfoRate, "Rate")}, {}},
+        {"OUT", 0, {addFader(P::gain, "Volume")}, {}},
+        {juce::String::fromUTF8("ENV 1 \xe2\x86\x92 VCA"), 1,
+            {addFader(P::env1Attack, "Attack"), addFader(P::env1Decay, "Decay"),
+             addFader(P::env1Sustain, "Sustain"), addFader(P::env1Release, "Release")}, {}},
+        {juce::String::fromUTF8("ENV 2 \xe2\x86\x92 VCF"), 1,
+            {addFader(P::env2Attack, "Attack"), addFader(P::env2Decay, "Decay"),
+             addFader(P::env2Sustain, "Sustain"), addFader(P::env2Release, "Release")}, {}},
+    };
+    jassert(usedFaders == faders.size() && usedChoices == choices.size());
 
     keyboard.setWantsKeyboardFocus(true);       // QWERTY keys play notes (Spec S3.2)
     addAndMakeVisible(keyboard);
@@ -92,7 +100,8 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     // look-and-feel; re-send it so every child uses the black-on-white theme (Spec S6.2).
     sendLookAndFeelChange();
 
-    setSize(614, 450);   // 12 + 7 columns x 80 + 3 gaps x 10 + 12
+    // Width: widest row (11 columns, 6 groups); height: 2 module rows + keyboard.
+    setSize(12 + 11 * colW + 5 * gap + 12, 12 + 36 + 2 * rowH + gap + 10 + 90 + 12);
     p.resetKeyboardDisplay();
     startTimerHz(30);                            // show external MIDI notes on the keyboard
     juce::MessageManager::callAsync([safe = juce::Component::SafePointer<juce::Component>(&keyboard)] {
@@ -114,7 +123,8 @@ bool LMWSynthEditor::keyStateChanged(bool isKeyDown) {
     return !isTypingText() && keyboard.keyStateChanged(isKeyDown);
 }
 
-void LMWSynthEditor::setupFader(Fader& k, const char* paramId, const juce::String& text) {
+LMWSynthEditor::Item LMWSynthEditor::addFader(const char* paramId, const juce::String& text) {
+    Fader& k = faders[usedFaders++];
     k.slider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 72, 26);
     k.slider.setSliderSnapsToMousePosition(false);   // drag moves relative; a click does not jump the value
     k.attachment = std::make_unique<SliderAttachment>(processor.state(), paramId, k.slider);
@@ -122,6 +132,19 @@ void LMWSynthEditor::setupFader(Fader& k, const char* paramId, const juce::Strin
     k.label.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(k.slider);
     addAndMakeVisible(k.label);
+    return {&k, nullptr};
+}
+
+LMWSynthEditor::Item LMWSynthEditor::addChoice(const char* paramId, const juce::String& text,
+                                               const juce::StringArray& options) {
+    Choice& c = choices[usedChoices++];
+    c.box.addItemList(options, 1);
+    c.attachment = std::make_unique<ComboAttachment>(processor.state(), paramId, c.box);
+    c.label.setText(text, juce::dontSendNotification);
+    c.label.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(c.box);
+    addAndMakeVisible(c.label);
+    return {nullptr, &c};
 }
 
 void LMWSynthEditor::paint(juce::Graphics& g) {
@@ -140,33 +163,34 @@ void LMWSynthEditor::paint(juce::Graphics& g) {
     }
 }
 
-void LMWSynthEditor::layoutFader(Fader& f, juce::Rectangle<int> column) {
+void LMWSynthEditor::layoutItem(const Item& item, juce::Rectangle<int> column) {
     column.reduce(4, 0);
-    f.label.setBounds(column.removeFromTop(22));
-    f.slider.setBounds(column);
+    if (item.fader != nullptr) {
+        item.fader->label.setBounds(column.removeFromTop(22));
+        item.fader->slider.setBounds(column);
+    } else if (item.choice != nullptr) {
+        column.reduce(2, 0);
+        item.choice->label.setBounds(column.removeFromTop(22));
+        item.choice->box.setBounds(column.removeFromTop(28));
+    }
 }
 
 void LMWSynthEditor::resized() {
-    constexpr int colW = 80, gap = 10, header = 28;
     auto area = getLocalBounds().reduced(12);
     area.removeFromTop(36);
     keyboard.setBounds(area.removeFromBottom(90));
     area.removeFromBottom(10);
 
-    // Groups: POLY (Voices) | VCO (Wave) | ENV (A D S R) | OUT (Volume)
-    const std::array<int, 4> columns{1, 1, 4, 1};
-    for (size_t i = 0; i < groups.size(); ++i) {
-        groups[i].bounds = area.removeFromLeft(columns[i] * colW);
-        area.removeFromLeft(gap);
+    std::array<juce::Rectangle<int>, 2> rows;
+    rows[0] = area.removeFromTop(rowH);
+    area.removeFromTop(gap);
+    rows[1] = area.removeFromTop(rowH);
+
+    for (auto& grp : groups) {
+        auto& row = rows[static_cast<std::size_t>(grp.row)];
+        grp.bounds = row.removeFromLeft(static_cast<int>(grp.items.size()) * colW);
+        row.removeFromLeft(gap);
+        auto inner = grp.bounds.reduced(0, 4).withTrimmedTop(header);
+        for (const auto& item : grp.items) layoutItem(item, inner.removeFromLeft(colW));
     }
-    auto inner = [&](size_t i) { return groups[i].bounds.reduced(0, 4).withTrimmedTop(header); };
-
-    layoutFader(voices, inner(0));
-    auto vco = inner(1).reduced(6, 0);
-    waveLabel.setBounds(vco.removeFromTop(22));
-    wave.setBounds(vco.removeFromTop(28));
-
-    auto env = inner(2);
-    for (Fader* f : {&attack, &decay, &sustain, &release}) layoutFader(*f, env.removeFromLeft(colW));
-    layoutFader(gain, inner(3));
 }

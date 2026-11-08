@@ -3,6 +3,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_audio_utils/juce_audio_utils.h>
 #include <array>
+#include <vector>
 #include "PluginProcessor.h"
 
 // Spec S6.2: black-on-white look; every colour pair is 21:1.
@@ -39,20 +40,33 @@ private:
         juce::Label label;
         std::unique_ptr<SliderAttachment> attachment;
     };
-    struct Group {
+    struct Choice {
+        juce::ComboBox box;
+        juce::Label label;
+        std::unique_ptr<ComboAttachment> attachment;
+    };
+    struct Item {                       // one column in a module group: a fader or a choice box
+        Fader* fader = nullptr;
+        Choice* choice = nullptr;
+    };
+    struct Group {                      // a framed module panel (Spec S6.1)
         juce::String title;
+        int row = 0;
+        std::vector<Item> items;
         juce::Rectangle<int> bounds;
     };
-    void setupFader(Fader&, const char* paramId, const juce::String& text);
-    static void layoutFader(Fader&, juce::Rectangle<int> column);
+    Item addFader(const char* paramId, const juce::String& text);
+    Item addChoice(const char* paramId, const juce::String& text, const juce::StringArray& options);
+    static void layoutItem(const Item&, juce::Rectangle<int> column);
+
+    static constexpr int colW = 80, gap = 10, header = 28, rowH = 230;
 
     LMWSynthProcessor& processor;
     LMWLookAndFeel lookAndFeel;
-    juce::ComboBox wave;
-    juce::Label waveLabel;
-    std::unique_ptr<ComboAttachment> waveAttachment;
-    Fader attack, decay, sustain, release, gain, voices;
-    std::array<Group, 4> groups{{{"POLY", {}}, {"VCO", {}}, {"ENV", {}}, {"OUT", {}}}};
+    std::array<Fader, 17> faders;
+    std::array<Choice, 2> choices;
+    std::size_t usedFaders = 0, usedChoices = 0;
+    std::vector<Group> groups;
     juce::MidiKeyboardComponent keyboard;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(LMWSynthEditor)

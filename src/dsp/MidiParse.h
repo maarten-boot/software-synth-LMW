@@ -8,10 +8,10 @@
 namespace lmw::dsp {
 
 struct MidiEvent {
-    enum class Kind { None, NoteOn, NoteOff, AllNotesOff, Sustain, PitchBend } kind = Kind::None;
+    enum class Kind { None, NoteOn, NoteOff, AllNotesOff, Sustain, PitchBend, ModWheel } kind = Kind::None;
     int channel = 1;        // 1..16
     int note = 0;
-    float value = 0.0f;     // NoteOn: velocity 0..1; Sustain: 1 = down, 0 = up; PitchBend: -1..+1
+    float value = 0.0f;     // NoteOn: velocity 0..1; Sustain: 1 = down, 0 = up; PitchBend: -1..+1; ModWheel: 0..1
 };
 
 inline MidiEvent parseMidi(const std::uint8_t* d, int size) noexcept {
@@ -36,6 +36,7 @@ inline MidiEvent parseMidi(const std::uint8_t* d, int size) noexcept {
             if (size < 3) break;
             if (a == 64)                   { e.kind = MidiEvent::Kind::Sustain; e.value = b >= 64 ? 1.0f : 0.0f; }
             else if (a == 120 || a == 123) { e.kind = MidiEvent::Kind::AllNotesOff; }   // all sound / notes off
+            else if (a == 1)               { e.kind = MidiEvent::Kind::ModWheel; e.value = static_cast<float>(b) / 127.0f; }
             break;
         case 0xE0:
             if (size < 3) break;

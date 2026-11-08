@@ -8,7 +8,7 @@ Last crosscheck with Spec and code: 2026-11-07.
 | 1 | Audio out + single voice (VCO→VCA, ADSR), parameters, on-screen + QWERTY keyboard | S3.1, S3.2, S5, S5a | done (unit-tested). User confirmed on Ubuntu 24.04: GUI, sound, multiple voices, double-click reset. QWERTY input fixed (worked only while the keyboard had focus) and confirmed by user. Added sustain pedal + pitch bend (S3.3, S3.4); audio thread lock-free (S10.2). |
 | 2 | Voice allocator, polyphony 1–32, Voices fader | S4 | done (unit-tested); S4.2 stealing order awaiting user confirmation |
 | 2a | GUI: vertical faders grouped VCO / ENV / OUT, value text with units, typed values | S6.1 | done (pulled forward from Phase 4) |
-| 3 | Module graph with normalled connections + cable override; VCF, LFO, Mixer, Noise | S1.2, S5 | **next** — blocked on default patch (S5.2) |
+| 3 | Module graph with normalled connections + cable override; VCF, LFO, Mixer, Noise, ENV2; mod wheel; sustain glide; all parameters + two-row GUI | S1.2, S3.5, S5, S5a | done (unit-tested; GUI screenshot). Cables exist in engine/processor (lock-free queue) but can only be plugged in the GUI from Phase 4. Not yet listened to by user. |
 | 4 | GUI: patch points + cables, contrast settings (presets + config file), theme the standalone window, Options menu and settings dialog identically to the main panel | S6 | pending (faders done in 2a) |
 | 5 | Patch save/load | S7 | pending |
 | 6 | Own 9P2000 server in engine (non-RT thread + lock-free queues), Unix socket + TCP; audio thread free of locks/allocation | S10 | pending |

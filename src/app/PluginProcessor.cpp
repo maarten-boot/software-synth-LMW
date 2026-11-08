@@ -6,48 +6,63 @@
 using APVTS = juce::AudioProcessorValueTreeState;
 
 APVTS::ParameterLayout LMWSynthProcessor::createLayout() {
-    auto time = [](float maxSec) {
-        juce::NormalisableRange<float> r(0.0f, maxSec, 0.0f);
-        r.setSkewForCentre(maxSec / 10.0f);
-        return r;
-    };
-    // Value text with units (Spec S6.1); units are in the text, so no separate host label.
-    using Attr = juce::AudioParameterFloatAttributes;
+    namespace P = lmw::param;
     namespace tx = lmw::ui::text;
-    const auto seconds = Attr()
-        .withStringFromValueFunction([](float v, int) { return juce::String(tx::time(v)); })
-        .withValueFromStringFunction([](const juce::String& s) { return tx::parseTime(s.toStdString()); });
-    const auto percent = Attr()
-        .withStringFromValueFunction([](float v, int) { return juce::String(tx::percent(v)); })
-        .withValueFromStringFunction([](const juce::String& s) { return tx::parsePercent(s.toStdString()); });
-    const auto decibels = Attr()
-        .withStringFromValueFunction([](float v, int) { return juce::String(tx::decibels(v)); })
-        .withValueFromStringFunction([](const juce::String& s) { return tx::parseDecibels(s.toStdString()); });
-    return {
-        std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{lmw::param::wave, 1}, "VCO Wave",
-            juce::StringArray{"Sine", "Saw", "Square", "Triangle"}, 1),
-        std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{lmw::param::attack, 1}, "Attack",  time(5.0f),  0.01f, seconds),
-        std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{lmw::param::decay, 1},  "Decay",   time(5.0f),  0.2f,  seconds),
-        std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{lmw::param::sustain, 1}, "Sustain",
-            juce::NormalisableRange<float>(0.0f, 1.0f), 0.7f, percent),
-        std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{lmw::param::release, 1}, "Release", time(10.0f), 0.3f, seconds),
-        std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{lmw::param::gain, 1}, "Volume",
-            juce::NormalisableRange<float>(0.0f, 1.0f), 0.8f, decibels),
-        std::make_unique<juce::AudioParameterInt>(juce::ParameterID{lmw::param::voices, 1}, "Voices",
-            1, lmw::dsp::Engine::maxVoices, 8),
+    using Attr = juce::AudioParameterFloatAttributes;
+    using Range = juce::NormalisableRange<float>;
+    auto time = [](float maxSec) { Range r(0.0f, maxSec); r.setSkewForCentre(maxSec / 10.0f); return r; };
+    auto logRange = [](float lo, float hi, float centre) { Range r(lo, hi); r.setSkewForCentre(centre); return r; };
+    auto attr = [](auto toText, auto fromText) {   // value text with units (Spec S6.1); no separate host label
+        return Attr()
+            .withStringFromValueFunction([toText](float v, int) { return juce::String(toText(v)); })
+            .withValueFromStringFunction([fromText](const juce::String& s) { return fromText(s.toStdString()); });
     };
+    const auto seconds  = attr(tx::time, tx::parseTime);
+    const auto percent  = attr(tx::percent, tx::parsePercent);
+    const auto decibels = attr(tx::decibels, tx::parseDecibels);
+    const auto hertz    = attr(tx::hertz, tx::parseHertz);
+    const auto octaves  = attr(tx::octaves, tx::parseNumber);
+    const auto semis    = attr(tx::semitones, tx::parseNumber);
+    auto f = [](const char* id, const char* name, Range r, float def, const Attr& a) {
+        return std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{id, 1}, name, r, def, a);
+    };
+    auto envelope = [&](APVTS::ParameterLayout& l, const char* a, const char* d, const char* s, const char* r,
+                        const char* name, float defA, float defD, float defS, float defR) {
+        const juce::String n(name);
+        l.add(f(a, (n + " Attack").toRawUTF8(),  time(5.0f),  defA, seconds),
+              f(d, (n + " Decay").toRawUTF8(),   time(5.0f),  defD, seconds),
+              f(s, (n + " Sustain").toRawUTF8(), Range(0.0f, 1.0f), defS, percent),
+              f(r, (n + " Release").toRawUTF8(), time(10.0f), defR, seconds));
+    };
+
+    APVTS::ParameterLayout l;   // Spec S5a.1 — defaults reproduce the Phase-2 sound
+    l.add(std::make_unique<juce::AudioParameterInt>(juce::ParameterID{P::voices, 1}, "Voices", 1, lmw::dsp::Engine::maxVoices, 8),
+          std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{P::wave, 1}, "VCO Wave",
+              juce::StringArray{"Sine", "Saw", "Square", "Triangle"}, 1),
+          f(P::fm,        "VCO FM",        Range(0.0f, 12.0f), 1.0f, semis),
+          f(P::mixVco,    "Mixer VCO",     Range(0.0f, 1.0f), 1.0f, percent),
+          f(P::mixNoise,  "Mixer Noise",   Range(0.0f, 1.0f), 0.0f, percent),
+          f(P::cutoff,    "VCF Cutoff",    logRange(20.0f, 18000.0f, 600.0f), 18000.0f, hertz),
+          f(P::resonance, "VCF Resonance", Range(0.0f, 1.0f), 0.0f, percent),
+          f(P::vcfEnv,    "VCF Env",       Range(-5.0f, 5.0f), 0.0f, octaves));
+    envelope(l, P::env1Attack, P::env1Decay, P::env1Sustain, P::env1Release, "Env1", 0.01f, 0.2f, 0.7f, 0.3f);
+    envelope(l, P::env2Attack, P::env2Decay, P::env2Sustain, P::env2Release, "Env2", 0.01f, 0.3f, 0.0f, 0.3f);
+    l.add(f(P::lfoRate, "LFO Rate", logRange(0.05f, 20.0f, 2.0f), 5.0f, hertz),
+          std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{P::lfoWave, 1}, "LFO Wave",
+              juce::StringArray{"Sine", "Triangle", "Saw", "Square"}, 0),
+          f(P::gain, "Volume", Range(0.0f, 1.0f), 0.8f, decibels));
+    return l;
 }
 
 LMWSynthProcessor::LMWSynthProcessor()
     : AudioProcessor(BusesProperties().withOutput("Output", juce::AudioChannelSet::stereo(), true)),
       apvts(*this, nullptr, "LMWSynth", createLayout()) {
-    pWave    = apvts.getRawParameterValue(lmw::param::wave);
-    pAttack  = apvts.getRawParameterValue(lmw::param::attack);
-    pDecay   = apvts.getRawParameterValue(lmw::param::decay);
-    pSustain = apvts.getRawParameterValue(lmw::param::sustain);
-    pRelease = apvts.getRawParameterValue(lmw::param::release);
-    pGain    = apvts.getRawParameterValue(lmw::param::gain);
-    pVoices  = apvts.getRawParameterValue(lmw::param::voices);
+    namespace P = lmw::param;
+    auto get = [this](const char* id) { auto* p = apvts.getRawParameterValue(id); jassert(p != nullptr); return p; };
+    raw = {get(P::voices), get(P::wave), get(P::fm), get(P::mixVco), get(P::mixNoise), get(P::cutoff),
+           get(P::resonance), get(P::vcfEnv), get(P::env1Attack), get(P::env1Decay), get(P::env1Sustain),
+           get(P::env1Release), get(P::env2Attack), get(P::env2Decay), get(P::env2Sustain), get(P::env2Release),
+           get(P::lfoRate), get(P::lfoWave), get(P::gain)};
     keyboard.addListener(this);
 }
 
@@ -92,14 +107,24 @@ bool LMWSynthProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
 
 void LMWSynthProcessor::pullParameters() noexcept {
     lmw::dsp::VoiceParams p;
-    p.wave    = static_cast<lmw::dsp::Waveform>(static_cast<int>(pWave->load()));
-    p.attack  = pAttack->load();
-    p.decay   = pDecay->load();
-    p.sustain = pSustain->load();
-    p.release = pRelease->load();
+    p.wave        = static_cast<lmw::dsp::Waveform>(static_cast<int>(raw.wave->load()));
+    p.attack      = raw.e1a->load(); p.decay      = raw.e1d->load();
+    p.sustain     = raw.e1s->load(); p.release    = raw.e1r->load();
+    p.env2Attack  = raw.e2a->load(); p.env2Decay  = raw.e2d->load();
+    p.env2Sustain = raw.e2s->load(); p.env2Release = raw.e2r->load();
     engine.setParams(p);
-    engine.setGain(pGain->load());
-    engine.setVoiceCount(static_cast<int>(pVoices->load()));
+
+    lmw::dsp::ModParams m;
+    m.fmSemitones = raw.fm->load();
+    m.mixVco      = raw.mixVco->load();   m.mixNoise   = raw.mixNoise->load();
+    m.cutoff      = raw.cutoff->load();   m.resonance  = raw.resonance->load();
+    m.envOctaves  = raw.vcfEnv->load();
+    m.lfoRate     = raw.lfoRate->load();
+    m.lfoWave     = static_cast<lmw::dsp::LfoWave>(static_cast<int>(raw.lfoWave->load()));
+    engine.setModParams(m);
+
+    engine.setGain(raw.gain->load());
+    engine.setVoiceCount(static_cast<int>(raw.voices->load()));
 }
 
 void LMWSynthProcessor::applyNoteEvent(const lmw::dsp::NoteEvent& e) noexcept {
@@ -124,6 +149,7 @@ void LMWSynthProcessor::handleMidi(const juce::uint8* data, int size) noexcept {
         case M::AllNotesOff: e.kind = K::AllOff; break;
         case M::Sustain:     engine.setSustain(m.value > 0.5f); return;                       // Spec S3.3
         case M::PitchBend:   engine.setPitchBend(m.value * pitchBendRangeSemitones); return;   // Spec S3.4
+        case M::ModWheel:    engine.setModWheel(m.value); return;                               // Spec S3.5
         case M::None:        return;
     }
     applyNoteEvent(e);
@@ -134,6 +160,9 @@ void LMWSynthProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Mid
     juce::ScopedNoDenormals noDenormals;
     const int n = buffer.getNumSamples();
     pullParameters();
+
+    lmw::dsp::PatchCommand pc;                           // cable changes (Spec S5.4), lock-free
+    while (patchToAudio.pop(pc)) engine.apply(pc);
 
     lmw::dsp::NoteEvent e;                               // on-screen / QWERTY notes, lock-free
     while (guiToAudio.pop(e)) applyNoteEvent(e);
