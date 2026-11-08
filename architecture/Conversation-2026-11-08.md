@@ -53,3 +53,12 @@ Implemented RackLayout (pure model + test_rack), PanelHeader per panel (drag, fo
 > should the vst3 plugin already work and be able to present a gui to a daw ? on linux i mean
 
 Answered: it builds (build-u24/VST3/LMW-Synth.vst3) and uses the same editor, so it should load and show the GUI, but it is untested in a DAW (Phase 8).
+
+## 11. Mini-daw and Phase 4 step 2: cables
+> using the companion project ../mini-daw i can load the vst3 but it does not show its gui when i press the daw's edit button (on windows with other vst3 plugins from arturia that works with mini-daw)
+
+Found: mini-daw opens plugin editors only on Windows (plugin_window.cpp: "Plugin editor windows are not available on this system yet (Windows first)"); on Linux it needs X11EmbedWindowID and an IRunLoop in its plug frame.
+> no need i will instruct the mini-daw myself and ask in what build phase it will be added, thanks
+> yes, start Phase 4 step 2, the cables
+
+Implemented PatchText (state text + test), processor setPatch/patchVersion and cable state save/restore, Jack sockets, CableLayer, drag/menu/keyboard patching. Xvfb (own display :93 — :77 was in use by another session): cable drag, feedback cable, cable loop under the output fixed (quadratic sag), restart keeps cables, drag-off and Delete remove, output menu + submenu, greyed menu items removed (contrast), compact view and keyboard panel move with a cable. CI for the rack commit (42519996883) green on all four targets.

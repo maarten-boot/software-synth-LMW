@@ -74,8 +74,23 @@ public:
         if (!patchToAudio.push({input, from})) return false;
         if (from == lmw::dsp::Patch::none) guiPatch.disconnect(input);
         else guiPatch.connect(input, static_cast<lmw::dsp::Out>(from));
+        ++patchSerial;
         return true;
     }
+    // Message thread: replace all cables (restored state; later patch files). False if the queue
+    // could not take every change (the GUI mirror then shows what was sent).
+    bool setPatch(const lmw::dsp::Patch& p) noexcept {
+        bool ok = true;
+        for (int i = 0; i < lmw::dsp::numInputs; ++i) {
+            const auto in = static_cast<lmw::dsp::In>(i);
+            const std::int8_t want = p.isPatched(in) ? static_cast<std::int8_t>(p.source(in)) : lmw::dsp::Patch::none;
+            const std::int8_t have = guiPatch.isPatched(in) ? static_cast<std::int8_t>(guiPatch.source(in)) : lmw::dsp::Patch::none;
+            if (want != have) ok = requestPatch(in, want) && ok;
+        }
+        return ok;
+    }
+    // Increases with every cable change, so the editor can redraw cables changed elsewhere.
+    std::uint32_t patchVersion() const noexcept { return patchSerial; }
     // Message thread: the patch as last requested (mirror of the engine's patch) and the latest
     // mod wheel value — for hover texts in the GUI.
     const lmw::dsp::Patch& currentPatch() const noexcept { return guiPatch; }
@@ -101,6 +116,7 @@ private:
     lmw::dsp::SpscQueue<lmw::dsp::NoteEvent, 256> audioToGui;
     lmw::dsp::SpscQueue<lmw::dsp::PatchCommand, 64> patchToAudio;
     lmw::dsp::Patch guiPatch;                         // message thread only
+    std::uint32_t patchSerial = 0;                    // message thread only
     std::atomic<float> modWheelValue{0.0f};           // written by the audio thread
     bool applyingMidiInput = false;   // message thread only: don't echo displayed notes back
     static constexpr double pitchBendRangeSemitones = 2.0;   // Spec S3.4

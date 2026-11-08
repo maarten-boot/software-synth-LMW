@@ -57,3 +57,11 @@
 | T-S6.5a | S6.5 | Drag a panel's title bar to another row position: drop marker shown, panel lands there, others reflow; window width unchanged | pass (Xvfb: LFO dragged after ENV 2, marker visible, width stays 1046) |
 | T-S6.5b | S6.5 | Move a panel with keyboard/menu only (no mouse): same result as dragging; menu black on white; QWERTY notes still play while a title has focus | pass (Xvfb: Left arrow, right-click menu, `a` → C4) |
 | T-S6.5c | S6.5 | Layout survives close/reopen; Reset layout restores the default order; works in compact view | pass (Xvfb) |
+| T-S5.4-text | S5.4, S6.6 | Unit test `test_patchtext`: cables to text and back; rejects unknown ports, missing '=', an input twice, trailing ';' | pass |
+| T-S6.6a | S6.6 | Drag ENV 2 Out → VCO FM: target ring while dragging, cable drawn, FM socket black centre, FM hover text says "env2.out (cable)" | pass (Xvfb) |
+| T-S6.6b | S6.6 | Feedback cable VCF Out → VCF In can be patched | pass (Xvfb) |
+| T-S6.6c | S6.6 | Drag a plugged cable off its input into empty space removes it; Delete on a focused input removes its cable | pass (Xvfb) |
+| T-S6.6d | S6.6 | Output menu (right-click) black on white, submenu Connect to → vca.cv patches lfo.out → vca.cv; no greyed items | pass (Xvfb) |
+| T-S6.6e | S6.6, S6.4, S6.5 | Cables follow compact view and a panel moved with the keyboard | pass (Xvfb) |
+| T-S6.6f | S6.6 | Cables are restored after close/reopen | pass (Xvfb) |
+| T-S6.6g | S6.6, S5.4 | Listening test: LFO → VCA CV gives tremolo; ENV 2 → FM gives a pitch sweep; VCF Out → VCF In feedback stays stable | planned (user) |

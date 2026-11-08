@@ -170,6 +170,34 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
         rack.emplace(columns, defaultRows, maxColumns, kMaxRows);
         rack->parse(processor.state().state.getProperty(kLayoutProp).toString().toStdString());
     }
+    // Spec S6.6: patch points per panel (inputs first, then outputs). Noise has no panel of its own;
+    // its output sits on the MIXER panel next to the mixer input it is normalled to.
+    {
+        using lmw::dsp::Out;
+        struct PortDef { std::size_t group; bool output; int port; const char* name; };
+        const auto in  = [](In i)  { return static_cast<int>(i); };
+        const auto out = [](Out o) { return static_cast<int>(o); };
+        const PortDef ports[] = {
+            {1, false, in(In::VcoFm), "FM"},       {1, true, out(Out::Vco), "Out"},
+            {2, false, in(In::MixIn1), "In 1"},    {2, false, in(In::MixIn2), "In 2"},
+            {2, true, out(Out::Noise), "Noise"},   {2, true, out(Out::Mix), "Out"},
+            {3, false, in(In::VcfIn), "In"},       {3, false, in(In::VcfCutoff), "Cut"},
+            {3, true, out(Out::Vcf), "Out"},
+            {4, false, in(In::VcaIn), "In"},       {4, false, in(In::VcaCv), "CV"},
+            {4, true, out(Out::Vca), "Out"},
+            {5, true, out(Out::Lfo), "Out"},
+            {6, false, in(In::OutIn), "In"},
+            {7, true, out(Out::Env1), "Out"},
+            {8, true, out(Out::Env2), "Out"},
+        };
+        groupJacks.resize(groups.size());
+        for (const auto& d : ports) {
+            jacks.push_back(std::make_unique<Jack>(*this, d.output, d.port, d.name));
+            groupJacks[d.group].push_back(jacks.back().get());
+            addAndMakeVisible(*jacks.back());
+        }
+    }
+
     resetLayoutButton.setTooltip("Put all module panels back in their original places");
     resetLayoutButton.onClick = [this] {
         rack->reset();
@@ -197,6 +225,11 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     compactButton.setToggleState(compact, juce::dontSendNotification);
     setCompact(compact);                         // sets the window size
 
+    cables = std::make_unique<CableLayer>(*this);   // last child: drawn above the panels
+    addAndMakeVisible(*cables);
+    cables->setBounds(getLocalBounds());
+    shownPatchVersion = p.patchVersion();
+
     p.resetKeyboardDisplay();
     startTimerHz(30);                            // show external MIDI notes on the keyboard
     juce::MessageManager::callAsync([safe = juce::Component::SafePointer<juce::Component>(&keyboard)] {
@@ -205,6 +238,14 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
 }
 
 LMWSynthEditor::~LMWSynthEditor() { stopTimer(); setLookAndFeel(nullptr); }
+
+void LMWSynthEditor::timerCallback() {
+    processor.updateKeyboardFromMidiInput();
+    if (processor.patchVersion() != shownPatchVersion) {    // cables changed (e.g. state restored)
+        shownPatchVersion = processor.patchVersion();
+        repaint();
+    }
+}
 
 bool LMWSynthEditor::isTypingText() {
     return dynamic_cast<juce::TextEditor*>(juce::Component::getCurrentlyFocusedComponent()) != nullptr;
@@ -411,10 +452,10 @@ void LMWSynthEditor::showPanelMenu(int panel) {
     juce::PopupMenu menu;
     menu.setLookAndFeel(&lookAndFeel);              // black on white like the panel (Spec S6.2)
     menu.addSectionHeader(groups[static_cast<std::size_t>(panel)].title);
-    menu.addItem(1, "Move left", can(0));
-    menu.addItem(2, "Move right", can(1));
-    menu.addItem(3, "Move up", can(2));
-    menu.addItem(4, "Move down", can(3));
+    // Only possible moves are listed: greyed-out items would fall below the 4.5:1 contrast minimum.
+    const char* names[] = {"Move left", "Move right", "Move up", "Move down"};
+    for (int i = 0; i < 4; ++i)
+        if (can(i)) menu.addItem(i + 1, names[i]);
     menu.addSeparator();
     menu.addItem(5, "Reset layout");
     menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(headers[static_cast<std::size_t>(panel)].get()),
@@ -447,8 +488,12 @@ void LMWSynthEditor::paint(juce::Graphics& g) {
     const float lineY = static_cast<float>(pad + m.titleH + m.gap / 2);   // between title row and modules
     g.drawLine(static_cast<float>(pad), lineY, static_cast<float>(getWidth() - pad), lineY, 1.0f);
 
-    for (std::size_t i = 0; i < groups.size(); ++i)          // titles are drawn by the PanelHeaders
-        g.drawRect(groups[i].bounds, static_cast<int>(i) == draggedPanel ? 3 : 1);
+    for (std::size_t i = 0; i < groups.size(); ++i) {        // titles are drawn by the PanelHeaders
+        const auto& b = groups[i].bounds;
+        g.drawRect(b, static_cast<int>(i) == draggedPanel ? 3 : 1);
+        if (!groupJacks[i].empty())                          // line above the patch points
+            g.drawHorizontalLine(b.getBottom() - 3 - m.jackH, static_cast<float>(b.getX()), static_cast<float>(b.getRight()));
+    }
     if (drop) g.fillRect(drop->marker);                     // drop marker (Spec S6.5)
 }
 
@@ -489,7 +534,273 @@ void LMWSynthEditor::resized() {
             headers[static_cast<std::size_t>(index)]->setBounds(grp.bounds.getX() + 1, grp.bounds.getY() + 1,
                                                                  grp.bounds.getWidth() - 2, m.header - 4);
             auto inner = grp.bounds.reduced(0, 3).withTrimmedTop(m.header);
+            auto jackRow = inner.removeFromBottom(m.jackH).withTrimmedTop(2);   // Spec S6.6
+            const auto& js = groupJacks[static_cast<std::size_t>(index)];
+            for (std::size_t j = 0; j < js.size(); ++j) {
+                const int x0 = jackRow.getX() + jackRow.getWidth() * static_cast<int>(j) / static_cast<int>(js.size());
+                const int x1 = jackRow.getX() + jackRow.getWidth() * static_cast<int>(j + 1) / static_cast<int>(js.size());
+                js[j]->setBounds(x0, jackRow.getY(), x1 - x0, jackRow.getHeight());
+            }
             for (const auto& item : grp.items) layoutItem(item, inner.removeFromLeft(m.colW));
         }
     }
+    if (cables) cables->setBounds(getLocalBounds());
+}
+
+// ---- Spec S6.6: patch points and cables ----
+
+namespace {
+juce::String portName(bool output, int port) {
+    const auto& names = output ? lmw::dsp::outputNames : lmw::dsp::inputNames;
+    const auto& n = names[static_cast<std::size_t>(port)];
+    return juce::String(n.data(), n.size());
+}
+}
+
+LMWSynthEditor::Jack::Jack(LMWSynthEditor& e, bool isOutput, int portIndex, juce::String shortName)
+    : output(isOutput), port(portIndex), editor(e), name(std::move(shortName)) {
+    setWantsKeyboardFocus(true);
+    setMouseCursor(juce::MouseCursor::PointingHandCursor);
+    setTitle((output ? "Output " : "Input ") + portName(output, port));
+}
+
+juce::Rectangle<float> LMWSynthEditor::Jack::socket() const {
+    const float d = editor.m.colW >= 80 ? 16.0f : 14.0f;
+    return juce::Rectangle<float>(d, d).withCentre({getWidth() * 0.5f, 2.0f + d * 0.5f});
+}
+
+juce::Point<float> LMWSynthEditor::Jack::centreInEditor() const {
+    return editor.getLocalPoint(this, socket().getCentre());
+}
+
+void LMWSynthEditor::Jack::paint(juce::Graphics& g) {
+    const auto c = socket();
+    const auto& patch = editor.processor.currentPatch();
+    if (output) {                                     // black socket, white ring
+        g.setColour(kFg);
+        g.fillEllipse(c);
+        g.setColour(kBg);
+        g.drawEllipse(c.reduced(3.5f), 1.5f);
+    } else {                                          // white socket, black ring; black centre = cable
+        g.setColour(kBg);
+        g.fillEllipse(c);
+        g.setColour(kFg);
+        g.drawEllipse(c.reduced(1.0f), 2.0f);
+        if (patch.isPatched(static_cast<lmw::dsp::In>(port))) g.fillEllipse(c.reduced(4.5f));
+    }
+    g.setColour(kFg);
+    if (editor.drag && editor.drag->target == this) g.drawEllipse(c.expanded(1.5f), 2.0f);   // drop target
+    if (hasKeyboardFocus(false)) g.drawRect(getLocalBounds(), 1);                           // focus ring
+    g.setFont(juce::FontOptions(editor.m.colW >= 80 ? 12.0f : 11.0f));
+    g.drawText(name, getLocalBounds().withTrimmedTop(static_cast<int>(c.getBottom()) + 1), juce::Justification::centredTop, false);
+}
+
+juce::String LMWSynthEditor::Jack::getTooltip() {
+    if (output)
+        return editor.describeOutput(static_cast<lmw::dsp::Out>(port))
+             + "\nDrag to an input to patch a cable. Enter: cable menu.";
+    const auto in = static_cast<lmw::dsp::In>(port);
+    return editor.describeInput(in) + "\nDrag to an output to patch a cable"
+         + (editor.processor.currentPatch().isPatched(in) ? "; drag the cable away to remove it. Delete: remove." : ".")
+         + "\nEnter: cable menu.";
+}
+
+void LMWSynthEditor::Jack::mouseDown(const juce::MouseEvent& e) {
+    grabKeyboardFocus();
+    if (e.mods.isPopupMenu()) editor.showJackMenu(*this);
+}
+
+void LMWSynthEditor::Jack::mouseDrag(const juce::MouseEvent& e) {
+    if (e.mods.isPopupMenu() || (!dragging && e.getDistanceFromDragStart() < 3)) return;
+    dragging = true;
+    editor.cableDrag(*this, e.getEventRelativeTo(&editor).position);
+}
+
+void LMWSynthEditor::Jack::mouseUp(const juce::MouseEvent& e) {
+    if (!dragging) return;
+    dragging = false;
+    editor.cableDrop(*this, e.getEventRelativeTo(&editor).position);
+}
+
+bool LMWSynthEditor::Jack::keyPressed(const juce::KeyPress& key) {
+    if (key == juce::KeyPress::escapeKey && dragging) { dragging = false; editor.cancelCableDrag(); return true; }
+    const int code = key.getKeyCode();
+    if (code == juce::KeyPress::returnKey || (code == juce::KeyPress::F10Key && key.getModifiers().isShiftDown())) {
+        editor.showJackMenu(*this);
+        return true;
+    }
+    if (!output && (code == juce::KeyPress::deleteKey || code == juce::KeyPress::backspaceKey)) {
+        editor.connect(port, lmw::dsp::Patch::none);
+        return true;
+    }
+    return false;                        // e.g. QWERTY note keys: handled by the editor
+}
+
+void LMWSynthEditor::CableLayer::paint(juce::Graphics& g) {
+    using lmw::dsp::In;
+    // A cable hangs down a little between its ends; drawn black with a white edge so it stays
+    // visible where it crosses black faders (only black and white, Spec S6.2).
+    const auto draw = [&g](juce::Point<float> a, juce::Point<float> b) {
+        const float sag = 15.0f + 0.2f * a.getDistanceFrom(b);   // the middle hangs lowest
+        juce::Path path;
+        path.startNewSubPath(a);
+        path.quadraticTo((a + b) * 0.5f + juce::Point<float>(0.0f, sag), b);
+        const juce::PathStrokeType edge(7.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded);
+        const juce::PathStrokeType core(3.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded);
+        g.setColour(kBg);
+        g.strokePath(path, edge);
+        g.setColour(kFg);
+        g.strokePath(path, core);
+        for (auto p : {a, b}) g.fillEllipse(juce::Rectangle<float>(9.0f, 9.0f).withCentre(p));   // plugs
+    };
+    const auto& patch = editor.processor.currentPatch();
+    for (int i = 0; i < lmw::dsp::numInputs; ++i) {
+        const auto in = static_cast<In>(i);
+        if (!patch.isPatched(in) || (editor.drag && editor.drag->detachedInput == i)) continue;
+        auto* from = editor.jackFor(true, static_cast<int>(patch.source(in)));
+        auto* to = editor.jackFor(false, i);
+        if (from != nullptr && to != nullptr) draw(from->centreInEditor(), to->centreInEditor());
+    }
+    if (const auto& d = editor.drag)
+        draw(d->fixed->centreInEditor(), d->target != nullptr ? d->target->centreInEditor() : d->loose);
+}
+
+LMWSynthEditor::Jack* LMWSynthEditor::jackFor(bool output, int port) const {
+    for (const auto& j : jacks)
+        if (j->output == output && j->port == port) return j.get();
+    return nullptr;
+}
+
+LMWSynthEditor::Jack* LMWSynthEditor::findJack(juce::Point<float> where, const Jack& from) const {
+    for (const auto& j : jacks)
+        if (j->output != from.output && getLocalArea(j.get(), j->getLocalBounds()).toFloat().expanded(4.0f).contains(where))
+            return j.get();
+    return nullptr;
+}
+
+void LMWSynthEditor::cableDrag(Jack& from, juce::Point<float> where) {
+    using lmw::dsp::In;
+    if (!drag) {
+        CableDrag d;
+        const auto& patch = processor.currentPatch();
+        if (!from.output && patch.isPatched(static_cast<In>(from.port))) {   // pick up the plugged cable
+            d.detachedInput = from.port;
+            d.fixed = jackFor(true, static_cast<int>(patch.source(static_cast<In>(from.port))));
+        } else {
+            d.fixed = &from;
+        }
+        if (d.fixed == nullptr) return;
+        drag = d;
+    }
+    drag->loose = where;
+    if (auto* t = findJack(where, *drag->fixed); t != drag->target) {
+        if (drag->target != nullptr) drag->target->repaint();
+        drag->target = t;
+        if (t != nullptr) t->repaint();
+    }
+    cables->repaint();
+}
+
+void LMWSynthEditor::cableDrop(Jack& from, juce::Point<float> where) {
+    if (!drag) return;
+    cableDrag(from, where);
+    const CableDrag d = *drag;
+    drag.reset();
+    if (d.detachedInput >= 0) {
+        if (d.target == nullptr) {
+            connect(d.detachedInput, lmw::dsp::Patch::none);             // dropped in the open: removed
+        } else if (d.target->port != d.detachedInput) {                  // moved to another input
+            connect(d.detachedInput, lmw::dsp::Patch::none);
+            connect(d.target->port, d.fixed->port);
+        }
+    } else if (d.target != nullptr) {
+        if (d.fixed->output) connect(d.target->port, d.fixed->port);
+        else connect(d.fixed->port, d.target->port);
+    }
+    repaint();
+}
+
+void LMWSynthEditor::cancelCableDrag() {
+    drag.reset();
+    repaint();
+}
+
+void LMWSynthEditor::connect(int input, int output) {
+    processor.requestPatch(static_cast<lmw::dsp::In>(input), static_cast<std::int8_t>(output));
+    shownPatchVersion = processor.patchVersion();
+    repaint();
+}
+
+void LMWSynthEditor::removeAllCables() {
+    for (int i = 0; i < lmw::dsp::numInputs; ++i)
+        if (processor.currentPatch().isPatched(static_cast<lmw::dsp::In>(i))) connect(i, lmw::dsp::Patch::none);
+}
+
+juce::String LMWSynthEditor::describeOutput(lmw::dsp::Out out) const {
+    const auto& patch = processor.currentPatch();
+    juce::StringArray fed;
+    for (int i = 0; i < lmw::dsp::numInputs; ++i) {
+        const auto in = static_cast<lmw::dsp::In>(i);
+        if (patch.source(in) == out) fed.add(portName(false, i) + (patch.isPatched(in) ? " (cable)" : " (normalled)"));
+    }
+    return "Output " + portName(true, static_cast<int>(out)) + " " + juce::String::fromUTF8("\xe2\x86\x92") + " "
+         + (fed.isEmpty() ? juce::String("not connected") : fed.joinIntoString(", "));
+}
+
+void LMWSynthEditor::showJackMenu(Jack& jack) {
+    using lmw::dsp::In;
+    using lmw::dsp::Out;
+    const auto& patch = processor.currentPatch();
+    bool anyCable = false;
+    for (int i = 0; i < lmw::dsp::numInputs; ++i) anyCable = anyCable || patch.isPatched(static_cast<In>(i));
+
+    juce::PopupMenu menu, sub;
+    menu.setLookAndFeel(&lookAndFeel);               // black on white (Spec S6.2)
+    sub.setLookAndFeel(&lookAndFeel);
+    if (!jack.output) {
+        const auto in = static_cast<In>(jack.port);
+        menu.addSectionHeader(describeInput(in));
+        for (int o = 0; o < lmw::dsp::numOutputs; ++o)
+            sub.addItem(100 + o, portName(true, o), true, patch.isPatched(in) && static_cast<int>(patch.source(in)) == o);
+        menu.addSubMenu("Connect from", sub);
+        if (patch.isPatched(in)) menu.addItem(1, "Remove cable");   // no greyed items (contrast)
+    } else {
+        const auto out = static_cast<Out>(jack.port);
+        bool feeds = false;
+        menu.addSectionHeader("Output " + portName(true, jack.port));
+        for (int i = 0; i < lmw::dsp::numInputs; ++i) {
+            const auto in = static_cast<In>(i);
+            const bool cabled = patch.isPatched(in) && patch.source(in) == out;
+            feeds = feeds || cabled;
+            sub.addItem(200 + i, portName(false, i), true, cabled);
+        }
+        menu.addSubMenu("Connect to (ticked = cable; choose again to remove)", sub);
+        if (feeds) menu.addItem(2, "Remove cables from here");
+    }
+    if (anyCable) {
+        menu.addSeparator();
+        menu.addItem(3, "Remove all cables");
+    }
+    menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&jack),
+                       [safe = juce::Component::SafePointer<LMWSynthEditor>(this), output = jack.output,
+                        port = jack.port](int r) {
+        if (safe == nullptr || r == 0) return;
+        const auto& p = safe->processor.currentPatch();
+        if (r == 1) {
+            safe->connect(port, lmw::dsp::Patch::none);
+        } else if (r == 2) {
+            for (int i = 0; i < lmw::dsp::numInputs; ++i) {
+                const auto in = static_cast<In>(i);
+                if (p.isPatched(in) && static_cast<int>(p.source(in)) == port) safe->connect(i, lmw::dsp::Patch::none);
+            }
+        } else if (r == 3) {
+            safe->removeAllCables();
+        } else if (!output && r >= 100 && r < 100 + lmw::dsp::numOutputs) {
+            safe->connect(port, r - 100);
+        } else if (output && r >= 200 && r < 200 + lmw::dsp::numInputs) {
+            const auto in = static_cast<In>(r - 200);
+            const bool cabled = p.isPatched(in) && static_cast<int>(p.source(in)) == port;
+            safe->connect(r - 200, cabled ? lmw::dsp::Patch::none : port);
+        }
+    });
 }

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "PluginProcessor.h"
+#include "dsp/PatchText.h"
 #include "PluginEditor.h"
 #include "ui/ParamText.h"
 
@@ -186,13 +187,23 @@ void LMWSynthProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Mid
     for (int ch = 2; ch < buffer.getNumChannels(); ++ch) buffer.clear(ch, 0, n);
 }
 
+namespace { const juce::Identifier kPatchProp{"patch"}; }   // cables as text (Spec S6.6, PatchText.h)
+
 void LMWSynthProcessor::getStateInformation(juce::MemoryBlock& dest) {
-    if (auto xml = apvts.copyState().createXml()) copyXmlToBinary(*xml, dest);
+    auto copy = apvts.copyState();
+    copy.setProperty(kPatchProp, juce::String(lmw::dsp::patchToText(guiPatch)), nullptr);
+    if (auto xml = copy.createXml()) copyXmlToBinary(*xml, dest);
 }
 
 void LMWSynthProcessor::setStateInformation(const void* data, int size) {
-    if (auto xml = getXmlFromBinary(data, size); xml && xml->hasTagName(apvts.state.getType()))
-        apvts.replaceState(juce::ValueTree::fromXml(*xml));
+    if (auto xml = getXmlFromBinary(data, size); xml && xml->hasTagName(apvts.state.getType())) {
+        auto tree = juce::ValueTree::fromXml(*xml);
+        const auto text = tree.getProperty(kPatchProp).toString().toStdString();
+        tree.removeProperty(kPatchProp, nullptr);
+        apvts.replaceState(tree);
+        // An unreadable cable list is ignored (no cables) rather than failing the whole state.
+        setPatch(lmw::dsp::patchFromText(text).value_or(lmw::dsp::Patch{}));
+    }
 }
 
 juce::AudioProcessorEditor* LMWSynthProcessor::createEditor() { return new LMWSynthEditor(*this); }
