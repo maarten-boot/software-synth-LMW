@@ -79,3 +79,12 @@ Proposed one KEYS module (keyboard, computer keys and MIDI merge before voice al
 > yes, add it as step 2b with velocity output
 
 Added to Plan (Phase 4 step 2b), Spec S5.8, Tests T-S5.8a–e.
+
+## 14. Phase 4 step 2b: KEYS
+> yes, start Phase 4 step 2b, the KEYS module
+
+Engine: Out/In enums extended (keys first), Voice computes keys outputs first, envelopes key-gated (event-driven, as before) or edge-gated by other signals, drone when env1.gate is not the keys. A reference render before/after: bit-identical. test_keys (a–d). GUI: KEYS panel; first try had all three KEYS sockets in one 80 px column (cramped, would not fit compact) → KEYS 2 columns wide, moved to row 2; sockets now placed per fader column (input under its fader); labels shrink to fit. Xvfb: LFO → ENV 1 Gate cable, hover text, compact view. CI for 8bee680 (42528289394) green.
+
+> would it be to difficult to add a second or third vco and a second vcf? and perhaps make the vcf switchable 6/12/24 db and lo/hi/band/notch ?
+
+Answered with an estimate (see reply); not started.

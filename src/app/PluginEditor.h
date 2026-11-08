@@ -69,6 +69,8 @@ private:
         int row = 0;                    // row in the default layout (Spec S6.5)
         std::vector<Item> items;
         juce::Rectangle<int> bounds;
+        int minColumns = 0;             // wider than its items, to give its sockets room
+        int columns() const { return std::max(static_cast<int>(items.size()), minColumns); }
     };
     // Title bar of a module panel (Spec S6.5): drag it to move the panel; when focused, arrow keys
     // move it; right-click, Enter or the context-menu key opens a move menu. Other keys (QWERTY
@@ -107,6 +109,7 @@ private:
         juce::Rectangle<float> socket() const;        // the circle, local coordinates
         const bool output;
         const int port;                               // lmw::dsp::Out or In index
+        int column = 0;                               // fader column of its panel it sits under
     private:
         LMWSynthEditor& editor;
         juce::String name;

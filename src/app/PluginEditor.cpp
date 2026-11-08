@@ -123,10 +123,14 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
         return [this, in, what] { return describeInput(in) + "\n" + what; };
     };
 
-    // Spec S6.1: module panels. Row 0: POLY | VCO | MIXER | VCF | VCA | LFO | OUT; row 1: envelopes.
+    // Spec S6.1: module panels. Row 0: VCO | MIXER | VCF | VCA | LFO | OUT; row 1: KEYS | envelopes.
     // Titles name the normalled destination (S5.2) so the prewired patch is visible.
     groups = {
-        {"POLY", 0, {addFader(P::voices, "Voices")}, {}},
+        // KEYS starts row 2: next to the envelopes it gates, above the keyboard; 2 columns for 3 sockets.
+        {"KEYS", 1, {addFader(P::voices, "Voices", [] {          // Spec S5.8: keyboard, computer keys, MIDI
+                        return juce::String("Number of voices. Keyboard, computer keys and MIDI play the voices;\n"
+                                            "the sockets below give each voice's pitch, gate and velocity.");
+                    })}, {}, 2},
         // FM fader first, above the FM input socket (sockets: FM in, then Out).
         {"VCO", 0, {addFader(P::fm, "FM", fmTip),
                     addChoice(P::wave, "Wave", {"Sine", "Saw", "Square", "Triangle"})}, {}},
@@ -157,7 +161,7 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
         std::vector<int> columns;
         lmw::ui::RackLayout::Rows defaultRows(2);
         for (std::size_t i = 0; i < groups.size(); ++i) {
-            columns.push_back(static_cast<int>(groups[i].items.size()));
+            columns.push_back(groups[i].columns());
             defaultRows[static_cast<std::size_t>(groups[i].row)].push_back(static_cast<int>(i));
             headers.push_back(std::make_unique<PanelHeader>(*this, static_cast<int>(i)));
             addAndMakeVisible(*headers.back());
@@ -175,25 +179,32 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     // its output sits on the MIXER panel next to the mixer input it is normalled to.
     {
         using lmw::dsp::Out;
-        struct PortDef { std::size_t group; bool output; int port; const char* name; };
+        // `column`: the fader column the socket sits under; an input sits under the fader that sets
+        // its amount (Spec S6.6). Sockets sharing a column split it evenly.
+        struct PortDef { std::size_t group; int column; bool output; int port; const char* name; };
         const auto in  = [](In i)  { return static_cast<int>(i); };
         const auto out = [](Out o) { return static_cast<int>(o); };
         const PortDef ports[] = {
-            {1, false, in(In::VcoFm), "FM"},       {1, true, out(Out::Vco), "Out"},
-            {2, false, in(In::MixIn1), "In 1"},    {2, false, in(In::MixIn2), "In 2"},
-            {2, true, out(Out::Noise), "Noise"},   {2, true, out(Out::Mix), "Out"},
-            {3, false, in(In::VcfIn), "In"},       {3, false, in(In::VcfCutoff), "Cut"},
-            {3, true, out(Out::Vcf), "Out"},
-            {4, false, in(In::VcaIn), "In"},       {4, false, in(In::VcaCv), "CV"},
-            {4, true, out(Out::Vca), "Out"},
-            {5, true, out(Out::Lfo), "Out"},
-            {6, false, in(In::OutIn), "In"},
-            {7, true, out(Out::Env1), "Out"},
-            {8, true, out(Out::Env2), "Out"},
+            {0, 0, true, out(Out::KeysPitch), "Pitch"}, {0, 1, true, out(Out::KeysGate), "Gate"},
+            {0, 1, true, out(Out::KeysVel), "Vel"},
+            {1, 0, false, in(In::VcoFm), "FM"},
+            {1, 1, false, in(In::VcoPitch), "Pitch"},  {1, 1, true, out(Out::Vco), "Out"},
+            {2, 0, false, in(In::MixIn1), "In 1"},
+            {2, 1, false, in(In::MixIn2), "In 2"},     {2, 1, true, out(Out::Noise), "Noise"},
+            {2, 1, true, out(Out::Mix), "Out"},
+            {3, 0, false, in(In::VcfIn), "In"},
+            {3, 2, false, in(In::VcfCutoff), "Cut"},   {3, 2, true, out(Out::Vcf), "Out"},
+            {4, 0, false, in(In::VcaIn), "In"},        {4, 0, false, in(In::VcaCv), "CV"},
+            {4, 0, true, out(Out::Vca), "Out"},
+            {5, 1, true, out(Out::Lfo), "Out"},
+            {6, 0, false, in(In::OutIn), "In"},
+            {7, 0, false, in(In::Env1Gate), "Gate"},   {7, 3, true, out(Out::Env1), "Out"},
+            {8, 0, false, in(In::Env2Gate), "Gate"},   {8, 3, true, out(Out::Env2), "Out"},
         };
         groupJacks.resize(groups.size());
         for (const auto& d : ports) {
             jacks.push_back(std::make_unique<Jack>(*this, d.output, d.port, d.name));
+            jacks.back()->column = d.column;
             groupJacks[d.group].push_back(jacks.back().get());
             addAndMakeVisible(*jacks.back());
         }
@@ -531,17 +542,20 @@ void LMWSynthEditor::resized() {
         rowBounds.push_back(row);
         for (int index : rowPanels) {
             auto& grp = groups[static_cast<std::size_t>(index)];
-            grp.bounds = row.removeFromLeft(static_cast<int>(grp.items.size()) * m.colW);
+            grp.bounds = row.removeFromLeft(grp.columns() * m.colW);
             row.removeFromLeft(m.gap);
             headers[static_cast<std::size_t>(index)]->setBounds(grp.bounds.getX() + 1, grp.bounds.getY() + 1,
                                                                  grp.bounds.getWidth() - 2, m.header - 4);
             auto inner = grp.bounds.reduced(0, 3).withTrimmedTop(m.header);
             auto jackRow = inner.removeFromBottom(m.jackH).withTrimmedTop(2);   // Spec S6.6
             const auto& js = groupJacks[static_cast<std::size_t>(index)];
-            for (std::size_t j = 0; j < js.size(); ++j) {
-                const int x0 = jackRow.getX() + jackRow.getWidth() * static_cast<int>(j) / static_cast<int>(js.size());
-                const int x1 = jackRow.getX() + jackRow.getWidth() * static_cast<int>(j + 1) / static_cast<int>(js.size());
-                js[j]->setBounds(x0, jackRow.getY(), x1 - x0, jackRow.getHeight());
+            for (int c = 0; c < grp.columns(); ++c) {                            // sockets per fader column
+                std::vector<Jack*> col;
+                for (auto* j : js) if (j->column == c) col.push_back(j);
+                const int left = jackRow.getX() + c * m.colW, n = static_cast<int>(col.size());
+                for (int k = 0; k < n; ++k)
+                    col[static_cast<std::size_t>(k)]->setBounds(left + m.colW * k / n, jackRow.getY(),
+                                                                m.colW * (k + 1) / n - m.colW * k / n, jackRow.getHeight());
             }
             for (const auto& item : grp.items) layoutItem(item, inner.removeFromLeft(m.colW));
         }
@@ -593,7 +607,14 @@ void LMWSynthEditor::Jack::paint(juce::Graphics& g) {
     g.setColour(kFg);
     if (editor.drag && editor.drag->target == this) g.drawEllipse(c.expanded(1.5f), 2.0f);   // drop target
     if (hasKeyboardFocus(false)) g.drawRect(getLocalBounds(), 1);                           // focus ring
-    g.setFont(juce::FontOptions(editor.m.colW >= 80 ? 12.0f : 11.0f));
+    // Label shrinks to fit a narrow slot (several sockets under one fader column).
+    float size = editor.m.colW >= 80 ? 12.0f : 11.0f;
+    juce::Font font{juce::FontOptions(size)};
+    while (size > 8.0f && juce::GlyphArrangement::getStringWidth(font, name) > static_cast<float>(getWidth() - 2)) {
+        size -= 0.5f;
+        font = juce::Font(juce::FontOptions(size));
+    }
+    g.setFont(font);
     g.drawText(name, getLocalBounds().withTrimmedTop(static_cast<int>(c.getBottom()) + 1), juce::Justification::centredTop, false);
 }
 

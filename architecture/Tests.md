@@ -67,8 +67,9 @@
 | T-S6.6g | S6.6, S5.4 | Listening test: LFO → VCA CV gives tremolo; ENV 2 → FM gives a pitch sweep; VCF Out → VCF In feedback stays stable | planned (user) |
 | T-S6.1e | S6.1 | Hover texts and menu headers name connections as "source → input" (e.g. FM: "lfo.out → vco.fm (normalled)") | pass (Xvfb) |
 | T-S6.1f | S6.1, S6.6 | VCO panel: FM fader is the left column, directly above the FM socket | pass (Xvfb) |
-| T-S5.8a | S5.8 | Engine: keys.pitch = (note − 60 + bend)/12; keys.gate 1 while held/sustained, 0 after release; keys.vel = velocity | planned |
-| T-S5.8b | S5.8 | Default patch sounds exactly as before (normalled keys.pitch/gate give the same output samples) | planned |
-| T-S5.8c | S5.8 | LFO square → env1.gate retriggers ENV 1 on each rising edge; voice keeps running after key release (drone) | planned |
-| T-S5.8d | S5.8 | ENV 2 → vco.pitch sweeps pitch independent of the key; keys.vel → vcf.cutoff opens the filter with velocity | planned |
-| T-S5.8e | S5.8, S6.6 | GUI: KEYS panel with Voices fader and Pitch/Gate/Vel sockets; Gate sockets on ENV 1/2; VCO Pitch socket; hover texts in source → input order | planned |
+| T-S5.8a | S5.8 | Engine: keys.pitch = (note − 60 + bend)/12; keys.gate 1 while held/sustained, 0 after release; keys.vel = velocity | pass (test_keys) |
+| T-S5.8b | S5.8 | Default patch sounds exactly as before (normalled keys.pitch/gate give the same output samples) | pass (test_keys: cables from the keys = normalled, sample-exact; plus a one-off render of a 1.7 s scenario before/after the change: bit-identical) |
+| T-S5.8c | S5.8 | LFO square → env1.gate retriggers ENV 1 on each rising edge; voice keeps running after key release (drone) | pass (test_keys: 10 Hz square → ~10 attacks/s, held and after release; gate back to keys ends the voice) |
+| T-S5.8d | S5.8 | ENV 2 → vco.pitch sweeps pitch independent of the key; keys.vel → vcf.cutoff opens the filter with velocity | pass (test_keys: ENV 2 → vco.pitch gives C5 for keys C3 and C6; keys.vel → cutoff brighter at higher velocity) |
+| T-S5.8e | S5.8, S6.6 | GUI: KEYS panel with Voices fader and Pitch/Gate/Vel sockets; Gate sockets on ENV 1/2; VCO Pitch socket; hover texts in source → input order | pass (Xvfb: KEYS panel, sockets aligned, LFO → env1.gate cable and hover text, compact view) |
+| T-S5.8-keys | S5.8 | ctest T-S5.8-keys (`tests/test_keys.cpp`) runs T-S5.8a–d | pass |

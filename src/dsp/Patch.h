@@ -8,21 +8,26 @@
 
 namespace lmw::dsp {
 
-enum class Out : std::uint8_t { Vco, Noise, Lfo, Env1, Env2, Mix, Vcf, Vca, Count };
-enum class In  : std::uint8_t { VcoFm, MixIn1, MixIn2, VcfIn, VcfCutoff, VcaIn, VcaCv, OutIn, Count };
+// Order = order in menus: roughly signal flow. Saved patches use the names, not the numbers.
+enum class Out : std::uint8_t { KeysPitch, KeysGate, KeysVel, Vco, Noise, Lfo, Env1, Env2, Mix, Vcf, Vca, Count };
+enum class In  : std::uint8_t { VcoPitch, VcoFm, Env1Gate, Env2Gate, MixIn1, MixIn2, VcfIn, VcfCutoff, VcaIn, VcaCv,
+                                OutIn, Count };
 
 inline constexpr int numOutputs = static_cast<int>(Out::Count);
 inline constexpr int numInputs  = static_cast<int>(In::Count);
 
 // Port names = future 9P file names (Spec S10).
 inline constexpr std::array<std::string_view, numOutputs> outputNames{
+    "keys.pitch", "keys.gate", "keys.vel",
     "vco.out", "noise.out", "lfo.out", "env1.out", "env2.out", "mix.out", "vcf.out", "vca.out"};
 inline constexpr std::array<std::string_view, numInputs> inputNames{
-    "vco.fm", "mix.in1", "mix.in2", "vcf.in", "vcf.cutoff", "vca.in", "vca.cv", "out.in"};
+    "vco.pitch", "vco.fm", "env1.gate", "env2.gate",
+    "mix.in1", "mix.in2", "vcf.in", "vcf.cutoff", "vca.in", "vca.cv", "out.in"};
 
-// Spec S5.3 normalled sources.
+// Spec S5.3, S5.8 normalled sources.
 inline constexpr std::array<Out, numInputs> normalled{
-    Out::Lfo, Out::Vco, Out::Noise, Out::Mix, Out::Env2, Out::Vcf, Out::Env1, Out::Vca};
+    Out::KeysPitch, Out::Lfo, Out::KeysGate, Out::KeysGate,
+    Out::Vco, Out::Noise, Out::Mix, Out::Env2, Out::Vcf, Out::Env1, Out::Vca};
 
 inline constexpr bool isGlobal(Out o) noexcept { return o == Out::Lfo || o == Out::Noise; }
 
@@ -42,7 +47,7 @@ public:
 
 private:
     static constexpr std::size_t idx(In in) noexcept { return static_cast<std::size_t>(in); }
-    std::array<std::int8_t, numInputs> cable{none, none, none, none, none, none, none, none};
+    std::array<std::int8_t, numInputs> cable = [] { std::array<std::int8_t, numInputs> a{}; a.fill(none); return a; }();
 };
 
 // A cable change sent from the GUI / 9P thread to the audio thread (Spec S5.4, S10.2).

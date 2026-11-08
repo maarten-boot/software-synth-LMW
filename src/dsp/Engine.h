@@ -39,6 +39,10 @@ struct ModParams {
 
 inline double midiNoteToHz(int note) noexcept { return 440.0 * std::pow(2.0, (note - 69) / 12.0); }
 
+// Spec S5.8: keys.pitch 0 = C4 (MIDI 60), 1.0 per octave; a gate is "on" above 0.5.
+inline constexpr int keysPitchZeroNote = 60;
+inline constexpr float gateThreshold = 0.5f;
+
 // Mod wheel at full adds this much FM depth (Spec S3.5).
 inline constexpr float modWheelFmSemitones = 1.0f;
 
@@ -53,6 +57,7 @@ public:
         osc.setSampleRate(sr); env1.setSampleRate(sr); env2.setSampleRate(sr); vcf.setSampleRate(sr);
         env1.reset(); env2.reset(); vcf.reset(); out.fill(0.0f);
         gate = keyDown = false; played = false; lastPitch = 1e9;
+        env1GateWasOn = env2GateWasOn = false; env1KeyGated = env2KeyGated = true;
     }
     void setParams(const VoiceParams& p) noexcept {
         osc.setWaveform(p.wave);
@@ -62,29 +67,46 @@ public:
     void setResonance(float r) noexcept { vcf.setResonance(r); }
 
     // Retriggering an active voice keeps oscillator phase, filter state and envelope level
-    // continuous, so stealing a voice does not click.
-    void noteOn(int n, float vel) noexcept {
+    // continuous, so stealing a voice does not click. An envelope whose gate input is keys.gate
+    // (normalled or by cable) follows the key events directly, so a repeated note retriggers it;
+    // an envelope gated by another signal follows that signal's edges in process() (Spec S5.8).
+    void noteOn(int n, float vel, const Patch& patch) noexcept {
         if (!env1.isActive()) { osc.reset(); vcf.reset(); }
         note = n; velocity = vel; gate = true; keyDown = true; played = true;
         lastPitch = 1e9;                          // force frequency update
-        env1.noteOn(); env2.noteOn();
+        if (keyGated(In::Env1Gate, patch)) env1.noteOn();
+        if (keyGated(In::Env2Gate, patch)) env2.noteOn();
     }
-    void noteOff() noexcept { gate = false; keyDown = false; env1.noteOff(); env2.noteOff(); }
+    void noteOff(const Patch& patch) noexcept {
+        gate = false; keyDown = false;
+        if (keyGated(In::Env1Gate, patch)) env1.noteOff();
+        if (keyGated(In::Env2Gate, patch)) env2.noteOff();
+    }
     // Key released: with the sustain pedal down the voice keeps sounding (gate stays open).
-    void releaseKey(bool sustainPedal) noexcept { keyDown = false; if (!sustainPedal) noteOff(); }
+    void releaseKey(bool sustainPedal, const Patch& patch) noexcept { keyDown = false; if (!sustainPedal) noteOff(patch); }
     void setPitchBend(double semitones) noexcept { bend = semitones; }
 
-    // One sample through the voice's modules, in order ENV1, ENV2, VCO, MIX, VCF, VCA.
+    // One sample through the voice's modules, in order KEYS, ENV1, ENV2, VCO, MIX, VCF, VCA.
     // Returns this voice's contribution to out.in (only meaningful for per-voice sources).
     float process(const GlobalSignals& g, const Patch& patch, const ModParams& mp,
                   double cutoffLog2) noexcept {
+        const double keySemitones = static_cast<double>(note - keysPitchZeroNote) + bend;   // Spec S5.8
+        out[o(Out::KeysPitch)] = static_cast<float>(keySemitones / 12.0);
+        out[o(Out::KeysGate)] = gate ? 1.0f : 0.0f;
+        out[o(Out::KeysVel)] = velocity;
+
+        followGate(env1, In::Env1Gate, env1GateWasOn, env1KeyGated, g, patch);
+        followGate(env2, In::Env2Gate, env2GateWasOn, env2KeyGated, g, patch);
         out[o(Out::Env1)] = env1.next();
         out[o(Out::Env2)] = env2.next();
 
+        // vco.pitch: from the keys it is used in full precision; any other source is 1.0 per octave.
+        const double semitones = patch.source(In::VcoPitch) == Out::KeysPitch
+            ? keySemitones : 12.0 * static_cast<double>(read(In::VcoPitch, g, patch));
         const float fmDepth = mp.fmSemitones + g.modWheel * modWheelFmSemitones;   // Spec S3.5
-        const double pitch = bend + static_cast<double>(read(In::VcoFm, g, patch) * fmDepth);
+        const double pitch = semitones + static_cast<double>(read(In::VcoFm, g, patch) * fmDepth);
         if (pitch < lastPitch || pitch > lastPitch) { lastPitch = pitch;   // changed (exact cache check)
-            osc.setFrequency(midiNoteToHz(note) * std::exp2(pitch / 12.0)); }
+            osc.setFrequency(midiNoteToHz(keysPitchZeroNote) * std::exp2(pitch / 12.0)); }
         out[o(Out::Vco)] = osc.next();
 
         out[o(Out::Mix)] = read(In::MixIn1, g, patch) * mp.mixVco + read(In::MixIn2, g, patch) * mp.mixNoise;
@@ -108,6 +130,24 @@ public:
 
 private:
     static constexpr std::size_t o(Out x) noexcept { return static_cast<std::size_t>(x); }
+    static bool keyGated(In gateIn, const Patch& patch) noexcept { return patch.source(gateIn) == Out::KeysGate; }
+
+    // Spec S5.8: an envelope gated by a signal other than keys.gate starts on a rising edge
+    // (crossing 0.5 upward) and releases on a falling one. When the gate goes back to the keys, an
+    // envelope left open while the key is up is released.
+    void followGate(Adsr& env, In gateIn, bool& wasOn, bool& wasKeyGated, const GlobalSignals& g,
+                    const Patch& patch) noexcept {
+        const bool on = read(gateIn, g, patch) > gateThreshold;
+        const bool keys = keyGated(gateIn, patch);
+        if (!keys) {
+            if (on && !wasOn) env.noteOn();
+            else if (!on && wasOn) env.noteOff();
+        } else if (!wasKeyGated && !gate && env.isActive()) {
+            env.noteOff();
+        }
+        wasOn = on;
+        wasKeyGated = keys;
+    }
 
     float read(In in, const GlobalSignals& g, const Patch& patch) const noexcept {
         const Out src = patch.source(in);
@@ -126,6 +166,8 @@ private:
     bool gate = false;                         // ENV1 open (key down or sustained)
     bool keyDown = false;                      // physical key still down
     bool played = false;                       // has had a note since prepare()
+    bool env1GateWasOn = false, env2GateWasOn = false;     // gate level last sample (edge detection)
+    bool env1KeyGated = true, env2KeyGated = true;         // gate source was keys.gate last sample
 };
 
 // Polyphonic engine (Spec S4). Voice count 1..maxVoices, changeable at runtime.
@@ -168,25 +210,25 @@ public:
 
     void setVoiceCount(int n) noexcept {
         n = n < 1 ? 1 : (n > maxVoices ? maxVoices : n);
-        for (int i = n; i < voiceCount; ++i) voices[static_cast<std::size_t>(i)].noteOff(); // let them ring out
+        for (int i = n; i < voiceCount; ++i) voices[static_cast<std::size_t>(i)].noteOff(patch); // let them ring out
         voiceCount = n;
     }
     int getVoiceCount() const noexcept { return voiceCount; }
 
     void noteOn(int note, float velocity) noexcept {
         const int i = allocate(note);
-        voices[static_cast<std::size_t>(i)].noteOn(note, velocity);
+        voices[static_cast<std::size_t>(i)].noteOn(note, velocity, patch);
         order[static_cast<std::size_t>(i)] = ++counter;
     }
     void noteOff(int note) noexcept {
-        for (auto& v : voices) if (v.isKeyDown() && v.getNote() == note) v.releaseKey(sustainPedal);
+        for (auto& v : voices) if (v.isKeyDown() && v.getNote() == note) v.releaseKey(sustainPedal, patch);
     }
-    void allNotesOff() noexcept { sustainPedal = false; for (auto& v : voices) v.noteOff(); }
+    void allNotesOff() noexcept { sustainPedal = false; for (auto& v : voices) v.noteOff(patch); }
 
     // Spec S3.3: sustain pedal (CC64). Releasing the pedal releases voices whose key is up.
     void setSustain(bool down) noexcept {
         sustainPedal = down;
-        if (!down) for (auto& v : voices) if (v.isHeld() && !v.isKeyDown()) v.noteOff();
+        if (!down) for (auto& v : voices) if (v.isHeld() && !v.isKeyDown()) v.noteOff(patch);
     }
     bool isSustainDown() const noexcept { return sustainPedal; }
 
@@ -221,10 +263,11 @@ public:
     const Voice& voice(int i) const noexcept { return voices[static_cast<std::size_t>(i)]; }
 
 private:
-    // Spec S5.6: with out.in or vca.cv patched, or a VCA initial gain, the sound no longer ends with
-    // ENV1, so voices that have played keep running.
+    // Spec S5.6, S5.8: with out.in or vca.cv patched, a VCA initial gain, or ENV1 gated by something
+    // other than the keys, the sound no longer ends with the key, so voices that have played keep running.
     void updateDrone() noexcept {
-        drone = patch.isPatched(In::OutIn) || patch.isPatched(In::VcaCv) || mod.vcaInitial > 0.0f;
+        drone = patch.isPatched(In::OutIn) || patch.isPatched(In::VcaCv) || mod.vcaInitial > 0.0f
+             || patch.source(In::Env1Gate) != Out::KeysGate;
     }
 
     int allocate(int note) const noexcept {
