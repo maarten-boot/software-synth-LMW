@@ -1000,3 +1000,62 @@ void LMWSynthEditor::Keyboard::drawUpDownButton(juce::Graphics& g, int w, int h,
         g.drawRect(0, 0, w, h, 1);
     }
 }
+
+// ---- Spec S6.2: standalone window title bar and buttons ----
+
+void LMWLookAndFeel::drawDocumentWindowTitleBar(juce::DocumentWindow& window, juce::Graphics& g, int w, int h,
+                                                int titleSpaceX, int titleSpaceW, const juce::Image* icon,
+                                                bool drawTitleTextOnLeft) {
+    LookAndFeel_V4::drawDocumentWindowTitleBar(window, g, w, h, titleSpaceX, titleSpaceW, icon, drawTitleTextOnLeft);
+    g.setColour(kFg);
+    g.fillRect(0, h - 1, w, 1);                       // separates the title bar from the panel
+}
+
+namespace {
+// A title-bar button: black glyph on white; hover = outline, pressed = inverted (no colour tints).
+class WindowButton final : public juce::Button {
+public:
+    WindowButton(const juce::String& name, juce::Path glyph) : juce::Button(name), shape(std::move(glyph)) {
+        setTitle(name);
+    }
+    void paintButton(juce::Graphics& g, bool over, bool down) override {
+        const auto r = getLocalBounds().toFloat().reduced(1.0f);
+        g.setColour(down ? kFg : kBg);
+        g.fillRect(r);
+        if (over || hasKeyboardFocus(false)) { g.setColour(kFg); g.drawRect(r, 1.0f); }
+        const auto glyphArea = r.reduced(r.getHeight() * 0.28f);
+        g.setColour(down ? kBg : kFg);
+        g.strokePath(shape, juce::PathStrokeType(1.6f),
+                     shape.getTransformToScaleToFit(glyphArea, true));
+    }
+private:
+    juce::Path shape;
+};
+}
+
+juce::Button* LMWLookAndFeel::createDocumentWindowButton(int buttonType) {
+    juce::Path p;
+    if (buttonType == juce::DocumentWindow::closeButton) {
+        p.startNewSubPath(0, 0); p.lineTo(1, 1); p.startNewSubPath(1, 0); p.lineTo(0, 1);
+        return new WindowButton("Close", p);
+    }
+    if (buttonType == juce::DocumentWindow::minimiseButton) {
+        p.startNewSubPath(0, 1); p.lineTo(1, 1); p.startNewSubPath(0, 0); p.lineTo(0, 0);   // keeps 1:1 box
+        return new WindowButton("Minimise", p);
+    }
+    p.addRectangle(0.0f, 0.0f, 1.0f, 1.0f);           // maximise
+    return new WindowButton("Maximise", p);
+}
+
+void LMWLookAndFeel::drawPopupMenuItem(juce::Graphics& g, const juce::Rectangle<int>& area, bool isSeparator,
+                                       bool isActive, bool isHighlighted, bool isTicked, bool hasSubMenu,
+                                       const juce::String& text, const juce::String& shortcutKeyText,
+                                       const juce::Drawable* icon, const juce::Colour* textColour) {
+    if (isSeparator) {
+        g.setColour(kFg);
+        g.fillRect(area.reduced(5, 0).withY(area.getCentreY()).withHeight(1));
+        return;
+    }
+    LookAndFeel_V4::drawPopupMenuItem(g, area, false, isActive, isHighlighted, isTicked, hasSubMenu, text,
+                                      shortcutKeyText, icon, textColour);
+}

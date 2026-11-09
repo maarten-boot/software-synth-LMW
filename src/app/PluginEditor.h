@@ -25,6 +25,16 @@ public:
     void drawComboBox(juce::Graphics&, int width, int height, bool isButtonDown,
                       int buttonX, int buttonY, int buttonW, int buttonH, juce::ComboBox&) override;
     void positionComboBoxText(juce::ComboBox&, juce::Label&) override;
+    // Standalone window (Spec S6.2): white title bar with black text and a line below it; window
+    // buttons drawn black on white (JUCE's default ones are yellow and red).
+    void drawDocumentWindowTitleBar(juce::DocumentWindow&, juce::Graphics&, int w, int h, int titleSpaceX,
+                                    int titleSpaceW, const juce::Image* icon, bool drawTitleTextOnLeft) override;
+    juce::Button* createDocumentWindowButton(int buttonType) override;
+    // Menu separators solid black (JUCE draws them at 30 % opacity).
+    void drawPopupMenuItem(juce::Graphics&, const juce::Rectangle<int>& area, bool isSeparator, bool isActive,
+                           bool isHighlighted, bool isTicked, bool hasSubMenu, const juce::String& text,
+                           const juce::String& shortcutKeyText, const juce::Drawable* icon,
+                           const juce::Colour* textColour) override;
 };
 
 class LMWSynthEditor final : public juce::AudioProcessorEditor, private juce::Timer {

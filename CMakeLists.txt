@@ -11,6 +11,9 @@ option(LMW_BUILD_TESTS  "Build unit tests" ON)
 # Pure C++ libraries (no JUCE) -------------------------------------------
 add_library(lmw_ui_core STATIC src/ui/Contrast.cpp)
 target_include_directories(lmw_ui_core PUBLIC src)
+# Linked into the VST3 shared library: must be position-independent. Ubuntu's GCC does this by
+# default, Fedora's does not (ld: "failed to set dynamic section sizes: bad value").
+set_target_properties(lmw_ui_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 add_library(lmw_dsp INTERFACE)          # header-only DSP engine
 target_include_directories(lmw_dsp INTERFACE src)
@@ -50,12 +53,14 @@ if(LMW_BUILD_PLUGIN)
 
     target_sources(LMWSynth PRIVATE
         src/app/PluginProcessor.cpp
-        src/app/PluginEditor.cpp)
+        src/app/PluginEditor.cpp
+        src/app/StandaloneApp.cpp)
 
     target_compile_definitions(LMWSynth PUBLIC
         JUCE_WEB_BROWSER=0
         JUCE_USE_CURL=0
-        JUCE_VST3_CAN_REPLACE_VST2=0)
+        JUCE_VST3_CAN_REPLACE_VST2=0
+        JUCE_USE_CUSTOM_PLUGIN_STANDALONE_APP=1)   # src/app/StandaloneApp.cpp: themed window (Spec S6.2)
 
     target_link_libraries(LMWSynth
         PRIVATE

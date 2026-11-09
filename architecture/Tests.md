@@ -24,7 +24,7 @@
 | T-S6.1b | S6.1 | Double-click on a fader resets it to the parameter default | pass (user, Ubuntu 24.04, 2026-11-07) |
 | T-S6.1-text | S6.1 | Value text/parse: time ms/s, sustain %, volume dB, round trip | pass (`test_paramtext`) |
 | T-S6.2c | S6.2 | Slider value boxes use theme colours (black text/outline on white), not JUCE default dark scheme | pass (screenshot; fixed by re-sending look-and-feel) |
-| T-S6.2d | S6.2 | Standalone title bar, Options menu and audio/MIDI settings dialog use the main theme (white bg, black text, >= 4.5:1) | open — still JUCE dark default (user confirmed: must match main panel later) |
+| T-S6.2d | S6.2 | Standalone title bar, Options menu and audio/MIDI settings dialog use the main theme (white bg, black text, >= 4.5:1) | pass (Xvfb: white title bar with black text and a line below, black-glyph window buttons with hover outline, Options menu black on white with solid separators, settings dialog contents black on white; the dialog's frame comes from the window manager, absent on Xvfb) |
 | T-S4.0 | S4, S3.1 | Sound is heard and several notes sound at once (manual) | pass (user, Ubuntu 24.04, 2026-11-07) |
 | T-S4.1 | S4.1 | Setting polyphony to N allows exactly N simultaneous notes (N=1,8,32); range clamps to 1..32 | pass (`test_engine`) |
 | T-S4.2 | S4.2 | Playing N+1 notes steals the oldest voice; released voices stolen first | pass (`test_engine`) |
@@ -44,7 +44,7 @@
 | T-S9.0 | S9 | Product name is `LMW-Synth` (no space): standalone binary, VST3 bundle, window title, host plugin name | pass (build + moduleinfo.json + screenshot, 2026-11-07) |
 | T-S8.1 | S8.1 | Every file in src/, tests/, scripts/ has `SPDX-License-Identifier: AGPL-3.0-or-later` | pass (grep, 2026-11-07) |
 | T-S8.2 | S8.2 | Every dependency has an AGPLv3-compatible licence (list in repo) | planned |
-| T-S9.2 | S9.2 | VST3 loads, plays and saves state in at least 2 hosts (e.g. Reaper, Bitwig) | planned |
+| T-S9.2 | S9.2 | VST3 loads, plays and saves state in at least 2 hosts (e.g. Reaper, Bitwig) | partly: Linux, JUCE AudioPluginHost 9.0.5 (built without LADSPA) — scanned, loaded, editor opens and draws, fader drag works, Compact resizes the host window (2026-11-09). DAWs still to do |
 | T-S10.2 | S10.2 | Under 9P load (1000 writes/s) no audio dropouts; RT thread does no syscalls (checked with RT sanitizer/trace) | planned |
 | T-S10.2a | S10.2 | processBlock takes no locks and does no allocation | pass by code review 2026-11-07: keyboard notes via lock-free SPSC queues (no MidiKeyboardState call on the audio thread), MIDI decoded from raw bytes (no MidiMessage copy). Automated check (e.g. Clang RealtimeSanitizer) still to add |
 | T-S10.2-spsc | S10.2 | SPSC queue: FIFO order, full/empty, wrap-around, 1M-item two-thread stress | pass (`test_spsc`; CI run 42413041183 on Ubuntu 24.04, Fedora 45, macOS arm64, Windows) |
@@ -85,3 +85,4 @@
 | T-S6.3a | S6.3 | Every pair in Theme.h meets the chosen minimum for 4.5, 5, 7, 9.3, 12, 15, 21; AA keeps the design grey, Max inverts pressed keys; Custom never below 4.5 | pass (test_contrast) |
 | T-S6.3b | S6.3 | Config file: comments, case, unknown keys and bad values ignored; contrast/contrast_ratio/compact read and written back | pass (test_contrast) |
 | T-S6.3c | S6.3 | GUI: Contrast box AA → pressed keys grey; Custom 12 (dialog black on white) → dark/light; Max → inverted with white note name; config.ini written; Max restored after restart; octave arrow solid black | pass (Xvfb) |
+| T-S2.1-fedora | S2.1 | Fedora 45 (GCC 16, binutils 2.47) links the VST3: lmw_ui_core built position-independent | pass (local Fedora 45 container, full build with LTO, 11/11 tests) |
