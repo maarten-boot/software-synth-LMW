@@ -2,6 +2,9 @@
 #include "PluginProcessor.h"
 #include "dsp/PatchText.h"
 #include "app/StateMigration.h"
+#include "app/PatchFile.h"
+#include <cstdio>
+#include <map>
 #include "PluginEditor.h"
 #include "ui/ParamText.h"
 
@@ -257,3 +260,84 @@ void LMWSynthProcessor::setStateInformation(const void* data, int size) {
 juce::AudioProcessorEditor* LMWSynthProcessor::createEditor() { return new LMWSynthEditor(*this); }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter() { return new LMWSynthProcessor(); }
+
+// ---- Spec S7: patch files ----
+
+juce::String LMWSynthProcessor::patchText(const juce::String& name) const {
+    lmw::patchfile::Patch p;
+    p.stateVersion = lmw::migration::currentStateVersion;
+    p.name = name.toStdString();
+    for (auto* param : getParameters()) {
+        auto* r = dynamic_cast<juce::RangedAudioParameter*>(param);
+        if (r == nullptr) continue;
+        lmw::patchfile::Parameter out{r->paramID.toStdString(), {}, {}};
+        if (auto* c = dynamic_cast<juce::AudioParameterChoice*>(r)) {
+            out.value = c->getCurrentChoiceName().toStdString();
+        } else if (auto* i = dynamic_cast<juce::AudioParameterInt*>(r)) {
+            out.value = std::to_string(i->get());
+        } else if (auto* f = dynamic_cast<juce::AudioParameterFloat*>(r)) {
+            char buf[40];
+            std::snprintf(buf, sizeof buf, "%.9g", static_cast<double>(f->get()));   // exact on reload
+            out.value = buf;
+            out.comment = f->getCurrentValueAsText().toStdString();                   // with its unit
+        }
+        p.parameters.push_back(std::move(out));
+    }
+    for (int i = 0; i < lmw::dsp::numInputs; ++i) {
+        const auto in = static_cast<lmw::dsp::In>(i);
+        if (!guiPatch.isPatched(in)) continue;
+        p.cables.emplace_back(std::string(lmw::dsp::inputNames[static_cast<std::size_t>(i)]),
+                              std::string(lmw::dsp::outputNames[static_cast<std::size_t>(guiPatch.source(in))]));
+    }
+    p.notes = notes().toStdString();
+    return juce::String::fromUTF8(lmw::patchfile::write(p).c_str());
+}
+
+bool LMWSynthProcessor::loadPatchText(const juce::String& text, juce::String& error) {
+    const auto p = lmw::patchfile::parse(text.toStdString());
+    if (!p) {
+        error = "Not an LMW-Synth patch file (or made by a newer version).";
+        return false;
+    }
+    // Names from older versions are translated like a saved state (StateMigration.h).
+    const int version = p->stateVersion > 0 ? p->stateVersion : lmw::migration::currentStateVersion;
+    std::string cableText;
+    for (const auto& [in, from] : p->cables) {
+        if (!cableText.empty()) cableText += ';';
+        cableText += in + "=" + from;
+    }
+    const auto cables = lmw::dsp::patchFromText(lmw::migration::cables(version, cableText));
+    if (!cables) {
+        error = "The [cables] section names an unknown socket or one input twice.";
+        return false;
+    }
+    std::map<std::string, std::string> values;
+    for (const auto& prm : p->parameters) values[lmw::migration::parameterId(version, prm.id)] = prm.value;
+
+    for (auto* param : getParameters()) {
+        auto* r = dynamic_cast<juce::RangedAudioParameter*>(param);
+        if (r == nullptr) continue;
+        float normalised = r->getDefaultValue();                 // missing or unreadable: default
+        if (const auto it = values.find(r->paramID.toStdString()); it != values.end()) {
+            const juce::String v = juce::String::fromUTF8(it->second.c_str()).trim();
+            if (auto* c = dynamic_cast<juce::AudioParameterChoice*>(r)) {
+                int index = -1;
+                for (int k = 0; k < c->choices.size(); ++k)
+                    if (c->choices[k].equalsIgnoreCase(v)) index = k;
+                if (index < 0 && v.containsOnly("0123456789")) index = v.getIntValue();
+                if (index >= 0 && index < c->choices.size()) normalised = r->convertTo0to1(static_cast<float>(index));
+            } else if (v.containsOnly("0123456789+-.eE") && v.isNotEmpty()) {
+                const float real = static_cast<float>(v.getDoubleValue());
+                normalised = r->convertTo0to1(r->getNormalisableRange().getRange().clipValue(real));
+            }
+        }
+        r->beginChangeGesture();
+        r->setValueNotifyingHost(normalised);
+        r->endChangeGesture();
+    }
+    setPatch(*cables);
+    setNotes(juce::String::fromUTF8(p->notes.c_str()));
+    setPatchName(juce::String::fromUTF8(p->name.c_str()));
+    ++loadedPatches;
+    return true;
+}

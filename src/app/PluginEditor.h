@@ -30,6 +30,15 @@ public:
     void drawDocumentWindowTitleBar(juce::DocumentWindow&, juce::Graphics&, int w, int h, int titleSpaceX,
                                     int titleSpaceW, const juce::Image* icon, bool drawTitleTextOnLeft) override;
     juce::Button* createDocumentWindowButton(int buttonType) override;
+    // Disabled buttons: full-contrast text, dashed outline (JUCE dims them to 50 %).
+    void drawButtonBackground(juce::Graphics&, juce::Button&, const juce::Colour& backgroundColour,
+                              bool isHighlighted, bool isDown) override;
+    void drawButtonText(juce::Graphics&, juce::TextButton&, bool isHighlighted, bool isDown) override;
+    // File chooser rows: black text (white when selected), outline glyphs (JUCE: grey details, icons).
+    void drawFileBrowserRow(juce::Graphics&, int width, int height, const juce::File&, const juce::String& filename,
+                            juce::Image* icon, const juce::String& fileSizeDescription,
+                            const juce::String& fileTimeDescription, bool isDirectory, bool isItemSelected,
+                            int itemIndex, juce::DirectoryContentsDisplayComponent&) override;
     // Menu separators solid black (JUCE draws them at 30 % opacity).
     void drawPopupMenuItem(juce::Graphics&, const juce::Rectangle<int>& area, bool isSeparator, bool isActive,
                            bool isHighlighted, bool isTicked, bool hasSubMenu, const juce::String& text,
@@ -188,6 +197,14 @@ private:
     void applyContrast();                                 // palette from settings, redraw
     void askCustomRatio();
     void updateContrastBox();
+    // Spec S7: tabs (Panel, Notes) and patch files.
+    void showTab(int tab);                                // 0 = panel, 1 = notes
+    void savePatch();
+    void loadPatch();
+    void showError(const juce::String& title, const juce::String& message);
+    void refreshPatchInfo();                              // name label and notes from the processor
+    static juce::File patchFolder();
+    int titleTextWidth() const;
     juce::String describeInput(lmw::dsp::In) const;   // "<source> → <input> (normalled|cable)"
 
     LMWSynthProcessor& processor;
@@ -213,6 +230,18 @@ private:
     lmw::ui::Settings settings;
     lmw::ui::theme::Palette palette;
     juce::ComboBox contrastBox;
+    // Spec S7: tabs, patch name, notes and patch files.
+    juce::TextButton panelTab{"Panel"}, notesTab{"Notes"}, loadButton{"Load..."}, saveButton{"Save..."};
+    juce::Label patchLabel;
+    juce::TextEditor notesEditor;
+    int currentTab = 0;
+    std::uint32_t shownPatchFile = 0;
+    std::unique_ptr<juce::FileChooser> chooser;
+    // While any LMW editor is open, the LMW look is JUCE's default too, so top-level windows we open
+    // (file chooser, alerts) are black on white also inside a DAW. Each plugin binary has its own JUCE,
+    // so this does not touch the host or other plugins.
+    juce::SharedResourcePointer<LMWLookAndFeel> defaultLook;
+    inline static int openEditors = 0;                    // message thread only
     // On-screen keyboard drawn with the palette: a pressed key is filled with a colour that meets the
     // chosen contrast against the keys around it (darker on white keys, lighter on black keys; inverted
     // at Max), its note name in black or white, and hover is an outline instead of a grey tint.

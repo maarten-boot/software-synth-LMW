@@ -86,3 +86,7 @@
 | T-S6.3b | S6.3 | Config file: comments, case, unknown keys and bad values ignored; contrast/contrast_ratio/compact read and written back | pass (test_contrast) |
 | T-S6.3c | S6.3 | GUI: Contrast box AA → pressed keys grey; Custom 12 (dialog black on white) → dark/light; Max → inverted with white note name; config.ini written; Max restored after restart; octave arrow solid black | pass (Xvfb) |
 | T-S2.1-fedora | S2.1 | Fedora 45 (GCC 16, binutils 2.47) links the VST3: lmw_ui_core built position-independent | pass (local Fedora 45 container, full build with LTO, 11/11 tests) |
+| T-S7.1 | S7.1 | Unit test test_patchfile (ctest T-S7.1-patchfile): write/read round trip, notes verbatim with '#' and '[' lines, CRLF/comments/unknown keys, refuses non-patches and newer formats, one-line names | pass |
+| T-S7.1b | S7.1, S7.2 | GUI: cutoff 5.97 kHz + LFO → VCA CV cable + two lines of notes saved as Tremolo.lmwpatch (file readable, exact values, unit comments); after changing all three, Load restores cutoff, cable and notes; header shows "Patch: Tremolo" | pass (Xvfb) |
+| T-S7.1c | S6.2, S7.1 | Save/Load dialogs, file rows (also selected), disabled Open button: black/white only | pass (Xvfb) |
+| T-S7.2 | S7.2 | Notes tab hides panels and sockets, keeps header and keyboard; typing goes into the notes; readable font | pass (Xvfb) |

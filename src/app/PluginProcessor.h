@@ -96,6 +96,17 @@ public:
         }
         return ok;
     }
+    // Spec S7: patch files (message thread). The text holds every parameter, the cables and the notes;
+    // loading sets parameters missing from the file to their default. False + error text on failure.
+    juce::String patchText(const juce::String& name) const;
+    bool loadPatchText(const juce::String& text, juce::String& error);
+    // Free-text notes and the patch name, kept in the saved state and in patch files.
+    juce::String notes() const { return apvts.state.getProperty(notesProp).toString(); }
+    void setNotes(const juce::String& text) { apvts.state.setProperty(notesProp, text, nullptr); }
+    juce::String patchName() const { return apvts.state.getProperty(nameProp).toString(); }
+    void setPatchName(const juce::String& name) { apvts.state.setProperty(nameProp, name, nullptr); }
+    std::uint32_t patchFileVersion() const noexcept { return loadedPatches; }   // changes on every load
+
     // Increases with every cable change, so the editor can redraw cables changed elsewhere.
     std::uint32_t patchVersion() const noexcept { return patchSerial; }
     // Message thread: the patch as last requested (mirror of the engine's patch) and the latest
@@ -122,6 +133,8 @@ private:
     lmw::dsp::SpscQueue<lmw::dsp::NoteEvent, 256> guiToAudio;
     lmw::dsp::SpscQueue<lmw::dsp::NoteEvent, 256> audioToGui;
     lmw::dsp::SpscQueue<lmw::dsp::PatchCommand, 64> patchToAudio;
+    inline static const juce::Identifier notesProp{"notes"}, nameProp{"patchName"};
+    std::uint32_t loadedPatches = 0;                  // message thread only
     lmw::dsp::Patch guiPatch;                         // message thread only
     std::uint32_t patchSerial = 0;                    // message thread only
     std::atomic<float> modWheelValue{0.0f};           // written by the audio thread

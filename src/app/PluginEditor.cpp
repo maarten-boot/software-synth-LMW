@@ -260,6 +260,36 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
         }
     }
 
+    // Spec S7: Panel / Notes tabs, patch name, Load / Save.
+    ++openEditors;
+    juce::LookAndFeel::setDefaultLookAndFeel(&defaultLook.get());
+    for (auto* tab : {&panelTab, &notesTab}) {
+        tab->setRadioGroupId(1);
+        tab->setClickingTogglesState(true);
+        addAndMakeVisible(*tab);
+    }
+    panelTab.setToggleState(true, juce::dontSendNotification);
+    panelTab.setTooltip("The module panels");
+    notesTab.setTooltip("Free-text notes, saved with the patch");
+    panelTab.onClick = [this] { if (panelTab.getToggleState()) showTab(0); };
+    notesTab.onClick = [this] { if (notesTab.getToggleState()) showTab(1); };
+    patchLabel.setTooltip("Patch name (the file name when saved or loaded)");
+    addAndMakeVisible(patchLabel);
+    loadButton.setTooltip("Load a patch file (parameters, cables, notes)");
+    saveButton.setTooltip("Save parameters, cables and notes as a patch file");
+    loadButton.onClick = [this] { loadPatch(); };
+    saveButton.onClick = [this] { savePatch(); };
+    addAndMakeVisible(loadButton);
+    addAndMakeVisible(saveButton);
+    notesEditor.setMultiLine(true, true);
+    notesEditor.setReturnKeyStartsNewLine(true);
+    notesEditor.setTabKeyUsedAsCharacter(false);
+    notesEditor.setScrollbarsShown(true);
+    notesEditor.setTitle("Patch notes");
+    notesEditor.setTextToShowWhenEmpty("Notes for this patch: they are saved with it.", kFg);
+    notesEditor.onTextChange = [this] { processor.setNotes(notesEditor.getText()); };
+    addChildComponent(notesEditor);
+
     resetLayoutButton.setTooltip("Put all module panels back in their original places");
     resetLayoutButton.onClick = [this] {
         rack->reset();
@@ -312,6 +342,7 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     cables->setBounds(getLocalBounds());
     shownPatchVersion = p.patchVersion();
 
+    refreshPatchInfo();                          // patch name and notes from the saved state
     p.resetKeyboardDisplay();
     startTimerHz(30);                            // show external MIDI notes on the keyboard
     juce::MessageManager::callAsync([safe = juce::Component::SafePointer<juce::Component>(&keyboard)] {
@@ -319,10 +350,19 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     });
 }
 
-LMWSynthEditor::~LMWSynthEditor() { stopTimer(); setLookAndFeel(nullptr); }
+LMWSynthEditor::~LMWSynthEditor() {
+    stopTimer();
+    chooser.reset();
+    setLookAndFeel(nullptr);
+    if (--openEditors == 0 && &juce::LookAndFeel::getDefaultLookAndFeel() == &defaultLook.get())
+        juce::LookAndFeel::setDefaultLookAndFeel(nullptr);   // the last LMW editor is closing
+}
 
 void LMWSynthEditor::timerCallback() {
     processor.updateKeyboardFromMidiInput();
+    if (processor.patchFileVersion() != shownPatchFile || (!notesEditor.hasKeyboardFocus(true)
+            && notesEditor.getText() != processor.notes()))   // patch loaded, or state restored by the host
+        refreshPatchInfo();
     if (processor.patchVersion() != shownPatchVersion) {    // cables changed (e.g. state restored)
         shownPatchVersion = processor.patchVersion();
         repaint();
@@ -385,6 +425,8 @@ void LMWSynthEditor::setCompact(bool compact) {
         faders[i].label.setFont(juce::FontOptions(m.labelFont));
     }
     for (std::size_t i = 0; i < usedChoices; ++i) choices[i].label.setFont(juce::FontOptions(m.labelFont));
+    notesEditor.applyFontToAllText(juce::FontOptions(m.labelFont + 3.0f));   // Spec S7: notes, readable size
+    notesEditor.setFont(juce::FontOptions(m.labelFont + 3.0f));
     updateSize();
 }
 
@@ -568,10 +610,11 @@ void LMWSynthEditor::paint(juce::Graphics& g) {
     g.setColour(kFg);
     const int pad = m.gap + 2;
     g.setFont(juce::FontOptions(m.titleH * 0.6f, juce::Font::bold));
-    g.drawText("LMW-Synth", juce::Rectangle<int>(pad, pad, getWidth() - 2 * pad, m.titleH), juce::Justification::centredLeft);
+    g.drawText("LMW-Synth", juce::Rectangle<int>(pad, pad, titleTextWidth(), m.titleH), juce::Justification::centredLeft);
     const float lineY = static_cast<float>(pad + m.titleH + m.gap / 2);   // between title row and modules
     g.drawLine(static_cast<float>(pad), lineY, static_cast<float>(getWidth() - pad), lineY, 1.0f);
 
+    if (currentTab != 0) return;                             // Notes tab: no panel frames
     for (std::size_t i = 0; i < groups.size(); ++i) {        // titles are drawn by the PanelHeaders
         const auto& b = groups[i].bounds;
         g.drawRect(b, static_cast<int>(i) == draggedPanel ? 3 : 1);
@@ -608,9 +651,20 @@ void LMWSynthEditor::resized() {
     resetLayoutButton.setBounds(title.removeFromRight(110).reduced(0, 2));
     title.removeFromRight(m.gap);
     contrastBox.setBounds(title.removeFromRight(m.colW >= 80 ? 130 : 116).reduced(0, 3));
+    title.removeFromRight(m.gap);
+    saveButton.setBounds(title.removeFromRight(m.colW >= 80 ? 76 : 64).reduced(0, 2));
+    title.removeFromRight(m.gap / 2);
+    loadButton.setBounds(title.removeFromRight(m.colW >= 80 ? 76 : 64).reduced(0, 2));
+    title.removeFromLeft(titleTextWidth() + m.gap);          // "LMW-Synth" is painted there
+    const int tabW = m.colW >= 80 ? 70 : 60;
+    panelTab.setBounds(title.removeFromLeft(tabW).reduced(0, 2));
+    notesTab.setBounds(title.removeFromLeft(tabW).reduced(0, 2));
+    title.removeFromLeft(m.gap);
+    patchLabel.setBounds(title);
     area.removeFromTop(m.gap);
     keyboard.setBounds(area.removeFromBottom(m.keysH));
     area.removeFromBottom(m.gap);
+    notesEditor.setBounds(area);                             // Notes tab: the area of the panels
 
     // Spec S6.5: panels in the order of the rack layout.
     rowBounds.clear();
@@ -1058,4 +1112,136 @@ void LMWLookAndFeel::drawPopupMenuItem(juce::Graphics& g, const juce::Rectangle<
     }
     LookAndFeel_V4::drawPopupMenuItem(g, area, false, isActive, isHighlighted, isTicked, hasSubMenu, text,
                                       shortcutKeyText, icon, textColour);
+}
+
+// ---- Spec S7: tabs, notes and patch files ----
+
+int LMWSynthEditor::titleTextWidth() const { return m.colW >= 80 ? 120 : 96; }
+
+void LMWSynthEditor::showTab(int tab) {
+    currentTab = tab;
+    const juce::Component* alwaysShown[] = {&panelTab, &notesTab, &patchLabel, &loadButton, &saveButton, &contrastBox,
+                                            &resetLayoutButton, &compactButton, &keyboard};
+    for (auto* child : getChildren()) {
+        if (child == &notesEditor || std::find(std::begin(alwaysShown), std::end(alwaysShown), child) != std::end(alwaysShown))
+            continue;
+        child->setVisible(tab == 0);                  // panels, sockets, cables (hidden: no Tab focus either)
+    }
+    notesEditor.setVisible(tab == 1);
+    resetLayoutButton.setEnabled(true);
+    if (tab == 1) notesEditor.grabKeyboardFocus();
+    repaint();
+}
+
+void LMWSynthEditor::refreshPatchInfo() {
+    shownPatchFile = processor.patchFileVersion();
+    const auto name = processor.patchName();
+    patchLabel.setText(name.isEmpty() ? juce::String() : "Patch: " + name, juce::dontSendNotification);
+    if (notesEditor.getText() != processor.notes()) notesEditor.setText(processor.notes(), false);
+}
+
+juce::File LMWSynthEditor::patchFolder() {
+    return juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("LMW-Synth Patches");
+}
+
+void LMWSynthEditor::showError(const juce::String& title, const juce::String& message) {
+    juce::AlertWindow::showAsync(juce::MessageBoxOptions()
+                                     .withIconType(juce::MessageBoxIconType::NoIcon)
+                                     .withTitle(title).withMessage(message).withButton("OK", 1)
+                                     .withAssociatedComponent(this), nullptr);
+}
+
+void LMWSynthEditor::savePatch() {
+    patchFolder().createDirectory();
+    const auto name = processor.patchName().isEmpty() ? juce::String("Untitled") : processor.patchName();
+    // JUCE's own dialog (not the system one), so it is black on white like the rest (Spec S6.2).
+    chooser = std::make_unique<juce::FileChooser>("Save patch", patchFolder().getChildFile(name + ".lmwpatch"),
+                                                  "*.lmwpatch", false, false, this);
+    chooser->launchAsync(juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles
+                             | juce::FileBrowserComponent::warnAboutOverwriting,
+        [safe = juce::Component::SafePointer<LMWSynthEditor>(this)](const juce::FileChooser& fc) {
+            if (safe == nullptr) return;
+            auto file = fc.getResult();
+            if (file == juce::File()) return;
+            if (!file.hasFileExtension("lmwpatch")) file = file.withFileExtension("lmwpatch");
+            const auto patchName = file.getFileNameWithoutExtension();
+            safe->processor.setPatchName(patchName);
+            if (!file.replaceWithText(safe->processor.patchText(patchName)))
+                safe->showError("Save patch", "Could not write " + file.getFullPathName());
+            safe->refreshPatchInfo();
+        });
+}
+
+void LMWSynthEditor::loadPatch() {
+    patchFolder().createDirectory();
+    chooser = std::make_unique<juce::FileChooser>("Load patch", patchFolder(), "*.lmwpatch", false, false, this);
+    chooser->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+        [safe = juce::Component::SafePointer<LMWSynthEditor>(this)](const juce::FileChooser& fc) {
+            if (safe == nullptr) return;
+            const auto file = fc.getResult();
+            if (file == juce::File()) return;
+            juce::String error;
+            if (!safe->processor.loadPatchText(file.loadFileAsString(), error)) {
+                safe->showError("Load patch", file.getFileName() + ": " + error);
+                return;
+            }
+            if (safe->processor.patchName().isEmpty()) safe->processor.setPatchName(file.getFileNameWithoutExtension());
+            safe->refreshPatchInfo();
+            safe->repaint();
+        });
+}
+
+void LMWLookAndFeel::drawButtonBackground(juce::Graphics& g, juce::Button& b, const juce::Colour& backgroundColour,
+                                          bool isHighlighted, bool isDown) {
+    if (b.isEnabled()) {
+        LookAndFeel_V4::drawButtonBackground(g, b, backgroundColour, isHighlighted, isDown);
+        return;
+    }
+    const auto r = b.getLocalBounds().toFloat().reduced(0.5f);
+    g.setColour(kBg);
+    g.fillRoundedRectangle(r, 6.0f);
+    juce::Path outline, dashed;
+    outline.addRoundedRectangle(r, 6.0f);
+    const float dashes[] = {4.0f, 3.0f};
+    juce::PathStrokeType(1.0f).createDashedStroke(dashed, outline, dashes, 2);
+    g.setColour(kFg);
+    g.fillPath(dashed);
+}
+
+void LMWLookAndFeel::drawButtonText(juce::Graphics& g, juce::TextButton& b, bool isHighlighted, bool isDown) {
+    if (b.isEnabled()) {
+        LookAndFeel_V4::drawButtonText(g, b, isHighlighted, isDown);
+        return;
+    }
+    g.setFont(getTextButtonFont(b, b.getHeight()));
+    g.setColour(kFg);
+    g.drawFittedText(b.getButtonText(), b.getLocalBounds().reduced(4, 2), juce::Justification::centred, 1);
+}
+
+void LMWLookAndFeel::drawFileBrowserRow(juce::Graphics& g, int width, int height, const juce::File&,
+                                        const juce::String& filename, juce::Image*, const juce::String& fileSizeDescription,
+                                        const juce::String& fileTimeDescription, bool isDirectory, bool isItemSelected,
+                                        int, juce::DirectoryContentsDisplayComponent&) {
+    const auto fg = isItemSelected ? kBg : kFg;
+    g.fillAll(isItemSelected ? kFg : kBg);
+    g.setColour(fg);
+    // Glyph: a folder (box with a tab) or a page (box).
+    const float h = static_cast<float>(height), s = h * 0.55f, gx = 4.0f, gy = (h - s) * 0.5f;
+    if (isDirectory) {
+        g.drawRect(juce::Rectangle<float>(gx, gy + s * 0.2f, s * 1.2f, s * 0.8f), 1.2f);
+        g.fillRect(juce::Rectangle<float>(gx, gy, s * 0.5f, s * 0.25f));
+    } else {
+        g.drawRect(juce::Rectangle<float>(gx + s * 0.15f, gy, s * 0.8f, s), 1.2f);
+    }
+    const int x = static_cast<int>(gx + s * 1.5f);
+    g.setFont(juce::FontOptions(h * 0.7f));
+    if (width > 450 && !isDirectory) {
+        const int sizeX = width * 7 / 10, dateX = width * 8 / 10;
+        g.drawFittedText(filename, x, 0, sizeX - x, height, juce::Justification::centredLeft, 1);
+        g.setFont(juce::FontOptions(h * 0.55f));
+        g.drawFittedText(fileSizeDescription, sizeX, 0, dateX - sizeX - 8, height, juce::Justification::centredRight, 1);
+        g.drawFittedText(fileTimeDescription, dateX, 0, width - 8 - dateX, height, juce::Justification::centredRight, 1);
+    } else {
+        g.drawFittedText(filename, x, 0, width - x, height, juce::Justification::centredLeft, 1);
+    }
 }

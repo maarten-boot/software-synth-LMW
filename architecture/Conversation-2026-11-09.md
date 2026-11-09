@@ -25,3 +25,8 @@ CI for 8a32daa failed on Fedora 45 only: ld.bfd "failed to set dynamic section s
 > yes, test the vst3 editor with AudioPluginHost
 
 Built JUCE 9.0.5 AudioPluginHost in a scratch project (LADSPA off: no ladspa.h on the host; project VERSION needed). On Xvfb: scan found LMW-Synth (VST3, Instrument|Synth), added to the graph, editor opened and drew correctly, hover text OK, fader drag changed VCF 1 cutoff, Compact resized the host window.
+
+## 4. Phase 5: patch files and notes
+> yes, start Phase 5, the patch files; add a text tab to the synth the contents gets saved with the patch so we can make text-notes for each patch
+
+PatchFile.h (pure) + test; processor patchText/loadPatchText (exact floats, choices by name, defaults for missing, migration), notes and patch name in state; editor: Panel/Notes tabs (first notebook tab), Load/Save with JUCE's file dialog, shared LMW look as JUCE default while an editor is open (dialogs themed in DAWs). Compile fixes for JUCE 9 API (SharedResourcePointer::get() returns a reference; getReferenceCount deprecated → own counter; MessageBoxOptions::withButton(text, code)). Xvfb: save Tremolo (file inspected), change, load restores cutoff/cable/notes. Found JUCE greys in the file list (details #555, 2.8:1 on a selected row) and 50 % disabled buttons → redrawn. Notes font enlarged. CI for 96b9497 (42636864461) green on all four, Fedora fix confirmed.
