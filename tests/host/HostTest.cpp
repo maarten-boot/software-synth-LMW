@@ -6,11 +6,15 @@
 #include <juce_events/juce_events.h>
 #include <cmath>
 #if JUCE_WINDOWS
+ #ifndef NOMINMAX
+  #define NOMINMAX                 // keep std::max usable
+ #endif
  #include <windows.h>
 #else
  #include <unistd.h>
 #endif
 #include <cstdio>
+#include <cstdlib>
 #include <filesystem>
 #include <map>
 #include <string>
@@ -121,7 +125,7 @@ int main(int argc, char* argv[]) {
         const auto x = render(*a, 160, 60);
         bool finite = true;
         float peak = 0;
-        for (float v : x) { finite = finite && std::isfinite(v); peak = std::max(peak, std::fabs(v)); }
+        for (float v : x) { finite = finite && std::isfinite(v); peak = (std::max)(peak, std::fabs(v)); }
         const double held = rms(x, 10 * blockSize, 50 * blockSize), tail = rms(x, 140 * blockSize, 160 * blockSize);
         std::printf("held rms %.4f, peak %.3f, tail rms %.6f\n", held, peak, tail);
         CHECK(finite);
@@ -160,7 +164,7 @@ int main(int argc, char* argv[]) {
     b->releaseResources(); b->prepareToPlay(sampleRate, blockSize);
     const auto ya = render(*a, 80, 40), yb = render(*b, 80, 40);
     double maxDiff = 0;
-    for (std::size_t i = 0; i < ya.size(); ++i) maxDiff = std::max(maxDiff, std::fabs(double(ya[i]) - yb[i]));
+    for (std::size_t i = 0; i < ya.size(); ++i) maxDiff = (std::max)(maxDiff, std::fabs(double(ya[i]) - yb[i]));
     std::printf("restored instance: max sample difference %.3g, rms %.4f\n", maxDiff, rms(ya, 0, ya.size()));
     CHECK(maxDiff < 1e-6);
     CHECK(rms(ya, 0, ya.size()) > 0.005);

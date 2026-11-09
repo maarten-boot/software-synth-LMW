@@ -56,3 +56,6 @@ Step 6c: plan9port built from source (1f13969); every 9p command and error case 
 > start Phase 8, the VST3 host testing
 
 No DAW installed; downloading/running pluginval (prebuilt binary) was refused by the sandbox's auto-mode check (third-party code) → asked the user. Own host test via JUCE's VST3 hosting instead: found 2120 parameters (JUCE's hidden MIDI-CC parameters, expected), scan reports 0/0 channels (class info only; checked on the instance), and a real engine bug: prepare did not reset the output gain smoothing and noise → restored instance differed by 0.05 for 20 ms; fixed, now identical. CI for cbafad0 (42667495175) green, images macos-26-arm64 / windows-2025-vs2026 / ubuntu-24.04.
+
+### CI for ad73701
+macOS, Fedora and Ubuntu green (host test passes there). Windows failed to compile HostTest.cpp: `std::max` clashed with the `max` macro from `<windows.h>` (C2589). Fixed with NOMINMAX and `(std::max)`.
