@@ -30,3 +30,8 @@ Built JUCE 9.0.5 AudioPluginHost in a scratch project (LADSPA off: no ladspa.h o
 > yes, start Phase 5, the patch files; add a text tab to the synth the contents gets saved with the patch so we can make text-notes for each patch
 
 PatchFile.h (pure) + test; processor patchText/loadPatchText (exact floats, choices by name, defaults for missing, migration), notes and patch name in state; editor: Panel/Notes tabs (first notebook tab), Load/Save with JUCE's file dialog, shared LMW look as JUCE default while an editor is open (dialogs themed in DAWs). Compile fixes for JUCE 9 API (SharedResourcePointer::get() returns a reference; getReferenceCount deprecated → own counter; MessageBoxOptions::withButton(text, code)). Xvfb: save Tremolo (file inspected), change, load restores cutoff/cable/notes. Found JUCE greys in the file list (details #555, 2.8:1 on a selected row) and 50 % disabled buttons → redrawn. Notes font enlarged. CI for 96b9497 (42636864461) green on all four, Fedora fix confirmed.
+
+## 5. Phase 6a: 9P server core
+> yes, start Phase 6, the 9P server
+
+Split into 6a (protocol + core, pure C++), 6b (sockets + wiring), 6c (conformance with plan9port, load). Spec S10.10–S10.12 written first (file tree, write semantics, message-thread application). Test client found: a dangling Reader in my own test helper (ASan), a directory read count smaller than one entry returned 0 (= end) → now an error. Fuzz section found a real out-of-bounds read: directory reads at an arbitrary offset used garbage as entry length → offsets must be entry boundaries. 2 000 000 fuzzed messages clean under ASan/UBSan. No 9P client on the host (plan9port to be built for 6c).
