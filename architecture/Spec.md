@@ -65,7 +65,7 @@ S8.2 Every dependency must be AGPLv3-compatible.
 ## S9 Deliverables
 S9.0 Product name: `LMW-Synth` (no space) for the app file, VST3 bundle, window title and plugin name.
 S9.1 Standalone application (first).
-S9.2 VST3 plugin from the same codebase (end goal).
+S9.2 VST3 plugin from the same codebase (end goal). Hosts see our parameters plus JUCE's hidden VST3 MIDI-CC parameters (16 channels × 130), which is how VST3 delivers mod wheel, sustain and pitch bend to a plugin. On load the plugin prints its 9P address to stderr. Re-preparing (prepareToPlay, as hosts do on every rate/block-size change) puts the engine in the same state as a fresh instance (voices, LFO, noise, filter glides, output fade-in).
 
 ## S10 GUI / engine split
 S10.1 Engine and GUI communicate over 9P2000; the engine is the 9P server and the single source of truth for state.

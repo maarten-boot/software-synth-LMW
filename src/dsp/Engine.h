@@ -218,6 +218,8 @@ public:
     void prepare(double sr) noexcept {
         for (auto& v : voices) v.prepare(sr);
         lfo.setSampleRate(sr); lfo.reset();
+        noise.reset();
+        gain = 0.0f;                         // fade in like a fresh instance (hosts re-prepare often)
         order.fill(0);
         counter = 0;
         sustainPedal = false;

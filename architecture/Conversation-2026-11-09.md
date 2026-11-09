@@ -51,3 +51,8 @@ CI for 8170bad (42658324892) green on all four: the Windows socket-file fix work
 
 Runner labels: -latest resolved to macos-26-arm64 and windows-2025-vs2026 (from the CI log); per GitHub's changelog windows-2025 now is the VS2026 image → macos-26 / windows-2025. setStateInformation: cables posted to the message thread via a WeakReference when not on it.
 Step 6c: plan9port built from source (1f13969); every 9p command and error case worked against the running standalone. Load: lmw9p bench at 1000 writes/s; app run under strace (ptrace_scope 1 → traced as a child): the ALSA audio thread did the same syscalls per second idle and under load, no futex after start-up, no xrun recovery.
+
+## 9. Phase 8: VST3 host testing
+> start Phase 8, the VST3 host testing
+
+No DAW installed; downloading/running pluginval (prebuilt binary) was refused by the sandbox's auto-mode check (third-party code) → asked the user. Own host test via JUCE's VST3 hosting instead: found 2120 parameters (JUCE's hidden MIDI-CC parameters, expected), scan reports 0/0 channels (class info only; checked on the instance), and a real engine bug: prepare did not reset the output gain smoothing and noise → restored instance differed by 0.05 for 20 ms; fixed, now identical. CI for cbafad0 (42667495175) green, images macos-26-arm64 / windows-2025-vs2026 / ubuntu-24.04.

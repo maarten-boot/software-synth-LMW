@@ -15,6 +15,8 @@ public:
         return static_cast<float>(state >> 8) * (2.0f / 16777216.0f) - 1.0f;
     }
 
+    void reset() noexcept { state = 0x9E3779B9u; }
+
 private:
     std::uint32_t state = 0x9E3779B9u;
 };

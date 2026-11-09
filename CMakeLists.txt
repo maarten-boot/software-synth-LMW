@@ -84,6 +84,20 @@ if(LMW_BUILD_PLUGIN)
     if(WIN32)
         target_link_libraries(LMWSynth PRIVATE ws2_32)   # 9P sockets
     endif()
+
+    # T-S9.2-host (Phase 8): loads the built VST3 through JUCE's VST3 hosting, as a DAW would.
+    juce_add_console_app(LMWHostTest PRODUCT_NAME "LMWHostTest")
+    target_sources(LMWHostTest PRIVATE tests/host/HostTest.cpp)
+    target_compile_definitions(LMWHostTest PRIVATE
+        JUCE_PLUGINHOST_VST3=1 JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
+    target_link_libraries(LMWHostTest PRIVATE
+        juce::juce_audio_processors juce::juce_audio_utils
+        juce::juce_recommended_config_flags juce::juce_recommended_warning_flags)
+    add_dependencies(LMWHostTest LMWSynth_VST3)
+    if(LMW_BUILD_TESTS)
+        add_test(NAME T-S9.2-host
+                 COMMAND LMWHostTest "$<TARGET_GENEX_EVAL:LMWSynth_VST3,$<TARGET_PROPERTY:LMWSynth_VST3,JUCE_PLUGIN_ARTEFACT_FILE>>")
+    endif()
 endif()
 
 # Tests ------------------------------------------------------------------
