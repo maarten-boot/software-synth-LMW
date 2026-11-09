@@ -45,3 +45,8 @@ Independent read by a sub-agent (Spec/Plan/Tests vs code). Verified and fixed in
 
 CI for 5653c14 (42653555412): Windows failed in T-S10.4-socket (0xc0000409, no output). Likely std::filesystem throwing on the AF_UNIX socket file; changed to C remove() + directory listing, and the test now prints exception texts. Not reproducible here (no Windows).
 CI for 8170bad (42658324892) green on all four: the Windows socket-file fix works.
+
+## 8. Runner labels, state restore, step 6c
+> yes to both, then start step 6c
+
+Runner labels: -latest resolved to macos-26-arm64 and windows-2025-vs2026 (from the CI log); per GitHub's changelog windows-2025 now is the VS2026 image → macos-26 / windows-2025. setStateInformation: cables posted to the message thread via a WeakReference when not on it.

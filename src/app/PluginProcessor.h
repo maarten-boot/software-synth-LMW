@@ -159,5 +159,6 @@ private:
         std::array<std::atomic<float>*, 3> wave{}, fm{}, octave{}, tune{}, mixVco{};
     } raw;
 
+    JUCE_DECLARE_WEAK_REFERENCEABLE(LMWSynthProcessor)
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(LMWSynthProcessor)
 };

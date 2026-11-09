@@ -264,7 +264,16 @@ void LMWSynthProcessor::setStateInformation(const void* data, int size) {
         tree.removeProperty(kVersionProp, nullptr);
         apvts.replaceState(tree);
         // An unreadable cable list is ignored (no cables) rather than failing the whole state.
-        setPatch(lmw::dsp::patchFromText(text).value_or(lmw::dsp::Patch{}));
+        // Cable changes go through the message thread (single producer of the cable queue, Spec
+        // S10.2); a host restoring state on another thread gets the cables a moment later.
+        const auto cables = lmw::dsp::patchFromText(text).value_or(lmw::dsp::Patch{});
+        if (juce::MessageManager::existsAndIsCurrentThread()) {
+            setPatch(cables);
+        } else {
+            juce::MessageManager::callAsync([weak = juce::WeakReference<LMWSynthProcessor>(this), cables] {
+                if (auto* p = weak.get()) p->setPatch(cables);
+            });
+        }
     }
 }
 

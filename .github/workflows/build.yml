@@ -13,10 +13,12 @@ jobs:
           - name: fedora-45
             os: ubuntu-24.04
             container: registry.fedoraproject.org/fedora:45@sha256:5db9683660938d440b057d412247ee245172b9724f42428ae95ae01253bae699
+          # Fixed image labels instead of -latest (Spec S2.3: runner images cannot be pinned by hash,
+          # so a version label keeps a GitHub image update from changing the build unannounced).
           - name: macos
-            os: macos-latest
+            os: macos-26
           - name: windows
-            os: windows-latest
+            os: windows-2025
     runs-on: ${{ matrix.os }}
     container: ${{ matrix.container }}
     steps:
