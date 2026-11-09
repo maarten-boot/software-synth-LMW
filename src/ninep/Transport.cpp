@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <cerrno>
+#include <cstdio>
 #include <filesystem>
 
 #if defined(_WIN32)
@@ -138,6 +139,10 @@ std::string socketDirectory() {
     return dir.string();
 }
 
+// Deletes a socket file. Plain C remove(): on Windows an AF_UNIX socket file is a reparse point,
+// which std::filesystem may refuse or throw on.
+void removeSocketFile(const std::string& path) { std::remove(path.c_str()); }
+
 namespace {
 bool processAlive(long pid) {
 #if defined(_WIN32)
@@ -166,7 +171,7 @@ void removeStaleSockets() {
             if (name[i] < '0' || name[i] > '9') { digits = false; break; }
             pid = pid * 10 + (name[i] - '0');
         }
-        if (digits && pid > 0 && !processAlive(pid)) fs::remove(e.path(), ec);
+        if (digits && pid > 0 && !processAlive(pid)) removeSocketFile(e.path().string());
     }
 }
 
@@ -187,8 +192,7 @@ Listener::~Listener() { stop(); }
 bool Listener::listenUnix(const std::string& path, std::string& error) {
     sockaddr_un addr{};
     if (!unixAddress(path, addr)) { error = "socket path too long: " + path; return false; }
-    std::error_code ec;
-    std::filesystem::remove(path, ec);
+    removeSocketFile(path);
     const Socket s = toSocket(::socket(AF_UNIX, SOCK_STREAM, 0));
     if (s == invalidSocket) { error = "cannot create a Unix socket"; return false; }
     if (::bind(native(s), reinterpret_cast<sockaddr*>(&addr), sizeof addr) != 0 || ::listen(native(s), 8) != 0) {
@@ -242,8 +246,7 @@ void Listener::stop() {
     for (Socket s : listeners) closeSocket(s);
     listeners.clear();
     if (!socketPath.empty()) {
-        std::error_code ec;
-        std::filesystem::remove(socketPath, ec);
+        removeSocketFile(socketPath);
         socketPath.clear();
     }
 }

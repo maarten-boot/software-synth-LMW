@@ -3,6 +3,7 @@
 // oversized messages dropped, prompt stop with a client still connected.
 #include "ninep/Transport.h"
 #include <atomic>
+#include <exception>
 #include <chrono>
 #include <cstdio>
 #include <filesystem>
@@ -15,6 +16,16 @@ static std::atomic<int> failures{0};
 #define CHECK(cond) do { if (!(cond)) { std::printf("FAIL %s:%d: %s\n", __FILE__, __LINE__, #cond); ++failures; } } while (0)
 
 namespace {
+// Whether `path` is listed in its directory (std::filesystem::exists may throw on a Windows
+// AF_UNIX socket file, which is a reparse point).
+bool listed(const std::string& path) {
+    namespace fs = std::filesystem;
+    const fs::path p(path);
+    std::error_code ec;
+    for (fs::directory_iterator it(p.parent_path(), ec), end; !ec && it != end; it.increment(ec))
+        if (it->path().filename() == p.filename()) return true;
+    return false;
+}
 std::uint8_t typeOf(const std::vector<std::uint8_t>& m) { return m.size() >= 5 ? m[4] : 0; }
 
 // version + attach as fid 0; true when both succeed.
@@ -49,7 +60,19 @@ bool writeFile(Client& c, std::uint32_t fid, const std::vector<std::string>& pat
 }
 } // namespace
 
+static int run();
+
+// Any exception is reported with its message (on Windows an uncaught one only shows 0xc0000409).
 int main() {
+    try {
+        return run();
+    } catch (const std::exception& e) {
+        std::printf("FAIL: exception: %s\n", e.what());
+        return 1;
+    }
+}
+
+static int run() {
     std::atomic<int> counter{0};
     Tree tree;
     tree.file("source", [] { return std::string("https://example.org/lmw\n"); });
@@ -58,7 +81,8 @@ int main() {
 
     namespace fs = std::filesystem;
     const auto dir = socketDirectory();
-    CHECK(fs::is_directory(dir));
+    std::error_code dirError;
+    CHECK(fs::is_directory(dir, dirError));
     const std::string path = (fs::path(dir) / ("test-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count() % 1000000) + ".sock")).string();
 
     Listener listener(tree);
@@ -67,7 +91,7 @@ int main() {
     CHECK(error.empty());
     CHECK(listener.listenTcp("127.0.0.1", 0, error));
     CHECK(listener.tcpPort() > 0);
-    CHECK(fs::exists(path));
+    CHECK(listed(path));
 
     // Unix socket and TCP both serve the same tree.
     {
@@ -113,7 +137,7 @@ int main() {
     listener.stop();
     const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();
     CHECK(ms < 2000);
-    CHECK(!fs::exists(path));
+    CHECK(!listed(path));
     Writer w;
     CHECK(idle.call(w.start(Tclunk, 9).u32(0).take(), 1000).empty());
 

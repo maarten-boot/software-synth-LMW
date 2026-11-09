@@ -42,3 +42,5 @@ Transport (Unix socket + TCP, polled I/O, at most 16 connections) with a socket 
 
 ## 7. Crosscheck
 Independent read by a sub-agent (Spec/Plan/Tests vs code). Verified and fixed in code: choice parsing over 9P ("24" for slope failed, "1" for octave gave -1, "low" not accepted) → matchChoice with tests; 9P had no time-out → 5 s; stray/stale comments. Docs: stale names and layouts, /ports arrow, error strings, precision, config keys, duplicate test IDs, historical rows marked, Plan stale text. Open for the user: CI runner images (macos-latest/windows-latest) and dnf packages cannot be pinned by hash — documented as exceptions in S2.3; setStateInformation off the message thread remains a known limit.
+
+CI for 5653c14 (42653555412): Windows failed in T-S10.4-socket (0xc0000409, no output). Likely std::filesystem throwing on the AF_UNIX socket file; changed to C remove() + directory listing, and the test now prints exception texts. Not reproducible here (no Windows).

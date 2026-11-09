@@ -75,5 +75,6 @@ std::string uniqueSocketPath();
 // Removes "<pid>-<n>.sock" files whose process no longer runs (crashed instances); called by
 // uniqueSocketPath() the first time.
 void removeStaleSockets();
+void removeSocketFile(const std::string& path);
 
 } // namespace lmw::ninep
