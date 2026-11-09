@@ -17,7 +17,7 @@ double contrastRatio(Rgb a, Rgb b) noexcept;
 
 enum class ContrastPreset { AA, AAA, Max, Custom };
 
-// Minimum ratio for a preset; `custom` is used (clamped to 1..21) for Custom.
+// Minimum ratio for a preset; `custom` is used (clamped to 4.5..21: never below AA) for Custom.
 double minimumRatio(ContrastPreset p, double custom = 4.5) noexcept;
 
 // Parse "AA", "AAA", "Max", "Custom" (case-insensitive).

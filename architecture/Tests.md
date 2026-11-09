@@ -82,3 +82,6 @@
 | T-S5.9-vcfmodes | S5.9 | ctest T-S5.9-vcfmodes (`tests/test_vcfmodes.cpp`) runs T-S5.9a–b | pass |
 | T-S5.10-vcos | S5.10 | ctest T-S5.10-vcos (`tests/test_vcos.cpp`): T-S5.10a plus mixer level, VCO used only by a cable (vco2.out → out.in), vco3.pitch from ENV 2 | pass |
 | T-S5.11-vcf2 | S5.11 | ctest T-S5.11-vcf2 (`tests/test_vcf2.cpp`) runs T-S5.11a–b | pass |
+| T-S6.3a | S6.3 | Every pair in Theme.h meets the chosen minimum for 4.5, 5, 7, 9.3, 12, 15, 21; AA keeps the design grey, Max inverts pressed keys; Custom never below 4.5 | pass (test_contrast) |
+| T-S6.3b | S6.3 | Config file: comments, case, unknown keys and bad values ignored; contrast/contrast_ratio/compact read and written back | pass (test_contrast) |
+| T-S6.3c | S6.3 | GUI: Contrast box AA → pressed keys grey; Custom 12 (dialog black on white) → dark/light; Max → inverted with white note name; config.ini written; Max restored after restart; octave arrow solid black | pass (Xvfb) |

@@ -6,7 +6,6 @@ namespace {
 juce::Colour toJuce(lmw::ui::Rgb c) { return juce::Colour(c.r, c.g, c.b); }
 const juce::Colour kBg      = toJuce(lmw::ui::theme::background);
 const juce::Colour kFg      = toJuce(lmw::ui::theme::foreground);
-const juce::Colour kKeyDown = toJuce(lmw::ui::theme::keyDown);
 }
 
 LMWLookAndFeel::LMWLookAndFeel() {
@@ -32,8 +31,17 @@ LMWLookAndFeel::LMWLookAndFeel() {
     setColour(juce::MidiKeyboardComponent::whiteNoteColourId, kBg);
     setColour(juce::MidiKeyboardComponent::blackNoteColourId, kFg);
     setColour(juce::MidiKeyboardComponent::keySeparatorLineColourId, kFg);
-    setColour(juce::MidiKeyboardComponent::keyDownOverlayColourId, kKeyDown);
-    setColour(juce::MidiKeyboardComponent::mouseOverKeyOverlayColourId, kKeyDown.withAlpha(0.3f));
+    // Pressed and hovered keys are drawn by LMWSynthEditor::Keyboard with the contrast palette.
+    setColour(juce::TextEditor::backgroundColourId, kBg);              // typed values, Custom ratio
+    setColour(juce::TextEditor::textColourId, kFg);
+    setColour(juce::TextEditor::outlineColourId, kFg);
+    setColour(juce::TextEditor::focusedOutlineColourId, kFg);
+    setColour(juce::TextEditor::highlightColourId, kFg);
+    setColour(juce::TextEditor::highlightedTextColourId, kBg);
+    setColour(juce::CaretComponent::caretColourId, kFg);
+    setColour(juce::AlertWindow::backgroundColourId, kBg);
+    setColour(juce::AlertWindow::textColourId, kFg);
+    setColour(juce::AlertWindow::outlineColourId, kFg);
     setColour(juce::MidiKeyboardComponent::textLabelColourId, kFg);
     setColour(juce::MidiKeyboardComponent::shadowColourId, juce::Colours::transparentBlack);
     setColour(juce::MidiKeyboardComponent::upDownButtonBackgroundColourId, kBg);
@@ -105,7 +113,9 @@ void LMWLookAndFeel::positionComboBoxText(juce::ComboBox& box, juce::Label& labe
 
 LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     : AudioProcessorEditor(&p), processor(p),
-      keyboard(p.keyboardState(), juce::MidiKeyboardComponent::horizontalKeyboard) {
+      settings(lmw::ui::parseConfig(configFile().loadFileAsString().toStdString())),
+      palette(lmw::ui::theme::palette(settings.minRatio())),
+      keyboard(p.keyboardState(), palette) {
     setLookAndFeel(&lookAndFeel);
     namespace P = lmw::param;
     using lmw::dsp::In;
@@ -262,9 +272,28 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     compactButton.setTooltip("Smaller margins, faders and value boxes");
     compactButton.onClick = [this] {
         processor.state().state.setProperty(kCompactProp, compactButton.getToggleState(), nullptr);
+        settings.compact = compactButton.getToggleState();   // default for new windows (config file)
+        saveConfig();
         setCompact(compactButton.getToggleState());
     };
     addAndMakeVisible(compactButton);
+
+    // Spec S6.3: contrast preset; Custom asks for a minimum ratio (4.5 .. 21).
+    contrastBox.addItemList({"AA 4.5:1", "AAA 7:1", "Max 21:1", "Custom"}, 1);
+    contrastBox.setTooltip("Minimum contrast of every colour pair (WCAG). Black and white are 21:1 at\n"
+                           "every setting; stricter settings darken or invert the pressed keys.\n"
+                           "Also in the config file: " + configFile().getFullPathName());
+    contrastBox.setTitle("Contrast");
+    updateContrastBox();
+    contrastBox.onChange = [this] {
+        const int id = contrastBox.getSelectedId();
+        if (id == 4) { askCustomRatio(); return; }
+        if (id >= 1 && id <= 3) {
+            settings.contrast = static_cast<lmw::ui::ContrastPreset>(id - 1);
+            applyContrast();
+        }
+    };
+    addAndMakeVisible(contrastBox);
 
     keyboard.setWantsKeyboardFocus(true);       // QWERTY keys play notes (Spec S3.2)
     addAndMakeVisible(keyboard);
@@ -273,7 +302,8 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     // look-and-feel; re-send it so every child uses the black-on-white theme (Spec S6.2).
     sendLookAndFeelChange();
 
-    const bool compact = processor.state().state.getProperty(kCompactProp, false);
+    // A saved state's view wins; a new window starts with the config file's default.
+    const bool compact = processor.state().state.getProperty(kCompactProp, settings.compact.value_or(false));
     compactButton.setToggleState(compact, juce::dontSendNotification);
     setCompact(compact);                         // sets the window size
 
@@ -576,6 +606,8 @@ void LMWSynthEditor::resized() {
     compactButton.setBounds(title.removeFromRight(90).reduced(0, 2));
     title.removeFromRight(m.gap);
     resetLayoutButton.setBounds(title.removeFromRight(110).reduced(0, 2));
+    title.removeFromRight(m.gap);
+    contrastBox.setBounds(title.removeFromRight(m.colW >= 80 ? 130 : 116).reduced(0, 3));
     area.removeFromTop(m.gap);
     keyboard.setBounds(area.removeFromBottom(m.keysH));
     area.removeFromBottom(m.gap);
@@ -872,4 +904,99 @@ void LMWSynthEditor::showJackMenu(Jack& jack) {
             safe->connect(r - 200, cabled ? lmw::dsp::Patch::none : port);
         }
     });
+}
+
+// ---- Spec S6.3: contrast settings and config file ----
+
+juce::File LMWSynthEditor::configFile() {
+    const auto base = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory);
+#if JUCE_MAC
+    return base.getChildFile("Application Support/LMW-Synth/config.ini");
+#else
+    return base.getChildFile("LMW-Synth/config.ini");   // Linux: ~/.config/..., Windows: %APPDATA%\\...
+#endif
+}
+
+void LMWSynthEditor::saveConfig() const {
+    const auto file = configFile();
+    file.getParentDirectory().createDirectory();
+    file.replaceWithText(juce::String(lmw::ui::writeConfig(settings)));
+}
+
+void LMWSynthEditor::updateContrastBox() {
+    char text[32];
+    std::snprintf(text, sizeof text, "Custom %.1f:1", settings.customRatio);
+    contrastBox.changeItemText(4, text);
+    contrastBox.setSelectedId(static_cast<int>(settings.contrast) + 1, juce::dontSendNotification);
+}
+
+void LMWSynthEditor::applyContrast() {
+    palette = lmw::ui::theme::palette(settings.minRatio());
+    updateContrastBox();
+    saveConfig();
+    keyboard.repaint();
+    repaint();
+}
+
+void LMWSynthEditor::askCustomRatio() {
+    auto* w = new juce::AlertWindow("Custom contrast",
+                                    "Minimum contrast ratio for every colour pair, 4.5 (AA) to 21 (black/white):",
+                                    juce::MessageBoxIconType::NoIcon, this);
+    w->setLookAndFeel(&lookAndFeel);
+    w->addTextEditor("ratio", juce::String(settings.customRatio, 1), "Ratio");
+    w->addButton("OK", 1, juce::KeyPress(juce::KeyPress::returnKey));
+    w->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
+    w->enterModalState(true, juce::ModalCallbackFunction::create(
+        [safe = juce::Component::SafePointer<LMWSynthEditor>(this), w](int result) {
+            if (safe == nullptr) return;
+            if (result == 1) {
+                const double r = w->getTextEditorContents("ratio").getDoubleValue();
+                if (r > 0.0) {
+                    safe->settings.contrast = lmw::ui::ContrastPreset::Custom;
+                    safe->settings.customRatio = lmw::ui::minimumRatio(lmw::ui::ContrastPreset::Custom, r);
+                }
+            }
+            safe->applyContrast();                      // also restores the box after Cancel
+        }), true);
+}
+
+void LMWSynthEditor::Keyboard::drawWhiteNote(int note, juce::Graphics& g, juce::Rectangle<float> area, bool isDown,
+                                             bool isOver, juce::Colour lineColour, juce::Colour textColour) {
+    if (isDown) {
+        g.setColour(toJuce(pal.whiteKeyDown));
+        g.fillRect(area);
+        textColour = toJuce(lmw::ui::theme::textOn(pal.whiteKeyDown));
+    } else if (isOver) {
+        g.setColour(kFg);
+        g.drawRect(area.reduced(2.0f), 1.0f);
+    }
+    // Base class: note name and the separator lines (no fill: not down, not over).
+    juce::MidiKeyboardComponent::drawWhiteNote(note, g, area, false, false, lineColour, textColour);
+}
+
+void LMWSynthEditor::Keyboard::drawBlackNote(int, juce::Graphics& g, juce::Rectangle<float> area, bool isDown,
+                                             bool isOver, juce::Colour noteFillColour) {
+    g.setColour(isDown ? toJuce(pal.blackKeyDown) : noteFillColour);
+    g.fillRect(area);
+    if (isDown) {
+        g.setColour(kFg);                               // keeps its edge where it meets white keys
+        g.drawRect(area, 1.0f);
+    } else if (isOver) {
+        g.setColour(kBg);
+        g.drawRect(area.reduced(2.0f), 1.0f);
+    }
+}
+
+void LMWSynthEditor::Keyboard::drawUpDownButton(juce::Graphics& g, int w, int h, bool isMouseOver, bool isButtonPressed,
+                                                bool movesOctavesUp) {
+    g.fillAll(isButtonPressed ? kFg : kBg);
+    juce::Path arrow;
+    arrow.addTriangle(0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.5f);
+    if (!movesOctavesUp) arrow.applyTransform(juce::AffineTransform::rotation(juce::MathConstants<float>::pi, 0.5f, 0.5f));
+    g.setColour(isButtonPressed ? kBg : kFg);
+    g.fillPath(arrow, arrow.getTransformToScaleToFit(1.0f, 1.0f, static_cast<float>(w) - 2.0f, static_cast<float>(h) - 2.0f, true));
+    if (isMouseOver && !isButtonPressed) {
+        g.setColour(kFg);
+        g.drawRect(0, 0, w, h, 1);
+    }
 }

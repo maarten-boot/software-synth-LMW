@@ -36,7 +36,7 @@ double minimumRatio(ContrastPreset p, double custom) noexcept {
         case ContrastPreset::Max: return 21.0;
         case ContrastPreset::Custom: break;
     }
-    return std::clamp(custom, 1.0, 21.0);
+    return std::clamp(custom, 4.5, 21.0);   // never below AA (Spec S6.2): contrast can only be raised
 }
 
 std::optional<ContrastPreset> parsePreset(std::string_view s) noexcept {

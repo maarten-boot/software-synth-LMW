@@ -9,6 +9,8 @@
 #include <vector>
 #include "PluginProcessor.h"
 #include "ui/RackLayout.h"
+#include "ui/Config.h"
+#include "ui/Theme.h"
 
 // Spec S6.2: black-on-white look; every colour pair is 21:1.
 class LMWLookAndFeel final : public juce::LookAndFeel_V4 {
@@ -170,6 +172,12 @@ private:
     void removeAllCables();
     void showJackMenu(Jack&);
     juce::String describeOutput(lmw::dsp::Out) const;     // "<output> → <inputs it feeds>"
+    // Spec S6.3: config file and contrast.
+    static juce::File configFile();
+    void saveConfig() const;
+    void applyContrast();                                 // palette from settings, redraw
+    void askCustomRatio();
+    void updateContrastBox();
     juce::String describeInput(lmw::dsp::In) const;   // "<source> → <input> (normalled|cable)"
 
     LMWSynthProcessor& processor;
@@ -191,7 +199,28 @@ private:
     std::uint32_t shownPatchVersion = 0;
     std::unique_ptr<CableLayer> cables;                   // added last: on top of everything
     juce::TextButton compactButton{"Compact"};
-    juce::MidiKeyboardComponent keyboard;
+    // Spec S6.3: contrast preset (AA / AAA / Max / Custom), kept in the user config file.
+    lmw::ui::Settings settings;
+    lmw::ui::theme::Palette palette;
+    juce::ComboBox contrastBox;
+    // On-screen keyboard drawn with the palette: a pressed key is filled with a colour that meets the
+    // chosen contrast against the keys around it (darker on white keys, lighter on black keys; inverted
+    // at Max), its note name in black or white, and hover is an outline instead of a grey tint.
+    class Keyboard final : public juce::MidiKeyboardComponent {
+    public:
+        Keyboard(juce::MidiKeyboardState& s, const lmw::ui::theme::Palette& p)
+            : juce::MidiKeyboardComponent(s, horizontalKeyboard), pal(p) {}
+        void drawWhiteNote(int note, juce::Graphics&, juce::Rectangle<float> area, bool isDown, bool isOver,
+                           juce::Colour lineColour, juce::Colour textColour) override;
+        void drawBlackNote(int note, juce::Graphics&, juce::Rectangle<float> area, bool isDown, bool isOver,
+                           juce::Colour noteFillColour) override;
+        // Octave scroll arrows: solid black (JUCE draws them at 40 % opacity, ~2.8:1), hover = outline.
+        void drawUpDownButton(juce::Graphics&, int w, int h, bool isMouseOver, bool isButtonPressed,
+                              bool movesOctavesUp) override;
+    private:
+        const lmw::ui::theme::Palette& pal;
+    };
+    Keyboard keyboard;
     juce::TooltipWindow tooltips{this, 2000};   // hover texts appear after 2 s
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(LMWSynthEditor)
