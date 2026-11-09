@@ -74,7 +74,7 @@ int main() {
         e.noteOn(60, 1.0f);
         CHECK(rms(render(e, 4800)) > 0.05);
         for (int i = 0; i < numInputs; ++i) CHECK(!e.getPatch().isPatched(static_cast<In>(i)));
-        CHECK(e.getPatch().source(In::VcfIn) == Out::Mix && e.getPatch().source(In::VcaCv) == Out::Env1);
+        CHECK(e.getPatch().source(In::Vcf1In) == Out::Mix && e.getPatch().source(In::VcaCv) == Out::Env1);
     }
     // T-S1.2b: a cable replaces (not adds to) the normalled source; removing it restores it.
     {
@@ -82,10 +82,10 @@ int main() {
         e.noteOn(45, 1.0f);                                    // 110 Hz sine
         render(e, 4800);
         int z = crossings(render(e, 48000)); CHECK(z >= 108 && z <= 112);
-        e.connect(In::VcfIn, Out::Noise);                      // vcf.in <- noise (mix.noise is 0!)
+        e.connect(In::Vcf1In, Out::Noise);                      // vcf.in <- noise (mix.noise is 0!)
         render(e, 4800);
         z = crossings(render(e, 48000)); CHECK(z > 3000);      // noise only: the VCO is gone
-        e.disconnect(In::VcfIn);
+        e.disconnect(In::Vcf1In);
         render(e, 4800);
         z = crossings(render(e, 48000)); CHECK(z >= 108 && z <= 112);
         // Via the command used by the lock-free queue.
@@ -107,7 +107,7 @@ int main() {
     // S5.6: out.in <- vcf.out bypasses VCA/ENV1 — the voice keeps sounding after release (drone).
     {
         Engine e = makeEngine(Waveform::Saw);
-        e.connect(In::OutIn, Out::Vcf);
+        e.connect(In::OutIn, Out::Vcf1);
         e.noteOn(60, 1.0f); render(e, 4800); e.noteOff(60);
         render(e, 48000);                                      // release (10 ms) long over
         CHECK(e.activeVoices() == 0);

@@ -37,6 +37,10 @@ struct ModParams {
     float envOctaves = 0.0f;                    // vcf.env
     FilterSlope vcfSlope = FilterSlope::Db24;   // vcf.slope (Spec S5.9)
     FilterType vcfType = FilterType::Lowpass;   // vcf.type
+    // VCF 2 (Spec S5.11), in series after VCF 1; defaults = open (bypassed).
+    float vcf2Cutoff = 18000.0f, vcf2Resonance = 0.0f, vcf2EnvOctaves = 0.0f;
+    FilterSlope vcf2Slope = FilterSlope::Db24;
+    FilterType vcf2Type = FilterType::Lowpass;
     float vcaInitial = 0.0f;                    // vca.initial (base gain added to vca.cv)
     float lfoRate = 5.0f;                       // lfo.rate (Hz)
     LfoWave lfoWave = LfoWave::Sine;            // lfo.wave
@@ -60,8 +64,9 @@ class Voice {
 public:
     void prepare(double sr) noexcept {
         for (auto& o : osc) o.setSampleRate(sr);
-        env1.setSampleRate(sr); env2.setSampleRate(sr); vcf.setSampleRate(sr);
-        env1.reset(); env2.reset(); vcf.reset(); out.fill(0.0f);
+        env1.setSampleRate(sr); env2.setSampleRate(sr); vcf.setSampleRate(sr); vcf2.setSampleRate(sr);
+        env1.reset(); env2.reset(); vcf.reset(); vcf2.reset(); out.fill(0.0f);
+        vcf2Wet = 0.0f; vcf2WetStep = static_cast<float>(1.0 / (0.02 * sr));
         gate = keyDown = false; played = false; lastPitch.fill(1e9);
         env1GateWasOn = env2GateWasOn = false; env1KeyGated = env2KeyGated = true;
     }
@@ -70,15 +75,17 @@ public:
         env1.setParameters(p.attack, p.decay, p.sustain, p.release);
         env2.setParameters(p.env2Attack, p.env2Decay, p.env2Sustain, p.env2Release);
     }
-    void setResonance(float r) noexcept { vcf.setResonance(r); }
-    void setFilterMode(FilterSlope slope, FilterType type) noexcept { vcf.setMode(slope, type); }
+    void setResonance(float r, float r2) noexcept { vcf.setResonance(r); vcf2.setResonance(r2); }
+    void setFilterMode(FilterSlope slope, FilterType type, FilterSlope slope2, FilterType type2) noexcept {
+        vcf.setMode(slope, type); vcf2.setMode(slope2, type2);
+    }
 
     // Retriggering an active voice keeps oscillator phase, filter state and envelope level
     // continuous, so stealing a voice does not click. An envelope whose gate input is keys.gate
     // (normalled or by cable) follows the key events directly, so a repeated note retriggers it;
     // an envelope gated by another signal follows that signal's edges in process() (Spec S5.8).
     void noteOn(int n, float vel, const Patch& patch) noexcept {
-        if (!env1.isActive()) { for (auto& o : osc) o.reset(); vcf.reset(); }
+        if (!env1.isActive()) { for (auto& o : osc) o.reset(); vcf.reset(); vcf2.reset(); }
         note = n; velocity = vel; gate = true; keyDown = true; played = true;
         lastPitch.fill(1e9);                      // force frequency update
         if (keyGated(In::Env1Gate, patch)) env1.noteOn();
@@ -97,7 +104,7 @@ public:
     // `vcoUsed`: VCOs whose output is heard or patched somewhere (others are not computed).
     // Returns this voice's contribution to out.in (only meaningful for per-voice sources).
     float process(const GlobalSignals& g, const Patch& patch, const ModParams& mp,
-                  double cutoffLog2, const std::array<bool, numVcos>& vcoUsed) noexcept {
+                  double cutoffLog2, double cutoff2Log2, const std::array<bool, numVcos>& vcoUsed) noexcept {
         const double keySemitones = static_cast<double>(note - keysPitchZeroNote) + bend;   // Spec S5.8
         out[o(Out::KeysPitch)] = static_cast<float>(keySemitones / 12.0);
         out[o(Out::KeysGate)] = gate ? 1.0f : 0.0f;
@@ -126,8 +133,20 @@ public:
         out[o(Out::Mix)] = read(In::MixIn1, g, patch) * mp.mixVco[0] + read(In::MixIn2, g, patch) * mp.mixVco[1]
                          + read(In::MixIn3, g, patch) * mp.mixVco[2] + read(In::MixIn4, g, patch) * mp.mixNoise;
 
-        vcf.setCutoff(std::exp2(cutoffLog2 + static_cast<double>(read(In::VcfCutoff, g, patch) * mp.envOctaves)));
-        out[o(Out::Vcf)] = vcf.process(read(In::VcfIn, g, patch));
+        vcf.setCutoff(std::exp2(cutoffLog2 + static_cast<double>(read(In::Vcf1Cutoff, g, patch) * mp.envOctaves)));
+        out[o(Out::Vcf1)] = vcf.process(read(In::Vcf1In, g, patch));
+
+        // VCF 2 (Spec S5.11). Always computed (its state stays current); when open — 24 dB lowpass,
+        // no resonance, cutoff at the maximum — its output is exactly its input. Entering or leaving
+        // that state crossfades over 20 ms.
+        const double c2 = cutoff2Log2 + static_cast<double>(read(In::Vcf2Cutoff, g, patch) * mp.vcf2EnvOctaves);
+        const float in2 = read(In::Vcf2In, g, patch);
+        vcf2.setCutoff(std::exp2(c2));
+        const float filtered2 = vcf2.process(in2);
+        const bool open2 = c2 >= maxCutoffLog2 && vcf2.isPlainLowpassNoResonance();
+        if (open2) vcf2Wet = std::fmax(0.0f, vcf2Wet - vcf2WetStep);
+        else       vcf2Wet = std::fmin(1.0f, vcf2Wet + vcf2WetStep);
+        out[o(Out::Vcf2)] = vcf2Wet <= 0.0f ? in2 : (vcf2Wet >= 1.0f ? filtered2 : in2 + (filtered2 - in2) * vcf2Wet);
 
         const float vcaGain = std::clamp(mp.vcaInitial + read(In::VcaCv, g, patch), 0.0f, 1.0f);   // Spec S5.5
         out[o(Out::Vca)] = read(In::VcaIn, g, patch) * vcaGain * velocity;
@@ -173,7 +192,9 @@ private:
 
     std::array<Oscillator, numVcos> osc;
     Adsr env1, env2;
-    Ladder vcf;
+    Ladder vcf, vcf2;
+    float vcf2Wet = 0.0f, vcf2WetStep = 1.0f / 960.0f;   // 0 = VCF 2 bypassed (open)
+    static inline const double maxCutoffLog2 = std::log2(Ladder::maxCutoff);
     std::array<float, numOutputs> out{};
     int note = 60;
     float velocity = 0.0f;
@@ -203,14 +224,19 @@ public:
         gainStep = static_cast<float>(1.0 / (0.02 * sr));                     // 20 ms gain smoothing
         cutoffStep = (std::log2(Ladder::maxCutoff) - std::log2(Ladder::minCutoff)) / (0.02 * sr);
         cutoffLog2 = cutoffTarget;
+        cutoff2Log2 = cutoff2Target;
     }
     void setParams(const VoiceParams& p) noexcept { for (auto& v : voices) v.setParams(p); }
     void setModParams(const ModParams& p) noexcept {
         mod = p;
         updateRouting();
         cutoffTarget = std::log2(std::clamp(static_cast<double>(p.cutoff), Ladder::minCutoff, Ladder::maxCutoff));
+        cutoff2Target = std::log2(std::clamp(static_cast<double>(p.vcf2Cutoff), Ladder::minCutoff, Ladder::maxCutoff));
         lfo.setRate(p.lfoRate); lfo.setWave(p.lfoWave);
-        for (auto& v : voices) { v.setResonance(p.resonance); v.setFilterMode(p.vcfSlope, p.vcfType); }
+        for (auto& v : voices) {
+            v.setResonance(p.resonance, p.vcf2Resonance);
+            v.setFilterMode(p.vcfSlope, p.vcfType, p.vcf2Slope, p.vcf2Type);
+        }
     }
     void setGain(float g) noexcept { targetGain = g; }
     void setModWheel(float v) noexcept { modWheel = std::clamp(v, 0.0f, 1.0f); }   // Spec S3.5
@@ -260,11 +286,13 @@ public:
             else if (gain > targetGain) gain = std::fmax(gain - gainStep, targetGain);
             if (cutoffLog2 < cutoffTarget)      cutoffLog2 = std::fmin(cutoffLog2 + cutoffStep, cutoffTarget);
             else if (cutoffLog2 > cutoffTarget) cutoffLog2 = std::fmax(cutoffLog2 - cutoffStep, cutoffTarget);
+            if (cutoff2Log2 < cutoff2Target)      cutoff2Log2 = std::fmin(cutoff2Log2 + cutoffStep, cutoff2Target);
+            else if (cutoff2Log2 > cutoff2Target) cutoff2Log2 = std::fmax(cutoff2Log2 - cutoffStep, cutoff2Target);
 
             const GlobalSignals g{lfo.next(), noise.next(), modWheel};
             float sum = 0.0f;
             for (auto& v : voices)                    // includes voices ringing out after a count reduction
-                if (v.isActive() || (drone && v.hasPlayed())) sum += v.process(g, patch, mod, cutoffLog2, vcoUsed);
+                if (v.isActive() || (drone && v.hasPlayed())) sum += v.process(g, patch, mod, cutoffLog2, cutoff2Log2, vcoUsed);
             if (globalOut) sum = outSrc == Out::Lfo ? g.lfo : g.noise;   // a global source is output once
 
             const float s = SoftLimiter::process(sum * gain * headroom);   // Spec S4.6
@@ -325,6 +353,7 @@ private:
     std::array<bool, numVcos> vcoUsed{true, false, false};
     float gain = 0.0f, targetGain = 1.0f, gainStep = 0.001f, modWheel = 0.0f;
     double cutoffLog2 = std::log2(18000.0), cutoffTarget = std::log2(18000.0), cutoffStep = 0.01;
+    double cutoff2Log2 = std::log2(18000.0), cutoff2Target = std::log2(18000.0);
 };
 
 } // namespace lmw::dsp

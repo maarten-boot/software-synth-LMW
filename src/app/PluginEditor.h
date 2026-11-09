@@ -175,8 +175,8 @@ private:
     LMWSynthProcessor& processor;
     LMWLookAndFeel lookAndFeel;
     Metrics m = normalMetrics;
-    std::array<Fader, 25> faders;
-    std::array<Choice, 9> choices;
+    std::array<Fader, 28> faders;
+    std::array<Choice, 11> choices;
     std::size_t usedFaders = 0, usedChoices = 0;
     std::vector<Group> groups;
     std::vector<std::unique_ptr<PanelHeader>> headers;    // one per group, same index

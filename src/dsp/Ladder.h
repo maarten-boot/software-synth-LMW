@@ -42,6 +42,9 @@ public:
     }
     void reset() noexcept { s[0] = s[1] = s[2] = s[3] = 0.0; fade = 1.0; }
 
+    // Spec S5.11: 24 dB lowpass (fully faded in) with no resonance — at maximum cutoff this is "open".
+    bool isPlainLowpassNoResonance() const noexcept { return isPlainLowpass24 && fade >= 1.0 && !(k > 0.0); }
+
     // Spec S5.9. A change crossfades from the mix in use now (also mid-fade) to the new one.
     void setMode(FilterSlope slope, FilterType type) noexcept {
         const auto next = filterMix(slope, type);

@@ -104,7 +104,7 @@ int main() {
             Engine e = makeEngine();
             VoiceParams p; p.waves[0] = Waveform::Saw; p.attack = 0; p.decay = 0; p.sustain = 1; e.setParams(p);
             ModParams m; m.cutoff = 200.0f; m.envOctaves = 5.0f; e.setModParams(m);
-            e.connect(In::VcfCutoff, Out::KeysVel);
+            e.connect(In::Vcf1Cutoff, Out::KeysVel);
             e.noteOn(48, vel);
             render(e, 4800);
             const auto x = render(e, 9600);

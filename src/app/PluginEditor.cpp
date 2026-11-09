@@ -126,7 +126,7 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     };
 
     // Spec S6.1, S5.10: module panels in three rows (signal flow left to right, top to bottom):
-    // VCO 1 | VCO 2 | VCO 3 | LFO | OUT;  MIXER | VCF | VCA;  KEYS | ENV 1 | ENV 2.
+    // VCO 1 | VCO 2 | VCO 3 | LFO | OUT;  MIXER | VCF 1 | VCF 2;  KEYS | ENV 1 | ENV 2 | VCA.
     // Titles of the envelopes name their normalled destination (S5.2).
     std::array<std::size_t, 3> vcoPanel{};
     for (int n = 0; n < 3; ++n) {
@@ -152,20 +152,21 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
          addFader(P::mixVco[1], "VCO 2", inputTip(In::MixIn2, "Level of mixer input 2")),
          addFader(P::mixVco[2], "VCO 3", inputTip(In::MixIn3, "Level of mixer input 3")),
          addFader(P::mixNoise, "Noise", inputTip(In::MixIn4, "Level of mixer input 4"))}, {}});
-    const std::size_t vcfPanel = groups.size();
-    groups.push_back({"VCF", 1,
-        {addFader(P::cutoff, "Cutoff", inputTip(In::VcfIn, "Cutoff frequency")),
-         addFader(P::resonance, "Reso", inputTip(In::VcfIn, "Resonance; self-oscillates near the top")),
-         addFader(P::vcfEnv, "Env 2", inputTip(In::VcfCutoff, "Cutoff modulation depth in octaves")),
-         stacked(addChoice(P::vcfSlope, "Slope", {"24 dB", "12 dB", "6 dB"},          // Spec S5.9: filter mode
-                           "Steepness. Bandpass and notch: 12 or 24 dB (6 dB acts as 12 dB)."),
-                 addChoice(P::vcfType, "Type", {"Low", "High", "Band", "Notch"},
-                           "Lowpass, highpass, bandpass or notch"))}, {}});
-    const std::size_t vcaPanel = groups.size();
-    groups.push_back({"VCA", 1, {addFader(P::vcaInitial, "Initial", [this] {
-                         return describeInput(In::VcaIn) + "\n" + describeInput(In::VcaCv)
-                              + "\nGain = Initial + CV (0..1). Above 0, notes keep sounding after release.";
-                     })}, {}});
+    std::array<std::size_t, 2> vcfPanel{};               // Spec S5.9, S5.11: VCF 1 -> VCF 2 in series
+    for (int n = 0; n < 2; ++n) {
+        const auto i = static_cast<std::size_t>(n);
+        const In in = n == 0 ? In::Vcf1In : In::Vcf2In, cut = n == 0 ? In::Vcf1Cutoff : In::Vcf2Cutoff;
+        vcfPanel[i] = groups.size();
+        groups.push_back({"VCF " + juce::String(n + 1), 1,
+            {addFader(P::vcfCutoff[i], "Cutoff", inputTip(in, n == 0 ? "Cutoff frequency"
+                          : "Cutoff frequency. At the top (24 dB, Low, Reso 0) VCF 2 is open: bypassed exactly.")),
+             addFader(P::vcfRes[i], "Reso", inputTip(in, "Resonance; self-oscillates near the top")),
+             addFader(P::vcfEnv[i], "Env 2", inputTip(cut, "Cutoff modulation depth in octaves")),
+             stacked(addChoice(P::vcfSlope[i], "Slope", {"24 dB", "12 dB", "6 dB"},
+                               "Steepness. Bandpass and notch: 12 or 24 dB (6 dB acts as 12 dB)."),
+                     addChoice(P::vcfType[i], "Type", {"Low", "High", "Band", "Notch"},
+                               "Lowpass, highpass, bandpass or notch"))}, {}});
+    }
     const std::size_t keysPanel = groups.size();        // Spec S5.8; 2 columns for 3 sockets
     groups.push_back({"KEYS", 2, {addFader(P::voices, "Voices", [] {
                           return juce::String("Number of voices. Keyboard, computer keys and MIDI play the voices;\n"
@@ -179,6 +180,11 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     groups.push_back({"ENV 2 " + arrow + " VCF", 2,
         {addFader(P::env2Attack, "Attack"), addFader(P::env2Decay, "Decay"),
          addFader(P::env2Sustain, "Sustain"), addFader(P::env2Release, "Release")}, {}});
+    const std::size_t vcaPanel = groups.size();
+    groups.push_back({"VCA", 2, {addFader(P::vcaInitial, "Initial", [this] {
+                         return describeInput(In::VcaIn) + "\n" + describeInput(In::VcaCv)
+                              + "\nGain = Initial + CV (0..1). Above 0, notes keep sounding after release.";
+                     })}, {}});
     jassert(usedFaders == faders.size() && usedChoices == choices.size());
 
     // Spec S6.5: rack. A row holds at most as many columns as the widest default row, so the window
@@ -218,8 +224,10 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
             {mixPanel, 0, false, in(In::MixIn1), "In 1"},       {mixPanel, 1, false, in(In::MixIn2), "In 2"},
             {mixPanel, 2, false, in(In::MixIn3), "In 3"},       {mixPanel, 3, false, in(In::MixIn4), "In 4"},
             {mixPanel, 3, true, out(Out::Noise), "Noise"},      {mixPanel, 3, true, out(Out::Mix), "Out"},
-            {vcfPanel, 0, false, in(In::VcfIn), "In"},
-            {vcfPanel, 2, false, in(In::VcfCutoff), "Cut"},     {vcfPanel, 3, true, out(Out::Vcf), "Out"},
+            {vcfPanel[0], 0, false, in(In::Vcf1In), "In"},
+            {vcfPanel[0], 2, false, in(In::Vcf1Cutoff), "Cut"}, {vcfPanel[0], 3, true, out(Out::Vcf1), "Out"},
+            {vcfPanel[1], 0, false, in(In::Vcf2In), "In"},
+            {vcfPanel[1], 2, false, in(In::Vcf2Cutoff), "Cut"}, {vcfPanel[1], 3, true, out(Out::Vcf2), "Out"},
             {vcaPanel, 0, false, in(In::VcaIn), "In"},          {vcaPanel, 0, false, in(In::VcaCv), "CV"},
             {vcaPanel, 0, true, out(Out::Vca), "Out"},
             {lfoPanel, 1, true, out(Out::Lfo), "Out"},
