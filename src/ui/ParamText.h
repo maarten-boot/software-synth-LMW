@@ -6,6 +6,9 @@
 #include <cstdio>
 #include <cstdlib>
 #include <string>
+#include <string_view>
+#include <vector>
+#include <cctype>
 
 namespace lmw::ui::text {
 
@@ -68,5 +71,38 @@ inline std::string octaves(float v) {
 }
 inline std::string semitones(float v) { return printf1("%.1f st", v); }
 inline float parseNumber(const std::string& s) { return static_cast<float>(std::strtod(s.c_str(), nullptr)); }
+
+// Spec S10.10, S7.1: a choice given as text -> its index, or -1. In order: the exact name (any
+// case); the name with " dB" and a leading "+" ignored ("24" -> "24 dB", "1" -> "+1"); a unique
+// prefix ("low" -> "Lowpass"); finally a plain index ("2" for the third choice).
+inline int matchChoice(const std::vector<std::string>& names, std::string_view text) {
+    auto lower = [](std::string_view v) {
+        std::string r;
+        for (char c : v) r.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
+        while (!r.empty() && std::isspace(static_cast<unsigned char>(r.back()))) r.pop_back();
+        while (!r.empty() && std::isspace(static_cast<unsigned char>(r.front()))) r.erase(r.begin());
+        return r;
+    };
+    auto plain = [&](std::string_view v) {
+        std::string r = lower(v);
+        if (r.size() > 3 && r.compare(r.size() - 3, 3, " db") == 0) r.resize(r.size() - 3);
+        if (r.size() > 2 && r.compare(r.size() - 2, 2, "db") == 0) r.resize(r.size() - 2);
+        if (!r.empty() && r.front() == '+') r.erase(r.begin());
+        return r;
+    };
+    const std::string t = lower(text), tp = plain(text);
+    if (t.empty()) return -1;
+    for (std::size_t i = 0; i < names.size(); ++i) if (lower(names[i]) == t) return static_cast<int>(i);
+    for (std::size_t i = 0; i < names.size(); ++i) if (plain(names[i]) == tp) return static_cast<int>(i);
+    int found = -1;
+    for (std::size_t i = 0; i < names.size(); ++i)
+        if (lower(names[i]).rfind(t, 0) == 0) { if (found >= 0) { found = -2; break; } found = static_cast<int>(i); }
+    if (found >= 0) return found;
+    if (t.find_first_not_of("0123456789") == std::string::npos && t.size() < 4) {
+        const int index = std::stoi(t);
+        if (index < static_cast<int>(names.size())) return index;
+    }
+    return -1;
+}
 
 } // namespace lmw::ui::text

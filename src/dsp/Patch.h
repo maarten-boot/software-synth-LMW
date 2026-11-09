@@ -24,7 +24,7 @@ inline constexpr In vcoFmIn(int n) noexcept { return static_cast<In>(static_cast
 inline constexpr int numOutputs = static_cast<int>(Out::Count);
 inline constexpr int numInputs  = static_cast<int>(In::Count);
 
-// Port names = future 9P file names (Spec S10).
+// Port names, as used in cable text, patch files and the 9P /cables file (Spec S5.3, S10.10).
 inline constexpr std::array<std::string_view, numOutputs> outputNames{
     "keys.pitch", "keys.gate", "keys.vel", "vco1.out", "vco2.out", "vco3.out",
     "noise.out", "lfo.out", "env1.out", "env2.out", "mix.out", "vcf1.out", "vcf2.out", "vca.out"};

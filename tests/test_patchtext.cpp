@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// T-S5.4-text: cables as text (saved state; later patch files and 9P).
+// T-S5.4-text: cables as text (saved state, patch files and 9P).
 #include "dsp/PatchText.h"
 #include "app/StateMigration.h"
 #include <cstdio>

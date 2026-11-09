@@ -40,8 +40,9 @@ std::optional<std::string> NinePService::onMessageThread(std::function<std::stri
         }
         pending->done.signal();
     });
-    while (!pending->done.wait(50))
-        if (shared->stopping) return std::nullopt;
+    // Spec S10.12: give up after 5 s ("busy"); a change may then still be applied later.
+    for (int waited = 0; !pending->done.wait(50); waited += 50)
+        if (shared->stopping || waited >= 5000) return std::nullopt;
     if (!pending->ran) return std::nullopt;
     return pending->result;
 }

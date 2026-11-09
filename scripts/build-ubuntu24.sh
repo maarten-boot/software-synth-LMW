@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Build LMW-Synth for Ubuntu 24.04 (and newer) inside a container, on any Linux host (Spec S2.1).
-# Result: build-u24/Standalone/LMW-Synth and build-u24/VST3/LMW-Synth.vst3
+# Result: build-u24/Standalone/LMW-Synth, build-u24/VST3/LMW-Synth.vst3 and build-u24/lmw9p
 #
 # Usage:  scripts/build-ubuntu24.sh [--clean]
 #   --clean   drop the cached container build (forces a full rebuild, re-downloads JUCE)
@@ -52,6 +52,7 @@ trap 'rm -rf "$stage"' EXIT
         echo "== testing"
         ctest --test-dir /build --output-on-failure
         cp -r /build/LMWSynth_artefacts/Release/Standalone /build/LMWSynth_artefacts/Release/VST3 /out/
+        cp /build/lmw9p /out/
         # Docker runs as real root: hand the files to the calling user. (Rootless podman maps
         # container root to that user already; chown there would map to a sub-UID instead.)
         if [[ "$ENGINE" == docker ]]; then chown -R "$HOST_UID:$HOST_GID" /out; fi
@@ -64,3 +65,4 @@ echo
 echo "Done (runs on Ubuntu 24.04 and newer):"
 echo "  standalone: $out_dir/Standalone/LMW-Synth"
 echo "  VST3:       $out_dir/VST3/LMW-Synth.vst3   (copy to ~/.vst3/ to use in a host)"
+echo "  9P client:  $out_dir/lmw9p   (e.g. $out_dir/lmw9p ls params)"

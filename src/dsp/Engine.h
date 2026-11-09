@@ -32,11 +32,11 @@ struct ModParams {
     std::array<float, numVcos> tune{};          // vcoN.tune, semitones
     std::array<float, numVcos> mixVco{1.0f, 0.0f, 0.0f};   // mix.vco1..3
     float mixNoise = 0.0f;                      // mix.noise
-    float cutoff = 18000.0f;                    // vcf.cutoff (Hz)
-    float resonance = 0.0f;                     // vcf.res
-    float envOctaves = 0.0f;                    // vcf.env
-    FilterSlope vcfSlope = FilterSlope::Db24;   // vcf.slope (Spec S5.9)
-    FilterType vcfType = FilterType::Lowpass;   // vcf.type
+    float cutoff = 18000.0f;                    // vcf1.cutoff (Hz)
+    float resonance = 0.0f;                     // vcf1.res
+    float envOctaves = 0.0f;                    // vcf1.env
+    FilterSlope vcfSlope = FilterSlope::Db24;   // vcf1.slope (Spec S5.9)
+    FilterType vcfType = FilterType::Lowpass;   // vcf1.type
     // VCF 2 (Spec S5.11), in series after VCF 1; defaults = open (bypassed).
     float vcf2Cutoff = 18000.0f, vcf2Resonance = 0.0f, vcf2EnvOctaves = 0.0f;
     FilterSlope vcf2Slope = FilterSlope::Db24;
@@ -100,7 +100,7 @@ public:
     void releaseKey(bool sustainPedal, const Patch& patch) noexcept { keyDown = false; if (!sustainPedal) noteOff(patch); }
     void setPitchBend(double semitones) noexcept { bend = semitones; }
 
-    // One sample through the voice's modules, in order KEYS, ENV1, ENV2, VCO 1-3, MIX, VCF, VCA.
+    // One sample through the voice's modules, in order KEYS, ENV1, ENV2, VCO 1-3, MIX, VCF 1, VCF 2, VCA.
     // `vcoUsed`: VCOs whose output is heard or patched somewhere (others are not computed).
     // Returns this voice's contribution to out.in (only meaningful for per-voice sources).
     float process(const GlobalSignals& g, const Patch& patch, const ModParams& mp,

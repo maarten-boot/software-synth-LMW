@@ -39,3 +39,6 @@ Split into 6a (protocol + core, pure C++), 6b (sockets + wiring), 6c (conformanc
 ## 6. Phase 6b: sockets and wiring
 Transport (Unix socket + TCP, polled I/O, at most 16 connections) with a socket test (ASan/UBSan and TSan clean). NinePService builds the tree from the processor; changes and message-thread state go through the message thread with a shared alive flag. lmw9p client tool. Live test: all files, GUI follows 9P writes. Found: 1000 read back as 1000.00006 (normalised float on a skewed range) → 7 significant digits; a killed instance leaves its socket → stale sockets removed at start. CI for 9cac7f2 (patch files) green.
 > would it be a nice moment for a crosscheck ?
+
+## 7. Crosscheck
+Independent read by a sub-agent (Spec/Plan/Tests vs code). Verified and fixed in code: choice parsing over 9P ("24" for slope failed, "1" for octave gave -1, "low" not accepted) → matchChoice with tests; 9P had no time-out → 5 s; stray/stale comments. Docs: stale names and layouts, /ports arrow, error strings, precision, config keys, duplicate test IDs, historical rows marked, Plan stale text. Open for the user: CI runner images (macos-latest/windows-latest) and dnf packages cannot be pinned by hash — documented as exceptions in S2.3; setStateInformation off the message thread remains a known limit.

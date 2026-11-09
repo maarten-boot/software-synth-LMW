@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Spec S5.4 / S6.6: cables as text, for the saved state (and later patch files, S7, and 9P, S10):
-// "vco.fm=env2.out;vcf.in=vcf.out" — input=output pairs in input order, ';'-separated; "" = no cables.
+// Spec S5.4 / S6.6: cables as text, for the saved state, patch files (S7.1) and 9P (S10.10):
+// "vco1.fm=env2.out;vcf1.in=vcf1.out" — input=output pairs in input order, ';'-separated; "" = no cables.
 // Port names are the 9P-style names from Patch.h. Not used on the audio thread.
 #pragma once
 #include "dsp/Patch.h"

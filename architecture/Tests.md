@@ -3,12 +3,12 @@
 | ID | Spec | Test | Status |
 |---|---|---|---|
 | T-S2.1 | S2.1 | Project builds and starts on Linux, macOS, Windows | Build + ctest pass on all (CI run 42406322210); starts on Linux (user on Ubuntu 24.04; Xvfb screenshot); start on macOS/Windows not verified |
-| T-S2.1b | S2.1 | CI builds + tests on Ubuntu 24.04 and Fedora 45 (container, pinned by digest); Ubuntu-24.04-built standalone starts on Ubuntu 24.04 | pass: CI run 42406322210 (ubuntu-24.04, fedora-45, macos, windows; 3 test suites each); user ran Ubuntu 24.04 build (layout OK) |
+| T-S2.1b | S2.1 | CI builds + tests on Ubuntu 24.04 and Fedora 45 (container, pinned by digest); Ubuntu-24.04-built standalone starts on Ubuntu 24.04 | pass: CI run 42406322210 (ubuntu-24.04, fedora-45, macos, windows; 3 test suites each at that time; 14 now); user ran Ubuntu 24.04 build (layout OK) |
 | T-S2.1c | S2.1 | `scripts/build-ubuntu24.sh` builds + tests in an Ubuntu 24.04 container (image pinned by digest) and produces binaries needing glibc <= 2.39 | pass (podman rootless, 2026-11-07: GLIBC_2.38, 3/3 tests) |
 | T-S2.3 | S2.3 | Every `uses:` in `.github/workflows/*.yml` references a 40-hex commit SHA with a `# vX.Y.Z` comment, and FetchContent dependencies are pinned by commit + URL_HASH; each is the latest workable release (or the exception is documented) | pass (checkout@3d3c42e = v7.0.1, cache@55cc834 = v6.1.0; JUCE d60b7a7 = 9.0.5 in cmake/JuceVersion.cmake — all latest, 2026-11-08) |
 | T-S2.3b | S2.3 | CI survives a GitHub archive outage: JUCE archive cached (key = hash of cmake/JuceVersion.cmake), fetched with retries, SHA-256 verified on download and on use | local 2026-11-08: cached copy accepted, corrupt copy replaced, HTTP 404 retried 3× then clean failure, wrong content (hash mismatch) retried, real download OK, configure from local archive OK. CI run 42477895758 showed the first version never retried (fixed); CI run 42479785634: retries in place, cache restored on Linux/Fedora/macOS, Windows saved its own — pass |
 | T-S1.2a | S1.2 | With no cables, default patch produces sound on a MIDI note | pass (`test_modules`) |
-| T-S1.2b | S1.2, S5.4 | A cable into an input replaces (not adds to) its normalled source; removing it restores it; PatchCommand path | pass (`test_modules`: vcf.in ← noise removes the VCO tone) |
+| T-S1.2b | S1.2, S5.4 | A cable into an input replaces (not adds to) its normalled source; removing it restores it; PatchCommand path | pass (`test_modules`: noise.out → vcf1.in removes the VCO tone) |
 | T-S5-modules | S5.3–S5.7 | VCF (flat passband, ~-12 dB at fc, < -60 dB 3 oct up, resonance peak, self-oscillation at top, decay below), LFO rate/range, noise stats, mixer levels, drone via out.in, global source on out.in, feedback cable bounded, ENV2→cutoff, defaults = Phase-2 level, unique port names | pass (`test_modules`) |
 | T-S3.2 | S3.2 | Computer keyboard keys trigger notes in standalone, also after clicking a fader; typing in a value box plays no notes | pass (Xvfb + xdotool 2026-11-07: 'a' → C4 at start and after fader click; typing "250 ms" sets Attack, no note). User confirmed on Ubuntu 24.04 (2026-11-07), also after clicking/changing a fader |
 | T-S3.2-midi | S3.2 | Raw MIDI decoding: note on/off (vel 0 = off), CC64, CC120/123, pitch bend, SysEx/truncated ignored | pass (`test_engine`) |
@@ -20,7 +20,7 @@
 | T-S5.1-adsr | S5.1 | ADSR attack/decay/release durations exact to ±2 samples; zero times safe | pass (`test_engine`) |
 | T-S5.1-engine | S5.1 | Silence before note, sound during, silence after release; only matching note-off releases | pass (`test_engine`) |
 | T-S6.2b | S6.2 | All theme colour pairs (src/ui/Theme.h) >= 4.5:1 | pass (`test_contrast`) |
-| T-S6.1a | S6.1 | Controls are vertical faders grouped POLY / VCO / ENV / OUT (Voices first); value box under each fader shows the value with units | pass (screenshot on Xvfb 2026-11-07, after moving Voices first: 8, Saw, 10 ms, 200 ms, 70 %, 300 ms, -1.9 dB) |
+| T-S6.1a | S6.1 | Controls are vertical faders grouped POLY / VCO / ENV / OUT (Voices first); value box under each fader shows the value with units | pass (screenshot on Xvfb 2026-11-07, after moving Voices first: 8, Saw, 10 ms, 200 ms, 70 %, 300 ms, -1.9 dB) — historical: layout since grown to three rows and 39 parameters (S6.1, T-S5.10a, T-S5.11a) |
 | T-S6.1b | S6.1 | Double-click on a fader resets it to the parameter default | pass (user, Ubuntu 24.04, 2026-11-07) |
 | T-S6.1-text | S6.1 | Value text/parse: time ms/s, sustain %, volume dB, round trip | pass (`test_paramtext`) |
 | T-S6.2c | S6.2 | Slider value boxes use theme colours (black text/outline on white), not JUCE default dark scheme | pass (screenshot; fixed by re-sending look-and-feel) |
@@ -33,14 +33,13 @@
 | T-S4.5 | S4.5 | Lowering voice count 8→2 leaves 2 active after release | pass (`test_engine`) |
 | T-S4.6 | S4.6 | Limiter transparent below -6 dBFS, continuous, monotonic, symmetric, <= ceiling; 32 square voices at full level stay below full scale | pass (`test_engine`) |
 | T-S5a.3 | S5a.3 | Sustain-level change on a held note glides without a jump | pass (`test_modules`) |
-| T-S6.1c | S6.1, S5a.1 | GUI shows all 20 parameters in two rows (incl. VCA panel) with correct defaults and units | pass (Xvfb screenshot 2026-11-08) |
-| T-S6.1d | S6.1 | Hover text appears after 2 s, black on white, naming input, source and effect (FM: depth now) | pass (Xvfb: FM shows "Input vco.fm ← lfo.out (normalled) … = 0.0 st") |
-| T-S6.4 | S6.4 | Compact toggle shrinks the window (1046×658 → 774×496), names still readable, choice kept after restart (normal close), toggles back | pass (Xvfb + xdotool 2026-11-08) |
-| T-S5a.1 | S5a.1 | Parameter IDs, ranges and defaults match Spec (vco.wave, env.*, out.gain, voice.count) | planned (no test yet) |
+| T-S6.1c | S6.1, S5a.1 | GUI shows all 20 parameters in two rows (incl. VCA panel) with correct defaults and units | pass (Xvfb screenshot 2026-11-08) — historical: layout since grown to three rows and 39 parameters (S6.1, T-S5.10a, T-S5.11a) |
+| T-S6.1d | S6.1 | Hover text appears after 2 s, black on white, naming input, source and effect (FM: depth now) | pass (Xvfb 2026-11-08, then worded "Input vco.fm ← lfo.out"; since T-S6.1e: "lfo.out → vco1.fm (normalled) … = 0.0 st") |
+| T-S6.4 | S6.4 | Compact toggle shrinks the window (1046×658 → 774×496), names still readable, choice kept after restart (normal close), toggles back | pass (Xvfb + xdotool 2026-11-08) — historical sizes; current sizes in T-S6.4b |
+| T-S5a.1 | S5a.1 | Parameter IDs, ranges and defaults match Spec (vcoN.*, mix.*, vcfN.*, vca.initial, env1.*, env2.*, lfo.*, out.gain, voice.count) | planned (no automated test yet; defaults checked by the bit-identical default renders) |
 | T-S5a.2 | S5a.2 | A note-on at sample k of a block starts sound at sample k (not at block start) | planned (implemented in processBlock, no test yet) |
-| T-S6.2 | S6.2 | Every UI colour pair computes >= 4.5:1 contrast | unit test `test_contrast` passes; UI-wide check pending |
-| T-S6.3 | S6.3 | Each preset/custom ratio from config and UI is enforced | enforcer unit-tested; config/UI pending |
-| T-S7.1 | S7.1 | Save then load a patch restores all parameters and cables exactly | planned |
+| T-S6.2 | S6.2 | Every UI colour pair computes >= 4.5:1 contrast | pass (test_contrast: every pair in Theme.h for every preset, T-S6.3a; windows and dialogs T-S6.2d, T-S7.1c) |
+| T-S6.3 | S6.3 | Each preset/custom ratio from config and UI is enforced | pass (T-S6.3a–c) |
 | T-S9.0 | S9 | Product name is `LMW-Synth` (no space): standalone binary, VST3 bundle, window title, host plugin name | pass (build + moduleinfo.json + screenshot, 2026-11-07) |
 | T-S8.1 | S8.1 | Every file in src/, tests/, scripts/ has `SPDX-License-Identifier: AGPL-3.0-or-later` | pass (grep, 2026-11-07) |
 | T-S8.2 | S8.2 | Every dependency has an AGPLv3-compatible licence (list in repo) | planned |
@@ -49,28 +48,26 @@
 | T-S10.2a | S10.2 | processBlock takes no locks and does no allocation | pass by code review 2026-11-07: keyboard notes via lock-free SPSC queues (no MidiKeyboardState call on the audio thread), MIDI decoded from raw bytes (no MidiMessage copy). Automated check (e.g. Clang RealtimeSanitizer) still to add |
 | T-S10.2-spsc | S10.2 | SPSC queue: FIFO order, full/empty, wrap-around, 1M-item two-thread stress | pass (`test_spsc`; CI run 42413041183 on Ubuntu 24.04, Fedora 45, macOS arm64, Windows) |
 | T-S10.1 | S10.1 | 9P2000 conformance: version/attach/walk/open/read/write/clunk/stat against the plan9port `9p` client | planned |
-| T-S10.1b | S10.1 | `echo 1000 > params/vcf/cutoff` via 9P changes the audible/internal value | planned |
-| T-S10.4 | S10.4 | Engine reachable over Unix socket on Linux/macOS/Windows and over TCP when enabled | planned |
-| T-S10.5 | S10.5 | Two plugin instances in one host expose two distinct 9P endpoints | planned |
-| T-S10.9 | S10.9 | `cat source` returns the repository URL | planned |
+| T-S10.5 | S10.5, S10.13 | Two instances expose two distinct 9P endpoints | partly: per-instance socket <pid>-<n>.sock by construction (uniqueSocketPath); two plugin instances in one host still to be tried (Phase 8) |
+| T-S10.9 | S10.9 | `cat source` returns the repository URL | pass (live with lmw9p, see T-S10.1b) |
 | T-S6.5 | S6.5 | Unit test `test_rack` (ctest T-S6.5-layout): moves within/between rows, row capacity, new/empty rows, max 4 rows, keyboard moves, save/restore and rejection of invalid stored layouts | pass |
-| T-S6.5a | S6.5 | Drag a panel's title bar to another row position: drop marker shown, panel lands there, others reflow; window width unchanged | pass (Xvfb: LFO dragged after ENV 2, marker visible, width stays 1046) |
+| T-S6.5a | S6.5 | Drag a panel's title bar to another row position: drop marker shown, panel lands there, others reflow; window width unchanged | pass (Xvfb: LFO dragged after ENV 2, marker visible, width stays 1046 at that time; the width stays constant for the current layout too) |
 | T-S6.5b | S6.5 | Move a panel with keyboard/menu only (no mouse): same result as dragging; menu black on white; QWERTY notes still play while a title has focus | pass (Xvfb: Left arrow, right-click menu, `a` → C4) |
 | T-S6.5c | S6.5 | Layout survives close/reopen; Reset layout restores the default order; works in compact view | pass (Xvfb) |
 | T-S5.4-text | S5.4, S6.6 | Unit test `test_patchtext`: cables to text and back; rejects unknown ports, missing '=', an input twice, trailing ';' | pass |
-| T-S6.6a | S6.6 | Drag ENV 2 Out → VCO FM: target ring while dragging, cable drawn, FM socket black centre, FM hover text says "env2.out (cable)" | pass (Xvfb) |
+| T-S6.6a | S6.6 | Drag ENV 2 Out → VCO 1 FM: target ring while dragging, cable drawn, FM socket black centre, FM hover text says "env2.out (cable)" | pass (Xvfb) |
 | T-S6.6b | S6.6 | Feedback cable VCF Out → VCF In can be patched | pass (Xvfb) |
 | T-S6.6c | S6.6 | Drag a plugged cable off its input into empty space removes it; Delete on a focused input removes its cable | pass (Xvfb) |
 | T-S6.6d | S6.6 | Output menu (right-click) black on white, submenu Connect to → vca.cv patches lfo.out → vca.cv; no greyed items | pass (Xvfb) |
 | T-S6.6e | S6.6, S6.4, S6.5 | Cables follow compact view and a panel moved with the keyboard | pass (Xvfb) |
 | T-S6.6f | S6.6 | Cables are restored after close/reopen | pass (Xvfb) |
 | T-S6.6g | S6.6, S5.4 | Listening test: LFO → VCA CV gives tremolo; ENV 2 → FM gives a pitch sweep; VCF Out → VCF In feedback stays stable | planned (user) |
-| T-S6.1e | S6.1 | Hover texts and menu headers name connections as "source → input" (e.g. FM: "lfo.out → vco.fm (normalled)") | pass (Xvfb) |
+| T-S6.1e | S6.1 | Hover texts and menu headers name connections as "source → input" (e.g. FM: "lfo.out → vco1.fm (normalled)") | pass (Xvfb) |
 | T-S6.1f | S6.1, S6.6 | VCO panel: FM fader is the left column, directly above the FM socket | pass (Xvfb) |
 | T-S5.8a | S5.8 | Engine: keys.pitch = (note − 60 + bend)/12; keys.gate 1 while held/sustained, 0 after release; keys.vel = velocity | pass (test_keys) |
 | T-S5.8b | S5.8 | Default patch sounds exactly as before (normalled keys.pitch/gate give the same output samples) | pass (test_keys: cables from the keys = normalled, sample-exact; plus a one-off render of a 1.7 s scenario before/after the change: bit-identical) |
 | T-S5.8c | S5.8 | LFO square → env1.gate retriggers ENV 1 on each rising edge; voice keeps running after key release (drone) | pass (test_keys: 10 Hz square → ~10 attacks/s, held and after release; gate back to keys ends the voice) |
-| T-S5.8d | S5.8 | ENV 2 → vco.pitch sweeps pitch independent of the key; keys.vel → vcf.cutoff opens the filter with velocity | pass (test_keys: ENV 2 → vco.pitch gives C5 for keys C3 and C6; keys.vel → cutoff brighter at higher velocity) |
+| T-S5.8d | S5.8 | ENV 2 → vco1.pitch sweeps pitch independent of the key; keys.vel → vcf1.cutoff opens the filter with velocity | pass (test_keys: ENV 2 → vco1.pitch gives C5 for keys C3 and C6; keys.vel → cutoff brighter at higher velocity) |
 | T-S5.8e | S5.8, S6.6 | GUI: KEYS panel with Voices fader and Pitch/Gate/Vel sockets; Gate sockets on ENV 1/2; VCO Pitch socket; hover texts in source → input order | pass (Xvfb: KEYS panel, sockets aligned, LFO → env1.gate cable and hover text, compact view) |
 | T-S5.8-keys | S5.8 | ctest T-S5.8-keys (`tests/test_keys.cpp`) runs T-S5.8a–d | pass |
 | T-S5.9a | S5.9 | Each slope/type: measured response matches (LP/HP slopes 6/12/24 dB/oct within 2 dB; BP peak at cutoff; notch ≥ 30 dB dip at cutoff) | pass (test_vcfmodes at 96 kHz: LP/HP 6/12/24 dB per octave within 2 dB; BP 0 dB peak; notch < −30 dB at cutoff) |
@@ -94,3 +91,6 @@
 | T-S10.4 | S10.4, S10.13 | Unit test test_ninep_socket (ctest T-S10.4-socket): Unix socket and TCP serve the tree, 8 parallel clients x 100 writes all counted, oversized message drops only that connection, stop() with a client connected < 2 s (200 ms) and removes the socket file; clean under ASan/UBSan and TSan | pass (Linux; CI runs it on all four) |
 | T-S10.1b | S10.1, S10.10 | Live, standalone + lmw9p: ls /, params, params/vcf1; cat source; cutoff 18000 → write 1000 → reads 1000 and the GUI fader shows 1.00 kHz; vco1.wave Square, vco2.wave by index 3 → Triangle; errors bad value / file not found / permission denied / unknown input; cables add/remove; notes; patch read and edited patch written back (vcf1.res 0.5, notes) and a bad patch refused on close; ports | pass (Xvfb 2026-11-09) |
 | T-S10.13 | S10.13 | Socket 0600 in a 0700 directory, removed on close; stale socket of a dead process removed at start | pass (live) |
+| T-S6.4b | S6.4, S5.10 | Current window sizes: 1026×884 normal, 762×678 compact (three rows, incl. the standalone title bar) | pass (Xvfb 2026-11-09) |
+| T-S10.10a | S10.10 | Choice writes over 9P: "12" → 12 dB, "1" → +1, "band" → Bandpass, ambiguous "s" refused, "sq" → Square; unit test matchChoice in test_paramtext | pass (live + T-S6.1-text) |
+| T-S10.12 | S10.12 | A 9P request gives up with "busy" after 5 s when the message thread does not answer | planned (needs a blocked message thread in a test) |

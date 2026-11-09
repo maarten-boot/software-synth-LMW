@@ -236,7 +236,7 @@ void LMWSynthProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Mid
 namespace {
 const juce::Identifier kPatchProp{"patch"};          // cables as text (Spec S6.6, PatchText.h)
 const juce::Identifier kVersionProp{"stateVersion"}; // absent = version 1 (StateMigration.h)
-}   // cables as text (Spec S6.6, PatchText.h)
+}
 
 void LMWSynthProcessor::getStateInformation(juce::MemoryBlock& dest) {
     auto copy = apvts.copyState();
@@ -288,11 +288,10 @@ std::string LMWSynthProcessor::valueText(const juce::RangedAudioParameter& r) {
 std::optional<float> LMWSynthProcessor::parseValue(const juce::RangedAudioParameter& r, const juce::String& text) {
     const auto v = text.trim();
     if (auto* c = dynamic_cast<const juce::AudioParameterChoice*>(&r)) {
-        int index = -1;
-        for (int k = 0; k < c->choices.size(); ++k)
-            if (c->choices[k].equalsIgnoreCase(v)) index = k;
-        if (index < 0 && v.isNotEmpty() && v.containsOnly("0123456789")) index = v.getIntValue();
-        if (index >= 0 && index < c->choices.size()) return r.convertTo0to1(static_cast<float>(index));
+        std::vector<std::string> names;
+        for (const auto& n : c->choices) names.push_back(n.toStdString());
+        const int index = lmw::ui::text::matchChoice(names, v.toStdString());
+        if (index >= 0) return r.convertTo0to1(static_cast<float>(index));
         return std::nullopt;
     }
     if (v.isEmpty() || !v.containsOnly("0123456789+-.eE")) return std::nullopt;
