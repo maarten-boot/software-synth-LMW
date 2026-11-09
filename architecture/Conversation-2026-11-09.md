@@ -50,3 +50,4 @@ CI for 8170bad (42658324892) green on all four: the Windows socket-file fix work
 > yes to both, then start step 6c
 
 Runner labels: -latest resolved to macos-26-arm64 and windows-2025-vs2026 (from the CI log); per GitHub's changelog windows-2025 now is the VS2026 image → macos-26 / windows-2025. setStateInformation: cables posted to the message thread via a WeakReference when not on it.
+Step 6c: plan9port built from source (1f13969); every 9p command and error case worked against the running standalone. Load: lmw9p bench at 1000 writes/s; app run under strace (ptrace_scope 1 → traced as a child): the ALSA audio thread did the same syscalls per second idle and under load, no futex after start-up, no xrun recovery.

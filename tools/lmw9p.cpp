@@ -3,10 +3,16 @@
 //   lmw9p <address> ls [dir]
 //   lmw9p <address> cat <file>
 //   lmw9p <address> write <file> [text...]      (no text: read it from stdin)
+//   lmw9p <address> bench <file> <rate/s> <seconds> <value> [value...]
+//       load test (Spec T-S10.2): writes the values in turn at a fixed rate on one connection and
+//       prints the reply latency (median, 99th percentile, maximum) and the number of errors.
 // <address>: a Unix socket path, unix!<path>, or tcp!<host>!<port>. With no address the newest
 // socket in the LMW-Synth socket directory is used.
 #include "ninep/Transport.h"
+#include <algorithm>
+#include <chrono>
 #include <cstdio>
+#include <thread>
 #include <filesystem>
 #include <iostream>
 #include <iterator>
@@ -102,7 +108,7 @@ std::string newestSocket() {
 
 int main(int argc, char** argv) {
     std::vector<std::string> args(argv + 1, argv + argc);
-    if (!args.empty() && args[0] != "ls" && args[0] != "cat" && args[0] != "write") {
+    if (!args.empty() && args[0] != "ls" && args[0] != "cat" && args[0] != "write" && args[0] != "bench") {
         // first argument is the address
     } else {
         const auto found = newestSocket();
@@ -148,6 +154,32 @@ int main(int argc, char** argv) {
         }
         return s.clunk() ? 0 : 1;                    // /patch and /notes apply here
     }
-    std::fprintf(stderr, "usage: lmw9p [address] ls [dir] | cat <file> | write <file> [text...]\n");
+    if (cmd == "bench" && args.size() > 5) {
+        const double rate = std::stod(args[3]), seconds = std::stod(args[4]);
+        const std::vector<std::string> values(args.begin() + 5, args.end());
+        if (!s.openPath(args[2], oWrite)) return 1;
+        using clock = std::chrono::steady_clock;
+        const auto period = std::chrono::duration<double>(1.0 / rate);
+        const auto t0 = clock::now();
+        std::vector<double> latency;
+        int errors = 0;
+        for (std::size_t i = 0; clock::now() - t0 < std::chrono::duration<double>(seconds); ++i) {
+            std::this_thread::sleep_until(t0 + std::chrono::duration_cast<clock::duration>(period * static_cast<double>(i)));
+            const std::string v = values[i % values.size()] + "\n";
+            const auto start = clock::now();
+            auto rep = s.c.call(s.w.start(Twrite, s.tag++).u32(1).u64(0).u32(static_cast<std::uint32_t>(v.size())).bytes(v.data(), v.size()).take());
+            latency.push_back(std::chrono::duration<double, std::milli>(clock::now() - start).count());
+            if (rep.size() < 5 || rep[4] != Rwrite) ++errors;
+        }
+        const double elapsed = std::chrono::duration<double>(clock::now() - t0).count();
+        std::sort(latency.begin(), latency.end());
+        const auto pct = [&](double p) { return latency.empty() ? 0.0 : latency[std::min(latency.size() - 1, static_cast<std::size_t>(p * static_cast<double>(latency.size())))]; };
+        std::printf("%zu writes in %.1f s (%.0f/s), errors %d, latency ms: median %.3f, p99 %.3f, max %.3f\n",
+                    latency.size(), elapsed, static_cast<double>(latency.size()) / elapsed, errors, pct(0.5), pct(0.99),
+                    latency.empty() ? 0.0 : latency.back());
+        s.clunk();
+        return errors == 0 ? 0 : 1;
+    }
+    std::fprintf(stderr, "usage: lmw9p [address] ls [dir] | cat <file> | write <file> [text...] | bench <file> <rate> <s> <values...>\n");
     return 2;
 }
