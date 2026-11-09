@@ -59,3 +59,6 @@ No DAW installed; downloading/running pluginval (prebuilt binary) was refused by
 
 ### CI for ad73701
 macOS, Fedora and Ubuntu green (host test passes there). Windows failed to compile HostTest.cpp: `std::max` clashed with the `max` macro from `<windows.h>` (C2589). Fixed with NOMINMAX and `(std::max)`.
+
+### Schematic view scheduled
+User: schedule the schematic view (S6.7) as its own phase after Phase 8. Plan: Phase 9 — (a) view-only schematic tab, (b) editable. Open before starting: symbols for KEYS, NOISE, OUT (ENV as ADSR curve to confirm).

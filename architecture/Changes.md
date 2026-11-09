@@ -53,3 +53,5 @@ Changes between releases.
 - CI runners fixed to version labels macos-26 and windows-2025 (were -latest; Spec S2.3). Cables from a state restored off the message thread are applied on the message thread (single producer of the cable queue; was a known limit).
 - Phase 6c: conformance with plan9port's 9p client (built from source) and a load test (lmw9p bench: 1000 writes/s, audio thread syscalls unchanged, no xruns). lmw9p gained `bench`.
 - Phase 8a: host test T-S9.2-host (JUCE VST3 hosting of the built plugin: scan, play, state save/restore into a second instance, two instances with distinct 9P sockets, editor). It found an engine bug: prepareToPlay did not reset the output gain smoothing (and noise state), so a re-prepared instance sounded different from a fresh one for the first 20 ms → reset (default sound still bit-identical).
+
+- 2026-11-09: Schematic view (S6.7) scheduled as Phase 9 after Phase 8 (9a view-only, 9b editable).
