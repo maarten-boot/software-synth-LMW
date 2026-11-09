@@ -3,6 +3,8 @@
 #include "dsp/PatchText.h"
 #include "app/StateMigration.h"
 #include "app/PatchFile.h"
+#include "app/NinePService.h"
+#include "ui/Config.h"
 #include <cstdio>
 #include <map>
 #include "PluginEditor.h"
@@ -92,9 +94,18 @@ LMWSynthProcessor::LMWSynthProcessor()
         raw.tune[n] = get(P::vcoTune[n]); raw.mixVco[n] = get(P::mixVco[n]);
     }
     keyboard.addListener(this);
+
+    // Spec S10: 9P server — a Unix socket per instance, TCP when ninep_tcp is set in the config file.
+    ninep = std::make_unique<NinePService>(*this);
+    const auto settings = lmw::ui::parseConfig(LMWSynthEditor::configFile().loadFileAsString().toStdString());
+    ninepAddress = ninep->start(settings.tcpEndpoint());
+    std::fprintf(stderr, "LMW-Synth 9P: %s\n", ninepAddress.empty() ? "(not available)" : ninepAddress.c_str());
 }
 
-LMWSynthProcessor::~LMWSynthProcessor() { keyboard.removeListener(this); }
+LMWSynthProcessor::~LMWSynthProcessor() {
+    ninep.reset();                                   // stops the 9P threads before anything else goes
+    keyboard.removeListener(this);
+}
 
 void LMWSynthProcessor::handleNoteOn(juce::MidiKeyboardState*, int channel, int note, float velocity) {
     if (applyingMidiInput) return;
@@ -261,7 +272,39 @@ juce::AudioProcessorEditor* LMWSynthProcessor::createEditor() { return new LMWSy
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter() { return new LMWSynthProcessor(); }
 
-// ---- Spec S7: patch files ----
+// ---- Spec S7: patch files; S10.10: the same value texts are used over 9P ----
+
+std::string LMWSynthProcessor::valueText(const juce::RangedAudioParameter& r) {
+    if (auto* c = dynamic_cast<const juce::AudioParameterChoice*>(&r)) return c->getCurrentChoiceName().toStdString();
+    if (auto* i = dynamic_cast<const juce::AudioParameterInt*>(&r)) return std::to_string(i->get());
+    if (auto* f = dynamic_cast<const juce::AudioParameterFloat*>(&r)) {
+        char buf[40];
+        std::snprintf(buf, sizeof buf, "%.7g", static_cast<double>(f->get()));   // ~float precision: 1000 stays "1000"
+        return buf;
+    }
+    return {};
+}
+
+std::optional<float> LMWSynthProcessor::parseValue(const juce::RangedAudioParameter& r, const juce::String& text) {
+    const auto v = text.trim();
+    if (auto* c = dynamic_cast<const juce::AudioParameterChoice*>(&r)) {
+        int index = -1;
+        for (int k = 0; k < c->choices.size(); ++k)
+            if (c->choices[k].equalsIgnoreCase(v)) index = k;
+        if (index < 0 && v.isNotEmpty() && v.containsOnly("0123456789")) index = v.getIntValue();
+        if (index >= 0 && index < c->choices.size()) return r.convertTo0to1(static_cast<float>(index));
+        return std::nullopt;
+    }
+    if (v.isEmpty() || !v.containsOnly("0123456789+-.eE")) return std::nullopt;
+    const float real = static_cast<float>(v.getDoubleValue());
+    return r.convertTo0to1(r.getNormalisableRange().getRange().clipValue(real));
+}
+
+void LMWSynthProcessor::setNormalised(juce::RangedAudioParameter& r, float normalised) {
+    r.beginChangeGesture();
+    r.setValueNotifyingHost(normalised);
+    r.endChangeGesture();
+}
 
 juce::String LMWSynthProcessor::patchText(const juce::String& name) const {
     lmw::patchfile::Patch p;
@@ -270,17 +313,9 @@ juce::String LMWSynthProcessor::patchText(const juce::String& name) const {
     for (auto* param : getParameters()) {
         auto* r = dynamic_cast<juce::RangedAudioParameter*>(param);
         if (r == nullptr) continue;
-        lmw::patchfile::Parameter out{r->paramID.toStdString(), {}, {}};
-        if (auto* c = dynamic_cast<juce::AudioParameterChoice*>(r)) {
-            out.value = c->getCurrentChoiceName().toStdString();
-        } else if (auto* i = dynamic_cast<juce::AudioParameterInt*>(r)) {
-            out.value = std::to_string(i->get());
-        } else if (auto* f = dynamic_cast<juce::AudioParameterFloat*>(r)) {
-            char buf[40];
-            std::snprintf(buf, sizeof buf, "%.9g", static_cast<double>(f->get()));   // exact on reload
-            out.value = buf;
-            out.comment = f->getCurrentValueAsText().toStdString();                   // with its unit
-        }
+        lmw::patchfile::Parameter out{r->paramID.toStdString(), valueText(*r), {}};
+        if (dynamic_cast<juce::AudioParameterFloat*>(r) != nullptr)
+            out.comment = r->getCurrentValueAsText().toStdString();                   // with its unit
         p.parameters.push_back(std::move(out));
     }
     for (int i = 0; i < lmw::dsp::numInputs; ++i) {
@@ -318,22 +353,9 @@ bool LMWSynthProcessor::loadPatchText(const juce::String& text, juce::String& er
         auto* r = dynamic_cast<juce::RangedAudioParameter*>(param);
         if (r == nullptr) continue;
         float normalised = r->getDefaultValue();                 // missing or unreadable: default
-        if (const auto it = values.find(r->paramID.toStdString()); it != values.end()) {
-            const juce::String v = juce::String::fromUTF8(it->second.c_str()).trim();
-            if (auto* c = dynamic_cast<juce::AudioParameterChoice*>(r)) {
-                int index = -1;
-                for (int k = 0; k < c->choices.size(); ++k)
-                    if (c->choices[k].equalsIgnoreCase(v)) index = k;
-                if (index < 0 && v.containsOnly("0123456789")) index = v.getIntValue();
-                if (index >= 0 && index < c->choices.size()) normalised = r->convertTo0to1(static_cast<float>(index));
-            } else if (v.containsOnly("0123456789+-.eE") && v.isNotEmpty()) {
-                const float real = static_cast<float>(v.getDoubleValue());
-                normalised = r->convertTo0to1(r->getNormalisableRange().getRange().clipValue(real));
-            }
-        }
-        r->beginChangeGesture();
-        r->setValueNotifyingHost(normalised);
-        r->endChangeGesture();
+        if (const auto it = values.find(r->paramID.toStdString()); it != values.end())
+            normalised = parseValue(*r, juce::String::fromUTF8(it->second.c_str())).value_or(normalised);
+        setNormalised(*r, normalised);
     }
     setPatch(*cables);
     setNotes(juce::String::fromUTF8(p->notes.c_str()));

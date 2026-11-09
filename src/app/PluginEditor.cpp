@@ -274,6 +274,12 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     panelTab.onClick = [this] { if (panelTab.getToggleState()) showTab(0); };
     notesTab.onClick = [this] { if (notesTab.getToggleState()) showTab(1); };
     patchLabel.setTooltip("Patch name (the file name when saved or loaded)");
+    // Spec S10.5: where the 9P server of this instance listens.
+    titleLabel.setTooltip(processor.ninepEndpoints().empty()
+        ? juce::String("9P server: not available")
+        : "9P server (connect with a 9P client, e.g. 9p -a " + juce::String(processor.ninepEndpoints()).upToFirstOccurrenceOf(" ", false, false)
+              + " ls):\n" + juce::String(processor.ninepEndpoints()).replace(" ", "\n"));
+    addAndMakeVisible(titleLabel);
     addAndMakeVisible(patchLabel);
     loadButton.setTooltip("Load a patch file (parameters, cables, notes)");
     saveButton.setTooltip("Save parameters, cables and notes as a patch file");
@@ -610,7 +616,6 @@ void LMWSynthEditor::paint(juce::Graphics& g) {
     g.setColour(kFg);
     const int pad = m.gap + 2;
     g.setFont(juce::FontOptions(m.titleH * 0.6f, juce::Font::bold));
-    g.drawText("LMW-Synth", juce::Rectangle<int>(pad, pad, titleTextWidth(), m.titleH), juce::Justification::centredLeft);
     const float lineY = static_cast<float>(pad + m.titleH + m.gap / 2);   // between title row and modules
     g.drawLine(static_cast<float>(pad), lineY, static_cast<float>(getWidth() - pad), lineY, 1.0f);
 
@@ -655,7 +660,9 @@ void LMWSynthEditor::resized() {
     saveButton.setBounds(title.removeFromRight(m.colW >= 80 ? 76 : 64).reduced(0, 2));
     title.removeFromRight(m.gap / 2);
     loadButton.setBounds(title.removeFromRight(m.colW >= 80 ? 76 : 64).reduced(0, 2));
-    title.removeFromLeft(titleTextWidth() + m.gap);          // "LMW-Synth" is painted there
+    titleLabel.setBounds(title.removeFromLeft(titleTextWidth()));
+    titleLabel.setFont(juce::FontOptions(m.titleH * 0.6f, juce::Font::bold));
+    title.removeFromLeft(m.gap);
     const int tabW = m.colW >= 80 ? 70 : 60;
     panelTab.setBounds(title.removeFromLeft(tabW).reduced(0, 2));
     notesTab.setBounds(title.removeFromLeft(tabW).reduced(0, 2));
@@ -1120,7 +1127,7 @@ int LMWSynthEditor::titleTextWidth() const { return m.colW >= 80 ? 120 : 96; }
 
 void LMWSynthEditor::showTab(int tab) {
     currentTab = tab;
-    const juce::Component* alwaysShown[] = {&panelTab, &notesTab, &patchLabel, &loadButton, &saveButton, &contrastBox,
+    const juce::Component* alwaysShown[] = {&titleLabel, &panelTab, &notesTab, &patchLabel, &loadButton, &saveButton, &contrastBox,
                                             &resetLayoutButton, &compactButton, &keyboard};
     for (auto* child : getChildren()) {
         if (child == &notesEditor || std::find(std::begin(alwaysShown), std::end(alwaysShown), child) != std::end(alwaysShown))

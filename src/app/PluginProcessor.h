@@ -9,6 +9,9 @@
 #include "dsp/SpscQueue.h"
 #include "dsp/MidiParse.h"
 #include <array>
+#include <memory>
+#include <optional>
+#include <string>
 
 namespace lmw::param {   // Spec S5a.1
 inline constexpr const char* voices      = "voice.count";
@@ -99,6 +102,12 @@ public:
     // Spec S7: patch files (message thread). The text holds every parameter, the cables and the notes;
     // loading sets parameters missing from the file to their default. False + error text on failure.
     juce::String patchText(const juce::String& name) const;
+    // A parameter's value as text (float exact, choice by name, int) and back (choice also by index;
+    // numbers clipped to the range); shared by patch files and 9P (Spec S7.1, S10.10).
+    static std::string valueText(const juce::RangedAudioParameter&);
+    static std::optional<float> parseValue(const juce::RangedAudioParameter&, const juce::String& text);
+    static void setNormalised(juce::RangedAudioParameter&, float normalised);   // message thread
+    const std::string& ninepEndpoints() const noexcept { return ninepAddress; }  // "unix!<path> tcp!..."
     bool loadPatchText(const juce::String& text, juce::String& error);
     // Free-text notes and the patch name, kept in the saved state and in patch files.
     juce::String notes() const { return apvts.state.getProperty(notesProp).toString(); }
@@ -135,6 +144,8 @@ private:
     lmw::dsp::SpscQueue<lmw::dsp::PatchCommand, 64> patchToAudio;
     inline static const juce::Identifier notesProp{"notes"}, nameProp{"patchName"};
     std::uint32_t loadedPatches = 0;                  // message thread only
+    std::unique_ptr<class NinePService> ninep;        // Spec S10: 9P server (started in the constructor)
+    std::string ninepAddress;
     lmw::dsp::Patch guiPatch;                         // message thread only
     std::uint32_t patchSerial = 0;                    // message thread only
     std::atomic<float> modWheelValue{0.0f};           // written by the audio thread

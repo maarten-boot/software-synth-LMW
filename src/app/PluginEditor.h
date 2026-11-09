@@ -56,6 +56,8 @@ public:
     // focused control reach the editor and are passed to the on-screen keyboard.
     bool keyPressed(const juce::KeyPress&) override;
     bool keyStateChanged(bool isKeyDown) override;
+    // Spec S6.3: the user config file (also read by the processor for 9P over TCP).
+    static juce::File configFile();
 
 private:
     void timerCallback() override;
@@ -192,7 +194,6 @@ private:
     void showJackMenu(Jack&);
     juce::String describeOutput(lmw::dsp::Out) const;     // "<output> → <inputs it feeds>"
     // Spec S6.3: config file and contrast.
-    static juce::File configFile();
     void saveConfig() const;
     void applyContrast();                                 // palette from settings, redraw
     void askCustomRatio();
@@ -232,7 +233,7 @@ private:
     juce::ComboBox contrastBox;
     // Spec S7: tabs, patch name, notes and patch files.
     juce::TextButton panelTab{"Panel"}, notesTab{"Notes"}, loadButton{"Load..."}, saveButton{"Save..."};
-    juce::Label patchLabel;
+    juce::Label patchLabel, titleLabel{"title", "LMW-Synth"};   // title hover text: 9P address
     juce::TextEditor notesEditor;
     int currentTab = 0;
     std::uint32_t shownPatchFile = 0;

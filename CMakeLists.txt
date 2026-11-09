@@ -9,6 +9,13 @@ option(LMW_BUILD_PLUGIN "Build the JUCE standalone/VST3 targets" ON)
 option(LMW_BUILD_TESTS  "Build unit tests" ON)
 
 # Pure C++ libraries (no JUCE) -------------------------------------------
+# lmw9p: small 9P client for trying the 9P server (Spec S10), tools/lmw9p.cpp
+add_executable(lmw9p tools/lmw9p.cpp src/ninep/Transport.cpp)
+target_include_directories(lmw9p PRIVATE src)
+target_compile_features(lmw9p PRIVATE cxx_std_20)
+find_package(Threads REQUIRED)
+target_link_libraries(lmw9p PRIVATE Threads::Threads $<$<PLATFORM_ID:Windows>:ws2_32>)
+
 add_library(lmw_ui_core STATIC src/ui/Contrast.cpp)
 target_include_directories(lmw_ui_core PUBLIC src)
 # Linked into the VST3 shared library: must be position-independent. Ubuntu's GCC does this by
@@ -54,7 +61,9 @@ if(LMW_BUILD_PLUGIN)
     target_sources(LMWSynth PRIVATE
         src/app/PluginProcessor.cpp
         src/app/PluginEditor.cpp
-        src/app/StandaloneApp.cpp)
+        src/app/StandaloneApp.cpp
+        src/app/NinePService.cpp
+        src/ninep/Transport.cpp)
 
     target_compile_definitions(LMWSynth PUBLIC
         JUCE_WEB_BROWSER=0
@@ -72,6 +81,9 @@ if(LMW_BUILD_PLUGIN)
             juce::juce_recommended_config_flags
             juce::juce_recommended_lto_flags
             juce::juce_recommended_warning_flags)
+    if(WIN32)
+        target_link_libraries(LMWSynth PRIVATE ws2_32)   # 9P sockets
+    endif()
 endif()
 
 # Tests ------------------------------------------------------------------
@@ -116,4 +128,9 @@ if(LMW_BUILD_TESTS)
     add_executable(test_ninep tests/test_ninep.cpp)
     target_include_directories(test_ninep PRIVATE src)
     add_test(NAME T-S10.1a-ninep COMMAND test_ninep)
+    add_executable(test_ninep_socket tests/test_ninep_socket.cpp src/ninep/Transport.cpp)
+    target_include_directories(test_ninep_socket PRIVATE src)
+    find_package(Threads REQUIRED)
+    target_link_libraries(test_ninep_socket PRIVATE Threads::Threads $<$<PLATFORM_ID:Windows>:ws2_32>)
+    add_test(NAME T-S10.4-socket COMMAND test_ninep_socket)
 endif()

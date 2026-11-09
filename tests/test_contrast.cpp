@@ -63,6 +63,15 @@ int main() {
         Settings w; w.contrast = ContrastPreset::Max; w.compact = false;
         const auto r2 = parseConfig(writeConfig(w));
         CHECK(r2.contrast == ContrastPreset::Max && r2.compact == false);
+        // Spec S10.4: 9P over TCP, off by default.
+        CHECK(!parseConfig("").tcpEndpoint());
+        const auto tcp = parseConfig("ninep_tcp = 5640").tcpEndpoint();
+        CHECK(tcp && tcp->first == "127.0.0.1" && tcp->second == 5640);
+        const auto tcp2 = parseConfig("ninep_tcp = 0.0.0.0:7000").tcpEndpoint();
+        CHECK(tcp2 && tcp2->first == "0.0.0.0" && tcp2->second == 7000);
+        CHECK(!parseConfig("ninep_tcp = 70000").tcpEndpoint() && !parseConfig("ninep_tcp = x:y").tcpEndpoint());
+        Settings withTcp; withTcp.ninepTcp = "5641";
+        CHECK(parseConfig(writeConfig(withTcp)).ninepTcp == "5641");
     }
 
     std::printf(failures ? "%d failure(s)\n" : "all contrast tests passed\n", failures);

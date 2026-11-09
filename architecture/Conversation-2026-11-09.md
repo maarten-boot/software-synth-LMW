@@ -35,3 +35,7 @@ PatchFile.h (pure) + test; processor patchText/loadPatchText (exact floats, choi
 > yes, start Phase 6, the 9P server
 
 Split into 6a (protocol + core, pure C++), 6b (sockets + wiring), 6c (conformance with plan9port, load). Spec S10.10–S10.12 written first (file tree, write semantics, message-thread application). Test client found: a dangling Reader in my own test helper (ASan), a directory read count smaller than one entry returned 0 (= end) → now an error. Fuzz section found a real out-of-bounds read: directory reads at an arbitrary offset used garbage as entry length → offsets must be entry boundaries. 2 000 000 fuzzed messages clean under ASan/UBSan. No 9P client on the host (plan9port to be built for 6c).
+
+## 6. Phase 6b: sockets and wiring
+Transport (Unix socket + TCP, polled I/O, at most 16 connections) with a socket test (ASan/UBSan and TSan clean). NinePService builds the tree from the processor; changes and message-thread state go through the message thread with a shared alive flag. lmw9p client tool. Live test: all files, GUI follows 9P writes. Found: 1000 read back as 1000.00006 (normalised float on a skewed range) → 7 significant digits; a killed instance leaves its socket → stale sockets removed at start. CI for 9cac7f2 (patch files) green.
+> would it be a nice moment for a crosscheck ?

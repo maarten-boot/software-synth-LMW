@@ -3,6 +3,7 @@
 //   contrast       = AA | AAA | Max | Custom
 //   contrast_ratio = 4.5 .. 21          (used with Custom)
 //   compact        = true | false       (default view for a new window; a saved state overrides it)
+//   ninep_tcp      = [host:]port        (also serve 9P over TCP; empty = off; host default 127.0.0.1)
 // Unknown keys and unreadable values are ignored (the default is kept). Pure C++, no JUCE.
 #pragma once
 #include "ui/Contrast.h"
@@ -13,6 +14,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 
 namespace lmw::ui {
 
@@ -20,6 +22,19 @@ struct Settings {
     ContrastPreset contrast = ContrastPreset::AA;
     double customRatio = 7.0;
     std::optional<bool> compact;
+    std::string ninepTcp;                      // Spec S10.4: "" = no TCP
+
+    // ninep_tcp as host and port; nothing when off or unreadable.
+    std::optional<std::pair<std::string, int>> tcpEndpoint() const {
+        if (ninepTcp.empty()) return std::nullopt;
+        const auto colon = ninepTcp.rfind(':');
+        const std::string host = colon == std::string::npos ? "127.0.0.1" : ninepTcp.substr(0, colon);
+        const std::string port = colon == std::string::npos ? ninepTcp : ninepTcp.substr(colon + 1);
+        int p = 0;
+        for (char c : port) { if (c < '0' || c > '9') return std::nullopt; p = p * 10 + (c - '0'); if (p > 65535) return std::nullopt; }
+        if (p == 0 || host.empty()) return std::nullopt;
+        return std::make_pair(host, p);
+    }
 
     double minRatio() const noexcept { return minimumRatio(contrast, customRatio); }
 };
@@ -54,6 +69,8 @@ inline Settings parseConfig(std::string_view text) {
             double r = 0;
             const std::string v(value);
             if (std::sscanf(v.c_str(), "%lf", &r) == 1 && r > 0) s.customRatio = minimumRatio(ContrastPreset::Custom, r);
+        } else if (key == "ninep_tcp") {
+            s.ninepTcp = std::string(value);
         } else if (key == "compact") {
             const auto v = detail::lower(value);
             if (v == "true" || v == "yes" || v == "1") s.compact = true;
@@ -72,6 +89,8 @@ inline std::string writeConfig(const Settings& s) {
         "# contrast: AA (4.5:1), AAA (7:1), Max (21:1) or Custom (uses contrast_ratio, 4.5 .. 21)\n";
     out += "contrast = " + std::string(names[static_cast<int>(s.contrast)]) + "\n";
     out += "contrast_ratio = " + std::string(ratio) + "\n";
+    out += "# ninep_tcp: also serve 9P over TCP, e.g. 5640 or 127.0.0.1:5640 (no authentication: keep it local)\n";
+    out += "ninep_tcp = " + s.ninepTcp + "\n";
     if (s.compact) out += std::string("# compact: default view for a new window (a saved state overrides it)\ncompact = ")
                         + (*s.compact ? "true" : "false") + "\n";
     return out;
