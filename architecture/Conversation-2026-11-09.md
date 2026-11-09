@@ -62,3 +62,5 @@ macOS, Fedora and Ubuntu green (host test passes there). Windows failed to compi
 
 ### Schematic view scheduled
 User: schedule the schematic view (S6.7) as its own phase after Phase 8. Plan: Phase 9 — (a) view-only schematic tab, (b) editable. Open before starting: symbols for KEYS, NOISE, OUT (ENV as ADSR curve to confirm).
+
+CI run 42696944959 for 6526f89: green on all four (Windows, Ubuntu 24.04, Fedora 45, macOS); host test passes everywhere.
