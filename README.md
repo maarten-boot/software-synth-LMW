@@ -22,4 +22,5 @@ To build for **Ubuntu 24.04 and newer** from any Linux host (needs podman or doc
 ```sh
 scripts/build-ubuntu24.sh          # result in build-u24/Standalone and build-u24/VST3
 scripts/build-ubuntu24.sh --clean  # full rebuild
+scripts/validate-vst3.sh           # Steinberg validator + pluginval, built from source (after a build in build/)
 ```

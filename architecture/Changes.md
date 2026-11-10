@@ -57,3 +57,5 @@ Changes between releases.
 - 2026-11-09: Schematic view (S6.7) scheduled as Phase 9 after Phase 8 (9a view-only, 9b editable).
 
 - 2026-11-10: CI uploads a downloadable build per platform (S9.3): standalone, VST3, lmw9p, LICENSE, BUILD.txt.
+
+- 2026-11-10: Phase 8b: Steinberg validator and pluginval (strictness 10) pass; scripts/validate-vst3.sh; fix: the single program is named "Default".
