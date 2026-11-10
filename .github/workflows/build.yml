@@ -53,6 +53,17 @@ jobs:
         run: cmake --build build --config Release --parallel
       - name: Test
         run: ctest --test-dir build -C Release --output-on-failure
+      # Third-party VST3 validators (Spec S9.4): Steinberg validator and pluginval (strictness 10),
+      # built from source at pinned commits by the script. Only the built programs are cached
+      # (key: platform + script), so they are rebuilt only when the script (and its pins) changes.
+      - name: Validator cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .validators/bin
+          key: validators-${{ matrix.name }}-${{ hashFiles('scripts/validate-vst3.sh') }}
+      - name: VST3 validators
+        shell: bash
+        run: LMW_VALIDATOR_DIR="$PWD/.validators" bash scripts/validate-vst3.sh
       # Downloadable build per platform (Spec S9.3): standalone app, VST3 bundle and the lmw9p client.
       # Unix: packed as .tar.gz first, because an artifact zip loses the executable bit.
       - name: Package

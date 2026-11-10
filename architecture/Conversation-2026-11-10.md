@@ -13,3 +13,6 @@ User: "build the two validators from source; tell me what to install, you have n
 - Steinberg validator: 46/47 — "Programlist 000->Program 000: has no name". Fix: getProgramName returns "Default". Then 47/47.
 - pluginval strictness 10: SUCCESS headless (21 groups) and on Xvfb :95 with editor tests (25 groups).
 - scripts/validate-vst3.sh: clones both at pinned commits (checked), builds, runs; work dir /tmp/<project>/validators. Spec S9.4, Tests T-S9.4.
+
+## Validators in CI
+User: add the validators to CI. scripts/validate-vst3.sh made portable (Linux/macOS/Windows Git Bash: default CMake generator, --config Release, .exe / pluginval.app, placeholder gtk+-3.0/gtkmm-3.0 .pc on Linux only, LADSPA switch Linux only) and copies the built programs to <work>/bin, which is all CI caches (actions/cache v6.1.0, key: platform + script hash). Fresh build 3m20s locally, cached run ~1 s. New CI steps "Validator cache" and "VST3 validators" after Test.
