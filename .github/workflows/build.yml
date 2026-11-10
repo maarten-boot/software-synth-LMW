@@ -25,7 +25,7 @@ jobs:
       - name: Fedora deps
         if: startsWith(matrix.name, 'fedora')
         run: |
-          dnf install -y git cmake ninja-build gcc-c++ pkgconf-pkg-config alsa-lib-devel freetype-devel \
+          dnf install -y git tar gzip cmake ninja-build gcc-c++ pkgconf-pkg-config alsa-lib-devel freetype-devel \
             fontconfig-devel libX11-devel libXrandr-devel libXinerama-devel libXcursor-devel libXext-devel \
             mesa-libGL-devel libXi-devel mesa-libEGL-devel
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -53,3 +53,25 @@ jobs:
         run: cmake --build build --config Release --parallel
       - name: Test
         run: ctest --test-dir build -C Release --output-on-failure
+      # Downloadable build per platform (Spec S9.3): standalone app, VST3 bundle and the lmw9p client.
+      # Unix: packed as .tar.gz first, because an artifact zip loses the executable bit.
+      - name: Package
+        shell: bash
+        run: |
+          set -euo pipefail
+          a=build/LMWSynth_artefacts/Release
+          d="LMW-Synth-${{ matrix.name }}"
+          mkdir -p "dist/$d"
+          cp -R "$a/VST3/LMW-Synth.vst3" "dist/$d/"
+          cp -R "$a"/Standalone/LMW-Synth* "dist/$d/"
+          if [ -f build/Release/lmw9p.exe ]; then cp build/Release/lmw9p.exe "dist/$d/"; else cp build/lmw9p "dist/$d/"; fi
+          cp LICENSE "dist/$d/"
+          echo "LMW-Synth ${{ github.sha }} built on ${{ matrix.name }}; source: ${{ github.server_url }}/${{ github.repository }}/tree/${{ github.sha }}" > "dist/$d/BUILD.txt"
+          if [ "${{ runner.os }}" != "Windows" ]; then (cd dist && tar czf "$d.tar.gz" "$d" && rm -rf "$d"); fi
+          ls -R dist | head -40
+      - name: Upload build
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: LMW-Synth-${{ matrix.name }}
+          path: dist/
+          if-no-files-found: error

@@ -66,6 +66,7 @@ S8.2 Every dependency must be AGPLv3-compatible.
 S9.0 Product name: `LMW-Synth` (no space) for the app file, VST3 bundle, window title and plugin name.
 S9.1 Standalone application (first).
 S9.2 VST3 plugin from the same codebase (end goal). Hosts see our parameters plus JUCE's hidden VST3 MIDI-CC parameters (16 channels × 130), which is how VST3 delivers mod wheel, sustain and pitch bend to a plugin. On load the plugin prints its 9P address to stderr. Re-preparing (prepareToPlay, as hosts do on every rate/block-size change) puts the engine in the same state as a fresh instance (voices, LFO, noise, filter glides, output fade-in).
+S9.3 Every CI run offers a download per platform (artifact LMW-Synth-<platform>: ubuntu-24.04, fedora-45, macos, windows) with the standalone app, the VST3 bundle, the lmw9p client, LICENSE and BUILD.txt (commit and source link, as AGPL asks). Linux/macOS builds are packed as .tar.gz inside the artifact zip, so executable bits survive; Windows files are in the zip directly. Builds are not code-signed (Windows SmartScreen and macOS Gatekeeper warn on first start); GitHub keeps artifacts 90 days.
 
 ## S10 GUI / engine split
 S10.1 Engine and GUI communicate over 9P2000; the engine is the 9P server and the single source of truth for state.
