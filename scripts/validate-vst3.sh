@@ -10,8 +10,9 @@
 #     only the validator target is built, so placeholder .pc files are enough when they are missing.
 #   - pluginval enables LADSPA hosting, which needs ladspa.h; it is switched off when that header
 #     is missing (only VST3 is tested here).
-# pluginval links libstdc++ statically on Linux (Fedora: package libstdc++-static); on Windows
-# <chrono> is force-included (see below).
+#   - pluginval links libstdc++ statically, for distributing it; it only runs where it was built
+#     here, so that is switched off (Fedora's static libstdc++ fails to link into its PIE default).
+# Windows: <chrono> is force-included for pluginval (see below).
 # Usage: scripts/validate-vst3.sh [path/to/LMW-Synth.vst3]   (default: build/ output)
 # Work dir: $LMW_VALIDATOR_DIR, default /tmp/<project folder>/validators. The built validators are
 # copied to <work>/bin; when they are there (e.g. restored from a CI cache) nothing is fetched or
@@ -72,12 +73,16 @@ fi
 # pluginval
 if [ ! -x "$pluginval" ]; then
     fetch https://github.com/Tracktion/pluginval.git "$PLUGINVAL_TAG" "$PLUGINVAL_SHA" pluginval
-    if [ "$os" = linux ] && ! echo '#include <ladspa.h>' | ${CXX:-c++} -E -x c++ - >/dev/null 2>&1; then
-        sed -i 's/JUCE_PLUGINHOST_LADSPA=1/JUCE_PLUGINHOST_LADSPA=0/' "$work/pluginval/CMakeLists.txt"
+    if [ "$os" = linux ]; then
+        sed -i 's/-static-libstdc++)/)/' "$work/pluginval/CMakeLists.txt"
+        if ! echo '#include <ladspa.h>' | ${CXX:-c++} -E -x c++ - >/dev/null 2>&1; then
+            sed -i 's/JUCE_PLUGINHOST_LADSPA=1/JUCE_PLUGINHOST_LADSPA=0/' "$work/pluginval/CMakeLists.txt"
+        fi
     fi
     # pluginval v1.0.4 uses 100ms literals without including <chrono>; recent MSVC no longer gets it
-    # through other headers, so it is force-included there (CXXFLAGS seeds CMAKE_CXX_FLAGS).
-    if [ "$os" = windows ]; then export CXXFLAGS="/FIchrono ${CXXFLAGS:-}"; fi
+    # through other headers, so it is force-included there (CXXFLAGS seeds CMAKE_CXX_FLAGS; written
+    # -FI, as Git Bash would turn /FI... into a Windows path).
+    if [ "$os" = windows ]; then export CXXFLAGS="-FIchrono ${CXXFLAGS:-}"; fi
     cmake -S "$work/pluginval" -B "$work/b-pv" -DCMAKE_BUILD_TYPE=Release >/dev/null
     cmake --build "$work/b-pv" --config Release --parallel "$jobs"
     out="$work/b-pv/pluginval_artefacts/Release"
