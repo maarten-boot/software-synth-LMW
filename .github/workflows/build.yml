@@ -27,7 +27,8 @@ jobs:
         run: |
           dnf install -y git tar gzip cmake ninja-build gcc-c++ pkgconf-pkg-config alsa-lib-devel freetype-devel \
             fontconfig-devel libX11-devel libXrandr-devel libXinerama-devel libXcursor-devel libXext-devel \
-            mesa-libGL-devel libXi-devel mesa-libEGL-devel
+            mesa-libGL-devel libXi-devel mesa-libEGL-devel \
+            libstdc++-static
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Ubuntu deps
         if: startsWith(matrix.name, 'ubuntu')

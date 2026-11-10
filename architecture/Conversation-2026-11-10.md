@@ -16,3 +16,5 @@ User: "build the two validators from source; tell me what to install, you have n
 
 ## Validators in CI
 User: add the validators to CI. scripts/validate-vst3.sh made portable (Linux/macOS/Windows Git Bash: default CMake generator, --config Release, .exe / pluginval.app, placeholder gtk+-3.0/gtkmm-3.0 .pc on Linux only, LADSPA switch Linux only) and copies the built programs to <work>/bin, which is all CI caches (actions/cache v6.1.0, key: platform + script hash). Fresh build 3m20s locally, cached run ~1 s. New CI steps "Validator cache" and "VST3 validators" after Test.
+
+CI run 42885837808 for dd0b256: Ubuntu (47/47, pluginval 21 groups) and macOS (47/47, pluginval 25 groups incl. editor) pass. Windows: pluginval v1.0.4 fails to compile with MSVC (100ms literal, <chrono> not included) -> /FIchrono via CXXFLAGS on Windows. Fedora: pluginval links -static-libstdc++ -> libstdc++-static added to the Fedora deps.
