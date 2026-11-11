@@ -66,7 +66,7 @@ int main() {
     {
         Engine e = makeEngine();
         ModParams m; m.lfoRate = 10.0f; m.lfoWave = LfoWave::Square; e.setModParams(m);
-        e.connect(In::Env1Gate, Out::Lfo);
+        e.connect(In::Env1Gate, Out::Lfo1);
         e.noteOn(60, 1.0f);
         auto countAttacks = [&](int samples) {
             int attacks = 0; bool on = false;

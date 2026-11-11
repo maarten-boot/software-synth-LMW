@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Polyphonic semi-modular engine (Spec S4, S5). Per voice: VCO, ENV1, ENV2, Mixer, VCF, VCA;
-// shared: LFO, Noise. Every module input reads its patch cable if present, else its normalled
+// Polyphonic semi-modular engine (Spec S4, S5). Per voice: VCO 1-3, ENV1, ENV2, Mixer, VCF 1-2, VCA;
+// shared: LFO 1-2, Noise. Every module input reads its patch cable if present, else its normalled
 // source (Spec S5.3, S5.4). Pure C++ (no JUCE) so it can be unit-tested and served over 9P.
 // All methods are RT-safe: no allocation, locks or I/O.
 #pragma once
@@ -42,8 +42,11 @@ struct ModParams {
     FilterSlope vcf2Slope = FilterSlope::Db24;
     FilterType vcf2Type = FilterType::Lowpass;
     float vcaInitial = 0.0f;                    // vca.initial (base gain added to vca.cv)
-    float lfoRate = 5.0f;                       // lfo.rate (Hz)
-    LfoWave lfoWave = LfoWave::Sine;            // lfo.wave
+    float lfoRate = 5.0f;                       // lfo1.rate (Hz)
+    LfoWave lfoWave = LfoWave::Sine;            // lfo1.wave
+    float lfo2Rate = 4.0f;                      // lfo2.rate (Hz), Spec S5.12
+    LfoWave lfo2Wave = LfoWave::Sine;           // lfo2.wave
+    float tremolo = 0.0f;                       // vca.tremolo: depth of vca.mod, 0..1 (0 = off)
 };
 
 inline double midiNoteToHz(int note) noexcept { return 440.0 * std::pow(2.0, (note - 69) / 12.0); }
@@ -57,7 +60,7 @@ inline constexpr float modWheelFmSemitones = 1.0f;
 
 // Values of the shared modules for the current sample.
 struct GlobalSignals {
-    float lfo = 0.0f, noise = 0.0f, modWheel = 0.0f;
+    float lfo = 0.0f, lfo2 = 0.0f, noise = 0.0f, modWheel = 0.0f;
 };
 
 class Voice {
@@ -148,7 +151,11 @@ public:
         else       vcf2Wet = std::fmin(1.0f, vcf2Wet + vcf2WetStep);
         out[o(Out::Vcf2)] = vcf2Wet <= 0.0f ? in2 : (vcf2Wet >= 1.0f ? filtered2 : in2 + (filtered2 - in2) * vcf2Wet);
 
-        const float vcaGain = std::clamp(mp.vcaInitial + read(In::VcaCv, g, patch), 0.0f, 1.0f);   // Spec S5.5
+        float vcaGain = std::clamp(mp.vcaInitial + read(In::VcaCv, g, patch), 0.0f, 1.0f);   // Spec S5.5
+        // Spec S5.12: tremolo. vca.mod (+-1) scales the gain between 1 (mod +1) and 1 - depth (mod -1);
+        // depth 0 leaves the gain exactly as it is.
+        if (mp.tremolo > 0.0f)
+            vcaGain *= 1.0f - mp.tremolo * 0.5f * (1.0f - std::clamp(read(In::VcaMod, g, patch), -1.0f, 1.0f));
         out[o(Out::Vca)] = read(In::VcaIn, g, patch) * vcaGain * velocity;
 
         return read(In::OutIn, g, patch);
@@ -185,7 +192,8 @@ private:
 
     float read(In in, const GlobalSignals& g, const Patch& patch) const noexcept {
         const Out src = patch.source(in);
-        if (src == Out::Lfo)   return g.lfo;
+        if (src == Out::Lfo1)  return g.lfo;
+        if (src == Out::Lfo2)  return g.lfo2;
         if (src == Out::Noise) return g.noise;
         return out[o(src)];                    // computed earlier this sample, or previous sample (feedback)
     }
@@ -218,6 +226,7 @@ public:
     void prepare(double sr) noexcept {
         for (auto& v : voices) v.prepare(sr);
         lfo.setSampleRate(sr); lfo.reset();
+        lfo2.setSampleRate(sr); lfo2.reset();
         noise.reset();
         gain = 0.0f;                         // fade in like a fresh instance (hosts re-prepare often)
         order.fill(0);
@@ -235,6 +244,7 @@ public:
         cutoffTarget = std::log2(std::clamp(static_cast<double>(p.cutoff), Ladder::minCutoff, Ladder::maxCutoff));
         cutoff2Target = std::log2(std::clamp(static_cast<double>(p.vcf2Cutoff), Ladder::minCutoff, Ladder::maxCutoff));
         lfo.setRate(p.lfoRate); lfo.setWave(p.lfoWave);
+        lfo2.setRate(p.lfo2Rate); lfo2.setWave(p.lfo2Wave);
         for (auto& v : voices) {
             v.setResonance(p.resonance, p.vcf2Resonance);
             v.setFilterMode(p.vcfSlope, p.vcfType, p.vcf2Slope, p.vcf2Type);
@@ -291,11 +301,12 @@ public:
             if (cutoff2Log2 < cutoff2Target)      cutoff2Log2 = std::fmin(cutoff2Log2 + cutoffStep, cutoff2Target);
             else if (cutoff2Log2 > cutoff2Target) cutoff2Log2 = std::fmax(cutoff2Log2 - cutoffStep, cutoff2Target);
 
-            const GlobalSignals g{lfo.next(), noise.next(), modWheel};
+            const GlobalSignals g{lfo.next(), lfo2.next(), noise.next(), modWheel};
             float sum = 0.0f;
             for (auto& v : voices)                    // includes voices ringing out after a count reduction
                 if (v.isActive() || (drone && v.hasPlayed())) sum += v.process(g, patch, mod, cutoffLog2, cutoff2Log2, vcoUsed);
-            if (globalOut) sum = outSrc == Out::Lfo ? g.lfo : g.noise;   // a global source is output once
+            if (globalOut)                            // a global source is output once
+                sum = outSrc == Out::Lfo1 ? g.lfo : (outSrc == Out::Lfo2 ? g.lfo2 : g.noise);
 
             const float s = SoftLimiter::process(sum * gain * headroom);   // Spec S4.6
             left[i] = s;
@@ -347,7 +358,7 @@ private:
     std::array<std::uint64_t, maxVoices> order{};
     Patch patch;
     ModParams mod;
-    Lfo lfo;
+    Lfo lfo, lfo2;                         // LFO 1, LFO 2 (Spec S5.12)
     Noise noise;
     std::uint64_t counter = 0;
     int voiceCount = 8;

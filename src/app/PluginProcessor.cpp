@@ -66,11 +66,16 @@ APVTS::ParameterLayout LMWSynthProcessor::createLayout() {
               std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{P::vcfType[n], 1}, name + " Type",
                   juce::StringArray{"Lowpass", "Highpass", "Bandpass", "Notch"}, 0));
     }
-    l.add(f(P::vcaInitial, "VCA Initial",  Range(0.0f, 1.0f), 0.0f, percent));
+    l.add(f(P::vcaInitial, "VCA Initial",  Range(0.0f, 1.0f), 0.0f, percent),
+          f(P::vcaTremolo, "VCA Tremolo",  Range(0.0f, 1.0f), 0.0f, percent));   // Spec S5.12
     envelope(l, P::env1Attack, P::env1Decay, P::env1Sustain, P::env1Release, "Env1", 0.01f, 0.2f, 0.7f, 0.3f);
     envelope(l, P::env2Attack, P::env2Decay, P::env2Sustain, P::env2Release, "Env2", 0.01f, 0.3f, 0.0f, 0.3f);
-    l.add(f(P::lfoRate, "LFO Rate", logRange(0.05f, 20.0f, 2.0f), 5.0f, hertz),
-          std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{P::lfoWave, 1}, "LFO Wave",
+    // Spec S5.12: LFO 1 (vibrato) and LFO 2 (tremolo).
+    l.add(f(P::lfoRate, "LFO 1 Rate", logRange(0.05f, 20.0f, 2.0f), 5.0f, hertz),
+          std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{P::lfoWave, 1}, "LFO 1 Wave",
+              juce::StringArray{"Sine", "Triangle", "Saw", "Square"}, 0),
+          f(P::lfo2Rate, "LFO 2 Rate", logRange(0.05f, 20.0f, 2.0f), 4.0f, hertz),
+          std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{P::lfo2Wave, 1}, "LFO 2 Wave",
               juce::StringArray{"Sine", "Triangle", "Saw", "Square"}, 0),
           f(P::gain, "Volume", Range(0.0f, 1.0f), 0.8f, decibels));
     return l;
@@ -89,6 +94,7 @@ LMWSynthProcessor::LMWSynthProcessor()
     raw.e1a = get(P::env1Attack); raw.e1d = get(P::env1Decay); raw.e1s = get(P::env1Sustain); raw.e1r = get(P::env1Release);
     raw.e2a = get(P::env2Attack); raw.e2d = get(P::env2Decay); raw.e2s = get(P::env2Sustain); raw.e2r = get(P::env2Release);
     raw.lfoRate = get(P::lfoRate); raw.lfoWave = get(P::lfoWave); raw.gain = get(P::gain);
+    raw.lfo2Rate = get(P::lfo2Rate); raw.lfo2Wave = get(P::lfo2Wave); raw.tremolo = get(P::vcaTremolo);
     for (std::size_t n = 0; n < 3; ++n) {
         raw.wave[n] = get(P::vcoWave[n]); raw.fm[n] = get(P::vcoFm[n]); raw.octave[n] = get(P::vcoOctave[n]);
         raw.tune[n] = get(P::vcoTune[n]); raw.mixVco[n] = get(P::mixVco[n]);
@@ -170,6 +176,9 @@ void LMWSynthProcessor::pullParameters() noexcept {
     m.vcaInitial  = raw.vcaInitial->load();
     m.lfoRate     = raw.lfoRate->load();
     m.lfoWave     = static_cast<lmw::dsp::LfoWave>(static_cast<int>(raw.lfoWave->load()));
+    m.lfo2Rate    = raw.lfo2Rate->load();
+    m.lfo2Wave    = static_cast<lmw::dsp::LfoWave>(static_cast<int>(raw.lfo2Wave->load()));
+    m.tremolo     = raw.tremolo->load();
     engine.setModParams(m);
 
     engine.setGain(raw.gain->load());

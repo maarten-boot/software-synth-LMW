@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Saved-state translation (Spec S5.10, S5.11). The state carries "stateVersion"; older states are
+// Saved-state translation (Spec S5.10, S5.11, S5.12). The state carries "stateVersion"; older states are
 // translated step by step on load:
 //   1 -> 2 (VCO 1-3):  vco.* -> vco1.*, mix.vco -> mix.vco1, noise input mix.in2 -> mix.in4
 //   2 -> 3 (VCF 1-2):  vcf.* -> vcf1.*
+//   3 -> 4 (LFO 1-2):  lfo.* -> lfo1.*
 // A state without "stateVersion" is version 1. Pure C++ so it can be unit-tested.
 #pragma once
 #include <array>
@@ -12,7 +13,7 @@
 
 namespace lmw::migration {
 
-inline constexpr int currentStateVersion = 3;
+inline constexpr int currentStateVersion = 4;
 
 namespace detail {
 template <std::size_t N>
@@ -30,6 +31,10 @@ inline constexpr std::array<std::pair<std::string_view, std::string_view>, 4> po
     {"vco.out", "vco1.out"}, {"vco.pitch", "vco1.pitch"}, {"vco.fm", "vco1.fm"}, {"mix.in2", "mix.in4"}}};
 inline constexpr std::array<std::pair<std::string_view, std::string_view>, 3> ports2{{
     {"vcf.out", "vcf1.out"}, {"vcf.in", "vcf1.in"}, {"vcf.cutoff", "vcf1.cutoff"}}};
+inline constexpr std::array<std::pair<std::string_view, std::string_view>, 2> params3{{
+    {"lfo.rate", "lfo1.rate"}, {"lfo.wave", "lfo1.wave"}}};
+inline constexpr std::array<std::pair<std::string_view, std::string_view>, 1> ports3{{
+    {"lfo.out", "lfo1.out"}}};
 }
 
 // Parameter ID saved by state version `from` -> current ID (unchanged IDs are returned as they are).
@@ -37,6 +42,7 @@ inline std::string parameterId(int from, std::string_view id) {
     std::string s(id);
     if (from < 2) s = std::string(detail::lookup(detail::params1, s));
     if (from < 3) s = std::string(detail::lookup(detail::params2, s));
+    if (from < 4) s = std::string(detail::lookup(detail::params3, s));
     return s;
 }
 
@@ -45,6 +51,7 @@ inline std::string portName(int from, std::string_view name) {
     std::string s(name);
     if (from < 2) s = std::string(detail::lookup(detail::ports1, s));
     if (from < 3) s = std::string(detail::lookup(detail::ports2, s));
+    if (from < 4) s = std::string(detail::lookup(detail::ports3, s));
     return s;
 }
 

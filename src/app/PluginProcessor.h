@@ -29,6 +29,7 @@ inline constexpr std::array<const char*, 2> vcfEnv   {"vcf1.env",    "vcf2.env"}
 inline constexpr std::array<const char*, 2> vcfSlope {"vcf1.slope",  "vcf2.slope"};
 inline constexpr std::array<const char*, 2> vcfType  {"vcf1.type",   "vcf2.type"};
 inline constexpr const char* vcaInitial  = "vca.initial";
+inline constexpr const char* vcaTremolo  = "vca.tremolo";   // Spec S5.12
 inline constexpr const char* env1Attack  = "env1.attack";
 inline constexpr const char* env1Decay   = "env1.decay";
 inline constexpr const char* env1Sustain = "env1.sustain";
@@ -37,8 +38,11 @@ inline constexpr const char* env2Attack  = "env2.attack";
 inline constexpr const char* env2Decay   = "env2.decay";
 inline constexpr const char* env2Sustain = "env2.sustain";
 inline constexpr const char* env2Release = "env2.release";
-inline constexpr const char* lfoRate     = "lfo.rate";
-inline constexpr const char* lfoWave     = "lfo.wave";
+// Spec S5.12: LFO 1 (vibrato, normalled to the VCO FM inputs) and LFO 2 (tremolo, normalled to vca.mod).
+inline constexpr const char* lfoRate     = "lfo1.rate";
+inline constexpr const char* lfoWave     = "lfo1.wave";
+inline constexpr const char* lfo2Rate    = "lfo2.rate";
+inline constexpr const char* lfo2Wave    = "lfo2.wave";
 inline constexpr const char* gain        = "out.gain";
 }
 
@@ -155,7 +159,8 @@ private:
 
     struct RawParams {                 // atomics owned by apvts, read on the audio thread
         std::atomic<float> *voices{}, *mixNoise{}, *vcaInitial{},
-            *e1a{}, *e1d{}, *e1s{}, *e1r{}, *e2a{}, *e2d{}, *e2s{}, *e2r{}, *lfoRate{}, *lfoWave{}, *gain{};
+            *e1a{}, *e1d{}, *e1s{}, *e1r{}, *e2a{}, *e2d{}, *e2s{}, *e2r{}, *lfoRate{}, *lfoWave{}, *gain{},
+            *lfo2Rate{}, *lfo2Wave{}, *tremolo{};
         std::array<std::atomic<float>*, 2> cutoff{}, resonance{}, vcfEnv{}, vcfSlope{}, vcfType{};
         std::array<std::atomic<float>*, 3> wave{}, fm{}, octave{}, tune{}, mixVco{};
     } raw;

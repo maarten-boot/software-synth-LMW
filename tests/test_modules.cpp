@@ -115,7 +115,7 @@ int main() {
         e.disconnect(In::OutIn);
         CHECK(rms(render(e, 4800)) == 0.0);
         // A global source on out.in is output once, even with no notes: LFO at 5 Hz.
-        e.connect(In::OutIn, Out::Lfo);
+        e.connect(In::OutIn, Out::Lfo1);
         const int z = crossings(render(e, 48000)); CHECK(z >= 4 && z <= 6);
     }
     // Feedback cable (vco1.fm <- vca.out) reads the previous sample and stays finite/bounded.
@@ -128,7 +128,7 @@ int main() {
         bool ok = true; for (float v : x) ok &= std::isfinite(v) && std::fabs(v) < 1.0f; CHECK(ok);
         CHECK(rms(x) > 0.01);
     }
-    // T-S3.5: lfo.out -> vco1.fm; depth = FM fader + mod wheel x 1 st. Both 0 = steady pitch.
+    // T-S3.5: lfo1.out -> vco1.fm; depth = FM fader + mod wheel x 1 st. Both 0 = steady pitch.
     {
         auto periodSpread = [](Engine& e) {                    // max - min distance between rising zero crossings
             const auto x = render(e, 48000); int last = -1, lo = 1 << 30, hi = 0;

@@ -9,10 +9,10 @@
 namespace lmw::dsp {
 
 // Order = order in menus: roughly signal flow. Saved patches use the names, not the numbers.
-enum class Out : std::uint8_t { KeysPitch, KeysGate, KeysVel, Vco1, Vco2, Vco3, Noise, Lfo, Env1, Env2, Mix, Vcf1, Vcf2,
-                                Vca, Count };
+enum class Out : std::uint8_t { KeysPitch, KeysGate, KeysVel, Vco1, Vco2, Vco3, Noise, Lfo1, Lfo2, Env1, Env2, Mix, Vcf1,
+                                Vcf2, Vca, Count };
 enum class In  : std::uint8_t { Vco1Pitch, Vco1Fm, Vco2Pitch, Vco2Fm, Vco3Pitch, Vco3Fm, Env1Gate, Env2Gate,
-                                MixIn1, MixIn2, MixIn3, MixIn4, Vcf1In, Vcf1Cutoff, Vcf2In, Vcf2Cutoff, VcaIn, VcaCv, OutIn,
+                                MixIn1, MixIn2, MixIn3, MixIn4, Vcf1In, Vcf1Cutoff, Vcf2In, Vcf2Cutoff, VcaIn, VcaCv, VcaMod, OutIn,
                                 Count };
 
 // Spec S5.10: three VCOs per voice.
@@ -27,18 +27,19 @@ inline constexpr int numInputs  = static_cast<int>(In::Count);
 // Port names, as used in cable text, patch files and the 9P /cables file (Spec S5.3, S10.10).
 inline constexpr std::array<std::string_view, numOutputs> outputNames{
     "keys.pitch", "keys.gate", "keys.vel", "vco1.out", "vco2.out", "vco3.out",
-    "noise.out", "lfo.out", "env1.out", "env2.out", "mix.out", "vcf1.out", "vcf2.out", "vca.out"};
+    "noise.out", "lfo1.out", "lfo2.out", "env1.out", "env2.out", "mix.out", "vcf1.out", "vcf2.out", "vca.out"};
 inline constexpr std::array<std::string_view, numInputs> inputNames{
     "vco1.pitch", "vco1.fm", "vco2.pitch", "vco2.fm", "vco3.pitch", "vco3.fm", "env1.gate", "env2.gate",
     "mix.in1", "mix.in2", "mix.in3", "mix.in4", "vcf1.in", "vcf1.cutoff", "vcf2.in", "vcf2.cutoff", "vca.in", "vca.cv",
-    "out.in"};
+    "vca.mod", "out.in"};
 
-// Spec S5.3, S5.8 normalled sources.
+// Spec S5.3, S5.8 normalled sources; S5.12: LFO 1 -> VCO FM (vibrato), LFO 2 -> vca.mod (tremolo).
 inline constexpr std::array<Out, numInputs> normalled{
-    Out::KeysPitch, Out::Lfo, Out::KeysPitch, Out::Lfo, Out::KeysPitch, Out::Lfo, Out::KeysGate, Out::KeysGate,
-    Out::Vco1, Out::Vco2, Out::Vco3, Out::Noise, Out::Mix, Out::Env2, Out::Vcf1, Out::Env2, Out::Vcf2, Out::Env1, Out::Vca};
+    Out::KeysPitch, Out::Lfo1, Out::KeysPitch, Out::Lfo1, Out::KeysPitch, Out::Lfo1, Out::KeysGate, Out::KeysGate,
+    Out::Vco1, Out::Vco2, Out::Vco3, Out::Noise, Out::Mix, Out::Env2, Out::Vcf1, Out::Env2, Out::Vcf2, Out::Env1, Out::Lfo2,
+    Out::Vca};
 
-inline constexpr bool isGlobal(Out o) noexcept { return o == Out::Lfo || o == Out::Noise; }
+inline constexpr bool isGlobal(Out o) noexcept { return o == Out::Lfo1 || o == Out::Lfo2 || o == Out::Noise; }
 
 class Patch {
 public:

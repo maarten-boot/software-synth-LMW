@@ -136,7 +136,7 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     };
 
     // Spec S6.1, S5.10: module panels in three rows (signal flow left to right, top to bottom):
-    // VCO 1 | VCO 2 | VCO 3 | LFO | OUT;  MIXER | VCF 1 | VCF 2;  KEYS | ENV 1 | ENV 2 | VCA.
+    // VCO 1 | VCO 2 | VCO 3 | LFO 1 | LFO 2;  MIXER | VCF 1 | VCF 2;  KEYS | ENV 1 | ENV 2 | VCA | OUT.
     // Titles of the envelopes name their normalled destination (S5.2).
     std::array<std::size_t, 3> vcoPanel{};
     for (int n = 0; n < 3; ++n) {
@@ -149,13 +149,19 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
              stacked(addChoice(P::vcoWave[i], "Wave", {"Sine", "Saw", "Square", "Triangle"}),
                      addChoice(P::vcoOctave[i], "Oct", {"-2", "-1", "0", "+1", "+2"}, "Octave"))}, {}});
     }
+    // Spec S5.12: LFO 1 = vibrato (normalled to the VCO FM inputs), LFO 2 = tremolo (normalled to vca.mod).
     const std::size_t lfoPanel = groups.size();
-    groups.push_back({"LFO", 0, {addChoice(P::lfoWave, "Wave", {"Sine", "Triangle", "Saw", "Square"}),
-                                 addFader(P::lfoRate, "Rate", [] {
-                                     return juce::String("Shared LFO; lfo.out feeds vco1.fm, vco2.fm and vco3.fm (normalled)");
-                                 })}, {}});
-    const std::size_t outPanel = groups.size();
-    groups.push_back({"OUT", 0, {addFader(P::gain, "Volume", inputTip(In::OutIn, "All voices summed, then soft limiter"))}, {}});
+    groups.push_back({"LFO 1", 0, {addChoice(P::lfoWave, "Wave", {"Sine", "Triangle", "Saw", "Square"}),
+                                   addFader(P::lfoRate, "Rate", [] {
+                                       return juce::String("Shared LFO 1 (vibrato): lfo1.out feeds vco1.fm, vco2.fm and vco3.fm\n"
+                                                           "(normalled); the FM faders set the depth");
+                                   })}, {}});
+    const std::size_t lfo2Panel = groups.size();
+    groups.push_back({"LFO 2", 0, {addChoice(P::lfo2Wave, "Wave", {"Sine", "Triangle", "Saw", "Square"}),
+                                   addFader(P::lfo2Rate, "Rate", [] {
+                                       return juce::String("Shared LFO 2 (tremolo): lfo2.out feeds vca.mod (normalled);\n"
+                                                           "the VCA Tremolo fader sets the depth");
+                                   })}, {}});
     const std::size_t mixPanel = groups.size();
     groups.push_back({"MIXER", 1,
         {addFader(P::mixVco[0], "VCO 1", inputTip(In::MixIn1, "Level of mixer input 1")),
@@ -194,7 +200,11 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     groups.push_back({"VCA", 2, {addFader(P::vcaInitial, "Initial", [this] {
                          return describeInput(In::VcaIn) + "\n" + describeInput(In::VcaCv)
                               + "\nGain = Initial + CV (0..1). Above 0, notes keep sounding after release.";
-                     })}, {}});
+                     }),
+                     addFader(P::vcaTremolo, "Tremolo", inputTip(In::VcaMod,
+                         "Tremolo depth: vca.mod swings the gain down by up to this much (0 = off)"))}, {}});
+    const std::size_t outPanel = groups.size();
+    groups.push_back({"OUT", 2, {addFader(P::gain, "Volume", inputTip(In::OutIn, "All voices summed, then soft limiter"))}, {}});
     jassert(usedFaders == faders.size() && usedChoices == choices.size());
 
     // Spec S6.5: rack. A row holds at most as many columns as the widest default row, so the window
@@ -239,8 +249,8 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
             {vcfPanel[1], 0, false, in(In::Vcf2In), "In"},
             {vcfPanel[1], 2, false, in(In::Vcf2Cutoff), "Cut"}, {vcfPanel[1], 3, true, out(Out::Vcf2), "Out"},
             {vcaPanel, 0, false, in(In::VcaIn), "In"},          {vcaPanel, 0, false, in(In::VcaCv), "CV"},
-            {vcaPanel, 0, true, out(Out::Vca), "Out"},
-            {lfoPanel, 1, true, out(Out::Lfo), "Out"},
+            {vcaPanel, 1, false, in(In::VcaMod), "Mod"},        {vcaPanel, 1, true, out(Out::Vca), "Out"},
+            {lfoPanel, 1, true, out(Out::Lfo1), "Out"},         {lfo2Panel, 1, true, out(Out::Lfo2), "Out"},
             {outPanel, 0, false, in(In::OutIn), "In"},
             {env1Panel, 0, false, in(In::Env1Gate), "Gate"},    {env1Panel, 3, true, out(Out::Env1), "Out"},
             {env2Panel, 0, false, in(In::Env2Gate), "Gate"},    {env2Panel, 3, true, out(Out::Env2), "Out"},

@@ -30,9 +30,9 @@ int main() {
 
     CHECK(!patchFromText("vco1.fm").has_value());                    // no '='
     CHECK(!patchFromText("vco1.fm=nothing.out").has_value());        // unknown output
-    CHECK(!patchFromText("vco1.out=lfo.out").has_value());           // an output is not an input
-    CHECK(!patchFromText("vco1.fm=lfo.out;vco1.fm=env1.out").has_value());   // input twice
-    CHECK(!patchFromText("vco1.fm=lfo.out;").has_value());           // trailing separator
+    CHECK(!patchFromText("vco1.out=lfo1.out").has_value());           // an output is not an input
+    CHECK(!patchFromText("vco1.fm=lfo1.out;vco1.fm=env1.out").has_value());   // input twice
+    CHECK(!patchFromText("vco1.fm=lfo1.out;").has_value());           // trailing separator
     CHECK(!patchFromText(";").has_value());
     CHECK(inputByName("vca.cv") == In::VcaCv);
     CHECK(outputByName("mix.out") == Out::Mix);
@@ -51,13 +51,24 @@ int main() {
         CHECK(parameterId(1, "mix.noise") == "mix.noise");          // unchanged
         CHECK(parameterId(1, "vcf.cutoff") == "vcf1.cutoff");       // via version 2
         // version 2 (VCO 1-3, single VCF): mix.in2 is VCO 2 already and must stay
-        CHECK(cables(2, "mix.in2=lfo.out;vca.in=vcf.out;vcf.cutoff=env1.out") == "mix.in2=lfo.out;vca.in=vcf1.out;vcf1.cutoff=env1.out");
+        CHECK(cables(2, "mix.in2=lfo.out;vca.in=vcf.out;vcf.cutoff=env1.out") == "mix.in2=lfo1.out;vca.in=vcf1.out;vcf1.cutoff=env1.out");
         CHECK(parameterId(2, "vcf.res") == "vcf1.res");
         CHECK(parameterId(2, "vcf.slope") == "vcf1.slope");
         CHECK(parameterId(2, "vco1.fm") == "vco1.fm");
-        // current version: nothing changes
-        CHECK(cables(3, "vcf1.in=vcf2.out") == "vcf1.in=vcf2.out");
+        // version 3 (one LFO): lfo.* -> lfo1.* (T-S5.12)
+        CHECK(cables(3, "vcf1.in=vcf2.out;env1.gate=lfo.out") == "vcf1.in=vcf2.out;env1.gate=lfo1.out");
+        CHECK(parameterId(3, "lfo.rate") == "lfo1.rate");
+        CHECK(parameterId(3, "lfo.wave") == "lfo1.wave");
         CHECK(parameterId(3, "vcf.cutoff") == "vcf.cutoff");
+        const auto q3 = patchFromText(cables(3, "env2.gate=lfo.out"));
+        CHECK(q3.has_value() && q3->source(In::Env2Gate) == Out::Lfo1);
+        // current version: nothing changes
+        CHECK(cables(4, "vca.mod=lfo1.out;out.in=lfo2.out") == "vca.mod=lfo1.out;out.in=lfo2.out");
+        CHECK(parameterId(4, "lfo.rate") == "lfo.rate");
+        // new ports by name; vca.mod is normalled from lfo2.out
+        const auto q4 = patchFromText("vca.mod=lfo1.out");
+        CHECK(q4.has_value() && q4->source(In::VcaMod) == Out::Lfo1);
+        CHECK(Patch{}.source(In::VcaMod) == Out::Lfo2);
     }
     if (failures == 0) std::printf("T-S5.4-text: all passed\n");
     return failures == 0 ? 0 : 1;
