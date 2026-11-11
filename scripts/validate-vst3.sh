@@ -12,7 +12,8 @@
 #     is missing (only VST3 is tested here).
 #   - pluginval links libstdc++ statically, for distributing it; it only runs where it was built
 #     here, so that is switched off (Fedora's static libstdc++ fails to link into its PIE default).
-# Windows: <chrono> is force-included for pluginval (see below).
+# All platforms: pluginval v1.0.4 uses 100ms literals without including <chrono> (recent MSVC no
+# longer gets it through other headers), so the script adds that include to its sources.
 # Usage: scripts/validate-vst3.sh [path/to/LMW-Synth.vst3]   (default: build/ output)
 # Work dir: $LMW_VALIDATOR_DIR, default /tmp/<project folder>/validators. The built validators are
 # copied to <work>/bin; when they are there (e.g. restored from a CI cache) nothing is fetched or
@@ -80,9 +81,14 @@ if [ ! -x "$pluginval" ]; then
         fi
     fi
     # pluginval v1.0.4 uses 100ms literals without including <chrono>; recent MSVC no longer gets it
-    # through other headers, so it is force-included there (CXXFLAGS seeds CMAKE_CXX_FLAGS; written
-    # -FI, as Git Bash would turn /FI... into a Windows path).
-    if [ "$os" = windows ]; then export CXXFLAGS="-FIchrono ${CXXFLAGS:-}"; fi
+    # through other headers. Added to those sources (not by a forced-include flag: Visual Studio
+    # applies that to C files too, which breaks JUCE's juceaide).
+    for f in Source/MainComponent.cpp Source/Validator.cpp Source/tests/BasicTests.cpp; do
+        f="$work/pluginval/$f"
+        if ! grep -q '^#include <chrono>' "$f"; then
+            { echo '#include <chrono>'; cat "$f"; } > "$f.tmp" && mv "$f.tmp" "$f"
+        fi
+    done
     cmake -S "$work/pluginval" -B "$work/b-pv" -DCMAKE_BUILD_TYPE=Release >/dev/null
     cmake --build "$work/b-pv" --config Release --parallel "$jobs"
     out="$work/b-pv/pluginval_artefacts/Release"
