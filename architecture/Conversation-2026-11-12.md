@@ -56,3 +56,12 @@ User: "1, with Smooth fader, Phase 11 is ok" -> NOISE panel: Colour White/Pink/B
 
 ### Phase 11 NOISE (done)
 Noise.h colours (white unchanged, pink Kellet, brown leaky integrator), Random.h sample & hold with Smooth; output noise.rand (global); params noise.colour/rate/smooth; NOISE panel in row 1, LFO 2 to row 3; keyboard keys widen to fill the window. tests/test_noise.cpp (T-S5.15); golden identical; 19/19.
+
+CI run 43294723003 for df65707 (10c + 11): all four platforms green, validators pass; macOS ran again.
+
+User: "matrix look good." -> Matrix tab accepted as is.
+
+## Crosscheck after Phase 11
+User: "do the crosscheck first" (before Phase 12). Read Spec, Plan, Tests against the code (parameter layout, Patch.h, editor, PatchFile, StateMigration) and measured the window on Xvfb.
+- Code: matches the docs, except one gap — StateMigration::cables split only on "=" and ";", so a hand-written older-version patch file with pins ("lfo.out@0.5+env2.out") would not translate lfo.out. Now splits on "=;+@" and keeps spaces; test added (T-S5.14-mig). 19/19.
+- Docs fixed: S9.2 47 → 51 parameters (2131 with the VST3 MIDI-CC ones; reverb was not counted), S5a.1 lists reverb.*, S6.8 matrix has 16 output columns (noise.rand), S5.14 noise.rand global, S5.5 noise colours, S5.2 points to the current list, S6.6 Delete removes all cables of an input, S6.7/S7.4 tab list with Matrix, S7.1 [cables] holds pins, S6.4 compact 948×678 (re-measured; normal 1276×884), S5.13–S5.15 back in order; Plan: no state version 5 was needed, Phase 12 tab list; Tests: T-S6.4b, T-S5a.1, T-S2.1b counts.

@@ -55,15 +55,25 @@ inline std::string portName(int from, std::string_view name) {
     return s;
 }
 
-// Translates every port name in a cable list ("in=out;in=out") saved by state version `from`;
-// the result is parsed by patchFromText as usual (which rejects anything malformed).
+// Translates every port name in a cable list ("in=out;in=out", also with pins "in=out@0.5+out",
+// Spec S5.14) saved by state version `from`; spaces around a name are kept. Levels are no port
+// names and pass unchanged. The result is parsed by patchFromText as usual (which rejects anything malformed).
 inline std::string cables(int from, std::string_view text) {
     std::string result;
     std::size_t start = 0;
     while (start <= text.size()) {
-        std::size_t end = text.find_first_of("=;", start);
+        std::size_t end = text.find_first_of("=;+@", start);
         if (end == std::string_view::npos) end = text.size();
-        result += portName(from, text.substr(start, end - start));
+        const auto token = text.substr(start, end - start);
+        const auto first = token.find_first_not_of(" \t");
+        if (first == std::string_view::npos) {
+            result += token;
+        } else {
+            const auto last = token.find_last_not_of(" \t");
+            result += token.substr(0, first);
+            result += portName(from, token.substr(first, last - first + 1));
+            result += token.substr(last + 1);
+        }
         if (end < text.size()) result += text[end];
         start = end + 1;
     }

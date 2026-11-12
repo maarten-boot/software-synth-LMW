@@ -65,3 +65,4 @@ Changes between releases.
 - 2026-11-12: Phase 10a/b: pin matrix model (up to 4 cables per input with levels, summed); several cables per input on the Synth tab; 9P /cables and patch files with levels.
 - 2026-11-12: Phase 10c: Matrix tab (pin matrix with levels); Phase 10 done.
 - 2026-11-12: Phase 11: NOISE panel (White/Pink/Brown, sample & hold random with Rate and Smooth, output noise.rand); LFO 2 next to the VCA.
+- 2026-11-12: Crosscheck Spec/Plan/Tests/code after Phase 11: docs brought up to date (51 parameters, 16 matrix columns, tabs, patch-file pins, compact 948×678); older-version cable texts with pins now fully translated on load.

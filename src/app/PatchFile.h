@@ -11,7 +11,7 @@
 //   vco1.wave = Saw
 //
 //   [cables]
-//   vco1.fm = env2.out        # input = output, as in the saved state (PatchText.h)
+//   vco1.fm = env2.out@0.5+lfo1.out   # input = pins (output[@level], summed), as in the saved state (PatchText.h, S5.14)
 //
 //   [notes]
 //   Free text, kept exactly - also lines that start with '#' or '['. Always the last section.

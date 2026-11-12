@@ -63,6 +63,10 @@ int main() {
         const auto q3 = patchFromText(cables(3, "env2.gate=lfo.out"));
         CHECK(q3.has_value() && q3->source(In::Env2Gate) == Out::Lfo1);
         // current version: nothing changes
+        // Pins with levels (S5.14), e.g. hand-written in an older patch file: every name translated.
+        CHECK(cables(3, "vcf1.cutoff=lfo.out@0.5+env2.out;vca.cv = env1.out + lfo.out@50%")
+              == "vcf1.cutoff=lfo1.out@0.5+env2.out;vca.cv = env1.out + lfo1.out@50%");
+        CHECK(cables(1, "vcf.cutoff=vco.out@.25+lfo.out") == "vcf1.cutoff=vco1.out@.25+lfo1.out");
         CHECK(cables(4, "vca.mod=lfo1.out;out.in=lfo2.out") == "vca.mod=lfo1.out;out.in=lfo2.out");
         CHECK(parameterId(4, "lfo.rate") == "lfo.rate");
         // new ports by name; vca.mod is normalled from lfo2.out
