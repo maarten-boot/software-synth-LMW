@@ -5,6 +5,7 @@
 #include "app/PatchFile.h"
 #include "app/NinePService.h"
 #include "ui/Config.h"
+#include <algorithm>
 #include <cstdio>
 #include <map>
 #include "PluginEditor.h"
@@ -78,6 +79,11 @@ APVTS::ParameterLayout LMWSynthProcessor::createLayout() {
           std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{P::lfo2Wave, 1}, "LFO 2 Wave",
               juce::StringArray{"Sine", "Triangle", "Saw", "Square"}, 0),
           f(P::gain, "Volume", Range(0.0f, 1.0f), 0.8f, decibels));
+    // Spec S7.4: reverb on the Effects tab. Mix 0 = off (bypassed exactly).
+    l.add(f(P::reverbMix,     "Reverb Mix",     Range(0.0f, 1.0f), 0.0f, percent),
+          f(P::reverbSize,    "Reverb Size",    Range(0.0f, 1.0f), 0.5f, percent),
+          f(P::reverbDamping, "Reverb Damping", Range(0.0f, 1.0f), 0.5f, percent),
+          f(P::reverbWidth,   "Reverb Width",   Range(0.0f, 1.0f), 1.0f, percent));
     return l;
 }
 
@@ -95,6 +101,8 @@ LMWSynthProcessor::LMWSynthProcessor()
     raw.e2a = get(P::env2Attack); raw.e2d = get(P::env2Decay); raw.e2s = get(P::env2Sustain); raw.e2r = get(P::env2Release);
     raw.lfoRate = get(P::lfoRate); raw.lfoWave = get(P::lfoWave); raw.gain = get(P::gain);
     raw.lfo2Rate = get(P::lfo2Rate); raw.lfo2Wave = get(P::lfo2Wave); raw.tremolo = get(P::vcaTremolo);
+    raw.revMix = get(P::reverbMix); raw.revSize = get(P::reverbSize);
+    raw.revDamping = get(P::reverbDamping); raw.revWidth = get(P::reverbWidth);
     for (std::size_t n = 0; n < 3; ++n) {
         raw.wave[n] = get(P::vcoWave[n]); raw.fm[n] = get(P::vcoFm[n]); raw.octave[n] = get(P::vcoOctave[n]);
         raw.tune[n] = get(P::vcoTune[n]); raw.mixVco[n] = get(P::mixVco[n]);
@@ -140,9 +148,60 @@ void LMWSynthProcessor::updateKeyboardFromMidiInput() {
     }
 }
 
-void LMWSynthProcessor::prepareToPlay(double sampleRate, int) {
+void LMWSynthProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
     engine.prepare(sampleRate);
     pullParameters();
+    reverb.setParameters(reverbParameters());      // before setSampleRate, which makes them current (no glide)
+    reverb.setSampleRate(sampleRate);              // allocates: here, not on the audio thread
+    reverb.reset();
+    const auto chunk = static_cast<std::size_t>(std::max(samplesPerBlock, 512));   // larger blocks: in chunks
+    wetLeft.assign(chunk, 0.0f);
+    wetRight.assign(chunk, 0.0f);
+    reverbMix.reset(sampleRate, 0.02);
+    reverbMix.setCurrentAndTargetValue(raw.revMix->load());
+    reverbRunning = false;
+}
+
+juce::Reverb::Parameters LMWSynthProcessor::reverbParameters() const noexcept {
+    juce::Reverb::Parameters rp;
+    rp.roomSize = raw.revSize->load();
+    rp.damping = raw.revDamping->load();
+    rp.width = raw.revWidth->load();
+    rp.wetLevel = 1.0f / 3.0f;                     // JUCE scales wet by 3: about unity loudness
+    rp.dryLevel = 0.0f;                            // wet only; dry is mixed in applyReverb
+    return rp;
+}
+
+// Spec S7.4: out = dry x (1 - mix) + wet x mix, mix smoothed over 20 ms. The reverb runs while Mix is
+// above 0 or still fading; once Mix has reached 0 it stops and its tail is cleared (it would be silent).
+void LMWSynthProcessor::applyReverb(float* left, float* right, int n) noexcept {
+    reverbMix.setTargetValue(raw.revMix->load());
+    if (!reverbRunning && !reverbMix.isSmoothing() && reverbMix.getCurrentValue() <= 0.0f) return;
+    reverbRunning = true;
+    reverb.setParameters(reverbParameters());
+    const int chunk = static_cast<int>(wetLeft.size());
+    for (int pos = 0; pos < n; pos += chunk) {
+        const int k = std::min(chunk, n - pos);
+        float* l = left + pos;
+        float* r = right != nullptr ? right + pos : nullptr;
+        std::copy(l, l + k, wetLeft.data());
+        if (r != nullptr) {
+            std::copy(r, r + k, wetRight.data());
+            reverb.processStereo(wetLeft.data(), wetRight.data(), k);
+        } else {
+            reverb.processMono(wetLeft.data(), k);
+        }
+        for (int i = 0; i < k; ++i) {
+            const float m = reverbMix.getNextValue();
+            const auto ui = static_cast<std::size_t>(i);
+            l[i] = l[i] * (1.0f - m) + wetLeft[ui] * m;
+            if (r != nullptr) r[i] = r[i] * (1.0f - m) + wetRight[ui] * m;
+        }
+    }
+    if (!reverbMix.isSmoothing() && reverbMix.getCurrentValue() <= 0.0f) {
+        reverb.reset();                            // RT-safe: clears the delay lines
+        reverbRunning = false;
+    }
 }
 
 bool LMWSynthProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const {
@@ -239,6 +298,7 @@ void LMWSynthProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Mid
         handleMidi(meta.data, meta.numBytes);
     }
     engine.render(left + pos, right ? right + pos : nullptr, n - pos);
+    applyReverb(left, right, n);                         // Spec S7.4
     for (int ch = 2; ch < buffer.getNumChannels(); ++ch) buffer.clear(ch, 0, n);
 }
 

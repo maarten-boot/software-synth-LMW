@@ -205,6 +205,15 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
                          "Tremolo depth: vca.mod swings the gain down by up to this much (0 = off)"))}, {}});
     const std::size_t outPanel = groups.size();
     groups.push_back({"OUT", 2, {addFader(P::gain, "Volume", inputTip(In::OutIn, "All voices summed, then soft limiter"))}, {}});
+    // Spec S7.4: Effects tab. The reverb follows everything on the Synth tab (after OUT's limiter).
+    effectGroups.push_back({"REVERB", 0,
+        {addFader(P::reverbMix, "Mix", [] { return juce::String("Dry/wet balance: 0 = off (no reverb at all), 100 % = only reverb"); }),
+         addFader(P::reverbSize, "Size", [] { return juce::String("Room size: longer decay when larger"); }),
+         addFader(P::reverbDamping, "Damping", [] { return juce::String("High-frequency damping of the reflections: darker when higher"); }),
+         addFader(P::reverbWidth, "Width", [] { return juce::String("Stereo width of the reverb: 0 = mono, 100 % = widest"); })}, {}});
+    for (const auto& grp : effectGroups)
+        for (const auto& item : grp.items)
+            if (item.fader != nullptr) { effectComponents.push_back(&item.fader->slider); effectComponents.push_back(&item.fader->label); }
     jassert(usedFaders == faders.size() && usedChoices == choices.size());
 
     // Spec S6.5: rack. A row holds at most as many columns as the widest default row, so the window
@@ -270,19 +279,21 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
         }
     }
 
-    // Spec S7: Panel / Notes tabs, patch name, Load / Save.
+    // Spec S7: Synth / Effects / Notes tabs, patch name, Load / Save.
     ++openEditors;
     juce::LookAndFeel::setDefaultLookAndFeel(&defaultLook.get());
-    for (auto* tab : {&panelTab, &notesTab}) {
+    for (auto* tab : {&panelTab, &effectsTab, &notesTab}) {
         tab->setRadioGroupId(1);
         tab->setClickingTogglesState(true);
         addAndMakeVisible(*tab);
     }
     panelTab.setToggleState(true, juce::dontSendNotification);
-    panelTab.setTooltip("The module panels");
+    panelTab.setTooltip("The synthesizer: module panels and cables");
+    effectsTab.setTooltip("Effects after the synthesizer: reverb");
     notesTab.setTooltip("Free-text notes, saved with the patch");
     panelTab.onClick = [this] { if (panelTab.getToggleState()) showTab(0); };
-    notesTab.onClick = [this] { if (notesTab.getToggleState()) showTab(1); };
+    effectsTab.onClick = [this] { if (effectsTab.getToggleState()) showTab(1); };
+    notesTab.onClick = [this] { if (notesTab.getToggleState()) showTab(2); };
     patchLabel.setTooltip("Patch name (the file name when saved or loaded)");
     // Spec S10.5: where the 9P server of this instance listens.
     titleLabel.setTooltip(processor.ninepEndpoints().empty()
@@ -305,6 +316,7 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     notesEditor.setTextToShowWhenEmpty("Notes for this patch: they are saved with it.", kFg);
     notesEditor.onTextChange = [this] { processor.setNotes(notesEditor.getText()); };
     addChildComponent(notesEditor);
+    for (auto* c : effectComponents) c->setVisible(false);  // Effects tab not shown at start
 
     resetLayoutButton.setTooltip("Put all module panels back in their original places");
     resetLayoutButton.onClick = [this] {
@@ -629,7 +641,16 @@ void LMWSynthEditor::paint(juce::Graphics& g) {
     const float lineY = static_cast<float>(pad + m.titleH + m.gap / 2);   // between title row and modules
     g.drawLine(static_cast<float>(pad), lineY, static_cast<float>(getWidth() - pad), lineY, 1.0f);
 
-    if (currentTab != 0) return;                             // Notes tab: no panel frames
+    if (currentTab == 1) {                                   // Effects tab: fixed panels, titles drawn here
+        g.setFont(juce::FontOptions(m.titleFont, juce::Font::bold));
+        for (const auto& grp : effectGroups) {
+            const auto& b = grp.bounds;
+            g.drawRect(b, 1);
+            g.drawText(grp.title, b.getX(), b.getY(), b.getWidth(), m.header - 3, juce::Justification::centred);
+            g.drawHorizontalLine(b.getY() + m.header - 3, static_cast<float>(b.getX()), static_cast<float>(b.getRight()));
+        }
+    }
+    if (currentTab != 0) return;                             // Effects / Notes tab: no rack panel frames
     for (std::size_t i = 0; i < groups.size(); ++i) {        // titles are drawn by the PanelHeaders
         const auto& b = groups[i].bounds;
         g.drawRect(b, static_cast<int>(i) == draggedPanel ? 3 : 1);
@@ -675,6 +696,7 @@ void LMWSynthEditor::resized() {
     title.removeFromLeft(m.gap);
     const int tabW = m.colW >= 80 ? 70 : 60;
     panelTab.setBounds(title.removeFromLeft(tabW).reduced(0, 2));
+    effectsTab.setBounds(title.removeFromLeft(tabW + (m.colW >= 80 ? 10 : 8)).reduced(0, 2));
     notesTab.setBounds(title.removeFromLeft(tabW).reduced(0, 2));
     title.removeFromLeft(m.gap);
     patchLabel.setBounds(title);
@@ -682,6 +704,16 @@ void LMWSynthEditor::resized() {
     keyboard.setBounds(area.removeFromBottom(m.keysH));
     area.removeFromBottom(m.gap);
     notesEditor.setBounds(area);                             // Notes tab: the area of the panels
+    {                                                        // Effects tab: panels side by side, first row
+        auto row = area.withHeight(m.rowH);
+        for (auto& grp : effectGroups) {
+            grp.bounds = row.removeFromLeft(grp.columns() * m.colW);
+            row.removeFromLeft(m.gap);
+            auto inner = grp.bounds.reduced(0, 3).withTrimmedTop(m.header);
+            inner.removeFromBottom(m.jackH);                 // same fader height as on the Synth tab
+            for (const auto& item : grp.items) layoutItem(item, inner.removeFromLeft(m.colW));
+        }
+    }
 
     // Spec S6.5: panels in the order of the rack layout.
     rowBounds.clear();
@@ -1137,16 +1169,17 @@ int LMWSynthEditor::titleTextWidth() const { return m.colW >= 80 ? 120 : 96; }
 
 void LMWSynthEditor::showTab(int tab) {
     currentTab = tab;
-    const juce::Component* alwaysShown[] = {&titleLabel, &panelTab, &notesTab, &patchLabel, &loadButton, &saveButton, &contrastBox,
-                                            &resetLayoutButton, &compactButton, &keyboard};
+    const juce::Component* alwaysShown[] = {&titleLabel, &panelTab, &effectsTab, &notesTab, &patchLabel, &loadButton, &saveButton,
+                                            &contrastBox, &resetLayoutButton, &compactButton, &keyboard};
     for (auto* child : getChildren()) {
         if (child == &notesEditor || std::find(std::begin(alwaysShown), std::end(alwaysShown), child) != std::end(alwaysShown))
             continue;
-        child->setVisible(tab == 0);                  // panels, sockets, cables (hidden: no Tab focus either)
+        const bool effect = std::find(effectComponents.begin(), effectComponents.end(), child) != effectComponents.end();
+        child->setVisible(effect ? tab == 1 : tab == 0);   // hidden controls take no Tab focus either
     }
-    notesEditor.setVisible(tab == 1);
+    notesEditor.setVisible(tab == 2);
     resetLayoutButton.setEnabled(true);
-    if (tab == 1) notesEditor.grabKeyboardFocus();
+    if (tab == 2) notesEditor.grabKeyboardFocus();
     repaint();
 }
 

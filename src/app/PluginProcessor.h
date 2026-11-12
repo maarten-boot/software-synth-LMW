@@ -11,6 +11,7 @@
 #include <array>
 #include <memory>
 #include <optional>
+#include <vector>
 #include <string>
 
 namespace lmw::param {   // Spec S5a.1
@@ -44,6 +45,11 @@ inline constexpr const char* lfoWave     = "lfo1.wave";
 inline constexpr const char* lfo2Rate    = "lfo2.rate";
 inline constexpr const char* lfo2Wave    = "lfo2.wave";
 inline constexpr const char* gain        = "out.gain";
+// Spec S7.4: Effects tab, reverb after the voices (and the soft limiter), before the output.
+inline constexpr const char* reverbMix     = "reverb.mix";
+inline constexpr const char* reverbSize    = "reverb.size";
+inline constexpr const char* reverbDamping = "reverb.damping";
+inline constexpr const char* reverbWidth   = "reverb.width";
 }
 
 class LMWSynthProcessor final : public juce::AudioProcessor,
@@ -65,7 +71,8 @@ public:
     bool acceptsMidi() const override { return true; }
     bool producesMidi() const override { return false; }
     bool isMidiEffect() const override { return false; }
-    double getTailLengthSeconds() const override { return 0.0; }
+    // The reverb rings on after the last note (Spec S7.4); without it the sound stops with the notes.
+    double getTailLengthSeconds() const override { return raw.revMix->load() > 0.0f ? 10.0 : 0.0; }
 
     int getNumPrograms() override { return 1; }
     int getCurrentProgram() override { return 0; }
@@ -133,6 +140,8 @@ private:
     void pullParameters() noexcept;
     void handleMidi(const juce::uint8* data, int size) noexcept;
     void applyNoteEvent(const lmw::dsp::NoteEvent&) noexcept;
+    void applyReverb(float* left, float* right, int n) noexcept;   // Spec S7.4, audio thread
+    juce::Reverb::Parameters reverbParameters() const noexcept;
 
     // MidiKeyboardState::Listener — called on the message thread by on-screen / QWERTY keys.
     void handleNoteOn(juce::MidiKeyboardState*, int channel, int note, float velocity) override;
@@ -160,10 +169,17 @@ private:
     struct RawParams {                 // atomics owned by apvts, read on the audio thread
         std::atomic<float> *voices{}, *mixNoise{}, *vcaInitial{},
             *e1a{}, *e1d{}, *e1s{}, *e1r{}, *e2a{}, *e2d{}, *e2s{}, *e2r{}, *lfoRate{}, *lfoWave{}, *gain{},
-            *lfo2Rate{}, *lfo2Wave{}, *tremolo{};
+            *lfo2Rate{}, *lfo2Wave{}, *tremolo{}, *revMix{}, *revSize{}, *revDamping{}, *revWidth{};
         std::array<std::atomic<float>*, 2> cutoff{}, resonance{}, vcfEnv{}, vcfSlope{}, vcfType{};
         std::array<std::atomic<float>*, 3> wave{}, fm{}, octave{}, tune{}, mixVco{};
     } raw;
+
+    // Spec S7.4: reverb (JUCE's Freeverb), wet only, mixed in with our own 20 ms Mix smoothing. While Mix
+    // is 0 it is not run at all, so the output is exactly the synth's. Buffers sized in prepareToPlay.
+    juce::Reverb reverb;
+    std::vector<float> wetLeft, wetRight;
+    juce::SmoothedValue<float> reverbMix;
+    bool reverbRunning = false;
 
     JUCE_DECLARE_WEAK_REFERENCEABLE(LMWSynthProcessor)
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(LMWSynthProcessor)

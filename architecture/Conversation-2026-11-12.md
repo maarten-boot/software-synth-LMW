@@ -13,3 +13,8 @@ User: "can we add a second lfo then we have one prewired for vibrato to the vco'
 - tests/test_lfo2.cpp (T-S5.12); golden render bit-identical; 16/16 ctests.
 
 User questions during the work: key tracking on the VCFs (not present) and a resonance input for the VCFs (to patch keys.vel) — proposed as step 9c.
+
+### 9b Effects tab and reverb (done)
+- Tabs Synth | Effects | Notes ("Panel" renamed "Synth"). Effects tab: fixed REVERB panel (Mix, Size, Damping, Width), not part of the rack.
+- Processor: juce::Reverb wet-only into buffers allocated in prepareToPlay, mixed with our own 20 ms Mix smoothing; not run at all while Mix is 0 (exact bypass); tail cleared when Mix reaches 0; getTailLengthSeconds 10 s only while Mix > 0. Parameters reverb.mix/size/damping/width (47 parameters, 2127 with JUCE's MIDI-CC ones).
+- Host test section 3b (T-S7.4); validators still pass; screenshots of all three tabs OK.

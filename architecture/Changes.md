@@ -60,3 +60,4 @@ Changes between releases.
 
 - 2026-11-10: Phase 8b: Steinberg validator and pluginval (strictness 10) pass; scripts/validate-vst3.sh; fix: the single program is named "Default".
 - 2026-11-10: CI runs the Steinberg validator and pluginval on all four platforms (cached builds).
+- 2026-11-12: Phase 9a: LFO 2 + VCA tremolo (vca.mod, vca.tremolo), lfo.* -> lfo1.* (state version 4). Phase 9b: tabs Synth | Effects | Notes; reverb on the Effects tab.

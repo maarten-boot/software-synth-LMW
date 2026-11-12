@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // T-S9.2-host: loads the built LMW-Synth.vst3 through JUCE's VST3 hosting (as a DAW would) and
-// checks scan, playing, state save/restore into a second instance, two instances with distinct 9P
+// checks scan, playing, state save/restore into a second instance, the reverb (S7.4), two instances with distinct 9P
 // endpoints (S10.5), and - when a display exists - the editor. Usage: LMWHostTest <path to .vst3>
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_events/juce_events.h>
@@ -168,6 +168,48 @@ int main(int argc, char* argv[]) {
     std::printf("restored instance: max sample difference %.3g, rms %.4f\n", maxDiff, rms(ya, 0, ya.size()));
     CHECK(maxDiff < 1e-6);
     CHECK(rms(ya, 0, ya.size()) > 0.005);
+
+    // 3b. Reverb (Spec S7.4): the same note dry and with Mix 40 %: the reverb leaves a tail after the
+    //     synth's own release has ended, and is stereo; back at Mix 0 the output is the dry synth again.
+    {
+        auto* mix = findParameter(*a, "Reverb Mix");
+        CHECK(mix != nullptr);
+        // One note, released at block 20; left and right channel.
+        auto play = [&](std::vector<float>& left, std::vector<float>& right) {
+            a->releaseResources(); a->prepareToPlay(sampleRate, blockSize);
+            juce::AudioBuffer<float> buffer(2, blockSize);
+            for (int blk = 0; blk < 120; ++blk) {
+                juce::MidiBuffer midi;
+                if (blk == 0) midi.addEvent(juce::MidiMessage::noteOn(1, 60, static_cast<juce::uint8>(100)), 0);
+                if (blk == 20) midi.addEvent(juce::MidiMessage::noteOff(1, 60), 0);
+                buffer.clear();
+                a->processBlock(buffer, midi);
+                for (int i = 0; i < blockSize; ++i) { left.push_back(buffer.getSample(0, i)); right.push_back(buffer.getSample(1, i)); }
+            }
+        };
+        if (mix != nullptr) {
+            std::vector<float> dryL, dryR, wetL, wetR;
+            play(dryL, dryR);
+            mix->setValueNotifyingHost(0.4f);
+            play(wetL, wetR);
+            const std::size_t from = 60 * blockSize, to = 100 * blockSize;      // 0.43-0.85 s after release
+            const double dryTail = rms(dryL, from, to), wetTail = rms(wetL, from, to), held = rms(dryL, 5 * blockSize, 20 * blockSize);
+            double side = 0;
+            for (std::size_t i = 0; i < wetL.size(); ++i) side += std::fabs(double(wetL[i]) - wetR[i]);
+            side /= double(wetL.size());
+            std::printf("reverb mix 40 %%: held %.5f; 0.43-0.85 s after release: dry %.7f, with reverb %.7f; left/right differ by %.6f\n",
+                        held, dryTail, wetTail, side);
+            CHECK(dryL == dryR);                                 // the synth alone is mono
+            CHECK(wetTail > 0.01 * held && wetTail > 100.0 * dryTail);
+            CHECK(side > 1e-5);                                  // Width 100 %: stereo
+            CHECK(a->getTailLengthSeconds() > 0.0);
+            mix->setValueNotifyingHost(0.0f);
+            std::vector<float> againL, againR;
+            play(againL, againR);
+            CHECK(againL == dryL);                               // Mix 0: exactly the dry synth
+            CHECK(a->getTailLengthSeconds() == 0.0);
+        }
+    }
 
     // 4. Two instances in one process: two distinct 9P sockets (S10.5).
     const int sockets = countOurSockets();

@@ -198,8 +198,8 @@ private:
     void applyContrast();                                 // palette from settings, redraw
     void askCustomRatio();
     void updateContrastBox();
-    // Spec S7: tabs (Panel, Notes) and patch files.
-    void showTab(int tab);                                // 0 = panel, 1 = notes
+    // Spec S7: tabs (Synth, Effects, Notes) and patch files.
+    void showTab(int tab);                                // 0 = synth, 1 = effects, 2 = notes
     void savePatch();
     void loadPatch();
     void showError(const juce::String& title, const juce::String& message);
@@ -211,7 +211,7 @@ private:
     LMWSynthProcessor& processor;
     LMWLookAndFeel lookAndFeel;
     Metrics m = normalMetrics;
-    std::array<Fader, 30> faders;
+    std::array<Fader, 34> faders;
     std::array<Choice, 12> choices;
     std::size_t usedFaders = 0, usedChoices = 0;
     std::vector<Group> groups;
@@ -232,7 +232,10 @@ private:
     lmw::ui::theme::Palette palette;
     juce::ComboBox contrastBox;
     // Spec S7: tabs, patch name, notes and patch files.
-    juce::TextButton panelTab{"Panel"}, notesTab{"Notes"}, loadButton{"Load..."}, saveButton{"Save..."};
+    juce::TextButton panelTab{"Synth"}, effectsTab{"Effects"}, notesTab{"Notes"}, loadButton{"Load..."}, saveButton{"Save..."};
+    // Spec S7.4: the Effects tab — fixed panels (not part of the rack), one so far: REVERB.
+    std::vector<Group> effectGroups;
+    std::vector<juce::Component*> effectComponents;        // shown only on the Effects tab
     juce::Label patchLabel, titleLabel{"title", "LMW-Synth"};   // title hover text: 9P address
     juce::TextEditor notesEditor;
     int currentTab = 0;
