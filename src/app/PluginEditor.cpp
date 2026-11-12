@@ -136,7 +136,7 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     };
 
     // Spec S6.1, S5.10: module panels in three rows (signal flow left to right, top to bottom):
-    // VCO 1 | VCO 2 | VCO 3 | LFO 1 | LFO 2;  MIXER | VCF 1 | VCF 2;  KEYS | ENV 1 | ENV 2 | VCA | OUT.
+    // VCO 1 | VCO 2 | VCO 3 | NOISE | LFO 1;  MIXER | VCF 1 | VCF 2;  KEYS | ENV 1 | ENV 2 | LFO 2 | VCA | OUT.
     // Titles of the envelopes name their normalled destination (S5.2).
     std::array<std::size_t, 3> vcoPanel{};
     for (int n = 0; n < 3; ++n) {
@@ -149,18 +149,22 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
              stacked(addChoice(P::vcoWave[i], "Wave", {"Sine", "Saw", "Square", "Triangle"}),
                      addChoice(P::vcoOctave[i], "Oct", {"-2", "-1", "0", "+1", "+2"}, "Octave"))}, {}});
     }
+    // Spec S5.15: NOISE — colour, and the sample & hold random source (Rate, Smooth); both shared.
+    const std::size_t noisePanel = groups.size();
+    groups.push_back({"NOISE", 0, {addChoice(P::noiseColour, "Colour", {"White", "Pink", "Brown"},
+                                             "Noise colour: white (flat), pink (-3 dB/octave), brown (-6 dB/octave)"),
+                                   addFader(P::noiseRate, "Rate", [] {
+                                       return juce::String("Sample & hold: new random value (noise.rand) this many times per second");
+                                   }),
+                                   addFader(P::noiseSmooth, "Smooth", [] {
+                                       return juce::String("0 = random steps; higher = glides from value to value");
+                                   })}, {}});
     // Spec S5.12: LFO 1 = vibrato (normalled to the VCO FM inputs), LFO 2 = tremolo (normalled to vca.mod).
     const std::size_t lfoPanel = groups.size();
     groups.push_back({"LFO 1", 0, {addChoice(P::lfoWave, "Wave", {"Sine", "Triangle", "Saw", "Square"}),
                                    addFader(P::lfoRate, "Rate", [] {
                                        return juce::String("Shared LFO 1 (vibrato): lfo1.out feeds vco1.fm, vco2.fm and vco3.fm\n"
                                                            "(normalled); the FM faders set the depth");
-                                   })}, {}});
-    const std::size_t lfo2Panel = groups.size();
-    groups.push_back({"LFO 2", 0, {addChoice(P::lfo2Wave, "Wave", {"Sine", "Triangle", "Saw", "Square"}),
-                                   addFader(P::lfo2Rate, "Rate", [] {
-                                       return juce::String("Shared LFO 2 (tremolo): lfo2.out feeds vca.mod (normalled);\n"
-                                                           "the VCA Tremolo fader sets the depth");
                                    })}, {}});
     const std::size_t mixPanel = groups.size();
     groups.push_back({"MIXER", 1,
@@ -202,6 +206,12 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     groups.push_back({"ENV 2 " + arrow + " VCF", 2,
         {addFader(P::env2Attack, "Attack"), addFader(P::env2Decay, "Decay"),
          addFader(P::env2Sustain, "Sustain"), addFader(P::env2Release, "Release")}, {}});
+    const std::size_t lfo2Panel = groups.size();
+    groups.push_back({"LFO 2", 2, {addChoice(P::lfo2Wave, "Wave", {"Sine", "Triangle", "Saw", "Square"}),
+                                   addFader(P::lfo2Rate, "Rate", [] {
+                                       return juce::String("Shared LFO 2 (tremolo): lfo2.out feeds vca.mod (normalled);\n"
+                                                           "the VCA Tremolo fader sets the depth");
+                                   })}, {}});
     const std::size_t vcaPanel = groups.size();
     groups.push_back({"VCA", 2, {addFader(P::vcaInitial, "Initial", [this] {
                          return describeInput(In::VcaIn) + "\n" + describeInput(In::VcaCv)
@@ -244,8 +254,7 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
         rack.emplace(columns, defaultRows, maxColumns, kMaxRows);
         rack->parse(processor.state().state.getProperty(kLayoutProp).toString().toStdString());
     }
-    // Spec S6.6: patch points per panel. Noise has no panel of its own; its output sits on the MIXER
-    // panel next to the mixer input it is normalled to (In 4).
+    // Spec S6.6: patch points per panel (since S5.15 noise.out and noise.rand are on the NOISE panel).
     {
         using lmw::dsp::Out;
         // `column`: the fader column the socket sits under; an input sits under the fader that sets
@@ -258,7 +267,8 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
             {keysPanel, 1, true, out(Out::KeysVel), "Vel"},
             {mixPanel, 0, false, in(In::MixIn1), "In 1"},       {mixPanel, 1, false, in(In::MixIn2), "In 2"},
             {mixPanel, 2, false, in(In::MixIn3), "In 3"},       {mixPanel, 3, false, in(In::MixIn4), "In 4"},
-            {mixPanel, 3, true, out(Out::Noise), "Noise"},      {mixPanel, 3, true, out(Out::Mix), "Out"},
+            {mixPanel, 3, true, out(Out::Mix), "Out"},
+            {noisePanel, 0, true, out(Out::Noise), "Out"},     {noisePanel, 2, true, out(Out::Rand), "Rand"},
             {vcfPanel[0], 0, false, in(In::Vcf1In), "In"},      {vcfPanel[0], 1, false, in(In::Vcf1Res), "Res"},
             {vcfPanel[0], 2, false, in(In::Vcf1Cutoff), "Cut"}, {vcfPanel[0], 4, true, out(Out::Vcf1), "Out"},
             {vcfPanel[1], 0, false, in(In::Vcf2In), "In"},      {vcfPanel[1], 1, false, in(In::Vcf2Res), "Res"},
@@ -727,6 +737,8 @@ void LMWSynthEditor::resized() {
     patchLabel.setBounds(title);
     area.removeFromTop(m.gap);
     keyboard.setBounds(area.removeFromBottom(m.keysH));
+    // All 128 keys (75 white) fill a wide window; narrower windows keep 16 px keys and scroll.
+    keyboard.setKeyWidth(std::max(16.0f, static_cast<float>(keyboard.getWidth()) / 75.0f));
     area.removeFromBottom(m.gap);
     notesEditor.setBounds(area);                             // Notes tab: the area of the panels
     if (matrix) { matrix->setBounds(area); matrix->setFontSize(m.labelFont - 2.0f); }   // Matrix tab

@@ -57,6 +57,11 @@ APVTS::ParameterLayout LMWSynthProcessor::createLayout() {
               f(P::mixVco[n],  ("Mixer " + name).toRawUTF8(), Range(0.0f, 1.0f), n == 0 ? 1.0f : 0.0f, percent));
     }
     l.add(f(P::mixNoise,  "Mixer Noise",   Range(0.0f, 1.0f), 0.0f, percent));
+    // Spec S5.15: NOISE module.
+    l.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{P::noiseColour, 1}, "Noise Colour",
+              juce::StringArray{"White", "Pink", "Brown"}, 0),
+          f(P::noiseRate,   "Noise Random Rate",   logRange(0.05f, 50.0f, 4.0f), 4.0f, hertz),
+          f(P::noiseSmooth, "Noise Random Smooth", Range(0.0f, 1.0f), 0.0f, percent));
     for (std::size_t n = 0; n < 2; ++n) {          // Spec S5.9, S5.11: VCF 1-2 (defaults: VCF 2 open)
         const juce::String name = "VCF " + juce::String(static_cast<int>(n) + 1);
         l.add(f(P::vcfCutoff[n], (name + " Cutoff").toRawUTF8(),    logRange(20.0f, 18000.0f, 600.0f), 18000.0f, hertz),
@@ -104,6 +109,7 @@ LMWSynthProcessor::LMWSynthProcessor()
     raw.lfo2Rate = get(P::lfo2Rate); raw.lfo2Wave = get(P::lfo2Wave); raw.tremolo = get(P::vcaTremolo);
     raw.revMix = get(P::reverbMix); raw.revSize = get(P::reverbSize);
     raw.revDamping = get(P::reverbDamping); raw.revWidth = get(P::reverbWidth);
+    raw.noiseColour = get(P::noiseColour); raw.noiseRate = get(P::noiseRate); raw.noiseSmooth = get(P::noiseSmooth);
     for (std::size_t n = 0; n < 3; ++n) {
         raw.wave[n] = get(P::vcoWave[n]); raw.fm[n] = get(P::vcoFm[n]); raw.octave[n] = get(P::vcoOctave[n]);
         raw.tune[n] = get(P::vcoTune[n]); raw.mixVco[n] = get(P::mixVco[n]);
@@ -240,6 +246,9 @@ void LMWSynthProcessor::pullParameters() noexcept {
     m.lfo2Rate    = raw.lfo2Rate->load();
     m.lfo2Wave    = static_cast<lmw::dsp::LfoWave>(static_cast<int>(raw.lfo2Wave->load()));
     m.tremolo     = raw.tremolo->load();
+    m.noiseColour = static_cast<lmw::dsp::NoiseColour>(static_cast<int>(raw.noiseColour->load()));
+    m.randRate    = raw.noiseRate->load();
+    m.randSmooth  = raw.noiseSmooth->load();
     engine.setModParams(m);
 
     engine.setGain(raw.gain->load());

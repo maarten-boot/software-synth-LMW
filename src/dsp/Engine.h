@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Polyphonic semi-modular engine (Spec S4, S5). Per voice: VCO 1-3, ENV1, ENV2, Mixer, VCF 1-2, VCA;
-// shared: LFO 1-2, Noise. Every module input reads its patch cable if present, else its normalled
+// shared: LFO 1-2, Noise, Random (S&H). Every module input reads its patch cable if present, else its normalled
 // source (Spec S5.3, S5.4). Pure C++ (no JUCE) so it can be unit-tested and served over 9P.
 // All methods are RT-safe: no allocation, locks or I/O.
 #pragma once
@@ -10,6 +10,7 @@
 #include "dsp/Noise.h"
 #include "dsp/Oscillator.h"
 #include "dsp/Patch.h"
+#include "dsp/Random.h"
 #include "dsp/SoftLimiter.h"
 #include <algorithm>
 #include <array>
@@ -48,6 +49,9 @@ struct ModParams {
     float lfo2Rate = 4.0f;                      // lfo2.rate (Hz), Spec S5.12
     LfoWave lfo2Wave = LfoWave::Sine;           // lfo2.wave
     float tremolo = 0.0f;                       // vca.tremolo: depth of vca.mod, 0..1 (0 = off)
+    NoiseColour noiseColour = NoiseColour::White;   // noise.colour (Spec S5.15)
+    float randRate = 4.0f;                      // noise.rate: sample & hold steps per second
+    float randSmooth = 0.0f;                    // noise.smooth: 0 = steps .. 1 = glides
 };
 
 inline double midiNoteToHz(int note) noexcept { return 440.0 * std::pow(2.0, (note - 69) / 12.0); }
@@ -61,7 +65,7 @@ inline constexpr float modWheelFmSemitones = 1.0f;
 
 // Values of the shared modules for the current sample.
 struct GlobalSignals {
-    float lfo = 0.0f, lfo2 = 0.0f, noise = 0.0f, modWheel = 0.0f;
+    float lfo = 0.0f, lfo2 = 0.0f, noise = 0.0f, modWheel = 0.0f, rand = 0.0f;
 };
 
 class Voice {
@@ -204,6 +208,7 @@ private:
         if (src == Out::Lfo1)  return g.lfo;
         if (src == Out::Lfo2)  return g.lfo2;
         if (src == Out::Noise) return g.noise;
+        if (src == Out::Rand)  return g.rand;
         return out[o(src)];                    // computed earlier this sample, or previous sample (feedback)
     }
     // Spec S5.14: the normalled source, or the sum of level x output over the input's pins.
@@ -259,6 +264,7 @@ public:
         lfo.setSampleRate(sr); lfo.reset();
         lfo2.setSampleRate(sr); lfo2.reset();
         noise.reset();
+        random.setSampleRate(sr); random.reset();
         gain = 0.0f;                         // fade in like a fresh instance (hosts re-prepare often)
         order.fill(0);
         counter = 0;
@@ -276,6 +282,8 @@ public:
         cutoff2Target = std::log2(std::clamp(static_cast<double>(p.vcf2Cutoff), Ladder::minCutoff, Ladder::maxCutoff));
         lfo.setRate(p.lfoRate); lfo.setWave(p.lfoWave);
         lfo2.setRate(p.lfo2Rate); lfo2.setWave(p.lfo2Wave);
+        noise.setColour(p.noiseColour);
+        random.setRate(p.randRate); random.setSmooth(p.randSmooth);
         for (auto& v : voices) {
             v.setResonance(p.resonance, p.vcf2Resonance);
             v.setFilterMode(p.vcfSlope, p.vcfType, p.vcf2Slope, p.vcf2Type);
@@ -332,7 +340,7 @@ public:
             if (cutoff2Log2 < cutoff2Target)      cutoff2Log2 = std::fmin(cutoff2Log2 + cutoffStep, cutoff2Target);
             else if (cutoff2Log2 > cutoff2Target) cutoff2Log2 = std::fmax(cutoff2Log2 - cutoffStep, cutoff2Target);
 
-            const GlobalSignals g{lfo.next(), lfo2.next(), noise.next(), modWheel};
+            const GlobalSignals g{lfo.next(), lfo2.next(), noise.next(), modWheel, random.next()};
             float sum = 0.0f;
             for (auto& v : voices)                    // includes voices ringing out after a count reduction
                 if (v.isActive() || (drone && v.hasPlayed())) sum += v.process(g, patch, mod, cutoffLog2, cutoff2Log2, vcoUsed);
@@ -380,7 +388,8 @@ private:
         for (int k = 0; k < patch.pinCount(In::OutIn); ++k) {
             const auto& p = patch.pin(In::OutIn, k);
             const Out src = static_cast<Out>(p.source);
-            if (isGlobal(src)) s += (src == Out::Lfo1 ? g.lfo : (src == Out::Lfo2 ? g.lfo2 : g.noise)) * p.level;
+            if (isGlobal(src))
+                s += (src == Out::Lfo1 ? g.lfo : src == Out::Lfo2 ? g.lfo2 : src == Out::Rand ? g.rand : g.noise) * p.level;
         }
         return s;
     }
@@ -406,6 +415,7 @@ private:
     ModParams mod;
     Lfo lfo, lfo2;                         // LFO 1, LFO 2 (Spec S5.12)
     Noise noise;
+    Random random;                         // sample & hold (Spec S5.15)
     std::uint64_t counter = 0;
     int voiceCount = 8;
     bool sustainPedal = false, drone = false, globalOnOut = false;

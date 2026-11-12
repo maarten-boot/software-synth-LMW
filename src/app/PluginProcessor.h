@@ -23,6 +23,10 @@ inline constexpr std::array<const char*, 3> vcoOctave{"vco1.octave", "vco2.octav
 inline constexpr std::array<const char*, 3> vcoTune  {"vco1.tune",   "vco2.tune",   "vco3.tune"};
 inline constexpr std::array<const char*, 3> mixVco   {"mix.vco1",    "mix.vco2",    "mix.vco3"};
 inline constexpr const char* mixNoise    = "mix.noise";
+// Spec S5.15: NOISE module — colour of the noise, and the sample & hold random source.
+inline constexpr const char* noiseColour = "noise.colour";
+inline constexpr const char* noiseRate   = "noise.rate";
+inline constexpr const char* noiseSmooth = "noise.smooth";
 // Spec S5.9, S5.11: per VCF (index 0..1 = VCF 1..2).
 inline constexpr std::array<const char*, 2> vcfCutoff{"vcf1.cutoff", "vcf2.cutoff"};
 inline constexpr std::array<const char*, 2> vcfRes   {"vcf1.res",    "vcf2.res"};
@@ -173,7 +177,8 @@ private:
     struct RawParams {                 // atomics owned by apvts, read on the audio thread
         std::atomic<float> *voices{}, *mixNoise{}, *vcaInitial{},
             *e1a{}, *e1d{}, *e1s{}, *e1r{}, *e2a{}, *e2d{}, *e2s{}, *e2r{}, *lfoRate{}, *lfoWave{}, *gain{},
-            *lfo2Rate{}, *lfo2Wave{}, *tremolo{}, *revMix{}, *revSize{}, *revDamping{}, *revWidth{};
+            *lfo2Rate{}, *lfo2Wave{}, *tremolo{}, *revMix{}, *revSize{}, *revDamping{}, *revWidth{},
+            *noiseColour{}, *noiseRate{}, *noiseSmooth{};
         std::array<std::atomic<float>*, 2> cutoff{}, resonance{}, vcfEnv{}, vcfKey{}, vcfSlope{}, vcfType{};
         std::array<std::atomic<float>*, 3> wave{}, fm{}, octave{}, tune{}, mixVco{};
     } raw;

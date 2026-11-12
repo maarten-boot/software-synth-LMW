@@ -50,3 +50,9 @@ CI run 43257061652 for 1fd3431: Ubuntu, Fedora, Windows green; macOS cancelled a
 New src/app/MatrixView.h/.cpp: rows = inputs, columns = outputs; level bars with split-colour % text, rings for normalled sources, thicker module lines; click toggle, drag level, double-click type; keys arrows/Space/+-(10 %)/PageUp-Down (1 %)/Home/Delete; gates on/off. Tabs Synth | Effects | Matrix | Notes. Checked on Xvfb with lmw9p (T-S6.8). First key mapping (Shift = 1 %) did not work on a US layout (Shift+- is "_") -> Page Up/Down for 1 %.
 
 User request during the work: "make the noise a separate unit and add a color selector white/pink/brown (what is usual here) possibly also a stochastic button" — to discuss.
+
+## Phase 11 decided
+User: "1, with Smooth fader, Phase 11 is ok" -> NOISE panel: Colour White/Pink/Brown, sample & hold random (Rate, Smooth), output noise.rand; schematic -> Phase 12. Layout: LFO 2 moves to row 3 next to the VCA so NOISE fits in row 1.
+
+### Phase 11 NOISE (done)
+Noise.h colours (white unchanged, pink Kellet, brown leaky integrator), Random.h sample & hold with Smooth; output noise.rand (global); params noise.colour/rate/smooth; NOISE panel in row 1, LFO 2 to row 3; keyboard keys widen to fill the window. tests/test_noise.cpp (T-S5.15); golden identical; 19/19.
