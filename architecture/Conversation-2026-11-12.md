@@ -31,3 +31,6 @@ User asked "What is next?" -> push, CI, 9c. Pushed; CI running. User chose a Key
 - Params vcf1.key, vcf2.key; GUI Key fader, Res socket under Reso; window 1166x884. tests/test_vcfkey.cpp (T-S5.13), 17/17 ctests.
 
 User idea during the work: a matrix view (VCS3-like pin matrix: inputs on one axis, outputs on the other, a level at each crossing) in a tab — discussed, not yet decided.
+
+### Matrix decided
+Options discussed: A (matrix only as a view of today's one-source inputs) or B (real pin matrix with a level per crossing, several sources summed). User: "B, adding cables, matrix as Phase 10". So: Phase 10 = matrix (10a patch model + engine, 10b Synth tab with several cables per input, 10c Matrix tab); dropping a cable on a plugged input adds a cable; schematic view moves to Phase 11.
