@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Semi-modular patch (Spec S5.3, S5.4): fixed set of module outputs and inputs; every input has
-// a normalled (default) source, and at most one cable that replaces it. Pure data, RT-safe.
+// Semi-modular patch (Spec S5.3, S5.4, S5.14): fixed set of module outputs and inputs; every input has
+// a normalled (default) source (or none), and up to four pins (cables with a level) that replace it.
+// Pure data, RT-safe.
 #pragma once
 #include <array>
 #include <cstdint>
@@ -51,29 +52,79 @@ inline constexpr std::string_view sourceName(Out o) noexcept {
 
 inline constexpr bool isGlobal(Out o) noexcept { return o == Out::Lfo1 || o == Out::Lfo2 || o == Out::Noise; }
 
+// Spec S5.14 (Phase 10): a patch is a pin matrix. Every input has up to maxPins pins, each an output
+// with a level 0..1 (a cable is a pin at 1); the input reads the sum of level x output over its pins,
+// or its normalled source while it has no pins.
 class Patch {
 public:
     static constexpr std::int8_t none = -1;
+    static constexpr int maxPins = 4;
+    struct Pin { std::int8_t source = none; float level = 1.0f; };
 
-    void connect(In in, Out from) noexcept { cable[idx(in)] = static_cast<std::int8_t>(from); }
-    void disconnect(In in) noexcept { cable[idx(in)] = none; }
-    void clear() noexcept { cable.fill(none); }
+    // Adds a pin, or sets the level of the existing pin from `from`; a level <= 0 removes it. False
+    // when the input already has maxPins other pins.
+    bool connect(In in, Out from, float level = 1.0f) noexcept {
+        auto& ps = pins[idx(in)];
+        auto& n = count[idx(in)];
+        const auto src = static_cast<std::int8_t>(from);
+        for (int k = 0; k < n; ++k)
+            if (ps[static_cast<std::size_t>(k)].source == src) {
+                if (level <= 0.0f) { removeAt(in, k); return true; }
+                ps[static_cast<std::size_t>(k)].level = level > 1.0f ? 1.0f : level;
+                return true;
+            }
+        if (level <= 0.0f) return true;
+        if (n >= maxPins) return false;
+        ps[static_cast<std::size_t>(n++)] = {src, level > 1.0f ? 1.0f : level};
+        return true;
+    }
+    void disconnect(In in, Out from) noexcept { connect(in, from, 0.0f); }
+    void disconnect(In in) noexcept { count[idx(in)] = 0; }                     // all pins of the input
+    void clear() noexcept { count.fill(0); }
 
-    bool isPatched(In in) const noexcept { return cable[idx(in)] != none; }
-    // Effective source: the cable if present, else the normalled source.
+    bool isPatched(In in) const noexcept { return count[idx(in)] > 0; }
+    int pinCount(In in) const noexcept { return count[idx(in)]; }
+    const Pin& pin(In in, int k) const noexcept { return pins[idx(in)][static_cast<std::size_t>(k)]; }
+    float level(In in, Out from) const noexcept {                              // 0 = no pin
+        for (int k = 0; k < count[idx(in)]; ++k)
+            if (pin(in, k).source == static_cast<std::int8_t>(from)) return pin(in, k).level;
+        return 0.0f;
+    }
+    // The first pin's output, else the normalled source (for code that shows one source).
     Out source(In in) const noexcept {
-        return isPatched(in) ? static_cast<Out>(cable[idx(in)]) : normalled[idx(in)];
+        return isPatched(in) ? static_cast<Out>(pin(in, 0).source) : normalled[idx(in)];
+    }
+    // True when the input gets exactly `o` at full level: normalled (no pins) or one pin at 1.
+    bool onlySource(In in, Out o) const noexcept {
+        const int n = count[idx(in)];
+        if (n == 0) return normalled[idx(in)] == o;
+        return n == 1 && pin(in, 0).source == static_cast<std::int8_t>(o) && pin(in, 0).level >= 1.0f;
+    }
+    bool samePins(const Patch& other, In in) const noexcept {   // same pins and levels, any order
+        if (pinCount(in) != other.pinCount(in)) return false;
+        for (int k = 0; k < pinCount(in); ++k)
+            if (other.level(in, static_cast<Out>(pin(in, k).source)) != pin(in, k).level) return false;
+        return true;
     }
 
 private:
     static constexpr std::size_t idx(In in) noexcept { return static_cast<std::size_t>(in); }
-    std::array<std::int8_t, numInputs> cable = [] { std::array<std::int8_t, numInputs> a{}; a.fill(none); return a; }();
+    void removeAt(In in, int k) noexcept {
+        auto& ps = pins[idx(in)];
+        auto& n = count[idx(in)];
+        for (int m = k + 1; m < n; ++m) ps[static_cast<std::size_t>(m - 1)] = ps[static_cast<std::size_t>(m)];
+        --n;
+    }
+    std::array<std::array<Pin, maxPins>, numInputs> pins{};
+    std::array<std::uint8_t, numInputs> count{};
 };
 
-// A cable change sent from the GUI / 9P thread to the audio thread (Spec S5.4, S10.2).
+// A pin change sent from the GUI / 9P thread to the audio thread (Spec S5.4, S10.2): output none =
+// remove all pins of the input; level <= 0 = remove that pin; else add it or set its level.
 struct PatchCommand {
     In input = In::Vco1Fm;
-    std::int8_t output = Patch::none;   // none = remove the cable
+    std::int8_t output = Patch::none;
+    float level = 1.0f;
 };
 
 } // namespace lmw::dsp

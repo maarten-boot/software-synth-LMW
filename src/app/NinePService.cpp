@@ -73,7 +73,7 @@ void NinePService::build() {
             });
     }
 
-    // /cables: "input=output" lines (Spec S10.10).
+    // /cables: "input=pins" lines, e.g. "vcf1.cutoff=env2.out@0.5+lfo1.out" (Spec S10.10, S5.14).
     tree.file("cables",
         [this] {
             return onMessageThread([](LMWSynthProcessor& p) {
@@ -82,39 +82,36 @@ void NinePService::build() {
                 for (int i = 0; i < lmw::dsp::numInputs; ++i) {
                     const auto in = static_cast<In>(i);
                     if (!patch.isPatched(in)) continue;
-                    out += name(lmw::dsp::inputNames[static_cast<std::size_t>(i)]) + "="
-                         + name(lmw::dsp::outputNames[static_cast<std::size_t>(patch.source(in))]) + "\n";
+                    out += name(lmw::dsp::inputNames[static_cast<std::size_t>(i)]) + "=" + lmw::dsp::pinsToText(patch, in) + "\n";
                 }
                 return out;
             }).value_or("");
         },
         [this](std::string_view text) -> std::string {
             // Check every line first, then apply all of them on the message thread.
-            struct Change { bool clear = false; In in{}; std::int8_t from = lmw::dsp::Patch::none; };
+            // "input=pins" sets all pins of the input; "input=" removes them; "clear" removes every cable.
+            struct Change { bool clear = false; In in{}; std::vector<lmw::dsp::Patch::Pin> pins; };
             std::vector<Change> changes;
             while (!text.empty()) {
                 const auto nl = text.find('\n');
                 const auto line = trimmed(text.substr(0, nl));
                 text = nl == std::string_view::npos ? std::string_view{} : text.substr(nl + 1);
                 if (line.empty()) continue;
-                if (line == "clear") { changes.push_back({true, {}, lmw::dsp::Patch::none}); continue; }
+                if (line == "clear") { changes.push_back({true, {}, {}}); continue; }
                 const auto eq = line.find('=');
                 if (eq == std::string::npos) return "bad cable line: " + line;
                 const auto in = lmw::dsp::inputByName(trimmed(line.substr(0, eq)));
                 if (!in) return "unknown input: " + trimmed(line.substr(0, eq));
-                const auto outName = trimmed(line.substr(eq + 1));
-                std::int8_t from = lmw::dsp::Patch::none;
-                if (!outName.empty()) {
-                    const auto out = lmw::dsp::outputByName(outName);
-                    if (!out) return "unknown output: " + outName;
-                    from = static_cast<std::int8_t>(*out);
-                }
-                changes.push_back({false, *in, from});
+                const auto pinText = trimmed(line.substr(eq + 1));
+                const auto pins = lmw::dsp::pinsFromText(pinText);
+                if (!pins) return "bad cables (unknown output, bad level, output twice or more than 4): " + pinText;
+                changes.push_back({false, *in, *pins});
             }
             return onMessageThread([changes](LMWSynthProcessor& p) {
                 for (const auto& c : changes) {
-                    if (c.clear) p.setPatch(lmw::dsp::Patch{});
-                    else p.requestPatch(c.in, c.from);
+                    if (c.clear) { p.setPatch(lmw::dsp::Patch{}); continue; }
+                    p.requestPatch(c.in, lmw::dsp::Patch::none);
+                    for (const auto& pin : c.pins) p.requestPatch(c.in, pin.source, pin.level);
                 }
                 return std::string();
             }).value_or("busy");

@@ -34,3 +34,12 @@ User idea during the work: a matrix view (VCS3-like pin matrix: inputs on one ax
 
 ### Matrix decided
 Options discussed: A (matrix only as a view of today's one-source inputs) or B (real pin matrix with a level per crossing, several sources summed). User: "B, adding cables, matrix as Phase 10". So: Phase 10 = matrix (10a patch model + engine, 10b Synth tab with several cables per input, 10c Matrix tab); dropping a cable on a plugged input adds a cable; schematic view moves to Phase 11.
+
+CI run 43228007335 for 74dc982 (9a, 9b, Windows validator fix): green on all four; both validators pass on every platform (pluginval with editor tests on macOS/Windows).
+
+### 10a + 10b (done)
+- Patch: up to 4 pins (output, level) per input; read = sum, normalled while empty; onlySource() keeps exact key pitch/gate behaviour for a single 100 % keys pin; globals on out.in once.
+- Text "in=out@0.5+out" (superset of old texts, so no state version bump), PatchText pinsToText/pinsFromText (locale-independent level parser, % accepted). Patch file and 9P /cables use it.
+- Processor requestPatch(in, from, level) checks room; setPatch per pin; queue 256.
+- Editor: one cable per pin; dropping adds (max 4, message when full); pick-up takes the newest; menus toggle single cables; hover lists sources with levels.
+- tests/test_pins.cpp (T-S5.14), 18/18; golden identical; Xvfb + lmw9p checks.

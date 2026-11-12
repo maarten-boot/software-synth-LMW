@@ -62,3 +62,4 @@ Changes between releases.
 - 2026-11-10: CI runs the Steinberg validator and pluginval on all four platforms (cached builds).
 - 2026-11-12: Phase 9a: LFO 2 + VCA tremolo (vca.mod, vca.tremolo), lfo.* -> lfo1.* (state version 4). Phase 9b: tabs Synth | Effects | Notes; reverb on the Effects tab.
 - 2026-11-12: Phase 9c: VCF Key fader (key tracking) and Res input (no normalled source); Phase 9 done.
+- 2026-11-12: Phase 10a/b: pin matrix model (up to 4 cables per input with levels, summed); several cables per input on the Synth tab; 9P /cables and patch files with levels.

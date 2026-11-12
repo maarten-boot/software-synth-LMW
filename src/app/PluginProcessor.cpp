@@ -401,7 +401,7 @@ juce::String LMWSynthProcessor::patchText(const juce::String& name) const {
         const auto in = static_cast<lmw::dsp::In>(i);
         if (!guiPatch.isPatched(in)) continue;
         p.cables.emplace_back(std::string(lmw::dsp::inputNames[static_cast<std::size_t>(i)]),
-                              std::string(lmw::dsp::outputNames[static_cast<std::size_t>(guiPatch.source(in))]));
+                              lmw::dsp::pinsToText(guiPatch, in));                    // Spec S5.14: pins with levels
     }
     p.notes = notes().toStdString();
     return juce::String::fromUTF8(lmw::patchfile::write(p).c_str());

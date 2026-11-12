@@ -91,24 +91,27 @@ public:
     void updateKeyboardFromMidiInput();
     // Message thread: drop queued display events and clear the keyboard display (editor opened).
     void resetKeyboardDisplay();
-    // Message thread (GUI, later 9P): patch or unpatch a cable (Spec S5.4). Lock-free; returns
-    // false if the queue is full. `from` = Patch::none removes the cable.
-    bool requestPatch(lmw::dsp::In input, std::int8_t from) noexcept {
-        if (!patchToAudio.push({input, from})) return false;
-        if (from == lmw::dsp::Patch::none) guiPatch.disconnect(input);
-        else guiPatch.connect(input, static_cast<lmw::dsp::Out>(from));
+    // Message thread (GUI, 9P): change one pin (Spec S5.4, S5.14). Lock-free. `from` = Patch::none
+    // removes all pins of the input; level <= 0 removes the pin from `from`; else it is added (a
+    // cable at `level`) or its level set. False if the input has no room (maxPins) or the queue is full.
+    bool requestPatch(lmw::dsp::In input, std::int8_t from, float level = 1.0f) noexcept {
+        auto next = guiPatch;
+        if (from == lmw::dsp::Patch::none) next.disconnect(input);
+        else if (!next.connect(input, static_cast<lmw::dsp::Out>(from), level)) return false;
+        if (!patchToAudio.push({input, from, level})) return false;
+        guiPatch = next;
         ++patchSerial;
         return true;
     }
-    // Message thread: replace all cables (restored state; later patch files). False if the queue
-    // could not take every change (the GUI mirror then shows what was sent).
+    // Message thread: replace all pins (restored state, patch files, 9P). False if the queue could
+    // not take every change (the GUI mirror then shows what was sent).
     bool setPatch(const lmw::dsp::Patch& p) noexcept {
         bool ok = true;
         for (int i = 0; i < lmw::dsp::numInputs; ++i) {
             const auto in = static_cast<lmw::dsp::In>(i);
-            const std::int8_t want = p.isPatched(in) ? static_cast<std::int8_t>(p.source(in)) : lmw::dsp::Patch::none;
-            const std::int8_t have = guiPatch.isPatched(in) ? static_cast<std::int8_t>(guiPatch.source(in)) : lmw::dsp::Patch::none;
-            if (want != have) ok = requestPatch(in, want) && ok;
+            if (p.samePins(guiPatch, in)) continue;
+            ok = requestPatch(in, lmw::dsp::Patch::none) && ok;
+            for (int k = 0; k < p.pinCount(in); ++k) ok = requestPatch(in, p.pin(in, k).source, p.pin(in, k).level) && ok;
         }
         return ok;
     }
@@ -156,7 +159,7 @@ private:
     // notes go audio -> GUI (display only), each through its own lock-free SPSC queue.
     lmw::dsp::SpscQueue<lmw::dsp::NoteEvent, 256> guiToAudio;
     lmw::dsp::SpscQueue<lmw::dsp::NoteEvent, 256> audioToGui;
-    lmw::dsp::SpscQueue<lmw::dsp::PatchCommand, 64> patchToAudio;
+    lmw::dsp::SpscQueue<lmw::dsp::PatchCommand, 256> patchToAudio;   // a whole patch: 22 x (1 + 4)
     inline static const juce::Identifier notesProp{"notes"}, nameProp{"patchName"};
     std::uint32_t loadedPatches = 0;                  // message thread only
     std::unique_ptr<class NinePService> ninep;        // Spec S10: 9P server (started in the constructor)

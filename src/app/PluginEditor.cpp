@@ -419,12 +419,22 @@ juce::String LMWSynthEditor::describeInput(lmw::dsp::In in) const {
     const auto& patch = processor.currentPatch();
     const auto idx = [](auto e) { return static_cast<std::size_t>(e); };
     const juce::String inName(lmw::dsp::inputNames[idx(in)].data(), lmw::dsp::inputNames[idx(in)].size());
-    const auto src = patch.source(in);
-    if (src == lmw::dsp::noSource) return inName + ": not connected (reads 0); patch a cable into it";
-    const juce::String srcName(lmw::dsp::outputNames[idx(src)].data(), lmw::dsp::outputNames[idx(src)].size());
-    // Signal flow reads left to right: source → input (Spec S6.1).
-    return srcName + " " + juce::String::fromUTF8("\xe2\x86\x92") + " " + inName
-         + (patch.isPatched(in) ? " (cable)" : " (normalled)");
+    const juce::String arrow = juce::String::fromUTF8("\xe2\x86\x92");
+    // Signal flow reads left to right: source → input (Spec S6.1). Several cables: "a + b (50 %) → in".
+    if (!patch.isPatched(in)) {
+        const auto src = patch.source(in);
+        if (src == lmw::dsp::noSource) return inName + ": not connected (reads 0); patch a cable into it";
+        const juce::String srcName(lmw::dsp::outputNames[idx(src)].data(), lmw::dsp::outputNames[idx(src)].size());
+        return srcName + " " + arrow + " " + inName + " (normalled)";
+    }
+    juce::StringArray sources;
+    for (int k = 0; k < patch.pinCount(in); ++k) {
+        const auto& pin = patch.pin(in, k);
+        const auto n = lmw::dsp::outputNames[static_cast<std::size_t>(pin.source)];
+        sources.add(juce::String(n.data(), n.size())
+                    + (pin.level < 1.0f ? " (" + juce::String(juce::roundToInt(pin.level * 100.0f)) + " %)" : juce::String()));
+    }
+    return sources.joinIntoString(" + ") + " " + arrow + " " + inName + (patch.pinCount(in) > 1 ? " (cables, summed)" : " (cable)");
 }
 
 LMWSynthEditor::Item LMWSynthEditor::addFader(const char* paramId, const juce::String& text,
@@ -811,8 +821,8 @@ juce::String LMWSynthEditor::Jack::getTooltip() {
         return editor.describeOutput(static_cast<lmw::dsp::Out>(port))
              + "\nDrag to an input to patch a cable. Enter: cable menu.";
     const auto in = static_cast<lmw::dsp::In>(port);
-    return editor.describeInput(in) + "\nDrag to an output to patch a cable"
-         + (editor.processor.currentPatch().isPatched(in) ? "; drag the cable away to remove it. Delete: remove." : ".")
+    return editor.describeInput(in) + "\nDrag to an output to add a cable (up to 4 per input)"
+         + (editor.processor.currentPatch().isPatched(in) ? "; drag the newest cable away to remove it. Delete: remove all." : ".")
          + "\nEnter: cable menu.";
 }
 
@@ -865,12 +875,15 @@ void LMWSynthEditor::CableLayer::paint(juce::Graphics& g) {
         for (auto p : {a, b}) g.fillEllipse(juce::Rectangle<float>(9.0f, 9.0f).withCentre(p));   // plugs
     };
     const auto& patch = editor.processor.currentPatch();
-    for (int i = 0; i < lmw::dsp::numInputs; ++i) {
+    for (int i = 0; i < lmw::dsp::numInputs; ++i) {                // one cable per pin (Spec S5.14)
         const auto in = static_cast<In>(i);
-        if (!patch.isPatched(in) || (editor.drag && editor.drag->detachedInput == i)) continue;
-        auto* from = editor.jackFor(true, static_cast<int>(patch.source(in)));
-        auto* to = editor.jackFor(false, i);
-        if (from != nullptr && to != nullptr) draw(from->centreInEditor(), to->centreInEditor());
+        for (int k = 0; k < patch.pinCount(in); ++k) {
+            const int src = patch.pin(in, k).source;
+            if (editor.drag && editor.drag->detachedInput == i && editor.drag->detachedSource == src) continue;
+            auto* from = editor.jackFor(true, src);
+            auto* to = editor.jackFor(false, i);
+            if (from != nullptr && to != nullptr) draw(from->centreInEditor(), to->centreInEditor());
+        }
     }
     if (const auto& d = editor.drag)
         draw(d->fixed->centreInEditor(), d->target != nullptr ? d->target->centreInEditor() : d->loose);
@@ -894,9 +907,13 @@ void LMWSynthEditor::cableDrag(Jack& from, juce::Point<float> where) {
     if (!drag) {
         CableDrag d;
         const auto& patch = processor.currentPatch();
-        if (!from.output && patch.isPatched(static_cast<In>(from.port))) {   // pick up the plugged cable
+        const auto in = static_cast<In>(from.port);
+        if (!from.output && patch.isPatched(in)) {          // pick up the newest cable plugged in here
+            const auto& pin = patch.pin(in, patch.pinCount(in) - 1);
             d.detachedInput = from.port;
-            d.fixed = jackFor(true, static_cast<int>(patch.source(static_cast<In>(from.port))));
+            d.detachedSource = pin.source;
+            d.detachedLevel = pin.level;
+            d.fixed = jackFor(true, pin.source);
         } else {
             d.fixed = &from;
         }
@@ -919,10 +936,9 @@ void LMWSynthEditor::cableDrop(Jack& from, juce::Point<float> where) {
     drag.reset();
     if (d.detachedInput >= 0) {
         if (d.target == nullptr) {
-            connect(d.detachedInput, lmw::dsp::Patch::none);             // dropped in the open: removed
-        } else if (d.target->port != d.detachedInput) {                  // moved to another input
-            connect(d.detachedInput, lmw::dsp::Patch::none);
-            connect(d.target->port, d.fixed->port);
+            connect(d.detachedInput, d.detachedSource, 0.0f);           // dropped in the open: removed
+        } else if (d.target->port != d.detachedInput) {                  // moved to another input, same level
+            if (connect(d.target->port, d.detachedSource, d.detachedLevel)) connect(d.detachedInput, d.detachedSource, 0.0f);
         }
     } else if (d.target != nullptr) {
         if (d.fixed->output) connect(d.target->port, d.fixed->port);
@@ -936,10 +952,14 @@ void LMWSynthEditor::cancelCableDrag() {
     repaint();
 }
 
-void LMWSynthEditor::connect(int input, int output) {
-    processor.requestPatch(static_cast<lmw::dsp::In>(input), static_cast<std::int8_t>(output));
+bool LMWSynthEditor::connect(int input, int output, float level) {
+    const bool ok = processor.requestPatch(static_cast<lmw::dsp::In>(input), static_cast<std::int8_t>(output), level);
+    if (!ok && output != lmw::dsp::Patch::none && level > 0.0f)
+        showError("Input full", portName(false, input) + " already has " + juce::String(lmw::dsp::Patch::maxPins)
+                                + " cables. Remove one first.");
     shownPatchVersion = processor.patchVersion();
     repaint();
+    return ok;
 }
 
 void LMWSynthEditor::removeAllCables() {
@@ -952,7 +972,11 @@ juce::String LMWSynthEditor::describeOutput(lmw::dsp::Out out) const {
     juce::StringArray fed;
     for (int i = 0; i < lmw::dsp::numInputs; ++i) {
         const auto in = static_cast<lmw::dsp::In>(i);
-        if (patch.source(in) == out) fed.add(portName(false, i) + (patch.isPatched(in) ? " (cable)" : " (normalled)"));
+        if (!patch.isPatched(in)) {
+            if (lmw::dsp::normalled[static_cast<std::size_t>(i)] == out) fed.add(portName(false, i) + " (normalled)");
+        } else if (const float l = patch.level(in, out); l > 0.0f) {
+            fed.add(portName(false, i) + (l < 1.0f ? " (cable " + juce::String(juce::roundToInt(l * 100.0f)) + " %)" : " (cable)"));
+        }
     }
     return portName(true, static_cast<int>(out)) + " " + juce::String::fromUTF8("\xe2\x86\x92") + " "
          + (fed.isEmpty() ? juce::String("(not connected)") : fed.joinIntoString(", "));
@@ -971,19 +995,22 @@ void LMWSynthEditor::showJackMenu(Jack& jack) {
     if (!jack.output) {
         const auto in = static_cast<In>(jack.port);
         menu.addSectionHeader(describeInput(in));
-        for (int o = 0; o < lmw::dsp::numOutputs; ++o)
-            sub.addItem(100 + o, portName(true, o), true, patch.isPatched(in) && static_cast<int>(patch.source(in)) == o);
-        menu.addSubMenu("Connect from", sub);
-        if (patch.isPatched(in)) menu.addItem(1, "Remove cable");   // no greyed items (contrast)
+        const bool full = patch.pinCount(in) >= lmw::dsp::Patch::maxPins;
+        for (int o = 0; o < lmw::dsp::numOutputs; ++o) {           // only possible items (no greyed ones, contrast)
+            const bool cabled = patch.level(in, static_cast<Out>(o)) > 0.0f;
+            if (cabled || !full) sub.addItem(100 + o, portName(true, o), true, cabled);
+        }
+        menu.addSubMenu("Connect from (ticked = cable; choose again to remove)", sub);
+        if (patch.isPatched(in)) menu.addItem(1, patch.pinCount(in) > 1 ? "Remove all cables here" : "Remove cable");
     } else {
         const auto out = static_cast<Out>(jack.port);
         bool feeds = false;
         menu.addSectionHeader("Output " + portName(true, jack.port));
         for (int i = 0; i < lmw::dsp::numInputs; ++i) {
             const auto in = static_cast<In>(i);
-            const bool cabled = patch.isPatched(in) && patch.source(in) == out;
+            const bool cabled = patch.level(in, out) > 0.0f;
             feeds = feeds || cabled;
-            sub.addItem(200 + i, portName(false, i), true, cabled);
+            if (cabled || patch.pinCount(in) < lmw::dsp::Patch::maxPins) sub.addItem(200 + i, portName(false, i), true, cabled);
         }
         menu.addSubMenu("Connect to (ticked = cable; choose again to remove)", sub);
         if (feeds) menu.addItem(2, "Remove cables from here");
@@ -1000,18 +1027,16 @@ void LMWSynthEditor::showJackMenu(Jack& jack) {
         if (r == 1) {
             safe->connect(port, lmw::dsp::Patch::none);
         } else if (r == 2) {
-            for (int i = 0; i < lmw::dsp::numInputs; ++i) {
-                const auto in = static_cast<In>(i);
-                if (p.isPatched(in) && static_cast<int>(p.source(in)) == port) safe->connect(i, lmw::dsp::Patch::none);
-            }
+            for (int i = 0; i < lmw::dsp::numInputs; ++i)
+                if (p.level(static_cast<In>(i), static_cast<lmw::dsp::Out>(port)) > 0.0f) safe->connect(i, port, 0.0f);
         } else if (r == 3) {
             safe->removeAllCables();
-        } else if (!output && r >= 100 && r < 100 + lmw::dsp::numOutputs) {
-            safe->connect(port, r - 100);
+        } else if (!output && r >= 100 && r < 100 + lmw::dsp::numOutputs) {    // toggle that cable
+            const bool cabled = p.level(static_cast<In>(port), static_cast<lmw::dsp::Out>(r - 100)) > 0.0f;
+            safe->connect(port, r - 100, cabled ? 0.0f : 1.0f);
         } else if (output && r >= 200 && r < 200 + lmw::dsp::numInputs) {
-            const auto in = static_cast<In>(r - 200);
-            const bool cabled = p.isPatched(in) && static_cast<int>(p.source(in)) == port;
-            safe->connect(r - 200, cabled ? lmw::dsp::Patch::none : port);
+            const bool cabled = p.level(static_cast<In>(r - 200), static_cast<lmw::dsp::Out>(port)) > 0.0f;
+            safe->connect(r - 200, port, cabled ? 0.0f : 1.0f);
         }
     });
 }

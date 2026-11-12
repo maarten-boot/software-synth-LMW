@@ -150,7 +150,9 @@ private:
     };
     struct CableDrag {                  // a cable being drawn or moved with the mouse
         Jack* fixed = nullptr;          // the end that stays where it is
-        int detachedInput = -1;         // moving the cable that was plugged into this input
+        int detachedInput = -1;         // moving a cable that was plugged into this input...
+        int detachedSource = -1;        // ...from this output (Spec S5.14: an input can have several)
+        float detachedLevel = 1.0f;
         Jack* target = nullptr;         // compatible socket under the mouse
         juce::Point<float> loose;       // the end following the mouse
     };
@@ -189,7 +191,9 @@ private:
     void cableDrag(Jack& from, juce::Point<float> where);
     void cableDrop(Jack& from, juce::Point<float> where);
     void cancelCableDrag();
-    void connect(int input, int output);                  // output = Patch::none removes the cable
+    // Spec S5.14: adds a cable (pin) at `level`, or sets its level; level 0 removes that cable;
+    // output = Patch::none removes all cables of the input. False (and a message) when it does not fit.
+    bool connect(int input, int output, float level = 1.0f);
     void removeAllCables();
     void showJackMenu(Jack&);
     juce::String describeOutput(lmw::dsp::Out) const;     // "<output> → <inputs it feeds>"

@@ -124,7 +124,7 @@ public:
             const auto i = static_cast<std::size_t>(n);
             // vcoN.pitch: from the keys it is used in full precision; any other source is 1.0 per octave.
             const In pitchIn = vcoPitchIn(n);
-            const double semitones = patch.source(pitchIn) == Out::KeysPitch
+            const double semitones = patch.onlySource(pitchIn, Out::KeysPitch)
                 ? keySemitones : 12.0 * static_cast<double>(read(pitchIn, g, patch));
             const float fmDepth = mp.fmSemitones[i] + g.modWheel * modWheelFmSemitones;   // Spec S3.5
             const double pitch = semitones + static_cast<double>(read(vcoFmIn(n), g, patch) * fmDepth)
@@ -167,7 +167,7 @@ public:
             vcaGain *= 1.0f - mp.tremolo * 0.5f * (1.0f - std::clamp(read(In::VcaMod, g, patch), -1.0f, 1.0f));
         out[o(Out::Vca)] = read(In::VcaIn, g, patch) * vcaGain * velocity;
 
-        return read(In::OutIn, g, patch);
+        return readPerVoice(In::OutIn, g, patch);           // global pins are added once by the engine
     }
 
     bool isActive() const noexcept { return env1.isActive(); }
@@ -180,7 +180,7 @@ public:
 
 private:
     static constexpr std::size_t o(Out x) noexcept { return static_cast<std::size_t>(x); }
-    static bool keyGated(In gateIn, const Patch& patch) noexcept { return patch.source(gateIn) == Out::KeysGate; }
+    static bool keyGated(In gateIn, const Patch& patch) noexcept { return patch.onlySource(gateIn, Out::KeysGate); }
 
     // Spec S5.8: an envelope gated by a signal other than keys.gate starts on a rising edge
     // (crossing 0.5 upward) and releases on a falling one. When the gate goes back to the keys, an
@@ -199,13 +199,34 @@ private:
         wasKeyGated = keys;
     }
 
-    float read(In in, const GlobalSignals& g, const Patch& patch) const noexcept {
-        const Out src = patch.source(in);
-        if (src == noSource)   return 0.0f;           // unpatched input without a normalled source
+    float value(Out src, const GlobalSignals& g) const noexcept {
+        if (src == noSource)   return 0.0f;           // input without a normalled source
         if (src == Out::Lfo1)  return g.lfo;
         if (src == Out::Lfo2)  return g.lfo2;
         if (src == Out::Noise) return g.noise;
         return out[o(src)];                    // computed earlier this sample, or previous sample (feedback)
+    }
+    // Spec S5.14: the normalled source, or the sum of level x output over the input's pins.
+    float read(In in, const GlobalSignals& g, const Patch& patch) const noexcept {
+        const int n = patch.pinCount(in);
+        if (n == 0) return value(normalled[static_cast<std::size_t>(in)], g);
+        float sum = 0.0f;
+        for (int k = 0; k < n; ++k) {
+            const auto& p = patch.pin(in, k);
+            sum += value(static_cast<Out>(p.source), g) * p.level;
+        }
+        return sum;
+    }
+    // As read(), without global sources (out.in: those are output once, not once per voice).
+    float readPerVoice(In in, const GlobalSignals& g, const Patch& patch) const noexcept {
+        const int n = patch.pinCount(in);
+        if (n == 0) { const Out src = normalled[static_cast<std::size_t>(in)]; return isGlobal(src) ? 0.0f : value(src, g); }
+        float sum = 0.0f;
+        for (int k = 0; k < n; ++k) {
+            const auto& p = patch.pin(in, k);
+            if (!isGlobal(static_cast<Out>(p.source))) sum += value(static_cast<Out>(p.source), g) * p.level;
+        }
+        return sum;
     }
 
     std::array<Oscillator, numVcos> osc;
@@ -263,12 +284,14 @@ public:
     void setGain(float g) noexcept { targetGain = g; }
     void setModWheel(float v) noexcept { modWheel = std::clamp(v, 0.0f, 1.0f); }   // Spec S3.5
 
-    // Patch (Spec S5.4). Call on the audio thread (the processor feeds it from a lock-free queue).
-    void connect(In in, Out from) noexcept { patch.connect(in, from); updateRouting(); }
+    // Patch (Spec S5.4, S5.14). Call on the audio thread (the processor feeds it from a lock-free queue).
+    // connect(): one cable at full level, replacing the input's pins. addPin(): add a pin or set its level.
+    void connect(In in, Out from) noexcept { patch.disconnect(in); patch.connect(in, from); updateRouting(); }
+    void addPin(In in, Out from, float level) noexcept { patch.connect(in, from, level); updateRouting(); }
     void disconnect(In in) noexcept { patch.disconnect(in); updateRouting(); }
     void apply(const PatchCommand& c) noexcept {
         if (c.output == Patch::none) disconnect(c.input);
-        else connect(c.input, static_cast<Out>(c.output));
+        else addPin(c.input, static_cast<Out>(c.output), c.level);
     }
     const Patch& getPatch() const noexcept { return patch; }
 
@@ -301,8 +324,6 @@ public:
 
     // Renders `n` samples into left/right (right may be null). Overwrites output.
     void render(float* left, float* right, int n) noexcept {
-        const Out outSrc = patch.source(In::OutIn);
-        const bool globalOut = isGlobal(outSrc);
         for (int i = 0; i < n; ++i) {
             if (gain < targetGain)      gain = std::fmin(gain + gainStep, targetGain);
             else if (gain > targetGain) gain = std::fmax(gain - gainStep, targetGain);
@@ -315,8 +336,7 @@ public:
             float sum = 0.0f;
             for (auto& v : voices)                    // includes voices ringing out after a count reduction
                 if (v.isActive() || (drone && v.hasPlayed())) sum += v.process(g, patch, mod, cutoffLog2, cutoff2Log2, vcoUsed);
-            if (globalOut)                            // a global source is output once
-                sum = outSrc == Out::Lfo1 ? g.lfo : (outSrc == Out::Lfo2 ? g.lfo2 : g.noise);
+            if (globalOnOut) sum += globalOut(g);     // a global source is output once (Spec S5.5)
 
             const float s = SoftLimiter::process(sum * gain * headroom);   // Spec S4.6
             left[i] = s;
@@ -334,19 +354,35 @@ private:
     // other than the keys, the sound no longer ends with the key, so voices that have played keep running.
     void updateRouting() noexcept {
         drone = patch.isPatched(In::OutIn) || patch.isPatched(In::VcaCv) || mod.vcaInitial > 0.0f
-             || patch.source(In::Env1Gate) != Out::KeysGate;
+             || !patch.onlySource(In::Env1Gate, Out::KeysGate);
+        globalOnOut = false;
+        for (int k = 0; k < patch.pinCount(In::OutIn); ++k)
+            globalOnOut = globalOnOut || isGlobal(static_cast<Out>(patch.pin(In::OutIn, k).source));
         // Spec S5.10: a VCO is computed only when something uses it: a mixer input with its level
         // above 0, or any other input. VCO 2 and 3 at level 0 cost nothing and leave the sound as is.
         const std::array<float, 4> mixLevel{mod.mixVco[0], mod.mixVco[1], mod.mixVco[2], mod.mixNoise};
         vcoUsed.fill(false);
         for (int i = 0; i < numInputs; ++i) {
             const auto in = static_cast<In>(i);
-            const int vco = static_cast<int>(patch.source(in)) - static_cast<int>(Out::Vco1);
-            if (vco < 0 || vco >= numVcos) continue;
             const int mixIndex = i - static_cast<int>(In::MixIn1);
             if (mixIndex >= 0 && mixIndex < 4 && !(mixLevel[static_cast<std::size_t>(mixIndex)] > 0.0f)) continue;
-            vcoUsed[static_cast<std::size_t>(vco)] = true;
+            const int n = patch.pinCount(in);
+            for (int k = 0; k < (n == 0 ? 1 : n); ++k) {        // every source the input reads
+                const Out src = n == 0 ? normalled[static_cast<std::size_t>(i)] : static_cast<Out>(patch.pin(in, k).source);
+                const int vco = static_cast<int>(src) - static_cast<int>(Out::Vco1);
+                if (vco >= 0 && vco < numVcos) vcoUsed[static_cast<std::size_t>(vco)] = true;
+            }
         }
+    }
+
+    float globalOut(const GlobalSignals& g) const noexcept {   // global pins on out.in, summed once
+        float s = 0.0f;
+        for (int k = 0; k < patch.pinCount(In::OutIn); ++k) {
+            const auto& p = patch.pin(In::OutIn, k);
+            const Out src = static_cast<Out>(p.source);
+            if (isGlobal(src)) s += (src == Out::Lfo1 ? g.lfo : (src == Out::Lfo2 ? g.lfo2 : g.noise)) * p.level;
+        }
+        return s;
     }
 
     int allocate(int note) const noexcept {
@@ -372,7 +408,7 @@ private:
     Noise noise;
     std::uint64_t counter = 0;
     int voiceCount = 8;
-    bool sustainPedal = false, drone = false;
+    bool sustainPedal = false, drone = false, globalOnOut = false;
     std::array<bool, numVcos> vcoUsed{true, false, false};
     float gain = 0.0f, targetGain = 1.0f, gainStep = 0.001f, modWheel = 0.0f;
     double cutoffLog2 = std::log2(18000.0), cutoffTarget = std::log2(18000.0), cutoffStep = 0.01;
