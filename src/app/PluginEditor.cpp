@@ -171,13 +171,19 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     std::array<std::size_t, 2> vcfPanel{};               // Spec S5.9, S5.11: VCF 1 -> VCF 2 in series
     for (int n = 0; n < 2; ++n) {
         const auto i = static_cast<std::size_t>(n);
-        const In in = n == 0 ? In::Vcf1In : In::Vcf2In, cut = n == 0 ? In::Vcf1Cutoff : In::Vcf2Cutoff;
+        const In in = n == 0 ? In::Vcf1In : In::Vcf2In, cut = n == 0 ? In::Vcf1Cutoff : In::Vcf2Cutoff,
+                 res = n == 0 ? In::Vcf1Res : In::Vcf2Res;
         vcfPanel[i] = groups.size();
         groups.push_back({"VCF " + juce::String(n + 1), 1,
             {addFader(P::vcfCutoff[i], "Cutoff", inputTip(in, n == 0 ? "Cutoff frequency"
                           : "Cutoff frequency. At the top (24 dB, Low, Reso 0) VCF 2 is open: bypassed exactly.")),
-             addFader(P::vcfRes[i], "Reso", inputTip(in, "Resonance; self-oscillates near the top")),
+             addFader(P::vcfRes[i], "Reso", inputTip(res, "Resonance; self-oscillates near the top.\n"
+                                                      "A signal on the Res input (e.g. keys.vel) adds to it, up to the maximum.")),
              addFader(P::vcfEnv[i], "Env 2", inputTip(cut, "Cutoff modulation depth in octaves")),
+             addFader(P::vcfKey[i], "Key", [] {
+                 return juce::String("Key tracking: at 100 % the cutoff follows the keys one octave per octave\n"
+                                     "(unchanged at C4); 0 % = same cutoff for every note");
+             }),
              stacked(addChoice(P::vcfSlope[i], "Slope", {"24 dB", "12 dB", "6 dB"},
                                "Steepness. Bandpass and notch: 12 or 24 dB (6 dB acts as 12 dB)."),
                      addChoice(P::vcfType[i], "Type", {"Low", "High", "Band", "Notch"},
@@ -253,10 +259,10 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
             {mixPanel, 0, false, in(In::MixIn1), "In 1"},       {mixPanel, 1, false, in(In::MixIn2), "In 2"},
             {mixPanel, 2, false, in(In::MixIn3), "In 3"},       {mixPanel, 3, false, in(In::MixIn4), "In 4"},
             {mixPanel, 3, true, out(Out::Noise), "Noise"},      {mixPanel, 3, true, out(Out::Mix), "Out"},
-            {vcfPanel[0], 0, false, in(In::Vcf1In), "In"},
-            {vcfPanel[0], 2, false, in(In::Vcf1Cutoff), "Cut"}, {vcfPanel[0], 3, true, out(Out::Vcf1), "Out"},
-            {vcfPanel[1], 0, false, in(In::Vcf2In), "In"},
-            {vcfPanel[1], 2, false, in(In::Vcf2Cutoff), "Cut"}, {vcfPanel[1], 3, true, out(Out::Vcf2), "Out"},
+            {vcfPanel[0], 0, false, in(In::Vcf1In), "In"},      {vcfPanel[0], 1, false, in(In::Vcf1Res), "Res"},
+            {vcfPanel[0], 2, false, in(In::Vcf1Cutoff), "Cut"}, {vcfPanel[0], 4, true, out(Out::Vcf1), "Out"},
+            {vcfPanel[1], 0, false, in(In::Vcf2In), "In"},      {vcfPanel[1], 1, false, in(In::Vcf2Res), "Res"},
+            {vcfPanel[1], 2, false, in(In::Vcf2Cutoff), "Cut"}, {vcfPanel[1], 4, true, out(Out::Vcf2), "Out"},
             {vcaPanel, 0, false, in(In::VcaIn), "In"},          {vcaPanel, 0, false, in(In::VcaCv), "CV"},
             {vcaPanel, 1, false, in(In::VcaMod), "Mod"},        {vcaPanel, 1, true, out(Out::Vca), "Out"},
             {lfoPanel, 1, true, out(Out::Lfo1), "Out"},         {lfo2Panel, 1, true, out(Out::Lfo2), "Out"},
@@ -414,6 +420,7 @@ juce::String LMWSynthEditor::describeInput(lmw::dsp::In in) const {
     const auto idx = [](auto e) { return static_cast<std::size_t>(e); };
     const juce::String inName(lmw::dsp::inputNames[idx(in)].data(), lmw::dsp::inputNames[idx(in)].size());
     const auto src = patch.source(in);
+    if (src == lmw::dsp::noSource) return inName + ": not connected (reads 0); patch a cable into it";
     const juce::String srcName(lmw::dsp::outputNames[idx(src)].data(), lmw::dsp::outputNames[idx(src)].size());
     // Signal flow reads left to right: source → input (Spec S6.1).
     return srcName + " " + juce::String::fromUTF8("\xe2\x86\x92") + " " + inName

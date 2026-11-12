@@ -21,3 +21,13 @@ User questions during the work: key tracking on the VCFs (not present) and a res
 
 ### 9c agreed (to do next session)
 User: "yes, no amount fader, key fader ok, tomorrow we continue". Per VCF: Key fader (key tracking, 0 % default, 100 % = 1 oct/oct around C4); Res input socket added to the Reso fader (clamped 0..1), no amount fader, unpatched adds nothing (patch model: inputs without a normalled source). Pending push: 07cf21b (Windows validator fix), ebf7944 (9a), a4b77e5 (9b) + this log.
+
+## Next session (same date in the log): 9c
+User asked "What is next?" -> push, CI, 9c. Pushed; CI running. User chose a Key fader with a wider window (AskUserQuestion: "Fader, wider window").
+
+### 9c VCF key tracking and Res input (done)
+- Patch model: inputs may have no normalled source (noSource = Out::Count, reads 0; sourceName() -> "none"). vcf1.res, vcf2.res are such inputs.
+- Engine: cutoff += key x keys.pitch octaves; resonance = Reso fader + Res input (clamped) per sample when patched. Defaults: bit-identical (golden).
+- Params vcf1.key, vcf2.key; GUI Key fader, Res socket under Reso; window 1166x884. tests/test_vcfkey.cpp (T-S5.13), 17/17 ctests.
+
+User idea during the work: a matrix view (VCS3-like pin matrix: inputs on one axis, outputs on the other, a level at each crossing) in a tab — discussed, not yet decided.

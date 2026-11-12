@@ -35,10 +35,11 @@ struct ModParams {
     float cutoff = 18000.0f;                    // vcf1.cutoff (Hz)
     float resonance = 0.0f;                     // vcf1.res
     float envOctaves = 0.0f;                    // vcf1.env
+    float keyTrack = 0.0f;                      // vcf1.key: 1 = cutoff follows the keys 1 oct/oct around C4 (S5.13)
     FilterSlope vcfSlope = FilterSlope::Db24;   // vcf1.slope (Spec S5.9)
     FilterType vcfType = FilterType::Lowpass;   // vcf1.type
     // VCF 2 (Spec S5.11), in series after VCF 1; defaults = open (bypassed).
-    float vcf2Cutoff = 18000.0f, vcf2Resonance = 0.0f, vcf2EnvOctaves = 0.0f;
+    float vcf2Cutoff = 18000.0f, vcf2Resonance = 0.0f, vcf2EnvOctaves = 0.0f, vcf2KeyTrack = 0.0f;
     FilterSlope vcf2Slope = FilterSlope::Db24;
     FilterType vcf2Type = FilterType::Lowpass;
     float vcaInitial = 0.0f;                    // vca.initial (base gain added to vca.cv)
@@ -136,13 +137,21 @@ public:
         out[o(Out::Mix)] = read(In::MixIn1, g, patch) * mp.mixVco[0] + read(In::MixIn2, g, patch) * mp.mixVco[1]
                          + read(In::MixIn3, g, patch) * mp.mixVco[2] + read(In::MixIn4, g, patch) * mp.mixNoise;
 
-        vcf.setCutoff(std::exp2(cutoffLog2 + static_cast<double>(read(In::Vcf1Cutoff, g, patch) * mp.envOctaves)));
+        // Spec S5.13: key tracking (octaves = Key x keys.pitch, 0 at C4) and the Res input (added to the
+        // Reso fader). Both only when used, so the default stays exactly as it was.
+        const double keyOctaves = keySemitones / 12.0;
+        double c1 = cutoffLog2 + static_cast<double>(read(In::Vcf1Cutoff, g, patch) * mp.envOctaves);
+        if (mp.keyTrack > 0.0f) c1 += static_cast<double>(mp.keyTrack) * keyOctaves;
+        if (patch.isPatched(In::Vcf1Res)) vcf.setResonance(mp.resonance + read(In::Vcf1Res, g, patch));
+        vcf.setCutoff(std::exp2(c1));
         out[o(Out::Vcf1)] = vcf.process(read(In::Vcf1In, g, patch));
 
         // VCF 2 (Spec S5.11). Always computed (its state stays current); when open — 24 dB lowpass,
         // no resonance, cutoff at the maximum — its output is exactly its input. Entering or leaving
         // that state crossfades over 20 ms.
-        const double c2 = cutoff2Log2 + static_cast<double>(read(In::Vcf2Cutoff, g, patch) * mp.vcf2EnvOctaves);
+        double c2 = cutoff2Log2 + static_cast<double>(read(In::Vcf2Cutoff, g, patch) * mp.vcf2EnvOctaves);
+        if (mp.vcf2KeyTrack > 0.0f) c2 += static_cast<double>(mp.vcf2KeyTrack) * keyOctaves;
+        if (patch.isPatched(In::Vcf2Res)) vcf2.setResonance(mp.vcf2Resonance + read(In::Vcf2Res, g, patch));
         const float in2 = read(In::Vcf2In, g, patch);
         vcf2.setCutoff(std::exp2(c2));
         const float filtered2 = vcf2.process(in2);
@@ -192,6 +201,7 @@ private:
 
     float read(In in, const GlobalSignals& g, const Patch& patch) const noexcept {
         const Out src = patch.source(in);
+        if (src == noSource)   return 0.0f;           // unpatched input without a normalled source
         if (src == Out::Lfo1)  return g.lfo;
         if (src == Out::Lfo2)  return g.lfo2;
         if (src == Out::Noise) return g.noise;

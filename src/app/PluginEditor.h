@@ -211,7 +211,7 @@ private:
     LMWSynthProcessor& processor;
     LMWLookAndFeel lookAndFeel;
     Metrics m = normalMetrics;
-    std::array<Fader, 34> faders;
+    std::array<Fader, 36> faders;
     std::array<Choice, 12> choices;
     std::size_t usedFaders = 0, usedChoices = 0;
     std::vector<Group> groups;

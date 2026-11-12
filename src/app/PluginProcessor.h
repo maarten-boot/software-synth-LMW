@@ -27,6 +27,7 @@ inline constexpr const char* mixNoise    = "mix.noise";
 inline constexpr std::array<const char*, 2> vcfCutoff{"vcf1.cutoff", "vcf2.cutoff"};
 inline constexpr std::array<const char*, 2> vcfRes   {"vcf1.res",    "vcf2.res"};
 inline constexpr std::array<const char*, 2> vcfEnv   {"vcf1.env",    "vcf2.env"};
+inline constexpr std::array<const char*, 2> vcfKey   {"vcf1.key",    "vcf2.key"};     // Spec S5.13
 inline constexpr std::array<const char*, 2> vcfSlope {"vcf1.slope",  "vcf2.slope"};
 inline constexpr std::array<const char*, 2> vcfType  {"vcf1.type",   "vcf2.type"};
 inline constexpr const char* vcaInitial  = "vca.initial";
@@ -170,7 +171,7 @@ private:
         std::atomic<float> *voices{}, *mixNoise{}, *vcaInitial{},
             *e1a{}, *e1d{}, *e1s{}, *e1r{}, *e2a{}, *e2d{}, *e2s{}, *e2r{}, *lfoRate{}, *lfoWave{}, *gain{},
             *lfo2Rate{}, *lfo2Wave{}, *tremolo{}, *revMix{}, *revSize{}, *revDamping{}, *revWidth{};
-        std::array<std::atomic<float>*, 2> cutoff{}, resonance{}, vcfEnv{}, vcfSlope{}, vcfType{};
+        std::array<std::atomic<float>*, 2> cutoff{}, resonance{}, vcfEnv{}, vcfKey{}, vcfSlope{}, vcfType{};
         std::array<std::atomic<float>*, 3> wave{}, fm{}, octave{}, tune{}, mixVco{};
     } raw;
 

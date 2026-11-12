@@ -145,7 +145,7 @@ void NinePService::build() {
     // /ports: inputs with their normalled source, then outputs (signal-flow order: source -> input).
     std::string ports;
     for (int i = 0; i < lmw::dsp::numInputs; ++i)
-        ports += "input  " + name(lmw::dsp::outputNames[static_cast<std::size_t>(lmw::dsp::normalled[static_cast<std::size_t>(i)])])
+        ports += "input  " + name(lmw::dsp::sourceName(lmw::dsp::normalled[static_cast<std::size_t>(i)]))
                + " -> " + name(lmw::dsp::inputNames[static_cast<std::size_t>(i)]) + "\n";
     for (int o = 0; o < lmw::dsp::numOutputs; ++o)
         ports += "output " + name(lmw::dsp::outputNames[static_cast<std::size_t>(o)]) + "\n";
