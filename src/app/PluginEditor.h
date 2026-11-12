@@ -8,6 +8,7 @@
 #include <optional>
 #include <vector>
 #include "PluginProcessor.h"
+#include "MatrixView.h"
 #include "ui/RackLayout.h"
 #include "ui/Config.h"
 #include "ui/Theme.h"
@@ -202,8 +203,8 @@ private:
     void applyContrast();                                 // palette from settings, redraw
     void askCustomRatio();
     void updateContrastBox();
-    // Spec S7: tabs (Synth, Effects, Notes) and patch files.
-    void showTab(int tab);                                // 0 = synth, 1 = effects, 2 = notes
+    // Spec S7: tabs (Synth, Effects, Matrix, Notes) and patch files.
+    void showTab(int tab);                                // 0 = synth, 1 = effects, 2 = matrix, 3 = notes
     void savePatch();
     void loadPatch();
     void showError(const juce::String& title, const juce::String& message);
@@ -236,7 +237,9 @@ private:
     lmw::ui::theme::Palette palette;
     juce::ComboBox contrastBox;
     // Spec S7: tabs, patch name, notes and patch files.
-    juce::TextButton panelTab{"Synth"}, effectsTab{"Effects"}, notesTab{"Notes"}, loadButton{"Load..."}, saveButton{"Save..."};
+    juce::TextButton panelTab{"Synth"}, effectsTab{"Effects"}, matrixTab{"Matrix"}, notesTab{"Notes"}, loadButton{"Load..."},
+        saveButton{"Save..."};
+    std::unique_ptr<MatrixView> matrix;                   // Spec S6.8: the Matrix tab
     // Spec S7.4: the Effects tab — fixed panels (not part of the rack), one so far: REVERB.
     std::vector<Group> effectGroups;
     std::vector<juce::Component*> effectComponents;        // shown only on the Effects tab

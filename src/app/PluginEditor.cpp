@@ -288,7 +288,7 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     // Spec S7: Synth / Effects / Notes tabs, patch name, Load / Save.
     ++openEditors;
     juce::LookAndFeel::setDefaultLookAndFeel(&defaultLook.get());
-    for (auto* tab : {&panelTab, &effectsTab, &notesTab}) {
+    for (auto* tab : {&panelTab, &effectsTab, &matrixTab, &notesTab}) {
         tab->setRadioGroupId(1);
         tab->setClickingTogglesState(true);
         addAndMakeVisible(*tab);
@@ -298,8 +298,10 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     effectsTab.setTooltip("Effects after the synthesizer: reverb");
     notesTab.setTooltip("Free-text notes, saved with the patch");
     panelTab.onClick = [this] { if (panelTab.getToggleState()) showTab(0); };
+    matrixTab.setTooltip("The patch as a pin matrix: every cable with its level");
     effectsTab.onClick = [this] { if (effectsTab.getToggleState()) showTab(1); };
-    notesTab.onClick = [this] { if (notesTab.getToggleState()) showTab(2); };
+    matrixTab.onClick = [this] { if (matrixTab.getToggleState()) showTab(2); };
+    notesTab.onClick = [this] { if (notesTab.getToggleState()) showTab(3); };
     patchLabel.setTooltip("Patch name (the file name when saved or loaded)");
     // Spec S10.5: where the 9P server of this instance listens.
     titleLabel.setTooltip(processor.ninepEndpoints().empty()
@@ -322,6 +324,11 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     notesEditor.setTextToShowWhenEmpty("Notes for this patch: they are saved with it.", kFg);
     notesEditor.onTextChange = [this] { processor.setNotes(notesEditor.getText()); };
     addChildComponent(notesEditor);
+    // Spec S6.8: the Matrix tab edits the same patch as the cables (through connect(), which reports
+    // an input that is full).
+    matrix = std::make_unique<MatrixView>([this]() -> const lmw::dsp::Patch& { return processor.currentPatch(); },
+                                          [this](int in, int out, float level) { return connect(in, out, level); });
+    addChildComponent(*matrix);
     for (auto* c : effectComponents) c->setVisible(false);  // Effects tab not shown at start
 
     resetLayoutButton.setTooltip("Put all module panels back in their original places");
@@ -714,6 +721,7 @@ void LMWSynthEditor::resized() {
     const int tabW = m.colW >= 80 ? 70 : 60;
     panelTab.setBounds(title.removeFromLeft(tabW).reduced(0, 2));
     effectsTab.setBounds(title.removeFromLeft(tabW + (m.colW >= 80 ? 10 : 8)).reduced(0, 2));
+    matrixTab.setBounds(title.removeFromLeft(tabW).reduced(0, 2));
     notesTab.setBounds(title.removeFromLeft(tabW).reduced(0, 2));
     title.removeFromLeft(m.gap);
     patchLabel.setBounds(title);
@@ -721,6 +729,7 @@ void LMWSynthEditor::resized() {
     keyboard.setBounds(area.removeFromBottom(m.keysH));
     area.removeFromBottom(m.gap);
     notesEditor.setBounds(area);                             // Notes tab: the area of the panels
+    if (matrix) { matrix->setBounds(area); matrix->setFontSize(m.labelFont - 2.0f); }   // Matrix tab
     {                                                        // Effects tab: panels side by side, first row
         auto row = area.withHeight(m.rowH);
         for (auto& grp : effectGroups) {
@@ -1201,17 +1210,20 @@ int LMWSynthEditor::titleTextWidth() const { return m.colW >= 80 ? 120 : 96; }
 
 void LMWSynthEditor::showTab(int tab) {
     currentTab = tab;
-    const juce::Component* alwaysShown[] = {&titleLabel, &panelTab, &effectsTab, &notesTab, &patchLabel, &loadButton, &saveButton,
-                                            &contrastBox, &resetLayoutButton, &compactButton, &keyboard};
+    const juce::Component* alwaysShown[] = {&titleLabel, &panelTab, &effectsTab, &matrixTab, &notesTab, &patchLabel, &loadButton,
+                                            &saveButton, &contrastBox, &resetLayoutButton, &compactButton, &keyboard};
     for (auto* child : getChildren()) {
-        if (child == &notesEditor || std::find(std::begin(alwaysShown), std::end(alwaysShown), child) != std::end(alwaysShown))
+        if (child == &notesEditor || child == matrix.get()
+            || std::find(std::begin(alwaysShown), std::end(alwaysShown), child) != std::end(alwaysShown))
             continue;
         const bool effect = std::find(effectComponents.begin(), effectComponents.end(), child) != effectComponents.end();
         child->setVisible(effect ? tab == 1 : tab == 0);   // hidden controls take no Tab focus either
     }
-    notesEditor.setVisible(tab == 2);
+    matrix->setVisible(tab == 2);
+    notesEditor.setVisible(tab == 3);
     resetLayoutButton.setEnabled(true);
-    if (tab == 2) notesEditor.grabKeyboardFocus();
+    if (tab == 2) matrix->grabKeyboardFocus();
+    if (tab == 3) notesEditor.grabKeyboardFocus();
     repaint();
 }
 

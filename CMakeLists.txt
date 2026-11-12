@@ -61,6 +61,7 @@ if(LMW_BUILD_PLUGIN)
     target_sources(LMWSynth PRIVATE
         src/app/PluginProcessor.cpp
         src/app/PluginEditor.cpp
+        src/app/MatrixView.cpp
         src/app/StandaloneApp.cpp
         src/app/NinePService.cpp
         src/ninep/Transport.cpp)

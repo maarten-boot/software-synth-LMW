@@ -43,3 +43,10 @@ CI run 43228007335 for 74dc982 (9a, 9b, Windows validator fix): green on all fou
 - Processor requestPatch(in, from, level) checks room; setPatch per pin; queue 256.
 - Editor: one cable per pin; dropping adds (max 4, message when full); pick-up takes the newest; menus toggle single cables; hover lists sources with levels.
 - tests/test_pins.cpp (T-S5.14), 18/18; golden identical; Xvfb + lmw9p checks.
+
+CI run 43257061652 for 1fd3431: Ubuntu, Fedora, Windows green; macOS cancelled after 15 min without a runner ("capacity constraints" for macOS arm64 runners) — infrastructure, no steps ran.
+
+### 10c Matrix tab (done)
+New src/app/MatrixView.h/.cpp: rows = inputs, columns = outputs; level bars with split-colour % text, rings for normalled sources, thicker module lines; click toggle, drag level, double-click type; keys arrows/Space/+-(10 %)/PageUp-Down (1 %)/Home/Delete; gates on/off. Tabs Synth | Effects | Matrix | Notes. Checked on Xvfb with lmw9p (T-S6.8). First key mapping (Shift = 1 %) did not work on a US layout (Shift+- is "_") -> Page Up/Down for 1 %.
+
+User request during the work: "make the noise a separate unit and add a color selector white/pink/brown (what is usual here) possibly also a stochastic button" — to discuss.
