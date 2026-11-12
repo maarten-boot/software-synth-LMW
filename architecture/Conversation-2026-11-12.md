@@ -18,3 +18,6 @@ User questions during the work: key tracking on the VCFs (not present) and a res
 - Tabs Synth | Effects | Notes ("Panel" renamed "Synth"). Effects tab: fixed REVERB panel (Mix, Size, Damping, Width), not part of the rack.
 - Processor: juce::Reverb wet-only into buffers allocated in prepareToPlay, mixed with our own 20 ms Mix smoothing; not run at all while Mix is 0 (exact bypass); tail cleared when Mix reaches 0; getTailLengthSeconds 10 s only while Mix > 0. Parameters reverb.mix/size/damping/width (47 parameters, 2127 with JUCE's MIDI-CC ones).
 - Host test section 3b (T-S7.4); validators still pass; screenshots of all three tabs OK.
+
+### 9c agreed (to do next session)
+User: "yes, no amount fader, key fader ok, tomorrow we continue". Per VCF: Key fader (key tracking, 0 % default, 100 % = 1 oct/oct around C4); Res input socket added to the Reso fader (clamped 0..1), no amount fader, unpatched adds nothing (patch model: inputs without a normalled source). Pending push: 07cf21b (Windows validator fix), ebf7944 (9a), a4b77e5 (9b) + this log.
