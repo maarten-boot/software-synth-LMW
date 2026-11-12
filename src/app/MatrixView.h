@@ -5,10 +5,12 @@
 //   Mouse: click toggles 0 / 100 %; drag up/down sets the level; double-click types it.
 //   Keys:  arrows move the cell cursor; Space or Enter toggles; + / - change by 10 %, Page Up / Down by 1 %;
 //          Delete removes the cable; Home / End = 100 % / remove. Other keys (QWERTY notes) pass on.
-// Gate inputs (env1.gate, env2.gate) are on/off only. Black and white only (Spec S6.2).
+// Gate inputs (env1.gate, env2.gate) are on/off only. Black and white (Spec S6.2), except the row and column
+// labels, which have their unit's colour (S6.9).
 #pragma once
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "dsp/Patch.h"
+#include "ui/Theme.h"
 #include <functional>
 #include <optional>
 
@@ -19,6 +21,7 @@ public:
     MatrixView(std::function<const lmw::dsp::Patch&()> patch, std::function<bool(int, int, float)> setPin);
 
     void setFontSize(float size) { fontSize = size; repaint(); }
+    void setPalette(const lmw::ui::theme::Palette& p) { palette = p; repaint(); }
 
     void paint(juce::Graphics&) override;
     void mouseDown(const juce::MouseEvent&) override;
@@ -47,6 +50,7 @@ private:
     std::function<const lmw::dsp::Patch&()> patch;
     std::function<bool(int, int, float)> setPin;
     float fontSize = 13.0f;
+    lmw::ui::theme::Palette palette = lmw::ui::theme::palette(4.5);
     Cell cursor;                         // keyboard cell cursor
     std::optional<Cell> dragCell;        // cell being dragged
     float dragStartLevel = 0.0f;

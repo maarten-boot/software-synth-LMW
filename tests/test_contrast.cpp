@@ -45,6 +45,28 @@ int main() {
     }
     // AA keeps the design grey; Max inverts pressed keys (black white key, white black key).
     CHECK(lmw::ui::theme::palette(4.5).whiteKeyDown.r == 0x76);
+    {   // Spec S6.9: unit colours — design tints kept at AA and AAA, lightened above, white at Max.
+        using lmw::ui::theme::Unit;
+        using lmw::ui::theme::unitOf;
+        CHECK(unitOf("VCO 1") == Unit::Vco && unitOf("vco3.out") == Unit::Vco && unitOf("NOISE") == Unit::Noise
+              && unitOf("noise.rand") == Unit::Noise && unitOf("VCF 2") == Unit::Vcf && unitOf("vcf1") == Unit::Vcf
+              && unitOf("VCA") == Unit::Vca && unitOf("ENV 1 \xe2\x86\x92 VCA") == Unit::Env && unitOf("env2.gate") == Unit::Env
+              && unitOf("LFO 2") == Unit::Lfo && unitOf("MIXER") == Unit::None && unitOf("keys") == Unit::None
+              && unitOf("OUT") == Unit::None && unitOf("REVERB") == Unit::None && unitOf("") == Unit::None);
+        for (double r : {4.5, 7.0}) {
+            const auto p = lmw::ui::theme::palette(r);
+            for (std::size_t i = 0; i < p.unit.size(); ++i) {
+                const auto a = p.unit[i], d = lmw::ui::theme::unitDesign[i];
+                CHECK(a.r == d.r && a.g == d.g && a.b == d.b);
+            }
+        }
+        std::printf("unit colours, black text:");
+        for (const auto& c : lmw::ui::theme::unitDesign) std::printf(" %.1f", contrastRatio({0, 0, 0}, c));
+        std::printf("\n");
+        const auto p12 = lmw::ui::theme::palette(12.0);
+        for (const auto& c : p12.unit) CHECK(contrastRatio({0, 0, 0}, c) >= 12.0 - 1e-9);
+        for (const auto& c : lmw::ui::theme::palette(21.0).unit) CHECK(c.r == 255 && c.g == 255 && c.b == 255);
+    }
     const auto maxPal = lmw::ui::theme::palette(21.0);
     CHECK(maxPal.whiteKeyDown.r == 0 && maxPal.blackKeyDown.r == 255);
 

@@ -65,3 +65,10 @@ User: "matrix look good." -> Matrix tab accepted as is.
 User: "do the crosscheck first" (before Phase 12). Read Spec, Plan, Tests against the code (parameter layout, Patch.h, editor, PatchFile, StateMigration) and measured the window on Xvfb.
 - Code: matches the docs, except one gap — StateMigration::cables split only on "=" and ";", so a hand-written older-version patch file with pins ("lfo.out@0.5+env2.out") would not translate lfo.out. Now splits on "=;+@" and keeps spaces; test added (T-S5.14-mig). 19/19.
 - Docs fixed: S9.2 47 → 51 parameters (2131 with the VST3 MIDI-CC ones; reverb was not counted), S5a.1 lists reverb.*, S6.8 matrix has 16 output columns (noise.rand), S5.14 noise.rand global, S5.5 noise colours, S5.2 points to the current list, S6.6 Delete removes all cables of an input, S6.7/S7.4 tab list with Matrix, S7.1 [cables] holds pins, S6.4 compact 948×678 (re-measured; normal 1276×884), S5.13–S5.15 back in order; Plan: no state version 5 was needed, Phase 12 tab list; Tests: T-S6.4b, T-S5a.1, T-S2.1b counts.
+
+CI run 43300176011 for 8e07126 (crosscheck): all four platforms green.
+
+## Unit colours (Phase 11b)
+User: "all units have a top bar with a name (VCP, VCF, ...) apply a color pallete to the top bar Red for VCO, orange for Noise, yellow for VCF, green for VCA, blue for ADSR Purple for LFO" ("VCP" read as VCO).
+Asked: MIXER/KEYS/OUT -> stay white; tone -> light tints with black text; Max preset -> bars white; scope -> Synth title bars, schematic (Phase 12), Matrix headers (not panel frames).
+Done: Theme.h Unit + unitDesign + unitOf, palette lightens tints to the preset (white at 21:1), pairs() includes them; PanelHeader fills its bar; MatrixView labels tinted (setPalette). Black text 11.8–18.2:1. test_contrast extended (T-S6.9); 19/19; Xvfb screenshots AA and Max.

@@ -66,3 +66,4 @@ Changes between releases.
 - 2026-11-12: Phase 10c: Matrix tab (pin matrix with levels); Phase 10 done.
 - 2026-11-12: Phase 11: NOISE panel (White/Pink/Brown, sample & hold random with Rate and Smooth, output noise.rand); LFO 2 next to the VCA.
 - 2026-11-12: Crosscheck Spec/Plan/Tests/code after Phase 11: docs brought up to date (51 parameters, 16 matrix columns, tabs, patch-file pins, compact 948×678); older-version cable texts with pins now fully translated on load.
+- 2026-11-12: Unit colours (S6.9): title bars and Matrix labels tinted per unit type (VCO red, NOISE orange, VCF yellow, VCA green, ENV blue, LFO purple), black text ≥ 11.8:1, white at Max.

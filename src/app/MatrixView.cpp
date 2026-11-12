@@ -58,7 +58,18 @@ void MatrixView::paint(juce::Graphics& g) {
     const int lw = labelWidth(), hh = headerHeight(), cw = cellWidth(), ch = cellHeight();
     const int right = lw + numOutputs * cw, bottom = hh + numInputs * ch;
 
-    // Column headers: output names on two lines ("vcf1" / "out"); row labels: input names.
+    // Column headers: output names on two lines ("vcf1" / "out"); row labels: input names. Both on their
+    // unit's colour (Spec S6.9; white for keys, mix, out and at the Max preset).
+    auto unitFill = [&](std::string_view port) { return colour(palette.unitColour(lmw::ui::theme::unitOf(port))); };
+    for (int o = 0; o < numOutputs; ++o) {
+        g.setColour(unitFill(outputNames[static_cast<std::size_t>(o)]));
+        g.fillRect(lw + o * cw, 0, cw, hh);
+    }
+    for (int i = 0; i < numInputs; ++i) {
+        g.setColour(unitFill(inputNames[static_cast<std::size_t>(i)]));
+        g.fillRect(0, hh + i * ch, lw, ch);
+    }
+    g.setColour(kFg);
     g.setFont(bold);
     for (int o = 0; o < numOutputs; ++o) {
         const auto n = outputNames[static_cast<std::size_t>(o)];

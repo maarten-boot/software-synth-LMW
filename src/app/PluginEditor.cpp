@@ -338,6 +338,7 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     // an input that is full).
     matrix = std::make_unique<MatrixView>([this]() -> const lmw::dsp::Patch& { return processor.currentPatch(); },
                                           [this](int in, int out, float level) { return connect(in, out, level); });
+    matrix->setPalette(palette);                            // unit colours in the headers (S6.9)
     addChildComponent(*matrix);
     for (auto* c : effectComponents) c->setVisible(false);  // Effects tab not shown at start
 
@@ -519,9 +520,13 @@ LMWSynthEditor::PanelHeader::PanelHeader(LMWSynthEditor& e, int panelIndex) : ed
 }
 
 void LMWSynthEditor::PanelHeader::paint(juce::Graphics& g) {
+    // Spec S6.9: the title bar in the unit's colour (raised to the contrast preset; white at Max).
+    const auto& title = editor.groups[static_cast<std::size_t>(panel)].title;
+    g.fillAll(toJuce(editor.palette.unitColour(lmw::ui::theme::unitOf(title.toStdString()))));
     g.setColour(kFg);
+    if (editor.draggedPanel == panel) g.drawRect(getLocalBounds(), 2);   // keep the thick drag frame visible
     g.setFont(juce::FontOptions(editor.m.titleFont, juce::Font::bold));
-    g.drawText(editor.groups[static_cast<std::size_t>(panel)].title, getLocalBounds(), juce::Justification::centred);
+    g.drawText(title, getLocalBounds(), juce::Justification::centred);
     g.fillRect(0, getHeight() - 1, getWidth(), 1);
     if (hasKeyboardFocus(false)) g.drawRect(getLocalBounds().withTrimmedBottom(1), 2);   // focus ring
 }
@@ -1091,6 +1096,8 @@ void LMWSynthEditor::applyContrast() {
     updateContrastBox();
     saveConfig();
     keyboard.repaint();
+    if (matrix) matrix->setPalette(palette);
+    for (auto& h : headers) h->repaint();
     repaint();
 }
 
