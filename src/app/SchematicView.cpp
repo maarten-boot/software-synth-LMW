@@ -11,11 +11,14 @@ const juce::Colour kFg = colour(lmw::ui::theme::foreground);
 juce::String text(std::string_view s) { return juce::String::fromUTF8(s.data(), static_cast<int>(s.size())); }
 }
 
-SchematicView::SchematicView(std::function<const lmw::dsp::Patch&()> p, std::function<std::array<float, 2>()> k)
-    : patch(std::move(p)), keyTrack(std::move(k)) {
+SchematicView::SchematicView(std::function<const lmw::dsp::Patch&()> p, std::function<std::array<float, 2>()> k,
+                             std::function<bool(int, int, float)> c, std::function<void(bool, int, juce::Rectangle<int>)> m)
+    : patch(std::move(p)), keyTrack(std::move(k)), connect(std::move(c)), showMenu(std::move(m)) {
+    setWantsKeyboardFocus(true);
     setTitle("Schematic");
     setDescription("The instrument as a schematic: dashed lines are normalled connections, solid lines cables, "
-                   "dotted arrows internal links set by a fader.");
+                   "dotted arrows internal links set by a fader. Drag between ports to patch a cable; arrow keys "
+                   "move a port cursor, Enter opens its cable menu, Delete removes an input's cables.");
 }
 
 void SchematicView::poll() {
@@ -193,6 +196,8 @@ void SchematicView::paint(juce::Graphics& g) {
     for (const auto& b : sc::blocks()) drawBlock(g, b);
     for (const auto& c : conns) {
         if (c.normalled) continue;
+        if (grab && grab->moving() && static_cast<int>(c.to) == grab->detachedInput
+            && static_cast<int>(c.from) == grab->detachedSource) continue;          // being moved
         const auto path = pathOf(c);
         g.setColour(kBg);
         g.strokePath(path, juce::PathStrokeType(lineW * 1.8f + 2.0f * std::max(1.0f, 0.12f * s)));
@@ -232,15 +237,44 @@ void SchematicView::paint(juce::Graphics& g) {
     // Ports: inputs white with a black ring, outputs black (as on the Synth tab, S6.6).
     const float pr = 0.55f * s;
     for (int i = 0; i < lmw::dsp::numInputs; ++i) {
-        const auto c = toScreen(sc::inputPoint(static_cast<lmw::dsp::In>(i)));
+        const auto in = static_cast<lmw::dsp::In>(i);
+        const auto c = toScreen(sc::inputPoint(in));
         g.setColour(kBg);
         g.fillEllipse(c.x - pr, c.y - pr, 2 * pr, 2 * pr);
         g.setColour(kFg);
         g.drawEllipse(c.x - pr, c.y - pr, 2 * pr, 2 * pr, std::max(1.0f, 0.15f * s));
+        if (p.isPatched(in)) g.fillEllipse(c.x - pr * 0.45f, c.y - pr * 0.45f, pr * 0.9f, pr * 0.9f);   // cable plugged in
     }
     for (int o = 0; o < lmw::dsp::numOutputs; ++o) {
         const auto c = toScreen(sc::outputPoint(static_cast<lmw::dsp::Out>(o)));
         g.fillEllipse(c.x - pr, c.y - pr, 2 * pr, 2 * pr);
+    }
+
+    // Editing: the cable being dragged (from its fixed end to the target port or the mouse), a ring around
+    // the drop target, and the keyboard port cursor (a square) while the view has focus.
+    if (grab) {
+        const auto fixed = toScreen(portPoint(grab->fixed));
+        const auto end = target ? toScreen(portPoint(*target)) : loose;
+        const auto cv = grab->fixed.output ? sc::curve(toCanvas(fixed), toCanvas(end)) : sc::curve(toCanvas(end), toCanvas(fixed));
+        juce::Path path;
+        path.startNewSubPath(toScreen(cv[0]));
+        path.cubicTo(toScreen(cv[1]), toScreen(cv[2]), toScreen(cv[3]));
+        g.setColour(kBg);
+        g.strokePath(path, juce::PathStrokeType(lineW * 1.8f + 2.0f * std::max(1.0f, 0.12f * s)));
+        g.setColour(kFg);
+        g.strokePath(path, juce::PathStrokeType(lineW * 1.8f));
+        if (target) {
+            const auto t = toScreen(portPoint(*target));
+            g.drawEllipse(t.x - pr * 1.9f, t.y - pr * 1.9f, pr * 3.8f, pr * 3.8f, std::max(1.5f, 0.2f * s));
+        }
+    }
+    if (hasKeyboardFocus(false)) {
+        const auto order = sc::portOrder();
+        if (cursor < order.size()) {
+            const auto c = toScreen(portPoint({!order[cursor].input, order[cursor].index}));
+            g.setColour(kFg);
+            g.drawRect(juce::Rectangle<float>(pr * 4.0f, pr * 4.0f).withCentre(c), std::max(2.0f, 0.25f * s));
+        }
     }
 
     // Cable levels below 100 %, black on a white box at the middle of the cable.
@@ -283,11 +317,19 @@ void SchematicView::paint(juce::Graphics& g) {
 }
 
 juce::String SchematicView::getTooltip() {
+    if (grab) return {};
     const auto c = toCanvas(getMouseXYRelative().toFloat());
     const auto& p = patch();
-    if (const auto hit = sc::portAt(c, 1.2f))
-        return juce::String::fromUTF8(hit->input ? sc::describeInput(p, static_cast<lmw::dsp::In>(hit->index)).c_str()
-                                                 : sc::describeOutput(p, static_cast<lmw::dsp::Out>(hit->index)).c_str());
+    if (const auto hit = sc::portAt(c, 1.2f)) {
+        if (!hit->input)
+            return juce::String::fromUTF8(sc::describeOutput(p, static_cast<lmw::dsp::Out>(hit->index)).c_str())
+                 + "\nDrag to an input to patch a cable. Right-click or Enter: cable menu.";
+        const auto in = static_cast<lmw::dsp::In>(hit->index);
+        return juce::String::fromUTF8(sc::describeInput(p, in).c_str())
+             + "\nDrag to an output to add a cable (up to 4 per input)"
+             + (p.isPatched(in) ? "; drag the newest cable away to remove it. Delete: remove all." : ".")
+             + "\nRight-click or Enter: cable menu.";
+    }
     for (const auto& b : sc::blocks())
         if (b.box.contains(c)) {
             juce::String t = text(b.name);
@@ -298,4 +340,97 @@ juce::String SchematicView::getTooltip() {
             return t;
         }
     return {};
+}
+
+// ---- Phase 12b: editing, same rules as the Synth tab (ui/CableEdit.h) ----
+
+sc::Point SchematicView::portPoint(PortRef p) const {
+    return p.output ? sc::outputPoint(static_cast<lmw::dsp::Out>(p.index)) : sc::inputPoint(static_cast<lmw::dsp::In>(p.index));
+}
+
+std::optional<SchematicView::PortRef> SchematicView::portUnder(juce::Point<float> where, std::optional<bool> wantInput) const {
+    if (const auto h = sc::portAt(toCanvas(where), 1.6f, wantInput)) return PortRef{!h->input, h->index};
+    return std::nullopt;
+}
+
+void SchematicView::openMenu(PortRef p) {
+    const auto c = toScreen(portPoint(p)).roundToInt();
+    const int r = juce::roundToInt(scale());
+    showMenu(p.output, p.index, localAreaToGlobal(juce::Rectangle<int>(c.x - r, c.y - r, 2 * r, 2 * r)));
+}
+
+void SchematicView::cancelDrag() {
+    grab.reset();
+    target.reset();
+    pressed.reset();
+    repaint();
+}
+
+void SchematicView::mouseDown(const juce::MouseEvent& e) {
+    grabKeyboardFocus();
+    pressed = portUnder(e.position);
+    if (!pressed) return;
+    const auto order = sc::portOrder();
+    for (std::size_t k = 0; k < order.size(); ++k)
+        if (order[k].input == !pressed->output && order[k].index == pressed->index) cursor = k;
+    repaint();
+    if (e.mods.isPopupMenu()) {
+        openMenu(*pressed);
+        pressed.reset();
+    }
+}
+
+void SchematicView::mouseDrag(const juce::MouseEvent& e) {
+    if (!pressed || e.mods.isPopupMenu()) return;
+    if (!grab) {
+        if (e.getDistanceFromDragStart() < 3) return;
+        grab = lmw::ui::cables::grab(patch(), *pressed);
+    }
+    loose = e.position;
+    target = portUnder(e.position, grab->fixed.output);   // fixed end an output -> look for inputs
+    repaint();
+}
+
+void SchematicView::mouseUp(const juce::MouseEvent& e) {
+    pressed.reset();
+    if (!grab) return;
+    target = portUnder(e.position, grab->fixed.output);
+    const auto g = *grab;
+    const auto t = target;
+    grab.reset();
+    target.reset();
+    for (const auto& op : lmw::ui::cables::drop(g, t))
+        if (!connect(op.input, op.output, op.level)) break;   // e.g. a full input: a moved cable stays
+    repaint();
+}
+
+bool SchematicView::keyPressed(const juce::KeyPress& key) {
+    const int code = key.getKeyCode();
+    if (code == juce::KeyPress::escapeKey && grab) { cancelDrag(); return true; }
+    const auto mods = key.getModifiers();
+    if (mods.isCommandDown() || mods.isCtrlDown() || mods.isAltDown()) return false;
+    const auto order = sc::portOrder();
+    if (order.empty()) return false;
+    cursor = std::min(cursor, order.size() - 1);
+    if (code == juce::KeyPress::rightKey || code == juce::KeyPress::downKey) {
+        cursor = (cursor + 1) % order.size();
+        repaint();
+        return true;
+    }
+    if (code == juce::KeyPress::leftKey || code == juce::KeyPress::upKey) {
+        cursor = (cursor + order.size() - 1) % order.size();
+        repaint();
+        return true;
+    }
+    const PortRef port{!order[cursor].input, order[cursor].index};
+    if (code == juce::KeyPress::returnKey || (code == juce::KeyPress::F10Key && mods.isShiftDown())) {
+        openMenu(port);
+        return true;
+    }
+    if (!port.output && (code == juce::KeyPress::deleteKey || code == juce::KeyPress::backspaceKey)) {
+        connect(port.index, lmw::dsp::Patch::none, 1.0f);
+        repaint();
+        return true;
+    }
+    return false;                                          // QWERTY note keys: handled by the editor
 }

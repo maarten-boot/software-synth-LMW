@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // T-S6.7-schematic: schematic geometry and connections (Spec S6.7, Phase 12a).
 #include "ui/Schematic.h"
+#include "ui/CableEdit.h"
 #include <cstdio>
 #include <set>
 
@@ -124,6 +125,45 @@ int main() {
         CHECK(sc::blockNote("VCA", 0, 0).find("velocity") != std::string::npos);
         CHECK(sc::blockNote("VCO 2", 0, 0).find("mod wheel") != std::string::npos);
         CHECK(sc::blockNote("MIX", 0, 0).empty());
+    }
+    {   // Phase 12b: drag rules shared with the Synth tab (CableEdit.h).
+        namespace ce = lmw::ui::cables;
+        using V = std::vector<ce::Op>;
+        const int lfo2 = static_cast<int>(Out::Lfo2), env2 = static_cast<int>(Out::Env2), vel = static_cast<int>(Out::KeysVel);
+        const int cut = static_cast<int>(In::Vcf1Cutoff), res = static_cast<int>(In::Vcf1Res), mod = static_cast<int>(In::VcaMod);
+        lmw::dsp::Patch p;
+        // From an output: a new cable to the input it is dropped on; nothing when dropped elsewhere or on an output.
+        auto g = ce::grab(p, {true, lfo2});
+        CHECK(!g.moving() && g.fixed == (ce::PortRef{true, lfo2}));
+        CHECK(ce::drop(g, ce::PortRef{false, cut}) == (V{{cut, lfo2, 1.0f}}));
+        CHECK(ce::drop(g, std::nullopt).empty());
+        CHECK(ce::drop(g, ce::PortRef{true, env2}).empty());
+        // From an empty input: a new cable from the output it is dropped on.
+        g = ce::grab(p, {false, res});
+        CHECK(!g.moving() && g.fixed == (ce::PortRef{false, res}));
+        CHECK(ce::drop(g, ce::PortRef{true, vel}) == (V{{res, vel, 1.0f}}));
+        CHECK(ce::drop(g, ce::PortRef{false, cut}).empty());
+        // From a plugged input: picks up the newest cable; moved with its level, or removed, or put back.
+        CHECK(p.connect(In::Vcf1Cutoff, Out::Env2));
+        CHECK(p.connect(In::Vcf1Cutoff, Out::Lfo2, 0.5f));
+        g = ce::grab(p, {false, cut});
+        CHECK(g.moving() && g.detachedInput == cut && g.detachedSource == lfo2 && g.detachedLevel == 0.5f);
+        CHECK(g.fixed == (ce::PortRef{true, lfo2}));
+        CHECK(ce::drop(g, ce::PortRef{false, mod}) == (V{{mod, lfo2, 0.5f}, {cut, lfo2, 0.0f}}));
+        CHECK(ce::drop(g, std::nullopt) == (V{{cut, lfo2, 0.0f}}));
+        CHECK(ce::drop(g, ce::PortRef{false, cut}).empty());
+        CHECK(ce::drop(g, ce::PortRef{true, env2}) == (V{{cut, lfo2, 0.0f}}));   // an output is no target: removed
+        // Port order for the keyboard: every port once, block by block, inputs before outputs.
+        const auto order = sc::portOrder();
+        CHECK(static_cast<int>(order.size()) == lmw::dsp::numInputs + lmw::dsp::numOutputs);
+        CHECK(order.front().input == false && order.front().index == static_cast<int>(Out::Lfo1));   // LFO 1 first
+        std::set<std::pair<bool, int>> seen;
+        for (const auto& h : order) seen.insert({h.input, h.index});
+        CHECK(seen.size() == order.size());
+        // Filtered hit test: only the wanted kind.
+        CHECK(!sc::portAt(sc::inputPoint(In::Vcf1In), 0.5f, false));
+        CHECK(sc::portAt(sc::inputPoint(In::Vcf1In), 0.5f, true).has_value());
+        CHECK(!sc::portAt(sc::outputPoint(Out::Vca), 0.5f, true));
     }
     CHECK(sc::portLabel("vcf1.cutoff") == "cutoff" && sc::portLabel("keys.gate") == "gate");
     CHECK(sc::blocks()[0].unit() == lmw::ui::theme::Unit::Lfo);

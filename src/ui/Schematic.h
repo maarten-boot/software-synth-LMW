@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Spec S6.7: the schematic view — geometry and connections, pure C++ (no JUCE) so it can be tested.
+// Phase 12b: editable like the Synth tab (dragging cables between ports; CableEdit.h).
 // Every module is a block on a fixed canvas (units, scaled to the window by the view), signal flowing
 // left to right: inputs on a block's left edge, outputs on its right edge (a triangle's output at its tip).
 // Connections come from the patch: an input's cables (pins with levels, S5.14), or its normalled source
@@ -211,15 +212,28 @@ inline std::string blockNote(std::string_view name, float vcf1Key, float vcf2Key
     return {};
 }
 
-// The port under a canvas point (within `radius`), for hover texts.
+// The port under a canvas point (within `radius`), for hover texts and editing.
+// `wantInput`: only inputs (true), only outputs (false), or either (empty) — e.g. the drop target of a cable.
 struct PortHit { bool input; int index; };
-inline std::optional<PortHit> portAt(Point p, float radius) {
+inline std::optional<PortHit> portAt(Point p, float radius, std::optional<bool> wantInput = std::nullopt) {
     auto near = [&](Point q) { return std::hypot(q.x - p.x, q.y - p.y) <= radius; };
-    for (int i = 0; i < lmw::dsp::numInputs; ++i)
-        if (near(inputPoint(static_cast<In>(i)))) return PortHit{true, i};
-    for (int o = 0; o < lmw::dsp::numOutputs; ++o)
-        if (near(outputPoint(static_cast<Out>(o)))) return PortHit{false, o};
+    if (wantInput.value_or(true))
+        for (int i = 0; i < lmw::dsp::numInputs; ++i)
+            if (near(inputPoint(static_cast<In>(i)))) return PortHit{true, i};
+    if (!wantInput.value_or(false))
+        for (int o = 0; o < lmw::dsp::numOutputs; ++o)
+            if (near(outputPoint(static_cast<Out>(o)))) return PortHit{false, o};
     return std::nullopt;
+}
+
+// Keyboard order of the ports (Phase 12b): block by block, each block's inputs then its outputs.
+inline std::vector<PortHit> portOrder() {
+    std::vector<PortHit> v;
+    for (const auto& b : blocks()) {
+        for (auto i : b.inputs) v.push_back({true, static_cast<int>(i)});
+        for (auto o : b.outputs) v.push_back({false, static_cast<int>(o)});
+    }
+    return v;
 }
 
 } // namespace lmw::ui::schematic

@@ -197,7 +197,8 @@ private:
     // output = Patch::none removes all cables of the input. False (and a message) when it does not fit.
     bool connect(int input, int output, float level = 1.0f);
     void removeAllCables();
-    void showJackMenu(Jack&);
+    // Spec S6.6, S6.7: the cable menu of a socket (Synth tab) or a port (Schematic tab), shown at `screenArea`.
+    void showPortMenu(bool output, int port, juce::Rectangle<int> screenArea);
     juce::String describeOutput(lmw::dsp::Out) const;     // "<output> → <inputs it feeds>"
     // Spec S6.3: config file and contrast.
     void saveConfig() const;

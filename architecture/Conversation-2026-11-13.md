@@ -14,3 +14,9 @@ Open: 12b editing in the schematic — scope for the user.
 
 User: "would the schematic not need also the keyboard tracking or is that only shown when not 0?" -> it was not shown at all (a fader, not a patch connection); proposed a third line style "internal (set by a fader)": keys.pitch -> VCF N while Key > 0 with "key N %", keys.vel -> VCA always, mod wheel only in the VCO hover text.
 User: "yes, add it that way" -> done: Schematic.h internalLinks/internalTarget/internalCurve/blockNote, view draws dotted arrows into the block from below with labels, polls the Key faders (repaint on change); test_schematic extended (T-S6.7c); checked on Xvfb with lmw9p.
+
+CI: run 43420939527 for 663c5d2 (Phase 12a) and run 43422487432 for 831ee81 (internal links): all four platforms green.
+
+## Phase 12b: editing in the schematic
+User: "yes, add editing in the schematic like the Synth tab".
+Done: ui/CableEdit.h holds the drag rules (grab / drop -> list of connect ops, applied in order, stopping at the first failure); the Synth tab's cableDrag/cableDrop now use it too, so both tabs behave the same. showJackMenu became showPortMenu(output, port, screenArea), used by both. SchematicView: mouse drag with rubber cable and target ring, plugged inputs with a black centre, arrow-key port cursor, Enter / Shift+F10 / right-click menu, Delete, Escape. test_schematic extended (T-S6.7d), 20/20; Xvfb checks (T-S6.7e) incl. the Synth tab after the refactor. Phase 12 done.

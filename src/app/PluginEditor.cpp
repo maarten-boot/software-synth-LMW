@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "PluginEditor.h"
 #include "ui/Theme.h"
+#include "ui/CableEdit.h"
 
 namespace {
 juce::Colour toJuce(lmw::ui::Rgb c) { return juce::Colour(c.r, c.g, c.b); }
@@ -347,7 +348,9 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
             auto& s = processor.state();
             return std::array<float, 2>{s.getRawParameterValue(lmw::param::vcfKey[0])->load(),
                                         s.getRawParameterValue(lmw::param::vcfKey[1])->load()};
-        });
+        },
+        [this](int in, int out, float level) { return connect(in, out, level); },   // Phase 12b: editing
+        [this](bool output, int port, juce::Rectangle<int> area) { showPortMenu(output, port, area); });
     schematic->setPalette(palette);
     addChildComponent(*schematic);
     for (auto* c : effectComponents) c->setVisible(false);  // Effects tab not shown at start
@@ -867,7 +870,7 @@ juce::String LMWSynthEditor::Jack::getTooltip() {
 
 void LMWSynthEditor::Jack::mouseDown(const juce::MouseEvent& e) {
     grabKeyboardFocus();
-    if (e.mods.isPopupMenu()) editor.showJackMenu(*this);
+    if (e.mods.isPopupMenu()) editor.showPortMenu(output, port, getScreenBounds());
 }
 
 void LMWSynthEditor::Jack::mouseDrag(const juce::MouseEvent& e) {
@@ -886,7 +889,7 @@ bool LMWSynthEditor::Jack::keyPressed(const juce::KeyPress& key) {
     if (key == juce::KeyPress::escapeKey && dragging) { dragging = false; editor.cancelCableDrag(); return true; }
     const int code = key.getKeyCode();
     if (code == juce::KeyPress::returnKey || (code == juce::KeyPress::F10Key && key.getModifiers().isShiftDown())) {
-        editor.showJackMenu(*this);
+        editor.showPortMenu(output, port, getScreenBounds());
         return true;
     }
     if (!output && (code == juce::KeyPress::deleteKey || code == juce::KeyPress::backspaceKey)) {
@@ -943,19 +946,13 @@ LMWSynthEditor::Jack* LMWSynthEditor::findJack(juce::Point<float> where, const J
 
 void LMWSynthEditor::cableDrag(Jack& from, juce::Point<float> where) {
     using lmw::dsp::In;
-    if (!drag) {
+    if (!drag) {                                         // same rules as the Schematic tab (CableEdit.h)
+        const auto g = lmw::ui::cables::grab(processor.currentPatch(), {from.output, from.port});
         CableDrag d;
-        const auto& patch = processor.currentPatch();
-        const auto in = static_cast<In>(from.port);
-        if (!from.output && patch.isPatched(in)) {          // pick up the newest cable plugged in here
-            const auto& pin = patch.pin(in, patch.pinCount(in) - 1);
-            d.detachedInput = from.port;
-            d.detachedSource = pin.source;
-            d.detachedLevel = pin.level;
-            d.fixed = jackFor(true, pin.source);
-        } else {
-            d.fixed = &from;
-        }
+        d.detachedInput = g.detachedInput;
+        d.detachedSource = g.detachedSource;
+        d.detachedLevel = g.detachedLevel;
+        d.fixed = jackFor(g.fixed.output, g.fixed.index);
         if (d.fixed == nullptr) return;
         drag = d;
     }
@@ -973,16 +970,15 @@ void LMWSynthEditor::cableDrop(Jack& from, juce::Point<float> where) {
     cableDrag(from, where);
     const CableDrag d = *drag;
     drag.reset();
-    if (d.detachedInput >= 0) {
-        if (d.target == nullptr) {
-            connect(d.detachedInput, d.detachedSource, 0.0f);           // dropped in the open: removed
-        } else if (d.target->port != d.detachedInput) {                  // moved to another input, same level
-            if (connect(d.target->port, d.detachedSource, d.detachedLevel)) connect(d.detachedInput, d.detachedSource, 0.0f);
-        }
-    } else if (d.target != nullptr) {
-        if (d.fixed->output) connect(d.target->port, d.fixed->port);
-        else connect(d.fixed->port, d.target->port);
-    }
+    namespace ce = lmw::ui::cables;
+    ce::Grab g;
+    g.fixed = {d.fixed->output, d.fixed->port};
+    g.detachedInput = d.detachedInput;
+    g.detachedSource = d.detachedSource;
+    g.detachedLevel = d.detachedLevel;
+    const auto target = d.target != nullptr ? std::optional<ce::PortRef>(ce::PortRef{d.target->output, d.target->port}) : std::nullopt;
+    for (const auto& op : ce::drop(g, target))
+        if (!connect(op.input, op.output, op.level)) break;            // e.g. a full input: a moved cable stays
     repaint();
 }
 
@@ -1021,7 +1017,7 @@ juce::String LMWSynthEditor::describeOutput(lmw::dsp::Out out) const {
          + (fed.isEmpty() ? juce::String("(not connected)") : fed.joinIntoString(", "));
 }
 
-void LMWSynthEditor::showJackMenu(Jack& jack) {
+void LMWSynthEditor::showPortMenu(bool output, int port, juce::Rectangle<int> screenArea) {
     using lmw::dsp::In;
     using lmw::dsp::Out;
     const auto& patch = processor.currentPatch();
@@ -1031,8 +1027,8 @@ void LMWSynthEditor::showJackMenu(Jack& jack) {
     juce::PopupMenu menu, sub;
     menu.setLookAndFeel(&lookAndFeel);               // black on white (Spec S6.2)
     sub.setLookAndFeel(&lookAndFeel);
-    if (!jack.output) {
-        const auto in = static_cast<In>(jack.port);
+    if (!output) {
+        const auto in = static_cast<In>(port);
         menu.addSectionHeader(describeInput(in));
         const bool full = patch.pinCount(in) >= lmw::dsp::Patch::maxPins;
         for (int o = 0; o < lmw::dsp::numOutputs; ++o) {           // only possible items (no greyed ones, contrast)
@@ -1042,9 +1038,9 @@ void LMWSynthEditor::showJackMenu(Jack& jack) {
         menu.addSubMenu("Connect from (ticked = cable; choose again to remove)", sub);
         if (patch.isPatched(in)) menu.addItem(1, patch.pinCount(in) > 1 ? "Remove all cables here" : "Remove cable");
     } else {
-        const auto out = static_cast<Out>(jack.port);
+        const auto out = static_cast<Out>(port);
         bool feeds = false;
-        menu.addSectionHeader("Output " + portName(true, jack.port));
+        menu.addSectionHeader("Output " + portName(true, port));
         for (int i = 0; i < lmw::dsp::numInputs; ++i) {
             const auto in = static_cast<In>(i);
             const bool cabled = patch.level(in, out) > 0.0f;
@@ -1058,9 +1054,8 @@ void LMWSynthEditor::showJackMenu(Jack& jack) {
         menu.addSeparator();
         menu.addItem(3, "Remove all cables");
     }
-    menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&jack),
-                       [safe = juce::Component::SafePointer<LMWSynthEditor>(this), output = jack.output,
-                        port = jack.port](int r) {
+    menu.showMenuAsync(juce::PopupMenu::Options().withTargetScreenArea(screenArea),
+                       [safe = juce::Component::SafePointer<LMWSynthEditor>(this), output, port](int r) {
         if (safe == nullptr || r == 0) return;
         const auto& p = safe->processor.currentPatch();
         if (r == 1) {
@@ -1258,6 +1253,7 @@ void LMWSynthEditor::showTab(int tab) {
     resetLayoutButton.setEnabled(true);
     if (tab == 2) matrix->grabKeyboardFocus();
     if (tab == 3) notesEditor.grabKeyboardFocus();
+    if (tab == 4) schematic->grabKeyboardFocus();
     repaint();
 }
 
