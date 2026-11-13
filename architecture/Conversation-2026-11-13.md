@@ -20,3 +20,6 @@ CI: run 43420939527 for 663c5d2 (Phase 12a) and run 43422487432 for 831ee81 (int
 ## Phase 12b: editing in the schematic
 User: "yes, add editing in the schematic like the Synth tab".
 Done: ui/CableEdit.h holds the drag rules (grab / drop -> list of connect ops, applied in order, stopping at the first failure); the Synth tab's cableDrag/cableDrop now use it too, so both tabs behave the same. showJackMenu became showPortMenu(output, port, screenArea), used by both. SchematicView: mouse drag with rubber cable and target ring, plugged inputs with a black centre, arrow-key port cursor, Enter / Shift+F10 / right-click menu, Delete, Escape. test_schematic extended (T-S6.7d), 20/20; Xvfb checks (T-S6.7e) incl. the Synth tab after the refactor. Phase 12 done.
+
+## Crosscheck after Phase 12
+User: "do the crosscheck first". Checked Spec S6.6–S6.9, S7.2/S7.4, S9.2 against the code (drag rules shared by both tabs, menus, keyboard, focus on tab open, contrast pairs incl. unit colours, 51 parameters, 20 ctests). Code matched; doc fixes only: S7.4 still listed the tabs as Synth | Effects | Notes, Plan Phase 12 still said "open for the user", T-S2.1b test count 19 -> 20. Handover.md is a dated snapshot and left as is.

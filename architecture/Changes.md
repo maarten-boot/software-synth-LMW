@@ -70,3 +70,4 @@ Changes between releases.
 - 2026-11-13: Phase 12a: Schematic tab (view only) — triangles for VCO/MIX/VCF/VCA/LFO, ADSR boxes, KEYS keyboard, NOISE trace, OUT circle with arrow, in unit colours; normalled lines dashed, cables solid with levels; hover texts.
 - 2026-11-13: Schematic: internal links (dotted arrows into the module) for key tracking (while Key > 0) and velocity → VCA; mod wheel named in the VCO hover text.
 - 2026-11-13: Phase 12b: editing in the Schematic tab like the Synth tab (drag to add/move/remove cables, port cursor, cable menu, Delete); drag rules shared in ui/CableEdit.h. Phase 12 done.
+- 2026-11-13: Crosscheck after Phase 12: code matches the Spec; docs fixed (S7.4 tab list, Plan Phase 12 wording, test count).
