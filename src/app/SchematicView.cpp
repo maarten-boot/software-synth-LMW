@@ -11,9 +11,18 @@ const juce::Colour kFg = colour(lmw::ui::theme::foreground);
 juce::String text(std::string_view s) { return juce::String::fromUTF8(s.data(), static_cast<int>(s.size())); }
 }
 
-SchematicView::SchematicView(std::function<const lmw::dsp::Patch&()> p) : patch(std::move(p)) {
+SchematicView::SchematicView(std::function<const lmw::dsp::Patch&()> p, std::function<std::array<float, 2>()> k)
+    : patch(std::move(p)), keyTrack(std::move(k)) {
     setTitle("Schematic");
-    setDescription("The instrument as a schematic: dashed lines are normalled connections, solid lines cables.");
+    setDescription("The instrument as a schematic: dashed lines are normalled connections, solid lines cables, "
+                   "dotted arrows internal links set by a fader.");
+}
+
+void SchematicView::poll() {
+    if (const auto k = keyTrack(); k != shownKeys) {
+        shownKeys = k;
+        if (isVisible()) repaint();
+    }
 }
 
 float SchematicView::scale() const noexcept {
@@ -162,6 +171,25 @@ void SchematicView::paint(juce::Graphics& g) {
         juce::PathStrokeType(lineW).createDashedStroke(dashed, pathOf(c), dash, 2);
         g.fillPath(dashed);
     }
+    // Internal links (fader-set): thin, dotted, behind the blocks; the arrow ends on the block's edge.
+    shownKeys = keyTrack();
+    const auto internal = sc::internalLinks(shownKeys[0], shownKeys[1]);
+    const float dot[] = {0.25f * s, 0.55f * s};
+    for (const auto& l : internal) {
+        const auto* b = sc::findBlock(l.block);
+        if (b == nullptr) continue;
+        const auto cv = sc::internalCurve(sc::outputPoint(l.from), sc::internalTarget(*b));
+        juce::Path path, dotted;
+        path.startNewSubPath(toScreen(cv[0]));
+        path.cubicTo(toScreen(cv[1]), toScreen(cv[2]), toScreen(cv[3]));
+        juce::PathStrokeType(std::max(1.0f, 0.16f * s), juce::PathStrokeType::curved, juce::PathStrokeType::rounded)
+            .createDashedStroke(dotted, path, dot, 2);
+        g.fillPath(dotted);
+        const auto tip = toScreen(cv[3]);
+        juce::Path head;                                   // arrowhead pointing up into the block
+        head.addTriangle(tip.x, tip.y, tip.x - 0.6f * s, tip.y + 1.3f * s, tip.x + 0.6f * s, tip.y + 1.3f * s);
+        g.fillPath(head);
+    }
     for (const auto& b : sc::blocks()) drawBlock(g, b);
     for (const auto& c : conns) {
         if (c.normalled) continue;
@@ -170,6 +198,21 @@ void SchematicView::paint(juce::Graphics& g) {
         g.strokePath(path, juce::PathStrokeType(lineW * 1.8f + 2.0f * std::max(1.0f, 0.12f * s)));
         g.setColour(kFg);
         g.strokePath(path, juce::PathStrokeType(lineW * 1.8f));
+    }
+
+    // Internal link labels just below the arrowheads, on white.
+    g.setFont(juce::FontOptions(1.5f * s, juce::Font::italic));
+    for (const auto& l : internal) {
+        const auto* b = sc::findBlock(l.block);
+        if (b == nullptr) continue;
+        const auto tip = toScreen(sc::internalTarget(*b));
+        const auto t = juce::String::fromUTF8(l.label.c_str());
+        const float w = juce::GlyphArrangement::getStringWidth(juce::Font(juce::FontOptions(1.5f * s, juce::Font::italic)), t) + 0.6f * s;
+        const juce::Rectangle<float> box(tip.x + 0.9f * s, tip.y + 0.2f * s, w, 1.9f * s);
+        g.setColour(kBg);
+        g.fillRect(box);
+        g.setColour(kFg);
+        g.drawText(t, box, juce::Justification::centred, false);
     }
 
     // Block names above the blocks, last, on a white backing so a cable passing behind keeps them readable.
@@ -229,6 +272,14 @@ void SchematicView::paint(juce::Graphics& g) {
     g.strokePath(solid, juce::PathStrokeType(lineW * 1.8f));
     g.drawText("cable (level shown when below 100 %)", juce::Rectangle<float>(l0.x + 25 * s, l0.y - s, 40 * s, 2 * s),
                juce::Justification::centredLeft, false);
+    juce::Path dottedSample, sample2;
+    sample2.startNewSubPath(l0.x + 58 * s, l0.y);
+    sample2.lineTo(l0.x + 63 * s, l0.y);
+    juce::PathStrokeType(std::max(1.0f, 0.16f * s), juce::PathStrokeType::curved, juce::PathStrokeType::rounded)
+        .createDashedStroke(dottedSample, sample2, dot, 2);
+    g.fillPath(dottedSample);
+    g.drawText("internal (set by a fader)", juce::Rectangle<float>(l0.x + 64 * s, l0.y - s, 30 * s, 2 * s),
+               juce::Justification::centredLeft, false);
 }
 
 juce::String SchematicView::getTooltip() {
@@ -242,6 +293,8 @@ juce::String SchematicView::getTooltip() {
             juce::String t = text(b.name);
             for (auto in : b.inputs) t += "\n" + juce::String::fromUTF8(sc::describeInput(p, in).c_str());
             for (auto out : b.outputs) t += "\n" + juce::String::fromUTF8(sc::describeOutput(p, out).c_str());
+            if (const auto note = sc::blockNote(b.name, shownKeys[0], shownKeys[1]); !note.empty())
+                t += "\n" + juce::String::fromUTF8(note.c_str());
             return t;
         }
     return {};

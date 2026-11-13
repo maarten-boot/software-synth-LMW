@@ -11,3 +11,6 @@ Done (view only):
 - Iterations on Xvfb: ENV 1 next to ENV 2 looked like ENV 1 → ENV 2 -> stacked them; a keys.vel cable vanished behind MIX at in3 (looked like a mixer input) -> cables on top; cables crossed block names -> names last on white.
 - Checked live with lmw9p (cables with levels appear at once), hover text, compact view.
 Open: 12b editing in the schematic — scope for the user.
+
+User: "would the schematic not need also the keyboard tracking or is that only shown when not 0?" -> it was not shown at all (a fader, not a patch connection); proposed a third line style "internal (set by a fader)": keys.pitch -> VCF N while Key > 0 with "key N %", keys.vel -> VCA always, mod wheel only in the VCO hover text.
+User: "yes, add it that way" -> done: Schematic.h internalLinks/internalTarget/internalCurve/blockNote, view draws dotted arrows into the block from below with labels, polls the Key faders (repaint on change); test_schematic extended (T-S6.7c); checked on Xvfb with lmw9p.

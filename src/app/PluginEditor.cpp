@@ -342,7 +342,12 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
                                           [this](int in, int out, float level) { return connect(in, out, level); });
     matrix->setPalette(palette);                            // unit colours in the headers (S6.9)
     addChildComponent(*matrix);
-    schematic = std::make_unique<SchematicView>([this]() -> const lmw::dsp::Patch& { return processor.currentPatch(); });
+    schematic = std::make_unique<SchematicView>([this]() -> const lmw::dsp::Patch& { return processor.currentPatch(); },
+        [this] {                                           // VCF Key faders, for the key-tracking links
+            auto& s = processor.state();
+            return std::array<float, 2>{s.getRawParameterValue(lmw::param::vcfKey[0])->load(),
+                                        s.getRawParameterValue(lmw::param::vcfKey[1])->load()};
+        });
     schematic->setPalette(palette);
     addChildComponent(*schematic);
     for (auto* c : effectComponents) c->setVisible(false);  // Effects tab not shown at start
@@ -420,6 +425,7 @@ void LMWSynthEditor::timerCallback() {
     if (processor.patchFileVersion() != shownPatchFile || (!notesEditor.hasKeyboardFocus(true)
             && notesEditor.getText() != processor.notes()))   // patch loaded, or state restored by the host
         refreshPatchInfo();
+    if (schematic) schematic->poll();                       // Key faders shown in the schematic
     if (processor.patchVersion() != shownPatchVersion) {    // cables changed (e.g. state restored)
         shownPatchVersion = processor.patchVersion();
         repaint();

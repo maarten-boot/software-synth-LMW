@@ -101,6 +101,30 @@ int main() {
         CHECK(std::isfinite(mid.x) && std::isfinite(mid.y));
         CHECK(sc::curveAt(cv, 0).x == cv[0].x && sc::curveAt(cv, 1).y == cv[3].y);
     }
+    {   // Internal links: key tracking only while Key > 0, velocity -> VCA always; targets on the block's lower edge.
+        auto l = sc::internalLinks(0.0f, 0.0f);
+        CHECK(l.size() == 1 && l[0].from == Out::KeysVel && l[0].block == "VCA" && l[0].label == "velocity");
+        l = sc::internalLinks(0.5f, 0.0f);
+        CHECK(l.size() == 2 && l[0].from == Out::KeysPitch && l[0].block == "VCF 1" && l[0].label == "key 50 %");
+        l = sc::internalLinks(0.25f, 1.0f);
+        CHECK(l.size() == 3 && l[1].block == "VCF 2" && l[1].label == "key 100 %");
+        for (const auto& x : l) {
+            const auto* b = sc::findBlock(x.block);
+            CHECK(b != nullptr);
+            if (b == nullptr) continue;
+            const auto t = sc::internalTarget(*b);
+            CHECK(t.x > b->box.x && t.x < b->box.right() && t.y > b->box.y + b->box.h / 2 && t.y <= b->box.bottom());
+            CHECK(!sc::portAt(t, 1.0f));                   // not on a socket
+            const auto cv = sc::internalCurve(sc::outputPoint(x.from), t);
+            CHECK(cv[2].y > t.y);                           // enters from below
+        }
+        CHECK(sc::findBlock("nothing") == nullptr);
+        CHECK(sc::blockNote("VCF 1", 0.5f, 0.0f) == "keys.pitch \u2192 cutoff (internal: Key 50 %)");
+        CHECK(sc::blockNote("VCF 2", 0.5f, 0.0f) == "key tracking off (Key 0 %)");
+        CHECK(sc::blockNote("VCA", 0, 0).find("velocity") != std::string::npos);
+        CHECK(sc::blockNote("VCO 2", 0, 0).find("mod wheel") != std::string::npos);
+        CHECK(sc::blockNote("MIX", 0, 0).empty());
+    }
     CHECK(sc::portLabel("vcf1.cutoff") == "cutoff" && sc::portLabel("keys.gate") == "gate");
     CHECK(sc::blocks()[0].unit() == lmw::ui::theme::Unit::Lfo);
 

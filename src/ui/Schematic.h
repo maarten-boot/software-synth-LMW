@@ -162,6 +162,55 @@ inline std::string describeOutput(const lmw::dsp::Patch& p, Out out) {
     return s + " → " + (fed.empty() ? std::string("nothing") : fed);
 }
 
+// Internal links (set by a fader, not by a socket): drawn thin and dotted with an arrow into the module
+// body. Key tracking keys.pitch -> VCF N only while its Key fader is above 0; velocity -> VCA always
+// (the VCA always multiplies by velocity, S5.8). The mod wheel has no block; the VCO hover text names it.
+struct InternalLink {
+    Out from;
+    std::string_view block;          // target block name
+    std::string label;               // shown at the arrow ("key 50 %", "velocity")
+};
+
+inline const Block* findBlock(std::string_view name) {
+    for (const auto& b : blocks())
+        if (b.name == name) return &b;
+    return nullptr;
+}
+
+inline std::vector<InternalLink> internalLinks(float vcf1Key, float vcf2Key) {
+    std::vector<InternalLink> l;
+    if (vcf1Key > 0.0f) l.push_back({Out::KeysPitch, "VCF 1", "key " + percent(vcf1Key)});
+    if (vcf2Key > 0.0f) l.push_back({Out::KeysPitch, "VCF 2", "key " + percent(vcf2Key)});
+    l.push_back({Out::KeysVel, "VCA", "velocity"});
+    return l;
+}
+
+// Where an internal link enters its block: from below, at a third of the block's width (for a triangle,
+// on its lower edge there).
+inline Point internalTarget(const Block& b) noexcept {
+    const float x = b.box.x + b.box.w * 0.3f;
+    const float y = b.shape == Shape::Triangle ? b.box.bottom() - b.box.h * 0.5f * 0.3f : b.box.bottom();
+    return {x, y};
+}
+
+// The curve of an internal link: leaves the output to the right, enters the block from below.
+inline std::array<Point, 4> internalCurve(Point a, Point t) noexcept {
+    const float d = std::max(6.0f, std::abs(t.x - a.x) * 0.4f);
+    return {{a, {a.x + d, a.y}, {t.x, t.y + std::max(8.0f, std::abs(t.y - a.y) * 0.6f)}, t}};
+}
+
+// Extra hover lines for a block: its internal links.
+inline std::string blockNote(std::string_view name, float vcf1Key, float vcf2Key) {
+    if (name.starts_with("VCO")) return "mod wheel \u2192 FM depth (internal: FM fader + wheel \u00d7 1 st)";
+    if (name == "VCA") return "keys.vel \u2192 gain (internal, always: the VCA multiplies by velocity)";
+    if (name == "VCF 1" || name == "VCF 2") {
+        const float k = name == "VCF 1" ? vcf1Key : vcf2Key;
+        return k > 0.0f ? "keys.pitch \u2192 cutoff (internal: Key " + percent(k) + ")"
+                        : std::string("key tracking off (Key 0 %)");
+    }
+    return {};
+}
+
 // The port under a canvas point (within `radius`), for hover texts.
 struct PortHit { bool input; int index; };
 inline std::optional<PortHit> portAt(Point p, float radius) {
