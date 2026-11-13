@@ -69,6 +69,21 @@ void SchematicView::drawBlock(juce::Graphics& g, std::size_t index) const {
         }
     };
 
+    // The name inside the symbol (user 2026-11-13): bold, black on the unit colour, shrunk to fit `area`
+    // (from 1.7 down to 1.2 canvas units).
+    auto drawName = [&](juce::Rectangle<float> area, juce::Justification just) {
+        const auto name = text(b.name);
+        float size = 1.7f * s;
+        juce::Font font(juce::FontOptions(size, juce::Font::bold));
+        while (size > 1.2f * s && juce::GlyphArrangement::getStringWidth(font, name) > area.getWidth()) {
+            size -= 0.05f * s;
+            font = juce::Font(juce::FontOptions(size, juce::Font::bold));
+        }
+        g.setColour(kFg);
+        g.setFont(font);
+        g.drawText(name, area, just, false);
+    };
+
     switch (b.shape) {
     case sc::Shape::Triangle: {
         juce::Path t;
@@ -85,6 +100,22 @@ void SchematicView::drawBlock(juce::Graphics& g, std::size_t index) const {
                            juce::Rectangle<float>(p.x + 0.7f * s, p.y - s, r.getWidth() * 0.6f, 2 * s), juce::Justification::centredLeft, false);
             }
         }
+        {   // Name: on a row free of port labels — the centre for 0, 2 or 4 inputs, else between the two
+            // middle ports (VCF, VCA: between "in" and "cutoff" / "cv") — left-aligned next to the ports,
+            // as wide as the triangle allows there.
+            const auto n = b.inputs.size();
+            float y = r.getCentreY();
+            if (n % 2 == 1) {
+                const float lower = r.getY() + r.getHeight() * static_cast<float>(n / 2 + 1) / static_cast<float>(n + 1);
+                const float upper = n >= 3 ? r.getY() + r.getHeight() * static_cast<float>(n / 2) / static_cast<float>(n + 1) : r.getY();
+                y = (upper + lower) / 2;
+            }
+            const float halfH = r.getHeight() / 2, textH = 1.8f * s;
+            const float f = std::clamp(1.0f - (std::abs(y - r.getCentreY()) + textH / 2) / halfH, 0.0f, 1.0f);   // usable fraction
+            const float left = r.getX() + 0.8f * s;
+            drawName(juce::Rectangle<float>(left, y - textH / 2, std::max(0.0f, r.getX() + f * r.getWidth() - left), textH),
+                     juce::Justification::centredLeft);
+        }
         break;
     }
     case sc::Shape::Adsr: {
@@ -92,13 +123,15 @@ void SchematicView::drawBlock(juce::Graphics& g, std::size_t index) const {
         g.fillRect(r);
         g.setColour(kFg);
         g.drawRect(r, stroke);
+        drawName(juce::Rectangle<float>(r.getX() + 0.8f * s, r.getY() + 0.2f * s, r.getWidth() - 1.6f * s, 2.0f * s),
+                 juce::Justification::centredLeft);   // name in a strip at the top
         const auto at = [&](float fx, float fy) { return juce::Point<float>(r.getX() + fx * r.getWidth(), r.getY() + fy * r.getHeight()); };
-        juce::Path curve;                              // attack, decay, sustain, release
-        curve.startNewSubPath(at(0.12f, 0.85f));
-        curve.lineTo(at(0.3f, 0.15f));
-        curve.lineTo(at(0.45f, 0.45f));
-        curve.lineTo(at(0.7f, 0.45f));
-        curve.lineTo(at(0.88f, 0.85f));
+        juce::Path curve;                              // attack, decay, sustain, release, below the name
+        curve.startNewSubPath(at(0.12f, 0.88f));
+        curve.lineTo(at(0.3f, 0.36f));
+        curve.lineTo(at(0.45f, 0.6f));
+        curve.lineTo(at(0.7f, 0.6f));
+        curve.lineTo(at(0.88f, 0.88f));
         g.strokePath(curve, juce::PathStrokeType(stroke * 1.3f, juce::PathStrokeType::mitered));
         break;
     }
@@ -107,8 +140,11 @@ void SchematicView::drawBlock(juce::Graphics& g, std::size_t index) const {
         g.fillRect(r);
         g.setColour(kFg);
         g.drawRect(r, stroke);
-        // Four white keys and one black key (between the first two), in the left part of the block.
-        const auto kb = r.withWidth(r.getWidth() * 0.55f).reduced(0.8f * s);
+        // Name at the top; four white keys and one black key (between the first two) below it, in the
+        // left part of the block.
+        drawName(juce::Rectangle<float>(r.getX() + 0.8f * s, r.getY() + 0.2f * s, r.getWidth() * 0.55f - 0.8f * s, 2.0f * s),
+                 juce::Justification::centredLeft);
+        const auto kb = r.withWidth(r.getWidth() * 0.55f).reduced(0.8f * s).withTrimmedTop(1.6f * s);
         const float kw = kb.getWidth() / 4;
         for (int k = 0; k < 4; ++k) g.drawRect(juce::Rectangle<float>(kb.getX() + k * kw, kb.getY(), kw, kb.getHeight()), stroke * 0.8f);
         g.fillRect(juce::Rectangle<float>(kb.getX() + kw * 0.65f, kb.getY(), kw * 0.7f, kb.getHeight() * 0.6f));
@@ -121,7 +157,9 @@ void SchematicView::drawBlock(juce::Graphics& g, std::size_t index) const {
         g.setColour(kFg);
         g.drawRect(r, stroke);
         // A white-noise trace: fixed pseudo-random samples (the same picture every time).
-        const auto area = r.withWidth(r.getWidth() * 0.55f).reduced(0.6f * s, 1.0f * s);
+        drawName(juce::Rectangle<float>(r.getX() + 0.8f * s, r.getY() + 0.2f * s, r.getWidth() * 0.6f - 0.8f * s, 2.0f * s),
+                 juce::Justification::centredLeft);   // name at the top, the trace below it
+        const auto area = r.withWidth(r.getWidth() * 0.55f).reduced(0.6f * s, 1.0f * s).withTrimmedTop(1.4f * s);
         juce::Path trace;
         std::uint32_t x = 0x2545F491u;
         constexpr int n = 28;
@@ -143,7 +181,8 @@ void SchematicView::drawBlock(juce::Graphics& g, std::size_t index) const {
         g.fillEllipse(circle);
         g.setColour(kFg);
         g.drawEllipse(circle, stroke * 1.3f);
-        g.fillEllipse(circle.withSizeKeepingCentre(d * 0.25f, d * 0.25f));
+        drawName(circle.reduced(d * 0.12f), juce::Justification::centred);   // "OUT" in the circle
+        g.setColour(kFg);
         const juce::Line<float> arrow(circle.getRight(), r.getCentreY(), r.getRight(), r.getCentreY());
         g.drawArrow(arrow, stroke * 1.3f, d * 0.35f, d * 0.35f);
         break;
@@ -219,20 +258,6 @@ void SchematicView::paint(juce::Graphics& g) {
         g.fillRect(box);
         g.setColour(kFg);
         g.drawText(t, box, juce::Justification::centred, false);
-    }
-
-    // Block names above the blocks, last, on a white backing so a cable passing behind keeps them readable.
-    const juce::Font nameFont(juce::FontOptions(2.1f * s, juce::Font::bold));
-    g.setFont(nameFont);
-    for (std::size_t i = 0; i < sc::blocks().size(); ++i) {
-        const auto r = toScreen(layout.box(i));
-        const auto name = text(sc::blocks()[i].name);
-        const float w = juce::GlyphArrangement::getStringWidth(nameFont, name) + 0.8f * s;
-        const juce::Rectangle<float> area(r.getCentreX() - w / 2, r.getY() - sc::nameHeight * s, w, sc::nameHeight * s - 0.3f * s);
-        g.setColour(kBg);
-        g.fillRect(area);
-        g.setColour(kFg);
-        g.drawText(name, area, juce::Justification::centred, false);
     }
 
     // Ports: inputs white with a black ring, outputs black (as on the Synth tab, S6.6).

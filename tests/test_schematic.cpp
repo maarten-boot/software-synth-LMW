@@ -13,22 +13,19 @@ static int failures = 0;
 
 int main() {
     const auto& blocks = sc::blocks();
-    {   // Every port belongs to exactly one block; every block lies inside the canvas with room for its name;
-        // blocks (with their names) do not overlap.
+    {   // Every port belongs to exactly one block; every block lies inside the canvas; blocks do not overlap.
         std::multiset<int> ins, outs;
         for (const auto& b : blocks) {
             for (auto i : b.inputs) ins.insert(static_cast<int>(i));
             for (auto o : b.outputs) outs.insert(static_cast<int>(o));
             CHECK(b.box.x >= 0 && b.box.right() <= sc::canvasWidth);
-            CHECK(b.box.y - sc::nameHeight >= 0 && b.box.bottom() <= sc::canvasHeight - 4);   // legend below
+            CHECK(b.box.y >= 0 && b.box.bottom() <= sc::canvasHeight - 4);   // legend below
         }
         for (int i = 0; i < lmw::dsp::numInputs; ++i) CHECK(ins.count(i) == 1);
         for (int o = 0; o < lmw::dsp::numOutputs; ++o) CHECK(outs.count(o) == 1);
         for (std::size_t a = 0; a < blocks.size(); ++a)
             for (std::size_t b = a + 1; b < blocks.size(); ++b) {
                 auto ra = blocks[a].box, rb = blocks[b].box;
-                ra.y -= sc::nameHeight; ra.h += sc::nameHeight;
-                rb.y -= sc::nameHeight; rb.h += sc::nameHeight;
                 if (ra.intersects(rb)) std::printf("overlap: %s / %s\n", blocks[a].name.data(), blocks[b].name.data());
                 CHECK(!ra.intersects(rb));
             }
@@ -181,12 +178,12 @@ int main() {
         CHECK(sc::blockAt({112, 60}, l) == lfo2 && !sc::blockAt({112, 60}));
         const auto t0 = sc::internalTarget(vcf2), t1 = (l.move(vcf2, {88, 21}), sc::internalTarget(vcf2, l));
         CHECK(t1.y == t0.y + 1 && t1.x == t0.x);
-        // Refused: on another block (with its name), off the canvas, into the legend; nothing changes.
+        // Refused: on another block, off the canvas, into the legend; nothing changes.
         const auto before = l.serialize();
         CHECK(!l.move(vcf2, sc::defaultLayout().position(vcf1)));
         CHECK(!l.move(vcf2, {79, 20}));                          // overlaps VCF 1 (ends at 80)
         CHECK(l.fits(vcf2, {80, 20}));                           // touching is allowed
-        CHECK(!l.move(vcf2, {130, 20}) && !l.move(vcf2, {88, 1}) && !l.move(vcf2, {88, 60}));
+        CHECK(!l.move(vcf2, {130, 20}) && !l.move(vcf2, {88, -1}) && !l.move(vcf2, {88, 60}));
         CHECK(l.serialize() == before);
         // Text form: every block; round trip; partial text keeps the others at their default place.
         CHECK(sc::Layout().serialize().starts_with("lfo1:2,6;keys:2,23;vco1:26,4;"));

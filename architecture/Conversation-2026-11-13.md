@@ -30,3 +30,9 @@ CI: run 43441390442 for 49394f8 (Phase 12b) and run 43441968495 for 61ea6eb (cro
 User: "pushed; could we make the symbols movable in the schema view ?" ("schema view" = the Schematic tab).
 Asked: saved where -> "State and patch files"; overlap -> not allowed; keyboard/reset -> Shift+arrows, Reset button.
 Done: Schematic.h Layout (positions, fits/move with grid and no overlap, serialize/parse by block id; all geometry functions take a layout); PatchFile [schematic] section (only when moved; unknown sections now skipped); processor property schematicLayout, written to / read from patch files; SchematicView drags symbols by the body with a landing outline (dashed = refused), Shift+arrows, hand/crosshair pointer; editor: Reset layout per tab, "Reset schematic layout" in the port menu, layout picked up after a patch load. Tests T-S6.7f (unit) and T-S6.7g (Xvfb), 20/20. Removed the half-unit margin idea: the default drawing has symbols half a unit apart, so touching is allowed.
+
+## Names inside the symbols; keyboard octaves
+User: "what happens if we place the text of a component inside the symbol (we can shrink the font a bit to keep the symbos the same size)" -> answered per symbol (fits; VCF tightest), then "yes build it and note a keyboard octave -1 and -2 dont exist as far as i understan and what frequency is C0 ?"
+Answer: C0 = 16.35 Hz (scientific pitch, A4 = 440). The keyboard used JUCE's default Yamaha numbering (MIDI 60 = "C3", lowest "C-2"); in scientific pitch MIDI 0 is C-1 (8.18 Hz), C-2 does not exist. Also found: JUCE's default QWERTY octave made "a" play MIDI 72 (C5), not C4 as the Spec says.
+Asked: QWERTY a -> C4 = MIDI 60; range -> piano A0–C8.
+Done: setOctaveForMiddleC(4), setKeyPressBaseOctave(5), setAvailableRange(21, 108), key width = width / 52 (no scrolling, also compact). Names drawn inside the symbols (shrink to fit), the name room above blocks removed from the layout rules. 20/20; Xvfb screenshots normal and compact.

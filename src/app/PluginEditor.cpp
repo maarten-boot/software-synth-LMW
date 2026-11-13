@@ -395,6 +395,12 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     addAndMakeVisible(contrastBox);
 
     keyboard.setWantsKeyboardFocus(true);       // QWERTY keys play notes (Spec S3.2)
+    // Spec S3.2, S6.1 (user 2026-11-13): scientific pitch names (MIDI 60 = C4, JUCE's default is C3),
+    // the QWERTY 'a' plays C4 = MIDI 60 (JUCE's default octave 6 played MIDI 72), and the on-screen keys
+    // are the piano range A0-C8 (MIDI 21-108); MIDI from a controller still plays all 128 notes.
+    keyboard.setOctaveForMiddleC(4);
+    keyboard.setKeyPressBaseOctave(5);
+    keyboard.setAvailableRange(21, 108);
     addAndMakeVisible(keyboard);
 
     // Child widgets (e.g. slider value boxes) take their colours when created, before they had this
@@ -761,8 +767,8 @@ void LMWSynthEditor::resized() {
     patchLabel.setBounds(title);
     area.removeFromTop(m.gap);
     keyboard.setBounds(area.removeFromBottom(m.keysH));
-    // All 128 keys (75 white) fill a wide window; narrower windows keep 16 px keys and scroll.
-    keyboard.setKeyWidth(std::max(16.0f, static_cast<float>(keyboard.getWidth()) / 75.0f));
+    // The 88 keys (52 white) fill the window; a window narrower than 52 x 16 px scrolls.
+    keyboard.setKeyWidth(std::max(16.0f, static_cast<float>(keyboard.getWidth()) / 52.0f));
     area.removeFromBottom(m.gap);
     notesEditor.setBounds(area);                             // Notes tab: the area of the panels
     if (matrix) { matrix->setBounds(area); matrix->setFontSize(m.labelFont - 2.0f); }   // Matrix tab

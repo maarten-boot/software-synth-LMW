@@ -47,7 +47,7 @@ struct Block {
 };
 
 inline constexpr float canvasWidth = 136.0f, canvasHeight = 72.0f;
-inline constexpr float nameHeight = 3.5f;   // room above each block for its name
+// Names are drawn inside the symbols (user 2026-11-13), so a block needs no room above it.
 
 inline const std::vector<Block>& blocks() {
     static const std::vector<Block> b{
@@ -78,8 +78,7 @@ inline std::string blockId(std::string_view name) {
 }
 
 // Phase 12c: where each block is (its top-left corner, canvas units, on a 1-unit grid). The default is the
-// drawing of Phase 12a. A block may be moved anywhere on the canvas where it, with its name above it, does
-// not overlap another block and stays clear of the legend at the bottom.
+// drawing of Phase 12a. A block may be moved anywhere on the canvas where it does not overlap another block and stays clear of the legend at the bottom.
 class Layout {
 public:
     Layout() { for (const auto& b : blocks()) pos.push_back({b.box.x, b.box.y}); }
@@ -91,8 +90,8 @@ public:
         r.y = pos[i].y;
         return r;
     }
-    // The space a block takes: its box and its name above it (blocks may touch, not overlap).
-    static Rect room(const Rect& r) noexcept { return {r.x, r.y - nameHeight, r.w, r.h + nameHeight}; }
+    // The space a block takes: its box (names are inside; blocks may touch, not overlap).
+    static Rect room(const Rect& r) noexcept { return r; }
 
     // Would block i fit at `p` (snapped to the grid)?
     bool fits(std::size_t i, Point p) const {
@@ -100,7 +99,7 @@ public:
         Rect r = blocks()[i].box;
         r.x = p.x;
         r.y = p.y;
-        if (r.x < 0 || r.right() > canvasWidth || r.y - nameHeight < 0 || r.bottom() > canvasHeight - 4) return false;
+        if (r.x < 0 || r.right() > canvasWidth || r.y < 0 || r.bottom() > canvasHeight - 4) return false;
         for (std::size_t j = 0; j < pos.size(); ++j)
             if (j != i && room(r).intersects(room(box(j)))) return false;
         return true;

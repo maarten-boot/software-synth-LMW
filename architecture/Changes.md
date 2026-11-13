@@ -72,3 +72,4 @@ Changes between releases.
 - 2026-11-13: Phase 12b: editing in the Schematic tab like the Synth tab (drag to add/move/remove cables, port cursor, cable menu, Delete); drag rules shared in ui/CableEdit.h. Phase 12 done.
 - 2026-11-13: Crosscheck after Phase 12: code matches the Spec; docs fixed (S7.4 tab list, Plan Phase 12 wording, test count).
 - 2026-11-13: Phase 12c: movable schematic symbols (drag by the body, grid, no overlap, Shift+arrows, Reset layout), saved in the state and in patch files ([schematic]); patch files now skip unknown sections.
+- 2026-11-13: Schematic names inside the symbols; keyboard in scientific pitch (C4 = MIDI 60), QWERTY a = C4 (was MIDI 72), on-screen range A0–C8.
