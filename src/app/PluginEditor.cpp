@@ -352,11 +352,15 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
         [this](int in, int out, float level) { return connect(in, out, level); },   // Phase 12b: editing
         [this](bool output, int port, juce::Rectangle<int> area) { showPortMenu(output, port, area); });
     schematic->setPalette(palette);
+    schematic->setLayout(processor.schematicLayout());     // Phase 12c: moved symbols, saved with the state
+    schematic->onLayoutChange = [this](const juce::String& text) { processor.setSchematicLayout(text); };
     addChildComponent(*schematic);
     for (auto* c : effectComponents) c->setVisible(false);  // Effects tab not shown at start
 
-    resetLayoutButton.setTooltip("Put all module panels back in their original places");
+    resetLayoutButton.setTooltip("Put all module panels back in their original places "
+                                 "(on the Schematic tab: all symbols)");
     resetLayoutButton.onClick = [this] {
+        if (currentTab == 4) { schematic->resetLayout(); return; }   // Spec S6.7: the schematic's blocks
         rack->reset();
         layoutChanged(-1);
     };
@@ -428,7 +432,7 @@ void LMWSynthEditor::timerCallback() {
     if (processor.patchFileVersion() != shownPatchFile || (!notesEditor.hasKeyboardFocus(true)
             && notesEditor.getText() != processor.notes()))   // patch loaded, or state restored by the host
         refreshPatchInfo();
-    if (schematic) schematic->poll();                       // Key faders shown in the schematic
+    if (schematic) schematic->poll(processor.schematicLayout());   // Key faders; layout from a loaded patch
     if (processor.patchVersion() != shownPatchVersion) {    // cables changed (e.g. state restored)
         shownPatchVersion = processor.patchVersion();
         repaint();
@@ -1054,6 +1058,10 @@ void LMWSynthEditor::showPortMenu(bool output, int port, juce::Rectangle<int> sc
         menu.addSeparator();
         menu.addItem(3, "Remove all cables");
     }
+    if (currentTab == 4 && !schematic->isLayoutDefault()) {   // Phase 12c
+        menu.addSeparator();
+        menu.addItem(4, "Reset schematic layout");
+    }
     menu.showMenuAsync(juce::PopupMenu::Options().withTargetScreenArea(screenArea),
                        [safe = juce::Component::SafePointer<LMWSynthEditor>(this), output, port](int r) {
         if (safe == nullptr || r == 0) return;
@@ -1063,6 +1071,8 @@ void LMWSynthEditor::showPortMenu(bool output, int port, juce::Rectangle<int> sc
         } else if (r == 2) {
             for (int i = 0; i < lmw::dsp::numInputs; ++i)
                 if (p.level(static_cast<In>(i), static_cast<lmw::dsp::Out>(port)) > 0.0f) safe->connect(i, port, 0.0f);
+        } else if (r == 4) {
+            safe->schematic->resetLayout();
         } else if (r == 3) {
             safe->removeAllCables();
         } else if (!output && r >= 100 && r < 100 + lmw::dsp::numOutputs) {    // toggle that cable

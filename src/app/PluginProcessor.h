@@ -134,6 +134,10 @@ public:
     void setNotes(const juce::String& text) { apvts.state.setProperty(notesProp, text, nullptr); }
     juce::String patchName() const { return apvts.state.getProperty(nameProp).toString(); }
     void setPatchName(const juce::String& name) { apvts.state.setProperty(nameProp, name, nullptr); }
+    // Spec S6.7: positions of the Schematic tab's blocks (Layout::serialize(); empty = default), kept in
+    // the saved state and in patch files.
+    juce::String schematicLayout() const { return apvts.state.getProperty(schematicProp).toString(); }
+    void setSchematicLayout(const juce::String& text) { apvts.state.setProperty(schematicProp, text, nullptr); }
     std::uint32_t patchFileVersion() const noexcept { return loadedPatches; }   // changes on every load
 
     // Increases with every cable change, so the editor can redraw cables changed elsewhere.
@@ -164,7 +168,7 @@ private:
     lmw::dsp::SpscQueue<lmw::dsp::NoteEvent, 256> guiToAudio;
     lmw::dsp::SpscQueue<lmw::dsp::NoteEvent, 256> audioToGui;
     lmw::dsp::SpscQueue<lmw::dsp::PatchCommand, 256> patchToAudio;   // a whole patch: 22 x (1 + 4)
-    inline static const juce::Identifier notesProp{"notes"}, nameProp{"patchName"};
+    inline static const juce::Identifier notesProp{"notes"}, nameProp{"patchName"}, schematicProp{"schematicLayout"};
     std::uint32_t loadedPatches = 0;                  // message thread only
     std::unique_ptr<class NinePService> ninep;        // Spec S10: 9P server (started in the constructor)
     std::string ninepAddress;

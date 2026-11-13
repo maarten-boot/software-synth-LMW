@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Spec S6.7: the schematic view — geometry and connections, pure C++ (no JUCE) so it can be tested.
 // Phase 12b: editable like the Synth tab (dragging cables between ports; CableEdit.h).
+// Phase 12c: movable blocks — a Layout holds each block's position; saved with the state and patch files.
 // Every module is a block on a fixed canvas (units, scaled to the window by the view), signal flowing
 // left to right: inputs on a block's left edge, outputs on its right edge (a triangle's output at its tip).
 // Connections come from the patch: an input's cables (pins with levels, S5.14), or its normalled source
@@ -8,7 +9,10 @@
 #pragma once
 #include "dsp/Patch.h"
 #include "ui/Theme.h"
+#include <algorithm>
 #include <array>
+#include <cctype>
+#include <charconv>
 #include <cmath>
 #include <optional>
 #include <string>
@@ -65,6 +69,110 @@ inline const std::vector<Block>& blocks() {
     return b;
 }
 
+// A block's id in saved layouts: its name in lower case without spaces ("VCO 1" -> "vco1").
+inline std::string blockId(std::string_view name) {
+    std::string id;
+    for (char c : name)
+        if (c != ' ') id += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    return id;
+}
+
+// Phase 12c: where each block is (its top-left corner, canvas units, on a 1-unit grid). The default is the
+// drawing of Phase 12a. A block may be moved anywhere on the canvas where it, with its name above it, does
+// not overlap another block and stays clear of the legend at the bottom.
+class Layout {
+public:
+    Layout() { for (const auto& b : blocks()) pos.push_back({b.box.x, b.box.y}); }
+
+    Point position(std::size_t i) const { return pos[i]; }
+    Rect box(std::size_t i) const {
+        auto r = blocks()[i].box;
+        r.x = pos[i].x;
+        r.y = pos[i].y;
+        return r;
+    }
+    // The space a block takes: its box and its name above it (blocks may touch, not overlap).
+    static Rect room(const Rect& r) noexcept { return {r.x, r.y - nameHeight, r.w, r.h + nameHeight}; }
+
+    // Would block i fit at `p` (snapped to the grid)?
+    bool fits(std::size_t i, Point p) const {
+        p = snap(p);
+        Rect r = blocks()[i].box;
+        r.x = p.x;
+        r.y = p.y;
+        if (r.x < 0 || r.right() > canvasWidth || r.y - nameHeight < 0 || r.bottom() > canvasHeight - 4) return false;
+        for (std::size_t j = 0; j < pos.size(); ++j)
+            if (j != i && room(r).intersects(room(box(j)))) return false;
+        return true;
+    }
+    // Moves block i to `p` (snapped) if it fits there.
+    bool move(std::size_t i, Point p) {
+        if (i >= pos.size() || !fits(i, p)) return false;
+        pos[i] = snap(p);
+        return true;
+    }
+    bool isDefault() const { return *this == Layout(); }
+    bool operator==(const Layout& o) const {
+        for (std::size_t i = 0; i < pos.size(); ++i)
+            if (std::lround(pos[i].x) != std::lround(o.pos[i].x) || std::lround(pos[i].y) != std::lround(o.pos[i].y))
+                return false;                       // positions are whole grid steps
+        return true;
+    }
+
+    // Text form, saved with the state and in patch files: "lfo1:2,6;keys:2,23;..." (every block).
+    std::string serialize() const {
+        std::string s;
+        for (std::size_t i = 0; i < pos.size(); ++i) {
+            if (!s.empty()) s += ';';
+            s += blockId(blocks()[i].name) + ':' + std::to_string(static_cast<int>(pos[i].x)) + ','
+               + std::to_string(static_cast<int>(pos[i].y));
+        }
+        return s;
+    }
+    // Reads that text; blocks not named keep their default place. Nothing (use the default) for an unknown
+    // block, a malformed entry, or a result where a block does not fit.
+    static std::optional<Layout> parse(std::string_view text) {
+        Layout l;
+        while (!text.empty()) {
+            const auto semi = text.find(';');
+            auto item = trim(text.substr(0, semi));
+            text = semi == std::string_view::npos ? std::string_view{} : text.substr(semi + 1);
+            if (item.empty()) continue;
+            const auto colon = item.find(':'), comma = item.find(',');
+            if (colon == std::string_view::npos || comma == std::string_view::npos || comma < colon) return std::nullopt;
+            const auto id = trim(item.substr(0, colon));
+            int x = 0, y = 0;
+            if (!number(trim(item.substr(colon + 1, comma - colon - 1)), x) || !number(trim(item.substr(comma + 1)), y))
+                return std::nullopt;
+            std::size_t i = 0;
+            while (i < blocks().size() && blockId(blocks()[i].name) != id) ++i;
+            if (i == blocks().size()) return std::nullopt;
+            l.pos[i] = {static_cast<float>(x), static_cast<float>(y)};
+        }
+        for (std::size_t i = 0; i < l.pos.size(); ++i)
+            if (!l.fits(i, l.pos[i])) return std::nullopt;
+        return l;
+    }
+
+private:
+    static Point snap(Point p) noexcept { return {std::round(p.x), std::round(p.y)}; }
+    static std::string_view trim(std::string_view s) noexcept {
+        while (!s.empty() && std::isspace(static_cast<unsigned char>(s.front()))) s.remove_prefix(1);
+        while (!s.empty() && std::isspace(static_cast<unsigned char>(s.back()))) s.remove_suffix(1);
+        return s;
+    }
+    static bool number(std::string_view s, int& v) noexcept {
+        const auto r = std::from_chars(s.data(), s.data() + s.size(), v);
+        return r.ec == std::errc{} && r.ptr == s.data() + s.size() && v >= 0 && v <= 1000;
+    }
+    std::vector<Point> pos;
+};
+
+inline const Layout& defaultLayout() {
+    static const Layout l;
+    return l;
+}
+
 namespace detail {
 inline float slot(const Rect& r, std::size_t k, std::size_t n) noexcept {
     return r.y + r.h * static_cast<float>(k + 1) / static_cast<float>(n + 1);
@@ -72,21 +180,34 @@ inline float slot(const Rect& r, std::size_t k, std::size_t n) noexcept {
 }
 
 // Where an input / output sits on the canvas.
-inline Point inputPoint(In in) {
-    for (const auto& b : blocks())
-        for (std::size_t k = 0; k < b.inputs.size(); ++k)
-            if (b.inputs[k] == in) return {b.box.x, detail::slot(b.box, k, b.inputs.size())};
+inline Point inputPoint(In in, const Layout& l = defaultLayout()) {
+    const auto& bs = blocks();
+    for (std::size_t i = 0; i < bs.size(); ++i)
+        for (std::size_t k = 0; k < bs[i].inputs.size(); ++k)
+            if (bs[i].inputs[k] == in) {
+                const auto r = l.box(i);
+                return {r.x, detail::slot(r, k, bs[i].inputs.size())};
+            }
     return {};
 }
 
-inline Point outputPoint(Out out) {
-    for (const auto& b : blocks())
-        for (std::size_t k = 0; k < b.outputs.size(); ++k)
-            if (b.outputs[k] == out) {
-                if (b.shape == Shape::Triangle) return {b.box.right(), b.box.y + b.box.h / 2};   // the tip
-                return {b.box.right(), detail::slot(b.box, k, b.outputs.size())};
+inline Point outputPoint(Out out, const Layout& l = defaultLayout()) {
+    const auto& bs = blocks();
+    for (std::size_t i = 0; i < bs.size(); ++i)
+        for (std::size_t k = 0; k < bs[i].outputs.size(); ++k)
+            if (bs[i].outputs[k] == out) {
+                const auto r = l.box(i);
+                if (bs[i].shape == Shape::Triangle) return {r.right(), r.y + r.h / 2};   // the tip
+                return {r.right(), detail::slot(r, k, bs[i].outputs.size())};
             }
     return {};
+}
+
+// The block under a canvas point.
+inline std::optional<std::size_t> blockAt(Point p, const Layout& l = defaultLayout()) {
+    for (std::size_t i = 0; i < blocks().size(); ++i)
+        if (l.box(i).contains(p)) return i;
+    return std::nullopt;
 }
 
 // Short port label shown next to the port ("vcf1.cutoff" -> "cutoff", "keys.gate" -> "gate").
@@ -172,10 +293,10 @@ struct InternalLink {
     std::string label;               // shown at the arrow ("key 50 %", "velocity")
 };
 
-inline const Block* findBlock(std::string_view name) {
-    for (const auto& b : blocks())
-        if (b.name == name) return &b;
-    return nullptr;
+inline std::optional<std::size_t> findBlock(std::string_view name) {
+    for (std::size_t i = 0; i < blocks().size(); ++i)
+        if (blocks()[i].name == name) return i;
+    return std::nullopt;
 }
 
 inline std::vector<InternalLink> internalLinks(float vcf1Key, float vcf2Key) {
@@ -188,9 +309,10 @@ inline std::vector<InternalLink> internalLinks(float vcf1Key, float vcf2Key) {
 
 // Where an internal link enters its block: from below, at a third of the block's width (for a triangle,
 // on its lower edge there).
-inline Point internalTarget(const Block& b) noexcept {
-    const float x = b.box.x + b.box.w * 0.3f;
-    const float y = b.shape == Shape::Triangle ? b.box.bottom() - b.box.h * 0.5f * 0.3f : b.box.bottom();
+inline Point internalTarget(std::size_t block, const Layout& l = defaultLayout()) {
+    const auto r = l.box(block);
+    const float x = r.x + r.w * 0.3f;
+    const float y = blocks()[block].shape == Shape::Triangle ? r.bottom() - r.h * 0.5f * 0.3f : r.bottom();
     return {x, y};
 }
 
@@ -215,15 +337,26 @@ inline std::string blockNote(std::string_view name, float vcf1Key, float vcf2Key
 // The port under a canvas point (within `radius`), for hover texts and editing.
 // `wantInput`: only inputs (true), only outputs (false), or either (empty) — e.g. the drop target of a cable.
 struct PortHit { bool input; int index; };
-inline std::optional<PortHit> portAt(Point p, float radius, std::optional<bool> wantInput = std::nullopt) {
+inline std::optional<PortHit> portAt(Point p, float radius, std::optional<bool> wantInput = std::nullopt,
+                                     const Layout& l = defaultLayout()) {
     auto near = [&](Point q) { return std::hypot(q.x - p.x, q.y - p.y) <= radius; };
     if (wantInput.value_or(true))
         for (int i = 0; i < lmw::dsp::numInputs; ++i)
-            if (near(inputPoint(static_cast<In>(i)))) return PortHit{true, i};
+            if (near(inputPoint(static_cast<In>(i), l))) return PortHit{true, i};
     if (!wantInput.value_or(false))
         for (int o = 0; o < lmw::dsp::numOutputs; ++o)
-            if (near(outputPoint(static_cast<Out>(o)))) return PortHit{false, o};
+            if (near(outputPoint(static_cast<Out>(o), l))) return PortHit{false, o};
     return std::nullopt;
+}
+
+// The block that holds a port (for moving it with the keyboard).
+inline std::size_t blockOf(PortHit h) {
+    for (std::size_t i = 0; i < blocks().size(); ++i) {
+        const auto& b = blocks()[i];
+        if (h.input && std::find(b.inputs.begin(), b.inputs.end(), static_cast<In>(h.index)) != b.inputs.end()) return i;
+        if (!h.input && std::find(b.outputs.begin(), b.outputs.end(), static_cast<Out>(h.index)) != b.outputs.end()) return i;
+    }
+    return 0;
 }
 
 // Keyboard order of the ports (Phase 12b): block by block, each block's inputs then its outputs.

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "PluginProcessor.h"
+#include "ui/Schematic.h"
 #include "dsp/PatchText.h"
 #include "app/StateMigration.h"
 #include "app/PatchFile.h"
@@ -412,6 +413,13 @@ juce::String LMWSynthProcessor::patchText(const juce::String& name) const {
         p.cables.emplace_back(std::string(lmw::dsp::inputNames[static_cast<std::size_t>(i)]),
                               lmw::dsp::pinsToText(guiPatch, in));                    // Spec S5.14: pins with levels
     }
+    // Spec S6.7: moved schematic blocks, one line each; nothing while the drawing is the default.
+    if (const auto l = lmw::ui::schematic::Layout::parse(schematicLayout().toStdString()); l && !l->isDefault())
+        for (std::size_t i = 0; i < lmw::ui::schematic::blocks().size(); ++i) {
+            const auto at = l->position(i);
+            p.schematic.emplace_back(lmw::ui::schematic::blockId(lmw::ui::schematic::blocks()[i].name),
+                                     std::to_string(static_cast<int>(at.x)) + ", " + std::to_string(static_cast<int>(at.y)));
+        }
     p.notes = notes().toStdString();
     return juce::String::fromUTF8(lmw::patchfile::write(p).c_str());
 }
@@ -446,6 +454,11 @@ bool LMWSynthProcessor::loadPatchText(const juce::String& text, juce::String& er
         setNormalised(*r, normalised);
     }
     setPatch(*cables);
+    // Spec S6.7: the schematic as saved; without a [schematic] section (or an unreadable one) the default.
+    std::string layout;
+    for (const auto& [id, at] : p->schematic) layout += id + ":" + at + ";";
+    const auto l = lmw::ui::schematic::Layout::parse(layout);
+    setSchematicLayout(l && !l->isDefault() ? juce::String(l->serialize()) : juce::String());
     setNotes(juce::String::fromUTF8(p->notes.c_str()));
     setPatchName(juce::String::fromUTF8(p->name.c_str()));
     ++loadedPatches;

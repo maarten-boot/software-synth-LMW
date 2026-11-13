@@ -29,6 +29,20 @@ int main() {
         CHECK(write(*q).size() <= text.size());                          // only the comments are lost
     }
 
+    {   // Spec S6.7: [schematic] written only when there are moved blocks, before [notes]; read back;
+        // an unknown section (from a newer version) is skipped, not read as cables.
+        Patch s = p;
+        CHECK(write(s).find("[schematic]") == std::string::npos);
+        s.schematic = {{"lfo2", "110, 56"}, {"vcf2", "88, 21"}};
+        const auto st = write(s);
+        CHECK(st.find("[schematic]\nlfo2 = 110, 56\nvcf2 = 88, 21\n") != std::string::npos);
+        CHECK(st.find("[schematic]") < st.find("[notes]"));
+        const auto sq = parse(st);
+        CHECK(sq && sq->schematic == s.schematic && sq->notes == p.notes && sq->cables == p.cables);
+        const auto u = parse("format = 1\n[cables]\nout.in = vca.out\n[future]\nwhatever = 3\nvca.in = x\n[schematic]\nkeys = 2, 30\n");
+        CHECK(u && u->cables.size() == 1 && u->schematic.size() == 1 && u->schematic[0].second == "2, 30");
+    }
+
     // Hand-edited file: CRLF line ends, blank lines, comments, unknown keys, spaces.
     const auto h = parse("# my patch\r\nformat=1\r\n\r\nname =  Pad  \r\n[parameters]\r\n  vcf1.res = 0.4   # 40 %\r\nnonsense\r\n= 3\r\n[cables]\r\nout.in = noise.out\r\n");
     CHECK(h.has_value());

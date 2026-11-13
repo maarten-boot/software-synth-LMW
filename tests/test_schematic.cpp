@@ -110,16 +110,17 @@ int main() {
         l = sc::internalLinks(0.25f, 1.0f);
         CHECK(l.size() == 3 && l[1].block == "VCF 2" && l[1].label == "key 100 %");
         for (const auto& x : l) {
-            const auto* b = sc::findBlock(x.block);
-            CHECK(b != nullptr);
-            if (b == nullptr) continue;
-            const auto t = sc::internalTarget(*b);
-            CHECK(t.x > b->box.x && t.x < b->box.right() && t.y > b->box.y + b->box.h / 2 && t.y <= b->box.bottom());
+            const auto bi = sc::findBlock(x.block);
+            CHECK(bi.has_value());
+            if (!bi) continue;
+            const auto box = sc::defaultLayout().box(*bi);
+            const auto t = sc::internalTarget(*bi);
+            CHECK(t.x > box.x && t.x < box.right() && t.y > box.y + box.h / 2 && t.y <= box.bottom());
             CHECK(!sc::portAt(t, 1.0f));                   // not on a socket
             const auto cv = sc::internalCurve(sc::outputPoint(x.from), t);
             CHECK(cv[2].y > t.y);                           // enters from below
         }
-        CHECK(sc::findBlock("nothing") == nullptr);
+        CHECK(!sc::findBlock("nothing"));
         CHECK(sc::blockNote("VCF 1", 0.5f, 0.0f) == "keys.pitch \u2192 cutoff (internal: Key 50 %)");
         CHECK(sc::blockNote("VCF 2", 0.5f, 0.0f) == "key tracking off (Key 0 %)");
         CHECK(sc::blockNote("VCA", 0, 0).find("velocity") != std::string::npos);
@@ -164,6 +165,44 @@ int main() {
         CHECK(!sc::portAt(sc::inputPoint(In::Vcf1In), 0.5f, false));
         CHECK(sc::portAt(sc::inputPoint(In::Vcf1In), 0.5f, true).has_value());
         CHECK(!sc::portAt(sc::outputPoint(Out::Vca), 0.5f, true));
+    }
+    {   // Phase 12c: movable blocks.
+        sc::Layout l;
+        CHECK(l.isDefault());
+        for (std::size_t i = 0; i < sc::blocks().size(); ++i) CHECK(l.fits(i, l.position(i)));   // default is valid
+        const auto vcf2 = *sc::findBlock("VCF 2"), lfo2 = *sc::findBlock("LFO 2"), vcf1 = *sc::findBlock("VCF 1");
+        // A free spot: moves (snapped to the grid); ports and internal targets follow.
+        CHECK(l.move(lfo2, {110.4f, 55.6f}));
+        CHECK(l.position(lfo2).x == 110 && l.position(lfo2).y == 56 && !l.isDefault());
+        CHECK(sc::outputPoint(Out::Lfo2, l).x == 120 && sc::outputPoint(Out::Lfo2, l).y == 56 + 4.5f);
+        CHECK(sc::outputPoint(Out::Lfo2).x == 106);                                    // default unchanged
+        CHECK(sc::portAt(sc::outputPoint(Out::Lfo2, l), 0.5f, false, l).has_value());
+        CHECK(!sc::portAt(sc::outputPoint(Out::Lfo2), 0.5f, false, l));
+        CHECK(sc::blockAt({112, 60}, l) == lfo2 && !sc::blockAt({112, 60}));
+        const auto t0 = sc::internalTarget(vcf2), t1 = (l.move(vcf2, {88, 21}), sc::internalTarget(vcf2, l));
+        CHECK(t1.y == t0.y + 1 && t1.x == t0.x);
+        // Refused: on another block (with its name), off the canvas, into the legend; nothing changes.
+        const auto before = l.serialize();
+        CHECK(!l.move(vcf2, sc::defaultLayout().position(vcf1)));
+        CHECK(!l.move(vcf2, {79, 20}));                          // overlaps VCF 1 (ends at 80)
+        CHECK(l.fits(vcf2, {80, 20}));                           // touching is allowed
+        CHECK(!l.move(vcf2, {130, 20}) && !l.move(vcf2, {88, 1}) && !l.move(vcf2, {88, 60}));
+        CHECK(l.serialize() == before);
+        // Text form: every block; round trip; partial text keeps the others at their default place.
+        CHECK(sc::Layout().serialize().starts_with("lfo1:2,6;keys:2,23;vco1:26,4;"));
+        const auto back = sc::Layout::parse(before);
+        CHECK(back && *back == l);
+        const auto partial = sc::Layout::parse(" lfo2 : 110 , 56 ");
+        CHECK(partial && partial->position(lfo2).x == 110 && partial->position(vcf1).x == 68);
+        CHECK(sc::Layout::parse("") && sc::Layout::parse("")->isDefault());
+        CHECK(!sc::Layout::parse("xyz:1,2"));                   // unknown block
+        CHECK(!sc::Layout::parse("lfo2:110"));                  // malformed
+        CHECK(!sc::Layout::parse("lfo2:-5,3"));                 // negative
+        CHECK(!sc::Layout::parse("vcf2:68,20"));                // on top of VCF 1
+        CHECK(sc::blockId("ENV 2") == "env2");
+        // Keyboard: the block that holds a port.
+        CHECK(sc::blockOf({true, static_cast<int>(In::Vcf2Cutoff)}) == vcf2);
+        CHECK(sc::blockOf({false, static_cast<int>(Out::Lfo2)}) == lfo2);
     }
     CHECK(sc::portLabel("vcf1.cutoff") == "cutoff" && sc::portLabel("keys.gate") == "gate");
     CHECK(sc::blocks()[0].unit() == lmw::ui::theme::Unit::Lfo);

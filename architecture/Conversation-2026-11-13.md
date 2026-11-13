@@ -23,3 +23,10 @@ Done: ui/CableEdit.h holds the drag rules (grab / drop -> list of connect ops, a
 
 ## Crosscheck after Phase 12
 User: "do the crosscheck first". Checked Spec S6.6–S6.9, S7.2/S7.4, S9.2 against the code (drag rules shared by both tabs, menus, keyboard, focus on tab open, contrast pairs incl. unit colours, 51 parameters, 20 ctests). Code matched; doc fixes only: S7.4 still listed the tabs as Synth | Effects | Notes, Plan Phase 12 still said "open for the user", T-S2.1b test count 19 -> 20. Handover.md is a dated snapshot and left as is.
+
+CI: run 43441390442 for 49394f8 (Phase 12b) and run 43441968495 for 61ea6eb (crosscheck): all four platforms green.
+
+## Phase 12c: movable symbols
+User: "pushed; could we make the symbols movable in the schema view ?" ("schema view" = the Schematic tab).
+Asked: saved where -> "State and patch files"; overlap -> not allowed; keyboard/reset -> Shift+arrows, Reset button.
+Done: Schematic.h Layout (positions, fits/move with grid and no overlap, serialize/parse by block id; all geometry functions take a layout); PatchFile [schematic] section (only when moved; unknown sections now skipped); processor property schematicLayout, written to / read from patch files; SchematicView drags symbols by the body with a landing outline (dashed = refused), Shift+arrows, hand/crosshair pointer; editor: Reset layout per tab, "Reset schematic layout" in the port menu, layout picked up after a patch load. Tests T-S6.7f (unit) and T-S6.7g (Xvfb), 20/20. Removed the half-unit margin idea: the default drawing has symbols half a unit apart, so touching is allowed.

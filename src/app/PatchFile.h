@@ -13,6 +13,9 @@
 //   [cables]
 //   vco1.fm = env2.out@0.5+lfo1.out   # input = pins (output[@level], summed), as in the saved state (PatchText.h, S5.14)
 //
+//   [schematic]                   # only when the Schematic tab's blocks were moved (Spec S6.7)
+//   lfo2 = 110, 56                # block = x, y (canvas units)
+//
 //   [notes]
 //   Free text, kept exactly - also lines that start with '#' or '['. Always the last section.
 //
@@ -39,6 +42,7 @@ struct Patch {
     std::string name;
     std::vector<Parameter> parameters;
     std::vector<std::pair<std::string, std::string>> cables;   // input, output
+    std::vector<std::pair<std::string, std::string>> schematic; // block id, "x, y" (Spec S6.7); empty = default
     std::string notes;
 };
 
@@ -76,16 +80,20 @@ inline std::string write(const Patch& p) {
     }
     out += "\n[cables]\n";
     for (const auto& [in, from] : p.cables) out += in + " = " + from + "\n";
+    if (!p.schematic.empty()) {
+        out += "\n[schematic]\n";
+        for (const auto& [id, at] : p.schematic) out += id + " = " + at + "\n";
+    }
     out += "\n[notes]\n" + p.notes;
     return out;
 }
 
-// Reads what it understands; returns nothing if this is not an LMW-Synth patch (no "format" line
+// Reads what it understands (sections it does not know are skipped); returns nothing if this is not an LMW-Synth patch (no "format" line
 // before the first section) or its format is newer than this program.
 inline std::optional<Patch> parse(std::string_view text) {
     Patch p;
     p.format = 0;
-    enum class Section { Header, Parameters, Cables } section = Section::Header;
+    enum class Section { Header, Parameters, Cables, Schematic, Unknown } section = Section::Header;
     while (!text.empty()) {
         const auto nl = text.find('\n');
         std::string_view raw = text.substr(0, nl);
@@ -98,6 +106,8 @@ inline std::optional<Patch> parse(std::string_view text) {
         }
         if (line == "[parameters]") { section = Section::Parameters; continue; }
         if (line == "[cables]")     { section = Section::Cables; continue; }
+        if (line == "[schematic]")  { section = Section::Schematic; continue; }
+        if (line.size() >= 2 && line.front() == '[' && line.back() == ']') { section = Section::Unknown; continue; }   // newer: skipped
         std::string_view content = line;
         if (const auto hash = content.find('#'); hash != std::string_view::npos) content = content.substr(0, hash);
         const auto eq = content.find('=');
@@ -117,6 +127,8 @@ inline std::optional<Patch> parse(std::string_view text) {
                 break;
             case Section::Parameters: p.parameters.push_back({key, value, {}}); break;
             case Section::Cables:     p.cables.emplace_back(key, value); break;
+            case Section::Schematic:  p.schematic.emplace_back(key, value); break;
+            case Section::Unknown:    break;
         }
     }
     if (p.format < 1 || p.format > currentFormat) return std::nullopt;

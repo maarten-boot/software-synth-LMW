@@ -9,6 +9,9 @@
 // other kind to add a cable; drag a plugged input's newest cable to another input to move it, anywhere else
 // to remove it; Escape cancels. Keyboard: arrows move a port cursor; Enter, Shift+F10 or right-click opens
 // the cable menu; Delete removes all cables of an input. Other keys (QWERTY notes) pass on.
+// Phase 12c: drag a symbol by its body to move it (snapped to the grid; an outline shows where it lands,
+// dashed where it does not fit, and the drop is then refused); Shift+arrows move the block that holds the
+// port cursor. The layout is kept in the saved state and patch files (Layout::serialize()).
 #pragma once
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "dsp/Patch.h"
@@ -30,10 +33,19 @@ public:
 
     // Called by the editor's timer: repaints when a fader shown in the schematic changed.
     void poll();
+    // Also picks up a layout changed elsewhere (patch file loaded, state restored).
+    void poll(const juce::String& layoutText);
+
+    // Phase 12c: the block positions as text (empty = default); onLayoutChange is called after a move or reset.
+    void setLayout(const juce::String& text);
+    void resetLayout();
+    bool isLayoutDefault() const { return layout.isDefault(); }
+    std::function<void(const juce::String&)> onLayoutChange;
 
     void setPalette(const lmw::ui::theme::Palette& p) { palette = p; repaint(); }
     void paint(juce::Graphics&) override;
     void mouseDown(const juce::MouseEvent&) override;
+    void mouseMove(const juce::MouseEvent&) override;
     void mouseDrag(const juce::MouseEvent&) override;
     void mouseUp(const juce::MouseEvent&) override;
     bool keyPressed(const juce::KeyPress&) override;
@@ -47,7 +59,8 @@ private:
     juce::Point<float> toScreen(lmw::ui::schematic::Point p) const noexcept;
     lmw::ui::schematic::Point toCanvas(juce::Point<float> p) const noexcept;
     juce::Rectangle<float> toScreen(const lmw::ui::schematic::Rect& r) const noexcept;
-    void drawBlock(juce::Graphics&, const lmw::ui::schematic::Block&) const;
+    void drawBlock(juce::Graphics&, std::size_t block) const;
+    void layoutChanged();
     lmw::ui::schematic::Point portPoint(PortRef p) const;
     std::optional<PortRef> portUnder(juce::Point<float> where, std::optional<bool> wantInput = std::nullopt) const;
     void openMenu(PortRef p);
@@ -66,6 +79,13 @@ private:
     std::optional<PortRef> target;                   // compatible port under the mouse
     juce::Point<float> loose;                        // loose end, component coordinates
     std::size_t cursor = 0;                          // keyboard port cursor (index into portOrder())
+
+    // Moving blocks (Phase 12c).
+    lmw::ui::schematic::Layout layout;
+    juce::String shownLayout;                        // the text `layout` came from / was saved as
+    struct BlockMove { std::size_t block; lmw::ui::schematic::Point from, to; };
+    std::optional<BlockMove> moving;                 // block being dragged
+    bool moved = false;                              // dragged far enough to count as a move
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SchematicView)
 };

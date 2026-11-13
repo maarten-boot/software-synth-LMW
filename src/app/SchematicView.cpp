@@ -51,9 +51,10 @@ juce::Rectangle<float> SchematicView::toScreen(const sc::Rect& r) const noexcept
     return {a.x, a.y, r.w * scale(), r.h * scale()};
 }
 
-void SchematicView::drawBlock(juce::Graphics& g, const sc::Block& b) const {
+void SchematicView::drawBlock(juce::Graphics& g, std::size_t index) const {
+    const auto& b = sc::blocks()[index];
     const float s = scale();
-    const auto r = toScreen(b.box);
+    const auto r = toScreen(layout.box(index));
     const auto fill = colour(palette.unitColour(b.unit()));
     const float stroke = std::max(1.0f, 0.18f * s);
     const juce::FontOptions label(1.7f * s);
@@ -62,7 +63,7 @@ void SchematicView::drawBlock(juce::Graphics& g, const sc::Block& b) const {
         if (b.outputs.size() < 2) return;
         g.setFont(label);
         for (std::size_t k = 0; k < b.outputs.size(); ++k) {
-            const auto p = toScreen(sc::outputPoint(b.outputs[k]));
+            const auto p = toScreen(sc::outputPoint(b.outputs[k], layout));
             g.drawText(text(sc::portLabel(lmw::dsp::outputNames[static_cast<std::size_t>(b.outputs[k])])),
                        juce::Rectangle<float>(labelLeft, p.y - s, p.x - labelLeft - 0.6f * s, 2 * s), juce::Justification::centredRight, false);
         }
@@ -79,7 +80,7 @@ void SchematicView::drawBlock(juce::Graphics& g, const sc::Block& b) const {
         if (b.inputs.size() > 1) {                    // input labels inside the left edge
             g.setFont(label);
             for (auto in : b.inputs) {
-                const auto p = toScreen(sc::inputPoint(in));
+                const auto p = toScreen(sc::inputPoint(in, layout));
                 g.drawText(text(sc::portLabel(lmw::dsp::inputNames[static_cast<std::size_t>(in)])),
                            juce::Rectangle<float>(p.x + 0.7f * s, p.y - s, r.getWidth() * 0.6f, 2 * s), juce::Justification::centredLeft, false);
             }
@@ -160,7 +161,7 @@ void SchematicView::paint(juce::Graphics& g) {
     // blocks, black with a white edge (as on the Synth tab), so a cable crossing a block is seen to cross it.
     const float lineW = std::max(1.0f, 0.2f * s);
     auto pathOf = [&](const sc::Connection& c) {
-        const auto cv = sc::curve(sc::outputPoint(c.from), sc::inputPoint(c.to));
+        const auto cv = sc::curve(sc::outputPoint(c.from, layout), sc::inputPoint(c.to, layout));
         juce::Path path;
         path.startNewSubPath(toScreen(cv[0]));
         path.cubicTo(toScreen(cv[1]), toScreen(cv[2]), toScreen(cv[3]));
@@ -179,9 +180,9 @@ void SchematicView::paint(juce::Graphics& g) {
     const auto internal = sc::internalLinks(shownKeys[0], shownKeys[1]);
     const float dot[] = {0.25f * s, 0.55f * s};
     for (const auto& l : internal) {
-        const auto* b = sc::findBlock(l.block);
-        if (b == nullptr) continue;
-        const auto cv = sc::internalCurve(sc::outputPoint(l.from), sc::internalTarget(*b));
+        const auto bi = sc::findBlock(l.block);
+        if (!bi) continue;
+        const auto cv = sc::internalCurve(sc::outputPoint(l.from, layout), sc::internalTarget(*bi, layout));
         juce::Path path, dotted;
         path.startNewSubPath(toScreen(cv[0]));
         path.cubicTo(toScreen(cv[1]), toScreen(cv[2]), toScreen(cv[3]));
@@ -193,7 +194,7 @@ void SchematicView::paint(juce::Graphics& g) {
         head.addTriangle(tip.x, tip.y, tip.x - 0.6f * s, tip.y + 1.3f * s, tip.x + 0.6f * s, tip.y + 1.3f * s);
         g.fillPath(head);
     }
-    for (const auto& b : sc::blocks()) drawBlock(g, b);
+    for (std::size_t i = 0; i < sc::blocks().size(); ++i) drawBlock(g, i);
     for (const auto& c : conns) {
         if (c.normalled) continue;
         if (grab && grab->moving() && static_cast<int>(c.to) == grab->detachedInput
@@ -208,9 +209,9 @@ void SchematicView::paint(juce::Graphics& g) {
     // Internal link labels just below the arrowheads, on white.
     g.setFont(juce::FontOptions(1.5f * s, juce::Font::italic));
     for (const auto& l : internal) {
-        const auto* b = sc::findBlock(l.block);
-        if (b == nullptr) continue;
-        const auto tip = toScreen(sc::internalTarget(*b));
+        const auto bi = sc::findBlock(l.block);
+        if (!bi) continue;
+        const auto tip = toScreen(sc::internalTarget(*bi, layout));
         const auto t = juce::String::fromUTF8(l.label.c_str());
         const float w = juce::GlyphArrangement::getStringWidth(juce::Font(juce::FontOptions(1.5f * s, juce::Font::italic)), t) + 0.6f * s;
         const juce::Rectangle<float> box(tip.x + 0.9f * s, tip.y + 0.2f * s, w, 1.9f * s);
@@ -223,9 +224,9 @@ void SchematicView::paint(juce::Graphics& g) {
     // Block names above the blocks, last, on a white backing so a cable passing behind keeps them readable.
     const juce::Font nameFont(juce::FontOptions(2.1f * s, juce::Font::bold));
     g.setFont(nameFont);
-    for (const auto& b : sc::blocks()) {
-        const auto r = toScreen(b.box);
-        const auto name = text(b.name);
+    for (std::size_t i = 0; i < sc::blocks().size(); ++i) {
+        const auto r = toScreen(layout.box(i));
+        const auto name = text(sc::blocks()[i].name);
         const float w = juce::GlyphArrangement::getStringWidth(nameFont, name) + 0.8f * s;
         const juce::Rectangle<float> area(r.getCentreX() - w / 2, r.getY() - sc::nameHeight * s, w, sc::nameHeight * s - 0.3f * s);
         g.setColour(kBg);
@@ -238,7 +239,7 @@ void SchematicView::paint(juce::Graphics& g) {
     const float pr = 0.55f * s;
     for (int i = 0; i < lmw::dsp::numInputs; ++i) {
         const auto in = static_cast<lmw::dsp::In>(i);
-        const auto c = toScreen(sc::inputPoint(in));
+        const auto c = toScreen(sc::inputPoint(in, layout));
         g.setColour(kBg);
         g.fillEllipse(c.x - pr, c.y - pr, 2 * pr, 2 * pr);
         g.setColour(kFg);
@@ -246,7 +247,7 @@ void SchematicView::paint(juce::Graphics& g) {
         if (p.isPatched(in)) g.fillEllipse(c.x - pr * 0.45f, c.y - pr * 0.45f, pr * 0.9f, pr * 0.9f);   // cable plugged in
     }
     for (int o = 0; o < lmw::dsp::numOutputs; ++o) {
-        const auto c = toScreen(sc::outputPoint(static_cast<lmw::dsp::Out>(o)));
+        const auto c = toScreen(sc::outputPoint(static_cast<lmw::dsp::Out>(o), layout));
         g.fillEllipse(c.x - pr, c.y - pr, 2 * pr, 2 * pr);
     }
 
@@ -268,6 +269,20 @@ void SchematicView::paint(juce::Graphics& g) {
             g.drawEllipse(t.x - pr * 1.9f, t.y - pr * 1.9f, pr * 3.8f, pr * 3.8f, std::max(1.5f, 0.2f * s));
         }
     }
+    if (moving && moved) {                                 // Phase 12c: where the dragged block would land
+        const auto& b = sc::blocks()[moving->block];
+        const auto r = toScreen(sc::Rect{moving->to.x, moving->to.y, b.box.w, b.box.h});
+        g.setColour(kFg);
+        if (layout.fits(moving->block, moving->to)) {
+            g.drawRect(r, std::max(2.0f, 0.25f * s));
+        } else {                                           // does not fit: dashed outline, the drop is refused
+            juce::Path outline, dashedOutline;
+            outline.addRectangle(r);
+            const float d[] = {0.6f * s, 0.5f * s};
+            juce::PathStrokeType(std::max(2.0f, 0.25f * s)).createDashedStroke(dashedOutline, outline, d, 2);
+            g.fillPath(dashedOutline);
+        }
+    }
     if (hasKeyboardFocus(false)) {
         const auto order = sc::portOrder();
         if (cursor < order.size()) {
@@ -281,7 +296,7 @@ void SchematicView::paint(juce::Graphics& g) {
     g.setFont(juce::FontOptions(1.6f * s));
     for (const auto& c : conns) {
         if (c.normalled || c.level >= 1.0f) continue;
-        const auto m = toScreen(sc::curveAt(sc::curve(sc::outputPoint(c.from), sc::inputPoint(c.to)), 0.5f));
+        const auto m = toScreen(sc::curveAt(sc::curve(sc::outputPoint(c.from, layout), sc::inputPoint(c.to, layout)), 0.5f));
         const auto box = juce::Rectangle<float>(4.2f * s, 2.0f * s).withCentre(m);
         g.setColour(kBg);
         g.fillRect(box);
@@ -320,7 +335,7 @@ juce::String SchematicView::getTooltip() {
     if (grab) return {};
     const auto c = toCanvas(getMouseXYRelative().toFloat());
     const auto& p = patch();
-    if (const auto hit = sc::portAt(c, 1.2f)) {
+    if (const auto hit = sc::portAt(c, 1.2f, std::nullopt, layout)) {
         if (!hit->input)
             return juce::String::fromUTF8(sc::describeOutput(p, static_cast<lmw::dsp::Out>(hit->index)).c_str())
                  + "\nDrag to an input to patch a cable. Right-click or Enter: cable menu.";
@@ -330,26 +345,26 @@ juce::String SchematicView::getTooltip() {
              + (p.isPatched(in) ? "; drag the newest cable away to remove it. Delete: remove all." : ".")
              + "\nRight-click or Enter: cable menu.";
     }
-    for (const auto& b : sc::blocks())
-        if (b.box.contains(c)) {
+    if (const auto bi = sc::blockAt(c, layout)) {
+            const auto& b = sc::blocks()[*bi];
             juce::String t = text(b.name);
             for (auto in : b.inputs) t += "\n" + juce::String::fromUTF8(sc::describeInput(p, in).c_str());
             for (auto out : b.outputs) t += "\n" + juce::String::fromUTF8(sc::describeOutput(p, out).c_str());
             if (const auto note = sc::blockNote(b.name, shownKeys[0], shownKeys[1]); !note.empty())
                 t += "\n" + juce::String::fromUTF8(note.c_str());
-            return t;
-        }
+            return t + "\nDrag the symbol to move it (keyboard: Shift+arrows on one of its ports).";
+    }
     return {};
 }
 
 // ---- Phase 12b: editing, same rules as the Synth tab (ui/CableEdit.h) ----
 
 sc::Point SchematicView::portPoint(PortRef p) const {
-    return p.output ? sc::outputPoint(static_cast<lmw::dsp::Out>(p.index)) : sc::inputPoint(static_cast<lmw::dsp::In>(p.index));
+    return p.output ? sc::outputPoint(static_cast<lmw::dsp::Out>(p.index), layout) : sc::inputPoint(static_cast<lmw::dsp::In>(p.index), layout);
 }
 
 std::optional<SchematicView::PortRef> SchematicView::portUnder(juce::Point<float> where, std::optional<bool> wantInput) const {
-    if (const auto h = sc::portAt(toCanvas(where), 1.6f, wantInput)) return PortRef{!h->input, h->index};
+    if (const auto h = sc::portAt(toCanvas(where), 1.6f, wantInput, layout)) return PortRef{!h->input, h->index};
     return std::nullopt;
 }
 
@@ -360,6 +375,8 @@ void SchematicView::openMenu(PortRef p) {
 }
 
 void SchematicView::cancelDrag() {
+    moving.reset();
+    moved = false;
     grab.reset();
     target.reset();
     pressed.reset();
@@ -369,7 +386,13 @@ void SchematicView::cancelDrag() {
 void SchematicView::mouseDown(const juce::MouseEvent& e) {
     grabKeyboardFocus();
     pressed = portUnder(e.position);
-    if (!pressed) return;
+    moving.reset();
+    moved = false;
+    if (!pressed) {                                        // Phase 12c: on a symbol's body: move it
+        if (const auto bi = sc::blockAt(toCanvas(e.position), layout); bi && !e.mods.isPopupMenu())
+            moving = BlockMove{*bi, layout.position(*bi), layout.position(*bi)};
+        return;
+    }
     const auto order = sc::portOrder();
     for (std::size_t k = 0; k < order.size(); ++k)
         if (order[k].input == !pressed->output && order[k].index == pressed->index) cursor = k;
@@ -381,6 +404,15 @@ void SchematicView::mouseDown(const juce::MouseEvent& e) {
 }
 
 void SchematicView::mouseDrag(const juce::MouseEvent& e) {
+    if (moving) {
+        if (!moved && e.getDistanceFromDragStart() < 3) return;
+        moved = true;
+        const float s = scale();
+        moving->to = {std::round(moving->from.x + static_cast<float>(e.getDistanceFromDragStartX()) / s),
+                      std::round(moving->from.y + static_cast<float>(e.getDistanceFromDragStartY()) / s)};
+        repaint();
+        return;
+    }
     if (!pressed || e.mods.isPopupMenu()) return;
     if (!grab) {
         if (e.getDistanceFromDragStart() < 3) return;
@@ -393,6 +425,15 @@ void SchematicView::mouseDrag(const juce::MouseEvent& e) {
 
 void SchematicView::mouseUp(const juce::MouseEvent& e) {
     pressed.reset();
+    if (moving) {
+        const auto m = *moving;
+        const bool wasMoved = moved;
+        moving.reset();
+        moved = false;
+        if (wasMoved && layout.move(m.block, m.to)) layoutChanged();
+        repaint();
+        return;
+    }
     if (!grab) return;
     target = portUnder(e.position, grab->fixed.output);
     const auto g = *grab;
@@ -406,12 +447,23 @@ void SchematicView::mouseUp(const juce::MouseEvent& e) {
 
 bool SchematicView::keyPressed(const juce::KeyPress& key) {
     const int code = key.getKeyCode();
-    if (code == juce::KeyPress::escapeKey && grab) { cancelDrag(); return true; }
+    if (code == juce::KeyPress::escapeKey && (grab || moving)) { cancelDrag(); return true; }
     const auto mods = key.getModifiers();
     if (mods.isCommandDown() || mods.isCtrlDown() || mods.isAltDown()) return false;
     const auto order = sc::portOrder();
     if (order.empty()) return false;
     cursor = std::min(cursor, order.size() - 1);
+    if (mods.isShiftDown() && (code == juce::KeyPress::leftKey || code == juce::KeyPress::rightKey
+                               || code == juce::KeyPress::upKey || code == juce::KeyPress::downKey)) {
+        // Phase 12c: Shift+arrow moves the block that holds the port cursor one grid step (if it fits).
+        const auto bi = sc::blockOf(order[cursor]);
+        auto at = layout.position(bi);
+        at.x += code == juce::KeyPress::leftKey ? -1.0f : code == juce::KeyPress::rightKey ? 1.0f : 0.0f;
+        at.y += code == juce::KeyPress::upKey ? -1.0f : code == juce::KeyPress::downKey ? 1.0f : 0.0f;
+        if (layout.move(bi, at)) layoutChanged();
+        repaint();
+        return true;
+    }
     if (code == juce::KeyPress::rightKey || code == juce::KeyPress::downKey) {
         cursor = (cursor + 1) % order.size();
         repaint();
@@ -433,4 +485,35 @@ bool SchematicView::keyPressed(const juce::KeyPress& key) {
         return true;
     }
     return false;                                          // QWERTY note keys: handled by the editor
+}
+
+// ---- Phase 12c: movable blocks ----
+
+void SchematicView::setLayout(const juce::String& text) {
+    shownLayout = text;
+    layout = sc::Layout::parse(text.toStdString()).value_or(sc::Layout());
+    repaint();
+}
+
+void SchematicView::poll(const juce::String& layoutText) {
+    poll();
+    if (layoutText != shownLayout && !moving) setLayout(layoutText);   // e.g. a patch file was loaded
+}
+
+void SchematicView::resetLayout() {
+    layout = sc::Layout();
+    layoutChanged();
+    repaint();
+}
+
+void SchematicView::layoutChanged() {
+    shownLayout = layout.isDefault() ? juce::String() : juce::String(layout.serialize());
+    if (onLayoutChange) onLayoutChange(shownLayout);
+}
+
+void SchematicView::mouseMove(const juce::MouseEvent& e) {
+    const auto c = toCanvas(e.position);
+    if (portUnder(e.position)) setMouseCursor(juce::MouseCursor::CrosshairCursor);
+    else if (sc::blockAt(c, layout)) setMouseCursor(juce::MouseCursor::DraggingHandCursor);
+    else setMouseCursor(juce::MouseCursor::NormalCursor);
 }
