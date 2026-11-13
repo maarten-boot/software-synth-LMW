@@ -62,6 +62,7 @@ if(LMW_BUILD_PLUGIN)
         src/app/PluginProcessor.cpp
         src/app/PluginEditor.cpp
         src/app/MatrixView.cpp
+        src/app/SchematicView.cpp
         src/app/StandaloneApp.cpp
         src/app/NinePService.cpp
         src/ninep/Transport.cpp)
@@ -119,6 +120,9 @@ if(LMW_BUILD_TESTS)
     add_executable(test_modules tests/test_modules.cpp)
     target_link_libraries(test_modules PRIVATE lmw_dsp)
     add_test(NAME T-S5-modules COMMAND test_modules)
+    add_executable(test_schematic tests/test_schematic.cpp)
+    target_link_libraries(test_schematic PRIVATE lmw_ui_core)
+    add_test(NAME T-S6.7-schematic COMMAND test_schematic)
     add_executable(test_rack tests/test_rack.cpp)
     target_link_libraries(test_rack PRIVATE lmw_ui_core)
     add_test(NAME T-S6.5-layout COMMAND test_rack)

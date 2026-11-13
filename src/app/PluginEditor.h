@@ -9,6 +9,7 @@
 #include <vector>
 #include "PluginProcessor.h"
 #include "MatrixView.h"
+#include "SchematicView.h"
 #include "ui/RackLayout.h"
 #include "ui/Config.h"
 #include "ui/Theme.h"
@@ -237,9 +238,10 @@ private:
     lmw::ui::theme::Palette palette;
     juce::ComboBox contrastBox;
     // Spec S7: tabs, patch name, notes and patch files.
-    juce::TextButton panelTab{"Synth"}, effectsTab{"Effects"}, matrixTab{"Matrix"}, notesTab{"Notes"}, loadButton{"Load..."},
+    juce::TextButton panelTab{"Synth"}, effectsTab{"Effects"}, matrixTab{"Matrix"}, schematicTab{"Schematic"}, notesTab{"Notes"}, loadButton{"Load..."},
         saveButton{"Save..."};
     std::unique_ptr<MatrixView> matrix;                   // Spec S6.8: the Matrix tab
+    std::unique_ptr<SchematicView> schematic;             // Spec S6.7: the Schematic tab
     // Spec S7.4: the Effects tab — fixed panels (not part of the rack), one so far: REVERB.
     std::vector<Group> effectGroups;
     std::vector<juce::Component*> effectComponents;        // shown only on the Effects tab

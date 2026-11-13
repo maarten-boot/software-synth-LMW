@@ -295,10 +295,10 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
         }
     }
 
-    // Spec S7: Synth / Effects / Notes tabs, patch name, Load / Save.
+    // Spec S7, S6.7, S6.8: Synth / Effects / Matrix / Schematic / Notes tabs, patch name, Load / Save.
     ++openEditors;
     juce::LookAndFeel::setDefaultLookAndFeel(&defaultLook.get());
-    for (auto* tab : {&panelTab, &effectsTab, &matrixTab, &notesTab}) {
+    for (auto* tab : {&panelTab, &effectsTab, &matrixTab, &schematicTab, &notesTab}) {
         tab->setRadioGroupId(1);
         tab->setClickingTogglesState(true);
         addAndMakeVisible(*tab);
@@ -312,6 +312,8 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     effectsTab.onClick = [this] { if (effectsTab.getToggleState()) showTab(1); };
     matrixTab.onClick = [this] { if (matrixTab.getToggleState()) showTab(2); };
     notesTab.onClick = [this] { if (notesTab.getToggleState()) showTab(3); };
+    schematicTab.setTooltip("The instrument as a schematic, with every connection");
+    schematicTab.onClick = [this] { if (schematicTab.getToggleState()) showTab(4); };
     patchLabel.setTooltip("Patch name (the file name when saved or loaded)");
     // Spec S10.5: where the 9P server of this instance listens.
     titleLabel.setTooltip(processor.ninepEndpoints().empty()
@@ -340,6 +342,9 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
                                           [this](int in, int out, float level) { return connect(in, out, level); });
     matrix->setPalette(palette);                            // unit colours in the headers (S6.9)
     addChildComponent(*matrix);
+    schematic = std::make_unique<SchematicView>([this]() -> const lmw::dsp::Patch& { return processor.currentPatch(); });
+    schematic->setPalette(palette);
+    addChildComponent(*schematic);
     for (auto* c : effectComponents) c->setVisible(false);  // Effects tab not shown at start
 
     resetLayoutButton.setTooltip("Put all module panels back in their original places");
@@ -689,7 +694,7 @@ void LMWSynthEditor::paint(juce::Graphics& g) {
             g.drawHorizontalLine(b.getY() + m.header - 3, static_cast<float>(b.getX()), static_cast<float>(b.getRight()));
         }
     }
-    if (currentTab != 0) return;                             // Effects / Notes tab: no rack panel frames
+    if (currentTab != 0) return;                             // other tabs: no rack panel frames
     for (std::size_t i = 0; i < groups.size(); ++i) {        // titles are drawn by the PanelHeaders
         const auto& b = groups[i].bounds;
         g.drawRect(b, static_cast<int>(i) == draggedPanel ? 3 : 1);
@@ -737,6 +742,7 @@ void LMWSynthEditor::resized() {
     panelTab.setBounds(title.removeFromLeft(tabW).reduced(0, 2));
     effectsTab.setBounds(title.removeFromLeft(tabW + (m.colW >= 80 ? 10 : 8)).reduced(0, 2));
     matrixTab.setBounds(title.removeFromLeft(tabW).reduced(0, 2));
+    schematicTab.setBounds(title.removeFromLeft(tabW + (m.colW >= 80 ? 22 : 18)).reduced(0, 2));
     notesTab.setBounds(title.removeFromLeft(tabW).reduced(0, 2));
     title.removeFromLeft(m.gap);
     patchLabel.setBounds(title);
@@ -747,6 +753,7 @@ void LMWSynthEditor::resized() {
     area.removeFromBottom(m.gap);
     notesEditor.setBounds(area);                             // Notes tab: the area of the panels
     if (matrix) { matrix->setBounds(area); matrix->setFontSize(m.labelFont - 2.0f); }   // Matrix tab
+    if (schematic) schematic->setBounds(area);              // Schematic tab
     {                                                        // Effects tab: panels side by side, first row
         auto row = area.withHeight(m.rowH);
         for (auto& grp : effectGroups) {
@@ -1097,6 +1104,7 @@ void LMWSynthEditor::applyContrast() {
     saveConfig();
     keyboard.repaint();
     if (matrix) matrix->setPalette(palette);
+    if (schematic) schematic->setPalette(palette);
     for (auto& h : headers) h->repaint();
     repaint();
 }
@@ -1229,16 +1237,17 @@ int LMWSynthEditor::titleTextWidth() const { return m.colW >= 80 ? 120 : 96; }
 
 void LMWSynthEditor::showTab(int tab) {
     currentTab = tab;
-    const juce::Component* alwaysShown[] = {&titleLabel, &panelTab, &effectsTab, &matrixTab, &notesTab, &patchLabel, &loadButton,
+    const juce::Component* alwaysShown[] = {&titleLabel, &panelTab, &effectsTab, &matrixTab, &schematicTab, &notesTab, &patchLabel, &loadButton,
                                             &saveButton, &contrastBox, &resetLayoutButton, &compactButton, &keyboard};
     for (auto* child : getChildren()) {
-        if (child == &notesEditor || child == matrix.get()
+        if (child == &notesEditor || child == matrix.get() || child == schematic.get()
             || std::find(std::begin(alwaysShown), std::end(alwaysShown), child) != std::end(alwaysShown))
             continue;
         const bool effect = std::find(effectComponents.begin(), effectComponents.end(), child) != effectComponents.end();
         child->setVisible(effect ? tab == 1 : tab == 0);   // hidden controls take no Tab focus either
     }
     matrix->setVisible(tab == 2);
+    schematic->setVisible(tab == 4);
     notesEditor.setVisible(tab == 3);
     resetLayoutButton.setEnabled(true);
     if (tab == 2) matrix->grabKeyboardFocus();
