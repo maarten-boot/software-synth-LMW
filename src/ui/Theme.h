@@ -15,8 +15,8 @@ inline constexpr Rgb foreground{0, 0, 0};
 inline constexpr Rgb keyDownDesign{0x76, 0x76, 0x76};   // 4.54:1 on white, 4.63:1 on black
 
 // Spec S6.9: unit colours — light tints behind black title text, one per unit type. Units without a
-// colour (MIXER, KEYS, OUT, effects) keep white.
-enum class Unit : std::uint8_t { None, Vco, Noise, Vcf, Vca, Env, Lfo, Count };
+// colour (KEYS, OUT, effects) keep white.
+enum class Unit : std::uint8_t { None, Vco, Noise, Vcf, Vca, Env, Lfo, Mix, Count };
 inline constexpr std::array<Rgb, static_cast<std::size_t>(Unit::Count)> unitDesign{{
     {255, 255, 255},   // None: white
     {255, 179, 179},   // VCO: red
@@ -25,6 +25,7 @@ inline constexpr std::array<Rgb, static_cast<std::size_t>(Unit::Count)> unitDesi
     {184, 235, 184},   // VCA: green
     {179, 209, 255},   // ENV (ADSR): blue
     {217, 179, 255},   // LFO: purple
+    {240, 240, 240},   // MIXER: very light grey (user 2026-11-14)
 }};
 
 // Unit type of a panel title ("VCO 1", "ENV 2 → VCF") or a port's module name ("vcf1", "lfo2.out"):
@@ -43,6 +44,7 @@ inline constexpr Unit unitOf(std::string_view name) noexcept {
     if (k == "vca") return Unit::Vca;
     if (k == "env") return Unit::Env;
     if (k == "lfo") return Unit::Lfo;
+    if (k == "mix") return Unit::Mix;
     return Unit::None;
 }
 

@@ -51,7 +51,7 @@ int main() {
         CHECK(unitOf("VCO 1") == Unit::Vco && unitOf("vco3.out") == Unit::Vco && unitOf("NOISE") == Unit::Noise
               && unitOf("noise.rand") == Unit::Noise && unitOf("VCF 2") == Unit::Vcf && unitOf("vcf1") == Unit::Vcf
               && unitOf("VCA") == Unit::Vca && unitOf("ENV 1 \xe2\x86\x92 VCA") == Unit::Env && unitOf("env2.gate") == Unit::Env
-              && unitOf("LFO 2") == Unit::Lfo && unitOf("MIXER") == Unit::None && unitOf("keys") == Unit::None
+              && unitOf("LFO 2") == Unit::Lfo && unitOf("MIXER") == Unit::Mix && unitOf("mix.in1") == Unit::Mix && unitOf("keys") == Unit::None
               && unitOf("OUT") == Unit::None && unitOf("REVERB") == Unit::None && unitOf("") == Unit::None);
         for (double r : {4.5, 7.0}) {
             const auto p = lmw::ui::theme::palette(r);
