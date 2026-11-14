@@ -27,3 +27,6 @@ Added as section 4b of the VST3 host test (T-S9.2-host): the host's main thread 
 
 **User:** pushed, wait for CI
 CI: run 43624788268 for b4dce95: Ubuntu 24.04, Fedora 45, Windows green (host test 5.7-5.9 s); macOS red — T-S10.12 found a real bug: "busy" came after 14.53 s, since NinePService counted 50 ms waits instead of measuring time (macOS timer coalescing makes each wait longer). Fixed with a steady_clock deadline; Linux now 5.01 s, 20/20 pass.
+
+**User:** pushed, wait for CI
+CI: run 43627686113 for 41a7655 (busy-timeout fix): all four platforms green; host test 5.65-5.86 s everywhere, macOS included. T-S10.12 marked pass.
