@@ -74,3 +74,4 @@ Changes between releases.
 - 2026-11-13: Phase 12c: movable schematic symbols (drag by the body, grid, no overlap, Shift+arrows, Reset layout), saved in the state and in patch files ([schematic]); patch files now skip unknown sections.
 - 2026-11-13: Schematic names inside the symbols; keyboard in scientific pitch (C4 = MIDI 60), QWERTY a = C4 (was MIDI 72), on-screen range A0–C8.
 - 2026-11-14: MIXER unit colour: a very light grey (#F0F0F0) on its title bar, matrix labels and schematic symbol (S6.9).
+- 2026-11-14: Phase 8c: LMW-Synth tested in Ardour 9.9 (built from source in a container): scripts/test-ardour.sh (headless: load, sound, parameters, session save/reload) and a manual GUI run (9P writes, cables, notes, editor, save/quit/reopen). No plugin changes needed.
