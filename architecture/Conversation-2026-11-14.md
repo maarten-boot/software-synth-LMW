@@ -24,3 +24,6 @@ CI: run 43620626820 for 6c3ae4d (crosscheck after Phase 8c): all four platforms 
 
 **User:** add the T-S10.12 busy test
 Added as section 4b of the VST3 host test (T-S9.2-host): the host's main thread is the plugin's message thread, so without a running message loop a 9P write to params/vcf1/cutoff answers "busy" — Linux: after 5.08 s, cutoff unchanged; after runDispatchLoopUntil the late change is applied (1234 Hz); with the loop running a write takes 1 ms. Host test 5.7 s now (was under 1 s). 20/20 ctests pass.
+
+**User:** pushed, wait for CI
+CI: run 43624788268 for b4dce95: Ubuntu 24.04, Fedora 45, Windows green (host test 5.7-5.9 s); macOS red — T-S10.12 found a real bug: "busy" came after 14.53 s, since NinePService counted 50 ms waits instead of measuring time (macOS timer coalescing makes each wait longer). Fixed with a steady_clock deadline; Linux now 5.01 s, 20/20 pass.

@@ -2,6 +2,7 @@
 #include "NinePService.h"
 #include "PluginProcessor.h"
 #include "dsp/PatchText.h"
+#include <chrono>
 #include <cstdio>
 
 namespace {
@@ -40,9 +41,12 @@ std::optional<std::string> NinePService::onMessageThread(std::function<std::stri
         }
         pending->done.signal();
     });
-    // Spec S10.12: give up after 5 s ("busy"); a change may then still be applied later.
-    for (int waited = 0; !pending->done.wait(50); waited += 50)
-        if (shared->stopping || waited >= 5000) return std::nullopt;
+    // Spec S10.12: give up after 5 s ("busy"); a change may then still be applied later. Measured by
+    // the clock, not by counting waits: a wait(50) can take much longer (macOS timer coalescing: 14.5 s
+    // for "5 s" in CI, T-S10.12).
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    while (!pending->done.wait(50))
+        if (shared->stopping || std::chrono::steady_clock::now() >= deadline) return std::nullopt;
     if (!pending->ran) return std::nullopt;
     return pending->result;
 }
