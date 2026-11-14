@@ -89,10 +89,12 @@ if(LMW_BUILD_PLUGIN)
 
     # T-S9.2-host (Phase 8): loads the built VST3 through JUCE's VST3 hosting, as a DAW would.
     juce_add_console_app(LMWHostTest PRODUCT_NAME "LMWHostTest")
-    target_sources(LMWHostTest PRIVATE tests/host/HostTest.cpp)
+    target_sources(LMWHostTest PRIVATE tests/host/HostTest.cpp src/ninep/Transport.cpp)   # 9P client (T-S10.12)
+    target_include_directories(LMWHostTest PRIVATE src)
+    # JUCE_MODAL_LOOPS_PERMITTED: the test runs the message loop for a while (runDispatchLoopUntil, T-S10.12).
     target_compile_definitions(LMWHostTest PRIVATE
-        JUCE_PLUGINHOST_VST3=1 JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
-    target_link_libraries(LMWHostTest PRIVATE
+        JUCE_PLUGINHOST_VST3=1 JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_MODAL_LOOPS_PERMITTED=1)
+    target_link_libraries(LMWHostTest PRIVATE $<$<PLATFORM_ID:Windows>:ws2_32>
         juce::juce_audio_processors juce::juce_audio_utils
         juce::juce_recommended_config_flags juce::juce_recommended_warning_flags)
     add_dependencies(LMWHostTest LMWSynth_VST3)

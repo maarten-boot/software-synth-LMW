@@ -75,3 +75,4 @@ Changes between releases.
 - 2026-11-13: Schematic names inside the symbols; keyboard in scientific pitch (C4 = MIDI 60), QWERTY a = C4 (was MIDI 72), on-screen range A0–C8.
 - 2026-11-14: MIXER unit colour: a very light grey (#F0F0F0) on its title bar, matrix labels and schematic symbol (S6.9).
 - 2026-11-14: Phase 8c: LMW-Synth tested in Ardour 9.9 (built from source in a container): scripts/test-ardour.sh (headless: load, sound, parameters, session save/reload) and a manual GUI run (9P writes, cables, notes, editor, save/quit/reopen). No plugin changes needed.
+- 2026-11-14: T-S10.12 automated: the VST3 host test now checks that a 9P change answers "busy" after 5 s while the message thread is blocked, is applied late once the message loop runs, and is applied at once while it runs (host test links the 9P client; JUCE_MODAL_LOOPS_PERMITTED for the host test only).

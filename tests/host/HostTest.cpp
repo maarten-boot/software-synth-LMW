@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // T-S9.2-host: loads the built LMW-Synth.vst3 through JUCE's VST3 hosting (as a DAW would) and
 // checks scan, playing, state save/restore into a second instance, the reverb (S7.4), two instances with distinct 9P
-// endpoints (S10.5), and - when a display exists - the editor. Usage: LMWHostTest <path to .vst3>
+// endpoints (S10.5), 9P changes answering "busy" while the message thread is blocked (S10.12), and - when a
+// display exists - the editor. Usage: LMWHostTest <path to .vst3>
+#include "ninep/Transport.h"
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_events/juce_events.h>
 #include <cmath>
@@ -13,11 +15,16 @@
 #else
  #include <unistd.h>
 #endif
+#include <atomic>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
+#include <initializer_list>
 #include <map>
 #include <string>
+#include <thread>
+#include <vector>
 
 namespace {
 int failures = 0;
@@ -61,30 +68,71 @@ juce::AudioProcessorParameter* findParameter(juce::AudioPluginInstance& p, const
     return nullptr;
 }
 
-int countOurSockets() {
+// The 9P sockets of this process's plugin instances: <socket directory>/<pid>-<n>.sock (NinePService).
+std::vector<std::string> ourSockets() {
     namespace fs = std::filesystem;
-#if JUCE_WINDOWS
-    const char* base = std::getenv("TEMP");
-    const fs::path dir = fs::path(base != nullptr ? base : "C:\\Windows\\Temp") / "lmw-synth";
-#elif JUCE_MAC
-    const char* base = std::getenv("TMPDIR");
-    const fs::path dir = fs::path(base != nullptr ? base : "/tmp") / "lmw-synth";
-#else
-    const char* runtime = std::getenv("XDG_RUNTIME_DIR");
-    const fs::path dir = runtime != nullptr && *runtime != '\0' ? fs::path(runtime) / "lmw-synth"
-                                                                : fs::path("/tmp") / ("lmw-synth-" + std::to_string(getuid()));
-#endif
 #if JUCE_WINDOWS
     const auto pid = static_cast<unsigned long>(GetCurrentProcessId());
 #else
     const auto pid = static_cast<long>(getpid());
 #endif
-    const auto prefix = std::to_string(pid) + "-";    // NinePService: <pid>-<n>.sock
-    int n = 0;
+    const auto prefix = std::to_string(pid) + "-";
+    std::vector<std::string> found;
     std::error_code ec;
-    for (fs::directory_iterator it(dir, ec), end; !ec && it != end; it.increment(ec))
-        if (it->path().filename().string().rfind(prefix, 0) == 0) ++n;
-    return n;
+    for (fs::directory_iterator it(fs::path(lmw::ninep::socketDirectory()), ec), end; !ec && it != end; it.increment(ec))
+        if (it->path().filename().string().rfind(prefix, 0) == 0) found.push_back(it->path().string());
+    return found;
+}
+int countOurSockets() { return static_cast<int>(ourSockets().size()); }
+
+// A minimal 9P2000 client for one file (as tools/lmw9p.cpp): connect, attach, walk, open.
+struct File9P {
+    lmw::ninep::Client c;
+    lmw::ninep::Writer w;
+    std::uint16_t tag = 1;
+    std::string error;                                 // the last Rerror text, or "no answer"
+
+    bool ok(const std::vector<std::uint8_t>& rep, std::uint8_t want) {
+        if (rep.size() >= 7 && rep[4] == want) return true;
+        error = "no answer";
+        if (rep.size() >= 7 && rep[4] == lmw::ninep::Rerror) {
+            lmw::ninep::Reader r(rep.data(), rep.size());
+            r.u32(); r.u8(); r.u16();
+            error = r.str();
+        }
+        return false;
+    }
+    bool open(const std::string& socket, std::initializer_list<const char*> path, std::uint8_t mode) {
+        using namespace lmw::ninep;
+        if (!c.connectUnix(socket)) { error = "cannot connect"; return false; }
+        if (!ok(c.call(w.start(Tversion, noTag).u32(8192).str("9P2000").take()), Rversion)) return false;
+        if (!ok(c.call(w.start(Tattach, tag++).u32(0).u32(noFid).str("host-test").str("").take()), Rattach)) return false;
+        w.start(Twalk, tag++).u32(0).u32(1).u16(static_cast<std::uint16_t>(path.size()));
+        for (const char* p : path) w.str(p);
+        if (!ok(c.call(w.take()), Rwalk)) return false;
+        return ok(c.call(w.start(Topen, tag++).u32(1).u8(mode).take()), Ropen);   // fails after a partial walk
+    }
+    // "" when written, else the error ("busy", ...). The server may wait 5 s before answering.
+    std::string write(const std::string& text) {
+        using namespace lmw::ninep;
+        w.start(Twrite, tag++).u32(1).u64(0).u32(static_cast<std::uint32_t>(text.size())).bytes(text.data(), text.size());
+        return ok(c.call(w.take(), 20000), Rwrite) ? std::string() : error;
+    }
+    std::string read() {
+        using namespace lmw::ninep;
+        auto rep = c.call(w.start(Tread, tag++).u32(1).u64(0).u32(4096).take());
+        if (!ok(rep, Rread)) return "error: " + error;
+        Reader r(rep.data(), rep.size());
+        r.u32(); r.u8(); r.u16();
+        return std::string(r.bytes(r.u32()));
+    }
+};
+
+// Reads params/vcf1/cutoff over 9P (a read needs no message thread).
+double cutoffOver9P(const std::string& socket) {
+    File9P f;
+    if (!f.open(socket, {"params", "vcf1", "cutoff"}, 0)) return -1;
+    return std::atof(f.read().c_str());
 }
 } // namespace
 
@@ -215,6 +263,46 @@ int main(int argc, char* argv[]) {
     const int sockets = countOurSockets();
     std::printf("9P sockets of this process: %d\n", sockets);
     CHECK(sockets == 2);
+
+    // 4b. Spec S10.12: a 9P change waits for the message thread, here this main thread. While it runs no
+    //     message loop, a write answers "busy" after 5 s; the queued change is applied once the loop runs.
+    //     With the loop running, a write is applied at once.
+    if (const auto socks = ourSockets(); !socks.empty()) {
+        const std::string sock = socks.front();
+        using clock = std::chrono::steady_clock;
+        auto writeCutoff = [&](const char* value, std::string& reply, double& seconds, std::atomic<bool>& done) {
+            return std::thread([&reply, &seconds, &done, sock, value] {
+                const auto t0 = clock::now();
+                File9P f;
+                reply = f.open(sock, {"params", "vcf1", "cutoff"}, 1) ? f.write(value) : "open: " + f.error;
+                seconds = std::chrono::duration<double>(clock::now() - t0).count();
+                done = true;
+            });
+        };
+        const double before = cutoffOver9P(sock);
+        std::string reply;
+        double seconds = 0;
+        std::atomic<bool> done{false};
+        writeCutoff("1234", reply, seconds, done).join();              // message loop not running
+        std::printf("9P write with the message thread blocked: \"%s\" after %.2f s (cutoff stays %g)\n",
+                    reply.c_str(), seconds, cutoffOver9P(sock));
+        CHECK(reply == "busy");
+        CHECK(seconds >= 4.9 && seconds < 10.0);
+        CHECK(std::fabs(cutoffOver9P(sock) - before) < 1e-9);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(300);
+        std::printf("after the message loop ran: cutoff %g (the late change)\n", cutoffOver9P(sock));
+        CHECK(std::fabs(cutoffOver9P(sock) - 1234.0) < 0.5);
+
+        done = false;
+        auto t = writeCutoff("2000", reply, seconds, done);
+        for (int i = 0; i < 500 && !done; ++i) juce::MessageManager::getInstance()->runDispatchLoopUntil(10);
+        t.join();
+        std::printf("9P write with the message loop running: \"%s\" after %.3f s, cutoff %g\n",
+                    reply.c_str(), seconds, cutoffOver9P(sock));
+        CHECK(reply.empty());
+        CHECK(seconds < 2.0);
+        CHECK(std::fabs(cutoffOver9P(sock) - 2000.0) < 0.5);
+    }
 
     // 5. Editor, only with a display (CI runners on Linux have none).
     if (juce::Desktop::getInstance().getDisplays().displays.size() > 0 && a->hasEditor()) {

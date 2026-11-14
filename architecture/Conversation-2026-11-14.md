@@ -18,3 +18,9 @@ CI: run 43604676546 for 28244a3 (Phase 8c, Ardour test): all four platforms gree
 
 **User:** do the crosscheck first
 Crosscheck after Phase 8c and the MIXER grey: code matches the Spec (Theme.h tints = S6.9 hex values, unitOf "mix", 5 s "busy" timeout S10.12, test-ardour 48 kHz). Docs fixed: Plan 11b still called MIXER white; Plan 12 status began "in progress" though done; T-S9.2 status "partly" → "pass on Linux". Handover.md is a dated snapshot, left as is.
+
+**User:** pushed, wait for CI
+CI: run 43620626820 for 6c3ae4d (crosscheck after Phase 8c): all four platforms green.
+
+**User:** add the T-S10.12 busy test
+Added as section 4b of the VST3 host test (T-S9.2-host): the host's main thread is the plugin's message thread, so without a running message loop a 9P write to params/vcf1/cutoff answers "busy" — Linux: after 5.08 s, cutoff unchanged; after runDispatchLoopUntil the late change is applied (1234 Hz); with the loop running a write takes 1 ms. Host test 5.7 s now (was under 1 s). 20/20 ctests pass.
