@@ -13,3 +13,8 @@ Phase 8c, Ardour 9.9 (built from source, tag commit 9500a47c, in an Ubuntu 24.04
 - Headless (scripts/test-ardour.sh, new): scan, load, note C4 −18.3 dBFS, silence before/after, Volume and Cutoff from Ardour reach the plugin, session save/reload restores them, plays after reload: 15/15 PASS.
 - Found: headless, 9P writes answer "busy". JUCE's VST3 wrapper takes the host's IRunLoop as message thread; Ardour runs it on the GLib main loop, which only the GUI iterates. Expected (S10.12), noted in the Spec.
 - GUI on Xvfb (Dummy backend shown via hide-dummy-backend = 0): 9P writes in ~4 ms, editor opens from the mixer strip with the 9P changes visible, save + quit with the editor open, restart: cutoff, cable @0.25 and notes restored.
+
+CI: run 43604676546 for 28244a3 (Phase 8c, Ardour test): all four platforms green.
+
+**User:** do the crosscheck first
+Crosscheck after Phase 8c and the MIXER grey: code matches the Spec (Theme.h tints = S6.9 hex values, unitOf "mix", 5 s "busy" timeout S10.12, test-ardour 48 kHz). Docs fixed: Plan 11b still called MIXER white; Plan 12 status began "in progress" though done; T-S9.2 status "partly" → "pass on Linux". Handover.md is a dated snapshot, left as is.
