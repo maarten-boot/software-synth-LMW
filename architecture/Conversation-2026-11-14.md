@@ -33,3 +33,6 @@ CI: run 43627686113 for 41a7655 (busy-timeout fix): all four platforms green; ho
 
 **User:** pushed, wait for CI
 CI: run 43636586851 for 508b838 (docs): all four platforms green.
+
+**User:** pushed, wait for CI; commit the docs
+CI: run 43642295884 for cda2383 (log only): all four platforms green.
