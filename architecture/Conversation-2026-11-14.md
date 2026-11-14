@@ -30,3 +30,6 @@ CI: run 43624788268 for b4dce95: Ubuntu 24.04, Fedora 45, Windows green (host te
 
 **User:** pushed, wait for CI
 CI: run 43627686113 for 41a7655 (busy-timeout fix): all four platforms green; host test 5.65-5.86 s everywhere, macOS included. T-S10.12 marked pass.
+
+**User:** pushed, wait for CI
+CI: run 43636586851 for 508b838 (docs): all four platforms green.
