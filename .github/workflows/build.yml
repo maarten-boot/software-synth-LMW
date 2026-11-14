@@ -1,5 +1,10 @@
 name: build
-on: [push, pull_request]
+# Pushes and pull requests that only change the architecture docs (Spec, Plan, Tests, logs) skip CI.
+on:
+  push:
+    paths-ignore: ['architecture/**']
+  pull_request:
+    paths-ignore: ['architecture/**']
 jobs:
   build:
     name: build (${{ matrix.name }})
