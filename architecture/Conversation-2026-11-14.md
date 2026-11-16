@@ -39,3 +39,7 @@ CI: run 43642295884 for cda2383 (log only): all four platforms green.
 
 **User:** add the paths-ignore for architecture docs
 CI workflow: push and pull_request get `paths-ignore: ['architecture/**']`; a push touching anything else still builds everything. Spec S9.3 notes it.
+
+**User:** pushed, wait for CI
+CI: run 43647348844 for 3cf4e8f (paths-ignore): all four platforms green.
+CI: run 43647059005 for 53f2e1a (log only): all four platforms green.
