@@ -17,8 +17,9 @@ SchematicView::SchematicView(std::function<const lmw::dsp::Patch&()> p, std::fun
     setWantsKeyboardFocus(true);
     setTitle("Schematic");
     setDescription("The instrument as a schematic: dashed lines are normalled connections, solid lines cables, "
-                   "dotted arrows internal links set by a fader. Drag between ports to patch a cable; arrow keys "
-                   "move a port cursor, Enter opens its cable menu, Delete removes an input's cables.");
+                   "dotted arrows internal links set by a fader. Drag between ports to patch a cable; Left/Right "
+                   "move a port cursor, Up/Down jump to the next or previous symbol, Enter opens its cable menu, "
+                   "Delete removes an input's cables.");
 }
 
 void SchematicView::poll() {
@@ -489,13 +490,13 @@ bool SchematicView::keyPressed(const juce::KeyPress& key) {
         repaint();
         return true;
     }
-    if (code == juce::KeyPress::rightKey || code == juce::KeyPress::downKey) {
-        cursor = (cursor + 1) % order.size();
+    if (code == juce::KeyPress::rightKey || code == juce::KeyPress::leftKey) {      // next / previous port
+        cursor = code == juce::KeyPress::rightKey ? (cursor + 1) % order.size() : (cursor + order.size() - 1) % order.size();
         repaint();
         return true;
     }
-    if (code == juce::KeyPress::leftKey || code == juce::KeyPress::upKey) {
-        cursor = (cursor + order.size() - 1) % order.size();
+    if (code == juce::KeyPress::downKey || code == juce::KeyPress::upKey) {        // first port of next / previous symbol
+        cursor = sc::blockJump(cursor, code == juce::KeyPress::downKey ? 1 : -1);
         repaint();
         return true;
     }

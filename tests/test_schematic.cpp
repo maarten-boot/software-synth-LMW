@@ -204,6 +204,27 @@ int main() {
     CHECK(sc::portLabel("vcf1.cutoff") == "cutoff" && sc::portLabel("keys.gate") == "gate");
     CHECK(sc::blocks()[0].unit() == lmw::ui::theme::Unit::Lfo);
 
+    {   // Up/Down jump between symbols (user 2026-11-16): the first port of the next / previous block, wrapping.
+        const auto order = sc::portOrder();
+        const auto nb = sc::blocks().size();
+        std::size_t k = 0, visited = 0;
+        do {
+            const auto next = sc::blockJump(k, 1);
+            CHECK(sc::blockOf(order[next]) == (sc::blockOf(order[k]) + 1) % nb);
+            CHECK(next == 0 || sc::blockOf(order[next - 1]) != sc::blockOf(order[next]));   // first port of its block
+            CHECK(sc::blockOf(order[sc::blockJump(next, -1)]) == sc::blockOf(order[k]));   // back again
+            k = next;
+            ++visited;
+        } while (k != 0 && visited <= nb);
+        CHECK(visited == nb);                                        // every symbol once, then back to the first
+        // From the middle of a block (MIX in 3) Down goes to VCF 1 in, Up to the first port of NOISE.
+        std::size_t mix3 = 0;
+        for (std::size_t j = 0; j < order.size(); ++j)
+            if (order[j].input && order[j].index == static_cast<int>(lmw::dsp::In::MixIn3)) mix3 = j;
+        CHECK(order[sc::blockJump(mix3, 1)].input && order[sc::blockJump(mix3, 1)].index == static_cast<int>(lmw::dsp::In::Vcf1In));
+        CHECK(sc::blocks()[sc::blockOf(order[sc::blockJump(mix3, -1)])].name == std::string("NOISE"));
+        CHECK(sc::blockJump(0, -1) == order.size() - 1);             // LFO 1 up: LFO 2 (one port, the last)
+    }
     std::printf(failures == 0 ? "test_schematic: all passed\n" : "test_schematic: %d failure(s)\n", failures);
     return failures == 0 ? 0 : 1;
 }

@@ -368,4 +368,18 @@ inline std::vector<PortHit> portOrder() {
     return v;
 }
 
+// Up/Down on the Schematic tab (user 2026-11-16): from port `cursor` (index into portOrder()) to the
+// first port of the next (dir > 0) or previous (dir < 0) block in the same order, wrapping around.
+inline std::size_t blockJump(std::size_t cursor, int dir) {
+    const auto order = portOrder();
+    if (order.empty()) return 0;
+    cursor = std::min(cursor, order.size() - 1);
+    const auto nb = blocks().size();
+    const auto here = blockOf(order[cursor]);
+    const auto target = dir > 0 ? (here + 1) % nb : (here + nb - 1) % nb;
+    for (std::size_t k = 0; k < order.size(); ++k)
+        if (blockOf(order[k]) == target) return k;
+    return cursor;
+}
+
 } // namespace lmw::ui::schematic
