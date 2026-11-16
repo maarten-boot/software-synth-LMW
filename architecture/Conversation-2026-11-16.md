@@ -11,3 +11,6 @@ Committed the 2026-11-14 CI log lines and this file (docs only: CI skipped by pa
 
 **User:** make up/down jump to the next symbol
 Done: Up/Down go to the first port of the next / previous symbol in the port order (wrapping); Left/Right still step port by port; Shift+arrows still move the symbol. Helper sc::blockJump (Schematic.h) with a test (T-S6.7i); tab description text updated. Ubuntu 24.04 container: 20/20 ctests. Xvfb: Down ×6 from LFO 1 → MIX in1; Right ×2, Down → VCF 1 in.
+
+**User:** pushed, wait for CI
+CI: run 43848898225 for d476da2 (schematic Up/Down): all four platforms green.
