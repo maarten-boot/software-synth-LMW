@@ -10,3 +10,9 @@ Done 1-4; 5 left for later (asked as optional):
 
 **User:** pushed, wait for CI
 CI: run 44173477240 for 07e4331: Ubuntu 24.04, Fedora 45, Windows green; macOS red — host test 372 of 375 exact: a 0 written to vco1-3.tune read back "-2e-07" (JUCE snaps to the 0.01 step as -7 + 0.01*700, which is not exactly 0 in macOS float arithmetic; only significant-digit roundings of the stored value were tried). Fix: shortestNumber also tries rounding to 0-9 decimals and keeps the shortest accepted text ("0"). Linux 375/375, 20/20 ctest; build/ rebuilt.
+
+**User:** pushed, wait for CI
+CI: run 44179881925 for c1dbb5d: all four platforms green; host test passes on macOS too (14.6 s), so /info and the exact float round trip pass everywhere.
+
+**User:** pushed, wait for CI
+CI: run 44179881925 for c1dbb5d: all four platforms green; host test passes on macOS too (14.6 s), so /info and the exact float round trip pass everywhere.
