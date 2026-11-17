@@ -7,3 +7,6 @@ Done 1-4; 5 left for later (asked as optional):
 - Signals: listeners register their socket path in fixed slots; the standalone's handler for SIGTERM/SIGINT/SIGHUP unlinks them (async-signal-safe) and a 100 ms timer quits normally (state saved: cutoff 777 survived a SIGTERM restart); a second signal kills.
 - build/ rebuilt natively (20/20 ctest); a patch with [schematic] loads.
 - Kukel checks: ../kukel/bin/kukel (2026-10-16) cannot parse today's lmwctl.kkl (lmwctl.kkl:110:5: expected expression, found '}'); built a current kukel from ../kukel source into the scratchpad (Kukel repo untouched). Then `lmwctl params` equals `-fake params` (51 lines), `info vcf1.cutoff` as expected, `set vcf1.cutoff 800 , get vcf1.cutoff` prints 800.0 — the same as the fake does.
+
+**User:** pushed, wait for CI
+CI: run 44173477240 for 07e4331: Ubuntu 24.04, Fedora 45, Windows green; macOS red — host test 372 of 375 exact: a 0 written to vco1-3.tune read back "-2e-07" (JUCE snaps to the 0.01 step as -7 + 0.01*700, which is not exactly 0 in macOS float arithmetic; only significant-digit roundings of the stored value were tried). Fix: shortestNumber also tries rounding to 0-9 decimals and keeps the shortest accepted text ("0"). Linux 375/375, 20/20 ctest; build/ rebuilt.

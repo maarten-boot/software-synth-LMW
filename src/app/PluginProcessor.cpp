@@ -378,22 +378,34 @@ juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter() { return new LMWSynthPr
 // ---- Spec S7: patch files; S10.10: the same value texts are used over 9P ----
 
 namespace {
-// The shortest decimal (1-9 significant digits) for which accept(that number as a float) holds, written
-// without an exponent ("800", "0.01"; very large or small numbers keep it); empty if none is accepted.
+// The shortest decimal for which accept(that number as a float) holds, written without an exponent
+// ("800", "0.01"; very large or small numbers keep it); empty if none is accepted. Tried: the value
+// rounded to 1-9 significant digits, and rounded to 0-9 decimals (so a value snapped to -2e-07 by float
+// arithmetic, as JUCE's step snapping does on macOS for a written 0, is still "0").
 template <typename Accept>
 std::string shortestNumber(float v, Accept accept) {
     char buf[48];
+    std::string best;
+    auto offer = [&](std::string text) {
+        if (text.find_first_not_of("-0.") == std::string::npos) text = "0";   // "-0", "-0.00": 0
+        if (best.empty() || text.size() < best.size()) best = text;
+    };
+    for (int decimals = 0; decimals <= 9; ++decimals) {
+        std::snprintf(buf, sizeof buf, "%.*f", decimals, static_cast<double>(v));
+        if (accept(static_cast<float>(std::strtod(buf, nullptr)))) { offer(buf); break; }
+    }
     for (int digits = 1; digits <= 9; ++digits) {
         std::snprintf(buf, sizeof buf, "%.*e", digits - 1, static_cast<double>(v));
         const double candidate = std::strtod(buf, nullptr);
         if (!accept(static_cast<float>(candidate))) continue;
         const char* e = std::strchr(buf, 'e');
         const int exponent = e != nullptr ? std::atoi(e + 1) : 0;
-        if (exponent < -6 || exponent > 15) return buf;
-        std::snprintf(buf, sizeof buf, "%.*f", std::max(0, digits - 1 - exponent), candidate);
-        return buf;
+        if (exponent >= -6 && exponent <= 15)
+            std::snprintf(buf, sizeof buf, "%.*f", std::max(0, digits - 1 - exponent), candidate);
+        offer(buf);
+        break;
     }
-    return {};
+    return best;
 }
 } // namespace
 
