@@ -16,3 +16,10 @@ CI: run 44179881925 for c1dbb5d: all four platforms green; host test passes on m
 
 **User:** pushed, wait for CI
 CI: run 44179881925 for c1dbb5d: all four platforms green; host test passes on macOS too (14.6 s), so /info and the exact float round trip pass everywhere.
+
+**User:** add /serial and /keys
+Done (item 5 of the Kukel request):
+- /serial: an atomic counter in the processor, bumped by every parameter listener call (any thread, lock-free), every cable request, and every change of the state ValueTree (notes, name, schematic, rack layout, restored state). Starts at 0. Notes do not change it.
+- /keys: "on <note> [velocity]" / "off <note>" lines; all checked first ("bad key line: <line>"); applied on the message thread through the keyboard state, so they sound and show on the on-screen keyboard.
+- Snags: the test helper could not open one-name paths and never clunked (/notes applies on clunk); after section 4d's writes the sound check needed defaults again (now an empty patch over 9P); and the 9P checks used the first socket in the directory, which on the native build was instance b's while the test renders instance a — now <pid>-1.sock.
+- Container 20/20, native build/ rebuilt 20/20; Xvfb: keys shown on the keyboard; Kukel `lmwctl changes` works against the synth.

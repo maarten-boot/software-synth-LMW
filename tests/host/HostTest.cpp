@@ -119,6 +119,11 @@ struct File9P {
         w.start(Twrite, tag++).u32(1).u64(0).u32(static_cast<std::uint32_t>(text.size())).bytes(text.data(), text.size());
         return ok(c.call(w.take(), 20000), Rwrite) ? std::string() : error;
     }
+    // Closes the file: "" or the error (files like /notes and /patch apply a write here).
+    std::string close() {
+        using namespace lmw::ninep;
+        return ok(c.call(w.start(Tclunk, tag++).u32(1).take(), 20000), Rclunk) ? std::string() : error;
+    }
     std::string read() {
         using namespace lmw::ninep;
         std::string out;
@@ -150,9 +155,11 @@ std::string write9P(const std::string& socket, const std::vector<std::string>& p
         std::vector<const char*> names;
         for (const auto& p : path) names.push_back(p.c_str());
         bool opened = false;
-        if (names.size() == 2) opened = f.open(socket, {names[0], names[1]}, 1);
+        if (names.size() == 1) opened = f.open(socket, {names[0]}, 1);
+        else if (names.size() == 2) opened = f.open(socket, {names[0], names[1]}, 1);
         else if (names.size() == 3) opened = f.open(socket, {names[0], names[1], names[2]}, 1);
         reply = opened ? f.write(text) : "open: " + f.error;
+        if (opened && reply.empty()) reply = f.close();
         done = true;
     });
     for (int i = 0; i < 1000 && !done; ++i) juce::MessageManager::getInstance()->runDispatchLoopUntil(5);
@@ -300,7 +307,11 @@ int main(int argc, char* argv[]) {
     //     message loop, a write answers "busy" after 5 s; the queued change is applied once the loop runs.
     //     With the loop running, a write is applied at once.
     if (const auto socks = ourSockets(); !socks.empty()) {
-        const std::string sock = socks.front();
+        // Instance a's socket (created first: <pid>-1.sock), so that sound checks render the instance written to.
+        std::string sock = socks.front();
+        for (const auto& candidate : socks)
+            if (candidate.size() > 7 && candidate.compare(candidate.size() - 7, 7, "-1.sock") == 0) sock = candidate;
+        CHECK(sock.size() > 7 && sock.compare(sock.size() - 7, 7, "-1.sock") == 0);
         using clock = std::chrono::steady_clock;
         auto writeCutoff = [&](const char* value, std::string& reply, double& seconds, std::atomic<bool>& done) {
             return std::thread([&reply, &seconds, &done, sock, value] {
@@ -392,6 +403,48 @@ int main(int argc, char* argv[]) {
         }
         std::printf("exact round trip: %d of %d float writes\n", exact, written);
         CHECK(written > 200 && exact == written);
+
+        // 4e. /serial goes up with every change (parameters, cables, notes); /keys plays notes (Spec S10.10).
+        auto serial = [&] { return std::strtoull(read9P(sock, {"serial"}).c_str(), nullptr, 10); };
+        const auto s0 = serial();
+        CHECK(read9P(sock, {"serial"}).back() == '\n');
+        CHECK(write9P(sock, {"params", "vcf1", "res"}, "0.25").empty());
+        const auto s1 = serial();
+        CHECK(write9P(sock, {"cables"}, "vcf1.cutoff=lfo2.out@0.5").empty());
+        const auto s2 = serial();
+        CHECK(write9P(sock, {"cables"}, "vcf1.cutoff=").empty());
+        CHECK(write9P(sock, {"notes"}, "serial test").empty());
+        const auto s3 = serial();
+        CHECK(serial() == s3);                                        // nothing changed: the same number
+        std::printf("/serial: %llu -> %llu (parameter) -> %llu (cable) -> %llu (cable, notes)\n",
+                    static_cast<unsigned long long>(s0), static_cast<unsigned long long>(s1),
+                    static_cast<unsigned long long>(s2), static_cast<unsigned long long>(s3));
+        CHECK(s1 > s0 && s2 > s1 && s3 > s2);
+
+        for (const char* bad : {"on 200", "on 60 128", "press 60", "off", "on 60 100 7", "off 60 100", "on -1"})
+            CHECK(write9P(sock, {"keys"}, bad) == std::string("bad key line: ") + bad);
+        // Defaults again after 4d: a patch without parameters sets every one to its default (S7.1).
+        CHECK(write9P(sock, {"patch"}, "format = 1\n[parameters]\n").empty());
+        a->releaseResources(); a->prepareToPlay(sampleRate, blockSize);
+        auto level = [&](int blocks) {
+            juce::AudioBuffer<float> buffer(2, blockSize);
+            double sum = 0;
+            for (int blk = 0; blk < blocks; ++blk) {
+                juce::MidiBuffer midi;
+                buffer.clear();
+                a->processBlock(buffer, midi);
+                for (int i = 0; i < blockSize; ++i) sum += double(buffer.getSample(0, i)) * buffer.getSample(0, i);
+            }
+            return std::sqrt(sum / (blocks * blockSize));
+        };
+        const double silent = level(20);
+        CHECK(write9P(sock, {"keys"}, "on 60 100\non 64\n").empty());
+        const double playing = level(40);
+        CHECK(write9P(sock, {"keys"}, "off 60\noff 64 \n").empty());
+        level(100);                                                   // release (Env 1 release 0.3 s)
+        const double released = level(20);
+        std::printf("/keys: rms %.6f before, %.4f with on 60 100 + on 64, %.6f after off\n", silent, playing, released);
+        CHECK(silent < 1e-6 && playing > 0.01 && released < 1e-4);
     }
 
     // 5. Editor, only with a display (CI runners on Linux have none).

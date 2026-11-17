@@ -4,6 +4,7 @@
 #include "dsp/PatchText.h"
 #include <chrono>
 #include <cstdio>
+#include <vector>
 
 namespace {
 std::string trimmed(std::string_view s) {
@@ -57,6 +58,49 @@ void NinePService::build() {
     auto& proc = *shared->processor;
 
     tree.file("source", [] { return std::string(sourceUrl) + "\n"; });
+
+    // /serial: a number that goes up with every change (Spec S10.10; Kukel polls it instead of /patch).
+    tree.file("serial", [this] {
+        const auto* p = shared->processor;
+        return std::to_string(p != nullptr ? p->changeCount() : 0) + "\n";
+    });
+
+    // /keys: "on <note> [velocity]" and "off <note>" lines, played like the on-screen keyboard (Spec
+    // S10.10). All lines are checked first; velocity 1-127 (default 100, 0 = off); notes 0-127.
+    tree.file("keys",
+        [] { return std::string(); },
+        [this](std::string_view text) -> std::string {
+            struct Key { bool on; int note; int velocity; };
+            std::vector<Key> keys;
+            while (!text.empty()) {
+                const auto nl = text.find('\n');
+                const auto line = trimmed(text.substr(0, nl));
+                text = nl == std::string_view::npos ? std::string_view{} : text.substr(nl + 1);
+                if (line.empty()) continue;
+                std::vector<std::string> words;
+                for (std::size_t at = 0; at < line.size();) {
+                    const auto start = line.find_first_not_of(" \t", at);
+                    if (start == std::string::npos) break;
+                    const auto end = line.find_first_of(" \t", start);
+                    words.push_back(line.substr(start, end == std::string::npos ? std::string::npos : end - start));
+                    at = end == std::string::npos ? line.size() : end;
+                }
+                auto number = [](const std::string& w, int lo, int hi) -> std::optional<int> {
+                    if (w.empty() || w.size() > 3 || w.find_first_not_of("0123456789") != std::string::npos) return std::nullopt;
+                    const int v = std::stoi(w);
+                    return v >= lo && v <= hi ? std::optional<int>(v) : std::nullopt;
+                };
+                const bool on = !words.empty() && words[0] == "on", off = !words.empty() && words[0] == "off";
+                const auto note = words.size() >= 2 ? number(words[1], 0, 127) : std::nullopt;
+                const auto velocity = words.size() == 3 ? number(words[2], 0, 127) : std::optional<int>(100);
+                if (!(on || off) || !note || !velocity || words.size() > (on ? 3u : 2u)) return "bad key line: " + line;
+                keys.push_back({on && *velocity > 0, *note, *velocity});
+            }
+            return onMessageThread([keys](LMWSynthProcessor& p) {
+                for (const auto& k : keys) p.playKey(k.on, k.note, k.velocity);
+                return std::string();
+            }).value_or("busy");
+        });
 
     // /info: every parameter described as JSON (Spec S10.10; for the Kukel GUI, 2026-11-17).
     tree.file("info", [info = proc.parameterInfo()] { return info; });

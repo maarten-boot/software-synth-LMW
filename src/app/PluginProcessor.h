@@ -9,6 +9,7 @@
 #include "dsp/SpscQueue.h"
 #include "dsp/MidiParse.h"
 #include <array>
+#include <atomic>
 #include <map>
 #include <memory>
 #include <optional>
@@ -59,7 +60,9 @@ inline constexpr const char* reverbWidth   = "reverb.width";
 }
 
 class LMWSynthProcessor final : public juce::AudioProcessor,
-                                private juce::MidiKeyboardState::Listener {
+                                private juce::MidiKeyboardState::Listener,
+                                private juce::AudioProcessorParameter::Listener,
+                                private juce::ValueTree::Listener {
 public:
     LMWSynthProcessor();
     ~LMWSynthProcessor() override;
@@ -106,6 +109,7 @@ public:
         if (!patchToAudio.push({input, from, level})) return false;
         guiPatch = next;
         ++patchSerial;
+        noteChange();
         return true;
     }
     // Message thread: replace all pins (restored state, patch files, 9P). False if the queue could
@@ -144,6 +148,16 @@ public:
     void setSchematicLayout(const juce::String& text) { apvts.state.setProperty(schematicProp, text, nullptr); }
     std::uint32_t patchFileVersion() const noexcept { return loadedPatches; }   // changes on every load
 
+    // Spec S10.10 /serial: goes up with every change to parameters, cables, patch name, notes, schematic
+    // (and the rest of the saved state). Any thread; lock-free.
+    std::uint64_t changeCount() const noexcept { return changeSerial.load(std::memory_order_relaxed); }
+    // Spec S10.10 /keys (message thread): plays or releases a note as the on-screen keyboard does
+    // (velocity 1-127; it shows on the keyboard too).
+    void playKey(bool on, int note, int velocity) {
+        if (on) keyboard.noteOn(1, note, static_cast<float>(velocity) / 127.0f);
+        else keyboard.noteOff(1, note, 0.0f);
+    }
+
     // Increases with every cable change, so the editor can redraw cables changed elsewhere.
     std::uint32_t patchVersion() const noexcept { return patchSerial; }
     // Message thread: the patch as last requested (mirror of the engine's patch) and the latest
@@ -169,6 +183,17 @@ private:
     // MidiKeyboardState::Listener — called on the message thread by on-screen / QWERTY keys.
     void handleNoteOn(juce::MidiKeyboardState*, int channel, int note, float velocity) override;
     void handleNoteOff(juce::MidiKeyboardState*, int channel, int note, float velocity) override;
+
+    // /serial: parameter changes (any thread, also the audio thread for host automation) and changes of
+    // the state tree (notes, name, schematic, restored state; message thread).
+    void noteChange() noexcept { changeSerial.fetch_add(1, std::memory_order_relaxed); }
+    void parameterValueChanged(int, float) override { noteChange(); }
+    void parameterGestureChanged(int, bool) override {}
+    void valueTreePropertyChanged(juce::ValueTree&, const juce::Identifier&) override { noteChange(); }
+    void valueTreeChildAdded(juce::ValueTree&, juce::ValueTree&) override { noteChange(); }
+    void valueTreeChildRemoved(juce::ValueTree&, juce::ValueTree&, int) override { noteChange(); }
+    void valueTreeRedirected(juce::ValueTree&) override { noteChange(); }
+    std::atomic<std::uint64_t> changeSerial{0};
 
     std::map<std::string, FloatInfo> floatInfo;   // filled by createLayout(); declared before apvts
     juce::AudioProcessorValueTreeState apvts;

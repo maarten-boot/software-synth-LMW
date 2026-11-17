@@ -129,6 +129,8 @@ LMWSynthProcessor::LMWSynthProcessor()
         raw.tune[n] = get(P::vcoTune[n]); raw.mixVco[n] = get(P::mixVco[n]);
     }
     keyboard.addListener(this);
+    for (auto* param : getParameters()) param->addListener(this);   // Spec S10.10 /serial
+    apvts.state.addListener(this);
 
     // Spec S10: 9P server — a Unix socket per instance, TCP when ninep_tcp is set in the config file.
     ninep = std::make_unique<NinePService>(*this);
@@ -139,6 +141,8 @@ LMWSynthProcessor::LMWSynthProcessor()
 
 LMWSynthProcessor::~LMWSynthProcessor() {
     ninep.reset();                                   // stops the 9P threads before anything else goes
+    apvts.state.removeListener(this);
+    for (auto* param : getParameters()) param->removeListener(this);
     keyboard.removeListener(this);
 }
 
