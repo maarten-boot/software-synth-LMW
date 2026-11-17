@@ -8,32 +8,45 @@
 #include "ui/Config.h"
 #include <algorithm>
 #include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <map>
 #include "PluginEditor.h"
 #include "ui/ParamText.h"
 
 using APVTS = juce::AudioProcessorValueTreeState;
 
-APVTS::ParameterLayout LMWSynthProcessor::createLayout() {
+APVTS::ParameterLayout LMWSynthProcessor::createLayout(std::map<std::string, FloatInfo>& info) {
     namespace P = lmw::param;
     namespace tx = lmw::ui::text;
     using Attr = juce::AudioParameterFloatAttributes;
     using Range = juce::NormalisableRange<float>;
-    auto time = [](float maxSec) { Range r(0.0f, maxSec); r.setSkewForCentre(maxSec / 10.0f); return r; };
-    auto logRange = [](float lo, float hi, float centre) { Range r(lo, hi); r.setSkewForCentre(centre); return r; };
-    auto attr = [](auto toText, auto fromText) {   // value text with units (Spec S6.1); no separate host label
-        return Attr()
-            .withStringFromValueFunction([toText](float v, int) { return juce::String(toText(v)); })
-            .withValueFromStringFunction([fromText](const juce::String& s) { return fromText(s.toStdString()); });
+    struct Skewed {                                  // a range and, when skewed, its centre (for /info)
+        Range range;
+        std::optional<float> centre;
+        Skewed(Range r, std::optional<float> c = std::nullopt) : range(r), centre(c) {}
     };
-    const auto seconds  = attr(tx::time, tx::parseTime);
-    const auto percent  = attr(tx::percent, tx::parsePercent);
-    const auto decibels = attr(tx::decibels, tx::parseDecibels);
-    const auto hertz    = attr(tx::hertz, tx::parseHertz);
-    const auto octaves  = attr(tx::octaves, tx::parseNumber);
-    const auto semis    = attr(tx::semitones, tx::parseNumber);
-    auto f = [](const char* id, const char* name, Range r, float def, const Attr& a) {
-        return std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{id, 1}, name, r, def, a);
+    auto skewed = [](float lo, float hi, float centre) { Range r(lo, hi); r.setSkewForCentre(centre); return Skewed(r, centre); };
+    auto time = [&](float maxSec) { return skewed(0.0f, maxSec, maxSec / 10.0f); };
+    auto logRange = skewed;
+    struct Text {                                    // value text with units (Spec S6.1); no separate host label
+        Attr attr;
+        const char* unit;                            // as /info reports it
+    };
+    auto attr = [](auto toText, auto fromText, const char* unit) {
+        return Text{Attr()
+            .withStringFromValueFunction([toText](float v, int) { return juce::String(toText(v)); })
+            .withValueFromStringFunction([fromText](const juce::String& s) { return fromText(s.toStdString()); }), unit};
+    };
+    const auto seconds  = attr(tx::time, tx::parseTime, "s");
+    const auto percent  = attr(tx::percent, tx::parsePercent, "%");
+    const auto decibels = attr(tx::decibels, tx::parseDecibels, "dB");
+    const auto hertz    = attr(tx::hertz, tx::parseHertz, "Hz");
+    const auto octaves  = attr(tx::octaves, tx::parseNumber, "oct");
+    const auto semis    = attr(tx::semitones, tx::parseNumber, "st");
+    auto f = [&info](const char* id, const char* name, Skewed r, float def, const Text& t) {
+        info[id] = FloatInfo{t.unit, def, r.centre};
+        return std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{id, 1}, name, r.range, def, t.attr);
     };
     auto envelope = [&](APVTS::ParameterLayout& l, const char* a, const char* d, const char* s, const char* r,
                         const char* name, float defA, float defD, float defS, float defR) {
@@ -96,7 +109,7 @@ APVTS::ParameterLayout LMWSynthProcessor::createLayout() {
 
 LMWSynthProcessor::LMWSynthProcessor()
     : AudioProcessor(BusesProperties().withOutput("Output", juce::AudioChannelSet::stereo(), true)),
-      apvts(*this, nullptr, "LMWSynth", createLayout()) {
+      apvts(*this, nullptr, "LMWSynth", createLayout(floatInfo)) {
     namespace P = lmw::param;
     auto get = [this](const char* id) { auto* p = apvts.getRawParameterValue(id); jassert(p != nullptr); return p; };
     raw.voices = get(P::voices); raw.mixNoise = get(P::mixNoise); raw.vcaInitial = get(P::vcaInitial);
@@ -364,15 +377,94 @@ juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter() { return new LMWSynthPr
 
 // ---- Spec S7: patch files; S10.10: the same value texts are used over 9P ----
 
+namespace {
+// The shortest decimal (1-9 significant digits) for which accept(that number as a float) holds, written
+// without an exponent ("800", "0.01"; very large or small numbers keep it); empty if none is accepted.
+template <typename Accept>
+std::string shortestNumber(float v, Accept accept) {
+    char buf[48];
+    for (int digits = 1; digits <= 9; ++digits) {
+        std::snprintf(buf, sizeof buf, "%.*e", digits - 1, static_cast<double>(v));
+        const double candidate = std::strtod(buf, nullptr);
+        if (!accept(static_cast<float>(candidate))) continue;
+        const char* e = std::strchr(buf, 'e');
+        const int exponent = e != nullptr ? std::atoi(e + 1) : 0;
+        if (exponent < -6 || exponent > 15) return buf;
+        std::snprintf(buf, sizeof buf, "%.*f", std::max(0, digits - 1 - exponent), candidate);
+        return buf;
+    }
+    return {};
+}
+} // namespace
+
 std::string LMWSynthProcessor::valueText(const juce::RangedAudioParameter& r) {
     if (auto* c = dynamic_cast<const juce::AudioParameterChoice*>(&r)) return c->getCurrentChoiceName().toStdString();
     if (auto* i = dynamic_cast<const juce::AudioParameterInt*>(&r)) return std::to_string(i->get());
     if (auto* f = dynamic_cast<const juce::AudioParameterFloat*>(&r)) {
-        char buf[40];
-        std::snprintf(buf, sizeof buf, "%.7g", static_cast<double>(f->get()));   // ~float precision: 1000 stays "1000"
-        return buf;
+        // The shortest text that, written back, stores this exact value: a write of 800 reads back "800",
+        // although the float kept is 800.0001 (it went through the 0-1 range; Kukel request 2026-11-17).
+        const float stored = f->get();
+        const auto& range = f->getNormalisableRange().getRange();
+        auto text = shortestNumber(stored, [&](float candidate) {   // in range, and stored as parseValue would
+            return candidate >= range.getStart() && candidate <= range.getEnd()
+                && f->convertFrom0to1(f->convertTo0to1(candidate)) == stored;
+        });
+        if (text.empty()) {
+            char buf[40];
+            std::snprintf(buf, sizeof buf, "%.7g", static_cast<double>(stored));
+            text = buf;
+        }
+        return text;
     }
     return {};
+}
+
+namespace {
+// JSON for /info. Floats as the shortest text that reads back as the same float, always with a decimal
+// point (20.0, 0.01); text with " and \ escaped.
+std::string jsonFloat(float v) {
+    std::string s = shortestNumber(v, [v](float candidate) { return candidate == v; });
+    if (s.find_first_of(".eEin") == std::string::npos) s += ".0";
+    return s;
+}
+std::string jsonText(const juce::String& text) {
+    std::string out = "\"";
+    for (char c : text.toStdString()) {
+        if (c == '"' || c == '\\') out += '\\';
+        out += c;
+    }
+    return out + "\"";
+}
+} // namespace
+
+std::string LMWSynthProcessor::parameterInfo() const {
+    std::string out = "[\n";
+    bool first = true;
+    for (auto* param : getParameters()) {
+        auto* r = dynamic_cast<juce::RangedAudioParameter*>(param);
+        if (r == nullptr) continue;
+        std::string o = "{\"id\": " + jsonText(r->paramID) + ", \"name\": " + jsonText(r->name);
+        const float def = r->convertFrom0to1(r->getDefaultValue());
+        if (auto* c = dynamic_cast<juce::AudioParameterChoice*>(r)) {
+            o += ", \"kind\": \"choice\", \"choices\": [";
+            for (int i = 0; i < c->choices.size(); ++i) o += (i > 0 ? ", " : "") + jsonText(c->choices[i]);
+            o += "], \"default\": " + jsonText(c->choices[juce::roundToInt(def)]);
+        } else if (auto* n = dynamic_cast<juce::AudioParameterInt*>(r)) {
+            o += ", \"kind\": \"int\", \"min\": " + std::to_string(n->getRange().getStart())
+               + ", \"max\": " + std::to_string(n->getRange().getEnd()) + ", \"default\": " + std::to_string(juce::roundToInt(def));
+        } else {
+            const auto& range = r->getNormalisableRange();
+            const auto it = floatInfo.find(r->paramID.toStdString());
+            const FloatInfo fi = it != floatInfo.end() ? it->second : FloatInfo{"", def, std::nullopt};
+            o += ", \"kind\": \"float\", \"min\": " + jsonFloat(range.start) + ", \"max\": " + jsonFloat(range.end)
+               + ", \"default\": " + jsonFloat(fi.def) + ", \"unit\": " + jsonText(fi.unit);
+            if (fi.centre) o += ", \"centre\": " + jsonFloat(*fi.centre);
+            if (range.interval > 0.0f) o += ", \"step\": " + jsonFloat(range.interval);
+        }
+        out += (first ? " " : ",\n ") + o + "}";
+        first = false;
+    }
+    return out + "\n]\n";
 }
 
 std::optional<float> LMWSynthProcessor::parseValue(const juce::RangedAudioParameter& r, const juce::String& text) {

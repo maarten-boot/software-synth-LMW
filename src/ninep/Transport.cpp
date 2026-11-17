@@ -143,6 +143,43 @@ std::string socketDirectory() {
 // which std::filesystem may refuse or throw on.
 void removeSocketFile(const std::string& path) { std::remove(path.c_str()); }
 
+// The socket files of this process's listeners, kept in fixed slots so a signal handler can read them
+// without locks or allocation: a slot's path is written before it is marked used, and unmarked first.
+namespace {
+constexpr std::size_t maxOwnSockets = 32;
+constexpr std::size_t maxPathLength = 256;
+char ownSocketPaths[maxOwnSockets][maxPathLength];
+std::atomic<bool> ownSocketUsed[maxOwnSockets];
+
+void registerOwnSocket(const std::string& path) {
+    if (path.size() >= maxPathLength) return;
+    for (std::size_t i = 0; i < maxOwnSockets; ++i) {
+        bool expected = false;
+        if (ownSocketUsed[i].load() || ownSocketPaths[i][0] != '\0') continue;    // in use or being released
+        std::memcpy(ownSocketPaths[i], path.c_str(), path.size() + 1);
+        if (ownSocketUsed[i].compare_exchange_strong(expected, true)) return;
+    }
+}
+void unregisterOwnSocket(const std::string& path) {
+    for (std::size_t i = 0; i < maxOwnSockets; ++i)
+        if (ownSocketUsed[i].load() && path == ownSocketPaths[i]) {
+            ownSocketUsed[i] = false;
+            ownSocketPaths[i][0] = '\0';
+            return;
+        }
+}
+} // namespace
+
+void removeOwnSocketFilesNow() noexcept {
+    for (std::size_t i = 0; i < maxOwnSockets; ++i)
+        if (ownSocketUsed[i].load())
+#if defined(_WIN32)
+            std::remove(ownSocketPaths[i]);
+#else
+            ::unlink(ownSocketPaths[i]);                   // async-signal-safe
+#endif
+}
+
 namespace {
 bool processAlive(long pid) {
 #if defined(_WIN32)
@@ -204,6 +241,7 @@ bool Listener::listenUnix(const std::string& path, std::string& error) {
     ::chmod(path.c_str(), 0600);
 #endif
     socketPath = path;
+    registerOwnSocket(path);
     std::lock_guard<std::mutex> lock(mutex);
     listeners.push_back(s);
     threads.emplace_back([this, s] { acceptLoop(s); });
@@ -246,6 +284,7 @@ void Listener::stop() {
     for (Socket s : listeners) closeSocket(s);
     listeners.clear();
     if (!socketPath.empty()) {
+        unregisterOwnSocket(socketPath);
         removeSocketFile(socketPath);
         socketPath.clear();
     }

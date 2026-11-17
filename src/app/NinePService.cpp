@@ -58,6 +58,9 @@ void NinePService::build() {
 
     tree.file("source", [] { return std::string(sourceUrl) + "\n"; });
 
+    // /info: every parameter described as JSON (Spec S10.10; for the Kukel GUI, 2026-11-17).
+    tree.file("info", [info = proc.parameterInfo()] { return info; });
+
     // /params/<module>/<name>: every parameter, the dotted ID as path (Spec S10.10).
     for (auto* param : proc.getParameters()) {
         auto* r = dynamic_cast<juce::RangedAudioParameter*>(param);

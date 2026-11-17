@@ -12,8 +12,26 @@
 #include <juce_gui_extra/juce_gui_extra.h>
 #include <juce_audio_plugin_client/Standalone/juce_StandaloneFilterWindow.h>
 #include "PluginEditor.h"
+#include "ninep/Transport.h"
+#include <atomic>
+#if !JUCE_WINDOWS
+ #include <csignal>
+#endif
 
 namespace {
+
+// SIGTERM, SIGINT, SIGHUP: remove the 9P socket files at once (a client sees no dead socket), then quit
+// normally on the message thread (state saved). A second signal before that ends the process.
+std::atomic<bool> quitSignalled{false};
+#if !JUCE_WINDOWS
+extern "C" void onQuitSignal(int sig) {
+    lmw::ninep::removeOwnSocketFilesNow();
+    if (quitSignalled.exchange(true)) {
+        std::signal(sig, SIG_DFL);
+        std::raise(sig);
+    }
+}
+#endif
 
 class LMWStandaloneApp final : public juce::JUCEApplication {
 public:
@@ -36,6 +54,10 @@ public:
     void anotherInstanceStarted(const juce::String&) override  {}
 
     void initialise(const juce::String&) override {
+       #if !JUCE_WINDOWS
+        for (int sig : {SIGTERM, SIGINT, SIGHUP}) std::signal(sig, onQuitSignal);
+       #endif
+        quitPoll.start();
         juce::LookAndFeel::setDefaultLookAndFeel(&lookAndFeel);   // before any window exists
         if (juce::Desktop::getInstance().getDisplays().displays.isEmpty()) {
             pluginHolder = createPluginHolder();                // no display: run headless
@@ -48,6 +70,7 @@ public:
     }
 
     void shutdown() override {
+        quitPoll.stopTimer();
         pluginHolder = nullptr;
         mainWindow = nullptr;
         appProperties.saveIfNeeded();
@@ -74,6 +97,16 @@ private:
                                                               false);
     }
 
+    struct QuitPoll final : juce::Timer {       // turns a quit signal into a normal quit
+        void start() { startTimer(100); }
+        void timerCallback() override {
+            if (!quitSignalled.load()) return;
+            stopTimer();
+            if (auto* app = juce::JUCEApplicationBase::getInstance()) app->systemRequestedQuit();
+        }
+    };
+
+    QuitPoll quitPoll;
     LMWLookAndFeel lookAndFeel;                 // declared first: destroyed after the windows
     juce::ApplicationProperties appProperties;
     std::unique_ptr<juce::StandaloneFilterWindow> mainWindow;

@@ -9,6 +9,7 @@
 #include "dsp/SpscQueue.h"
 #include "dsp/MidiParse.h"
 #include <array>
+#include <map>
 #include <memory>
 #include <optional>
 #include <vector>
@@ -127,6 +128,9 @@ public:
     static std::string valueText(const juce::RangedAudioParameter&);
     static std::optional<float> parseValue(const juce::RangedAudioParameter&, const juce::String& text);
     static void setNormalised(juce::RangedAudioParameter&, float normalised);   // message thread
+    // Spec S10.10 /info: every parameter as one JSON array, in the synth's order (id, name, kind, range,
+    // default; floats with unit, centre and step where they have one). Built from createLayout().
+    std::string parameterInfo() const;
     const std::string& ninepEndpoints() const noexcept { return ninepAddress; }  // "unix!<path> tcp!..."
     bool loadPatchText(const juce::String& text, juce::String& error);
     // Free-text notes and the patch name, kept in the saved state and in patch files.
@@ -148,7 +152,14 @@ public:
     float modWheel() const noexcept { return modWheelValue.load(std::memory_order_relaxed); }
 
 private:
-    static juce::AudioProcessorValueTreeState::ParameterLayout createLayout();
+    // What a float's NormalisableRange does not keep (for /info): the unit its text shows ("%" = value x 100,
+    // "dB" = 20 log10 value, otherwise the value itself), the default as given, and the skew centre.
+    struct FloatInfo {
+        std::string unit;
+        float def = 0.0f;
+        std::optional<float> centre;
+    };
+    static juce::AudioProcessorValueTreeState::ParameterLayout createLayout(std::map<std::string, FloatInfo>& info);
     void pullParameters() noexcept;
     void handleMidi(const juce::uint8* data, int size) noexcept;
     void applyNoteEvent(const lmw::dsp::NoteEvent&) noexcept;
@@ -159,6 +170,7 @@ private:
     void handleNoteOn(juce::MidiKeyboardState*, int channel, int note, float velocity) override;
     void handleNoteOff(juce::MidiKeyboardState*, int channel, int note, float velocity) override;
 
+    std::map<std::string, FloatInfo> floatInfo;   // filled by createLayout(); declared before apvts
     juce::AudioProcessorValueTreeState apvts;
     juce::MidiKeyboardState keyboard;   // on-screen + computer keyboard input
     lmw::dsp::Engine engine;

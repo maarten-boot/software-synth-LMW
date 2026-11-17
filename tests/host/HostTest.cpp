@@ -19,6 +19,7 @@
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
 #include <initializer_list>
 #include <map>
@@ -120,13 +121,44 @@ struct File9P {
     }
     std::string read() {
         using namespace lmw::ninep;
-        auto rep = c.call(w.start(Tread, tag++).u32(1).u64(0).u32(4096).take());
-        if (!ok(rep, Rread)) return "error: " + error;
-        Reader r(rep.data(), rep.size());
-        r.u32(); r.u8(); r.u16();
-        return std::string(r.bytes(r.u32()));
+        std::string out;
+        for (std::uint64_t offset = 0;;) {
+            auto rep = c.call(w.start(Tread, tag++).u32(1).u64(offset).u32(4096).take());
+            if (!ok(rep, Rread)) return "error: " + error;
+            Reader r(rep.data(), rep.size());
+            r.u32(); r.u8(); r.u16();
+            const auto n = r.u32();
+            if (n == 0) return out;
+            out += std::string(r.bytes(n));
+            offset += n;
+        }
     }
 };
+
+// Reads a whole file over 9P (a read needs no message thread); "error: ..." on failure.
+std::string read9P(const std::string& socket, std::initializer_list<const char*> path) {
+    File9P f;
+    return f.open(socket, path, 0) ? f.read() : "error: " + f.error;
+}
+
+// Writes over 9P while this (message) thread runs the message loop, as a host does; the reply.
+std::string write9P(const std::string& socket, const std::vector<std::string>& path, const std::string& text) {
+    std::string reply;
+    std::atomic<bool> done{false};
+    std::thread t([&] {
+        File9P f;
+        std::vector<const char*> names;
+        for (const auto& p : path) names.push_back(p.c_str());
+        bool opened = false;
+        if (names.size() == 2) opened = f.open(socket, {names[0], names[1]}, 1);
+        else if (names.size() == 3) opened = f.open(socket, {names[0], names[1], names[2]}, 1);
+        reply = opened ? f.write(text) : "open: " + f.error;
+        done = true;
+    });
+    for (int i = 0; i < 1000 && !done; ++i) juce::MessageManager::getInstance()->runDispatchLoopUntil(5);
+    t.join();
+    return reply;
+}
 
 // Reads params/vcf1/cutoff over 9P (a read needs no message thread).
 double cutoffOver9P(const std::string& socket) {
@@ -302,6 +334,64 @@ int main(int argc, char* argv[]) {
         CHECK(reply.empty());
         CHECK(seconds < 2.0);
         CHECK(std::fabs(cutoffOver9P(sock) - 2000.0) < 0.5);
+
+        // 4c. /info (Spec S10.10): one JSON object per parameter, e.g. the cutoff exactly as Kukel expects.
+        const auto info = read9P(sock, {"info"});
+        int objects = 0;
+        for (std::size_t at = 0; (at = info.find("{\"id\": ", at)) != std::string::npos; ++at) ++objects;
+        std::printf("/info: %zu bytes, %d parameters\n", info.size(), objects);
+        CHECK(info.rfind("[\n", 0) == 0 && info.size() > 2 && info.substr(info.size() - 2) == "]\n");
+        CHECK(objects == 51);
+        CHECK(info.find("{\"id\": \"vcf1.cutoff\", \"name\": \"VCF 1 Cutoff\", \"kind\": \"float\", \"min\": 20.0, "
+                        "\"max\": 18000.0, \"default\": 18000.0, \"unit\": \"Hz\", \"centre\": 600.0}") != std::string::npos);
+        CHECK(info.find("{\"id\": \"vco1.tune\", \"name\": \"VCO 1 Tune\", \"kind\": \"float\", \"min\": -7.0, \"max\": 7.0, "
+                        "\"default\": 0.0, \"unit\": \"st\", \"step\": 0.01}") != std::string::npos);
+        CHECK(info.find("{\"id\": \"voice.count\", \"name\": \"Voices\", \"kind\": \"int\", \"min\": 1, \"max\": 32, \"default\": 8}") != std::string::npos);
+        CHECK(info.find("\"choices\": [\"24 dB\", \"12 dB\", \"6 dB\"], \"default\": \"24 dB\"}") != std::string::npos);
+        CHECK(info.find("{\"id\": \"out.gain\", \"name\": \"Volume\", \"kind\": \"float\", \"min\": 0.0, \"max\": 1.0, "
+                        "\"default\": 0.8, \"unit\": \"dB\"}") != std::string::npos);
+
+        // 4d. Exact round trip (Kukel request 2026-11-17): a value written within the range (on the step)
+        //     reads back as written, for every float parameter: its ends, its default and round values.
+        int written = 0, exact = 0;
+        for (std::size_t at = 0; (at = info.find("\"kind\": \"float\"", at)) != std::string::npos; ++at) {
+            const auto open = info.rfind("{\"id\": \"", at) + 8;
+            const auto id = info.substr(open, info.find('"', open) - open);
+            auto number = [&](const char* key) {
+                const auto k = info.find(std::string("\"") + key + "\": ", at);
+                return std::atof(info.c_str() + k + std::strlen(key) + 4);
+            };
+            const double lo = number("min"), hi = number("max");
+            const auto end = info.find('}', at);
+            const auto stepAt = info.find("\"step\": ", at);
+            const double step = stepAt < end ? number("step") : 0.0;
+            const auto dot = id.find('.');
+            const std::vector<std::string> path{"params", id.substr(0, dot), id.substr(dot + 1)};
+            std::vector<std::string> values{"0", "1", "800", "0.5", "0.37", "0.123", "2.5", "1234.5", "-3.27", "0.01"};
+            char buf[32];
+            for (double v : {lo, hi, lo + 0.3 * (hi - lo), lo + 0.71 * (hi - lo)}) {
+                std::snprintf(buf, sizeof buf, "%.2f", v);                // on the 0.01 step of the tunes
+                values.push_back(buf);
+            }
+            for (auto text : values) {
+                const double v = std::atof(text.c_str());
+                if (v < lo || v > hi) continue;
+                if (step > 0 && std::fabs(v / step - std::round(v / step)) > 1e-6) continue;   // off the step
+                while (text.find('.') != std::string::npos && (text.back() == '0' || text.back() == '.')) {
+                    const bool wasDot = text.back() == '.';
+                    text.pop_back();
+                    if (wasDot) break;
+                }
+                if (text == "-0") text = "0";
+                const auto reply = write9P(sock, path, text);
+                const auto back = read9P(sock, {path[0].c_str(), path[1].c_str(), path[2].c_str()});
+                ++written;
+                if (reply.empty() && back == text + "\n") ++exact;
+                else std::printf("  %s: wrote %s (%s), read back %s", id.c_str(), text.c_str(), reply.c_str(), back.c_str());
+            }
+        }
+        std::printf("exact round trip: %d of %d float writes\n", exact, written);
+        CHECK(written > 200 && exact == written);
     }
 
     // 5. Editor, only with a display (CI runners on Linux have none).

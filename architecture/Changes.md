@@ -79,3 +79,4 @@ Changes between releases.
 - 2026-11-14: Fix (S10.12): the 9P "busy" timeout is measured by the clock; it counted 50 ms waits, which on macOS took far longer ("busy" after 14.5 s instead of 5 s, found by T-S10.12 in CI).
 - 2026-11-14: CI skips pushes and pull requests that only change architecture/ (paths-ignore, S9.3).
 - 2026-11-16: Schematic tab keyboard: Up/Down jump to the first port of the next / previous symbol (Left/Right still step port by port) (S6.7).
+- 2026-11-17: For the Kukel GUI: 9P /info (every parameter as JSON: kind, range, default, unit, centre, step, choices; from createLayout); float values read back exactly as written (shortest text that gives the same stored value; also in patch files); the standalone removes its socket files on SIGTERM/SIGINT/SIGHUP and quits normally (state saved). Existing 9P files, formats and error texts unchanged (S10.10, S10.13).

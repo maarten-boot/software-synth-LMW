@@ -77,4 +77,8 @@ std::string uniqueSocketPath();
 void removeStaleSockets();
 void removeSocketFile(const std::string& path);
 
+// Removes the socket files of every Listener still listening in this process, using only unlink();
+// safe to call from a signal handler (the standalone app does on SIGTERM, SIGINT and SIGHUP).
+void removeOwnSocketFilesNow() noexcept;
+
 } // namespace lmw::ninep
