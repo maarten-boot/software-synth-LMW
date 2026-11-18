@@ -140,10 +140,19 @@ struct File9P {
     }
 };
 
-// Reads a whole file over 9P (a read needs no message thread); "error: ..." on failure.
+// Reads a whole file over 9P while this (message) thread runs the message loop (/patch and /cables
+// are read on the message thread); "error: ..." on failure.
 std::string read9P(const std::string& socket, std::initializer_list<const char*> path) {
-    File9P f;
-    return f.open(socket, path, 0) ? f.read() : "error: " + f.error;
+    std::string text;
+    std::atomic<bool> done{false};
+    std::thread t([&] {
+        File9P f;
+        text = f.open(socket, path, 0) ? f.read() : "error: " + f.error;
+        done = true;
+    });
+    for (int i = 0; i < 1000 && !done; ++i) juce::MessageManager::getInstance()->runDispatchLoopUntil(5);
+    t.join();
+    return text;
 }
 
 // Writes over 9P while this (message) thread runs the message loop, as a host does; the reply.
@@ -363,7 +372,9 @@ int main(int argc, char* argv[]) {
                         "\"default\": 0.8, \"unit\": \"dB\"}") != std::string::npos);
 
         // 4d. Exact round trip (Kukel request 2026-11-17): a value written within the range (on the step)
-        //     reads back as written, for every float parameter: its ends, its default and round values.
+        //     reads back as written, for every float parameter: its ends, its default, round values and values
+        //     with many digits that store the same float as a nearby text (Kukel 2026-11-18: 1234.5678 read
+        //     back as 1234.5673, 20.000001 as 20.000002).
         int written = 0, exact = 0;
         for (std::size_t at = 0; (at = info.find("\"kind\": \"float\"", at)) != std::string::npos; ++at) {
             const auto open = info.rfind("{\"id\": \"", at) + 8;
@@ -378,7 +389,8 @@ int main(int argc, char* argv[]) {
             const double step = stepAt < end ? number("step") : 0.0;
             const auto dot = id.find('.');
             const std::vector<std::string> path{"params", id.substr(0, dot), id.substr(dot + 1)};
-            std::vector<std::string> values{"0", "1", "800", "0.5", "0.37", "0.123", "2.5", "1234.5", "-3.27", "0.01"};
+            std::vector<std::string> values{"0", "1", "800", "0.5", "0.37", "0.123", "2.5", "1234.5", "-3.27", "0.01",
+                                            "1234.5678", "20.000001", "0.33333333", "4.0000001"};
             char buf[32];
             for (double v : {lo, hi, lo + 0.3 * (hi - lo), lo + 0.71 * (hi - lo)}) {
                 std::snprintf(buf, sizeof buf, "%.2f", v);                // on the 0.01 step of the tunes
@@ -403,6 +415,13 @@ int main(int argc, char* argv[]) {
         }
         std::printf("exact round trip: %d of %d float writes\n", exact, written);
         CHECK(written > 200 && exact == written);
+        // The written text is kept only while it stores the current value; /patch shows it too (S7.1).
+        CHECK(write9P(sock, {"params", "vcf1", "cutoff"}, "1234.5678").empty());
+        CHECK(read9P(sock, {"patch"}).find("\nvcf1.cutoff = 1234.5678") != std::string::npos);
+        CHECK(write9P(sock, {"params", "vcf1", "cutoff"}, "99999").empty());              // clipped
+        CHECK(read9P(sock, {"params", "vcf1", "cutoff"}) == "18000\n");
+        CHECK(write9P(sock, {"patch"}, "format = 1\n[parameters]\nvcf1.cutoff = 987.65432\n").empty());
+        CHECK(read9P(sock, {"params", "vcf1", "cutoff"}) == "987.65432\n");
 
         // 4e. /serial goes up with every change (parameters, cables, notes); /keys plays notes (Spec S10.10).
         auto serial = [&] { return std::strtoull(read9P(sock, {"serial"}).c_str(), nullptr, 10); };

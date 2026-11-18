@@ -413,18 +413,28 @@ std::string shortestNumber(float v, Accept accept) {
 }
 } // namespace
 
-std::string LMWSynthProcessor::valueText(const juce::RangedAudioParameter& r) {
+std::string LMWSynthProcessor::valueText(const juce::RangedAudioParameter& r, std::string_view written) {
     if (auto* c = dynamic_cast<const juce::AudioParameterChoice*>(&r)) return c->getCurrentChoiceName().toStdString();
     if (auto* i = dynamic_cast<const juce::AudioParameterInt*>(&r)) return std::to_string(i->get());
     if (auto* f = dynamic_cast<const juce::AudioParameterFloat*>(&r)) {
-        // The shortest text that, written back, stores this exact value: a write of 800 reads back "800",
-        // although the float kept is 800.0001 (it went through the 0-1 range; Kukel request 2026-11-17).
+        // A text that, written back, stores this exact value. The value goes through the 0-1 range as a
+        // 32-bit float, so many texts store the same value (1234.5678 and 1234.5673; 800 keeps 800.0001):
+        // the text last written while it still stores this value, else the shortest one (Kukel 2026-11-17/18).
         const float stored = f->get();
         const auto& range = f->getNormalisableRange().getRange();
-        auto text = shortestNumber(stored, [&](float candidate) {   // in range, and stored as parseValue would
+        auto accept = [&](float candidate) {   // in range, and stored as parseValue would
             return candidate >= range.getStart() && candidate <= range.getEnd()
                 && f->convertFrom0to1(f->convertTo0to1(candidate)) == stored;
-        });
+        };
+        if (!written.empty()) {
+            const std::string w(written);
+            char* end = nullptr;
+            const double number = std::strtod(w.c_str(), &end);
+            if (end == w.c_str() + w.size() && w.find_first_not_of("0123456789+-.eE") == std::string::npos
+                && accept(static_cast<float>(number)))
+                return w;
+        }
+        auto text = shortestNumber(stored, accept);
         if (text.empty()) {
             char buf[40];
             std::snprintf(buf, sizeof buf, "%.7g", static_cast<double>(stored));
@@ -497,6 +507,22 @@ std::optional<float> LMWSynthProcessor::parseValue(const juce::RangedAudioParame
     return r.convertTo0to1(r.getNormalisableRange().getRange().clipValue(real));
 }
 
+std::string LMWSynthProcessor::currentText(const juce::RangedAudioParameter& r) const {
+    std::string written;
+    {
+        const std::lock_guard lock(writtenMutex);
+        if (const auto it = writtenTexts.find(r.paramID.toStdString()); it != writtenTexts.end()) written = it->second;
+    }
+    return valueText(r, written);
+}
+
+void LMWSynthProcessor::rememberText(const juce::RangedAudioParameter& r, std::string_view text) {
+    if (dynamic_cast<const juce::AudioParameterFloat*>(&r) == nullptr) return;
+    const auto trimmedText = juce::String::fromUTF8(text.data(), static_cast<int>(text.size())).trim().toStdString();
+    const std::lock_guard lock(writtenMutex);
+    writtenTexts[r.paramID.toStdString()] = trimmedText;
+}
+
 void LMWSynthProcessor::setNormalised(juce::RangedAudioParameter& r, float normalised) {
     r.beginChangeGesture();
     r.setValueNotifyingHost(normalised);
@@ -510,7 +536,7 @@ juce::String LMWSynthProcessor::patchText(const juce::String& name) const {
     for (auto* param : getParameters()) {
         auto* r = dynamic_cast<juce::RangedAudioParameter*>(param);
         if (r == nullptr) continue;
-        lmw::patchfile::Parameter out{r->paramID.toStdString(), valueText(*r), {}};
+        lmw::patchfile::Parameter out{r->paramID.toStdString(), currentText(*r), {}};
         if (dynamic_cast<juce::AudioParameterFloat*>(r) != nullptr)
             out.comment = r->getCurrentValueAsText().toStdString();                   // with its unit
         p.parameters.push_back(std::move(out));
@@ -557,8 +583,10 @@ bool LMWSynthProcessor::loadPatchText(const juce::String& text, juce::String& er
         auto* r = dynamic_cast<juce::RangedAudioParameter*>(param);
         if (r == nullptr) continue;
         float normalised = r->getDefaultValue();                 // missing or unreadable: default
-        if (const auto it = values.find(r->paramID.toStdString()); it != values.end())
+        if (const auto it = values.find(r->paramID.toStdString()); it != values.end()) {
             normalised = parseValue(*r, juce::String::fromUTF8(it->second.c_str())).value_or(normalised);
+            rememberText(*r, it->second);       // read back as in the file (S7.1)
+        }
         setNormalised(*r, normalised);
     }
     setPatch(*cables);

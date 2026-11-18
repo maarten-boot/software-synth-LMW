@@ -112,12 +112,13 @@ void NinePService::build() {
         auto path = "params/" + r->paramID.toStdString();
         std::replace(path.begin(), path.end(), '.', '/');
         tree.file(path,
-            [r] { return LMWSynthProcessor::valueText(*r) + "\n"; },       // atomics: any thread
+            [p = &proc, r] { return p->currentText(*r) + "\n"; },          // atomics and a mutex: any thread
             [this, r](std::string_view text) -> std::string {
                 const auto value = LMWSynthProcessor::parseValue(*r, juce::String::fromUTF8(text.data(), static_cast<int>(text.size())));
                 if (!value) return "bad value";
                 const float v = *value;
-                return onMessageThread([r, v](LMWSynthProcessor&) {
+                return onMessageThread([r, v, written = std::string(text)](LMWSynthProcessor& p) {
+                    p.rememberText(*r, written);                            // reads back as written (S10.10)
                     LMWSynthProcessor::setNormalised(*r, v);
                     return std::string();
                 }).value_or("busy");

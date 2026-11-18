@@ -12,9 +12,11 @@
 #include <atomic>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <vector>
 #include <string>
+#include <string_view>
 
 namespace lmw::param {   // Spec S5a.1
 inline constexpr const char* voices      = "voice.count";
@@ -129,7 +131,11 @@ public:
     juce::String patchText(const juce::String& name) const;
     // A parameter's value as text (float exact, choice by name, int) and back (choice also by index;
     // numbers clipped to the range); shared by patch files and 9P (Spec S7.1, S10.10).
-    static std::string valueText(const juce::RangedAudioParameter&);
+    // A float reads back as `written` (the text last written to it, over 9P or in a loaded patch) while
+    // that text is a number within the range that stores the current value; else as the shortest such text.
+    static std::string valueText(const juce::RangedAudioParameter&, std::string_view written = {});
+    std::string currentText(const juce::RangedAudioParameter&) const;           // any thread
+    void rememberText(const juce::RangedAudioParameter&, std::string_view text);  // any thread
     static std::optional<float> parseValue(const juce::RangedAudioParameter&, const juce::String& text);
     static void setNormalised(juce::RangedAudioParameter&, float normalised);   // message thread
     // Spec S10.10 /info: every parameter as one JSON array, in the synth's order (id, name, kind, range,
@@ -194,6 +200,8 @@ private:
     void valueTreeChildRemoved(juce::ValueTree&, juce::ValueTree&, int) override { noteChange(); }
     void valueTreeRedirected(juce::ValueTree&) override { noteChange(); }
     std::atomic<std::uint64_t> changeSerial{0};
+    mutable std::mutex writtenMutex;                   // guards writtenTexts (9P thread and message thread)
+    std::map<std::string, std::string> writtenTexts;   // paramID -> float text last written (S10.10)
 
     std::map<std::string, FloatInfo> floatInfo;   // filled by createLayout(); declared before apvts
     juce::AudioProcessorValueTreeState apvts;
