@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "NinePService.h"
+#include "LMWVersion.h"
 #include "PluginProcessor.h"
 #include "dsp/PatchText.h"
 #include <chrono>
@@ -58,6 +59,7 @@ void NinePService::build() {
     auto& proc = *shared->processor;
 
     tree.file("source", [] { return std::string(sourceUrl) + "\n"; });
+    tree.file("version", [] { return std::string(LMW_VERSION " " LMW_COMMIT "\n"); });   // Spec S6.10, S10.10
 
     // /serial: a number that goes up with every change (Spec S10.10; Kukel polls it instead of /patch).
     tree.file("serial", [this] {

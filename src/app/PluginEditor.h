@@ -10,6 +10,7 @@
 #include "PluginProcessor.h"
 #include "MatrixView.h"
 #include "SchematicView.h"
+#include "ModulePresets.h"
 #include "ui/RackLayout.h"
 #include "ui/Config.h"
 #include "ui/Theme.h"
@@ -99,6 +100,27 @@ private:
         int minColumns = 0;             // wider than its items, to give its sockets room
         int columns() const { return std::max(static_cast<int>(items.size()), minColumns); }
     };
+    // Spec S7.5: the "Presets" button at the right of a panel's title bar; it opens the preset menu
+    // (built-in, Default, the user's own, Save as preset...). Black text and frame on the title colour.
+    class PresetButton final : public juce::Button {
+    public:
+        PresetButton(LMWSynthEditor& e, juce::String module, juce::String panelTitle);
+        void paintButton(juce::Graphics&, bool highlighted, bool down) override;
+        void clicked() override;
+        int preferredWidth() const;
+        juce::String module, panelTitle;
+    private:
+        LMWSynthEditor& editor;
+    };
+    // Spec S6.10: the title "LMW-Synth <version>" in bold, as a button that opens the About dialog
+    // (underlined on hover; a frame when focused). Its hover text gives the 9P address (S10.5).
+    class TitleButton final : public juce::Button {
+    public:
+        TitleButton() : juce::Button("LMW-Synth") {}
+        void paintButton(juce::Graphics&, bool highlighted, bool down) override;
+        juce::Font font() const { return juce::Font(juce::FontOptions(fontHeight, juce::Font::bold)); }
+        float fontHeight = 16.0f;
+    };
     // Title bar of a module panel (Spec S6.5): drag it to move the panel; when focused, arrow keys
     // move it; right-click, Enter or the context-menu key opens a move menu. Other keys (QWERTY
     // notes) pass on to the editor.
@@ -112,10 +134,12 @@ private:
         bool keyPressed(const juce::KeyPress&) override;
         void focusGained(FocusChangeType) override { repaint(); }
         void focusLost(FocusChangeType) override { repaint(); }
+        void resized() override;
     private:
         LMWSynthEditor& editor;
         int panel;
         bool dragging = false;
+        std::unique_ptr<PresetButton> presets;   // Spec S7.5, for ENV, VCF and VCO panels
     };
     // Spec S6.6: a patch point (socket). Inputs are white with a black ring (a black centre when a
     // cable is plugged in); outputs are black with a white ring. Drag from a socket to make a cable,
@@ -212,6 +236,15 @@ private:
     void showError(const juce::String& title, const juce::String& message);
     void refreshPatchInfo();                              // name label and notes from the processor
     static juce::File patchFolder();
+    // Spec S7.5: module presets.
+    void showPresetMenu(PresetButton&);
+    void applyPreset(const juce::String& module, const lmw::presets::Preset&);
+    void applyDefaults(const juce::String& module);
+    void savePresetAs(const juce::String& module, const juce::String& panelTitle);
+    void writePreset(const juce::String& module, const juce::String& name, const juce::File& file);
+    static juce::File presetFolder(lmw::presets::Kind);
+    // "VCO 2" -> "vco2", "VCF 1" -> "vcf1", "ENV 1 -> VCA" -> "env1", "REVERB" -> "reverb"; else empty.
+    static juce::String presetModuleOf(const juce::String& panelTitle);
     int titleTextWidth() const;
     juce::String describeInput(lmw::dsp::In) const;   // "<source> → <input> (normalled|cable)"
 
@@ -240,13 +273,16 @@ private:
     juce::ComboBox contrastBox;
     // Spec S7: tabs, patch name, notes and patch files.
     juce::TextButton panelTab{"Synth"}, effectsTab{"Effects"}, matrixTab{"Matrix"}, schematicTab{"Schematic"}, notesTab{"Notes"}, loadButton{"Load..."},
-        saveButton{"Save..."};
+        saveButton{"Save..."}, aboutButton{"About..."};   // Spec S6.10: version, licence, source
     std::unique_ptr<MatrixView> matrix;                   // Spec S6.8: the Matrix tab
     std::unique_ptr<SchematicView> schematic;             // Spec S6.7: the Schematic tab
     // Spec S7.4: the Effects tab — fixed panels (not part of the rack), one so far: REVERB.
     std::vector<Group> effectGroups;
     std::vector<juce::Component*> effectComponents;        // shown only on the Effects tab
-    juce::Label patchLabel, titleLabel{"title", "LMW-Synth"};   // title hover text: 9P address
+    std::unique_ptr<PresetButton> reverbPresets;           // Spec S7.5, in the REVERB title
+    juce::Label patchLabel;
+    TitleButton titleButton;              // "LMW-Synth <version>", opens About (S6.10); hover text: 9P address
+    void showAbout();
     juce::TextEditor notesEditor;
     int currentTab = 0;
     std::uint32_t shownPatchFile = 0;

@@ -2,6 +2,8 @@
 #include "PluginEditor.h"
 #include "ui/Theme.h"
 #include "ui/CableEdit.h"
+#include "LMWVersion.h"
+#include "NinePService.h"
 
 namespace {
 juce::Colour toJuce(lmw::ui::Rgb c) { return juce::Colour(c.r, c.g, c.b); }
@@ -228,6 +230,9 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
          addFader(P::reverbSize, "Size", [] { return juce::String("Room size: longer decay when larger"); }),
          addFader(P::reverbDamping, "Damping", [] { return juce::String("High-frequency damping of the reflections: darker when higher"); }),
          addFader(P::reverbWidth, "Width", [] { return juce::String("Stereo width of the reverb: 0 = mono, 100 % = widest"); })}, {}});
+    reverbPresets = std::make_unique<PresetButton>(*this, "reverb", "REVERB");
+    addChildComponent(*reverbPresets);
+    effectComponents.push_back(reverbPresets.get());
     for (const auto& grp : effectGroups)
         for (const auto& item : grp.items)
             if (item.fader != nullptr) { effectComponents.push_back(&item.fader->slider); effectComponents.push_back(&item.fader->label); }
@@ -317,12 +322,18 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     schematicTab.onClick = [this] { if (schematicTab.getToggleState()) showTab(4); };
     patchLabel.setTooltip("Patch name (the file name when saved or loaded)");
     // Spec S10.5: where the 9P server of this instance listens.
-    titleLabel.setTooltip(processor.ninepEndpoints().empty()
+    titleButton.setTooltip("About LMW-Synth (click): version, licence, source.\n" + (processor.ninepEndpoints().empty()
         ? juce::String("9P server: not available")
         : "9P server (connect with a 9P client, e.g. 9p -a " + juce::String(processor.ninepEndpoints()).upToFirstOccurrenceOf(" ", false, false)
-              + " ls):\n" + juce::String(processor.ninepEndpoints()).replace(" ", "\n"));
-    addAndMakeVisible(titleLabel);
+              + " ls):\n" + juce::String(processor.ninepEndpoints()).replace(" ", "\n")));
+    titleButton.setButtonText("LMW-Synth " LMW_VERSION);  // Spec S6.10
+    titleButton.setTitle("About LMW-Synth " LMW_VERSION);
+    titleButton.onClick = [this] { showAbout(); };
+    addAndMakeVisible(titleButton);
     addAndMakeVisible(patchLabel);
+    aboutButton.setTooltip("Version, licence and source of LMW-Synth");
+    aboutButton.onClick = [this] { showAbout(); };
+    addAndMakeVisible(aboutButton);
     loadButton.setTooltip("Load a patch file (parameters, cables, notes)");
     saveButton.setTooltip("Save parameters, cables and notes as a patch file");
     loadButton.onClick = [this] { loadPatch(); };
@@ -441,6 +452,7 @@ void LMWSynthEditor::timerCallback() {
     if (schematic) schematic->poll(processor.schematicLayout());   // Key faders; layout from a loaded patch
     if (processor.patchVersion() != shownPatchVersion) {    // cables changed (e.g. state restored)
         shownPatchVersion = processor.patchVersion();
+        if (matrix) matrix->refresh();                        // its level slider (S6.8)
         repaint();
     }
 }
@@ -541,6 +553,15 @@ LMWSynthEditor::PanelHeader::PanelHeader(LMWSynthEditor& e, int panelIndex) : ed
     setTitle(title + " panel");
     setDescription("Drag to move. Arrow keys move the panel; Enter opens the move menu.");
     setTooltip("Drag to move this panel.\nArrow keys (when selected) or right-click: move menu.");
+    const auto module = presetModuleOf(title);
+    if (module.isNotEmpty()) {
+        presets = std::make_unique<PresetButton>(editor, module, title);
+        addAndMakeVisible(*presets);
+    }
+}
+
+void LMWSynthEditor::PanelHeader::resized() {
+    if (presets) presets->setBounds(getLocalBounds().withTrimmedBottom(1).removeFromRight(presets->preferredWidth()).reduced(2));
 }
 
 void LMWSynthEditor::PanelHeader::paint(juce::Graphics& g) {
@@ -745,17 +766,24 @@ void LMWSynthEditor::resized() {
     const int pad = m.gap + 2;
     auto area = getLocalBounds().reduced(pad);
     auto title = area.removeFromTop(m.titleH);
-    compactButton.setBounds(title.removeFromRight(90).reduced(0, 2));
+    const bool wide = m.colW >= 80;                          // compact: shorter texts, no About button (S6.10)
+    compactButton.setBounds(title.removeFromRight(wide ? 90 : 78).reduced(0, 2));
     title.removeFromRight(m.gap);
-    resetLayoutButton.setBounds(title.removeFromRight(110).reduced(0, 2));
+    resetLayoutButton.setButtonText(wide ? "Reset layout" : "Reset");
+    resetLayoutButton.setBounds(title.removeFromRight(wide ? 110 : 56).reduced(0, 2));
     title.removeFromRight(m.gap);
     contrastBox.setBounds(title.removeFromRight(m.colW >= 80 ? 130 : 116).reduced(0, 3));
     title.removeFromRight(m.gap);
     saveButton.setBounds(title.removeFromRight(m.colW >= 80 ? 76 : 64).reduced(0, 2));
     title.removeFromRight(m.gap / 2);
     loadButton.setBounds(title.removeFromRight(m.colW >= 80 ? 76 : 64).reduced(0, 2));
-    titleLabel.setBounds(title.removeFromLeft(titleTextWidth()));
-    titleLabel.setFont(juce::FontOptions(m.titleH * 0.6f, juce::Font::bold));
+    aboutButton.setVisible(wide);                            // compact: the title opens About
+    if (wide) {
+        title.removeFromRight(m.gap / 2);
+        aboutButton.setBounds(title.removeFromRight(76).reduced(0, 2));
+    }
+    titleButton.fontHeight = m.titleH * 0.6f;
+    titleButton.setBounds(title.removeFromLeft(titleTextWidth()).reduced(0, 2));
     title.removeFromLeft(m.gap);
     const int tabW = m.colW >= 80 ? 70 : 60;
     panelTab.setBounds(title.removeFromLeft(tabW).reduced(0, 2));
@@ -778,6 +806,9 @@ void LMWSynthEditor::resized() {
         for (auto& grp : effectGroups) {
             grp.bounds = row.removeFromLeft(grp.columns() * m.colW);
             row.removeFromLeft(m.gap);
+            if (presetModuleOf(grp.title) == "reverb" && reverbPresets)   // Spec S7.5: at the right of the title
+                reverbPresets->setBounds(grp.bounds.withHeight(m.header - 3).reduced(1)
+                                             .removeFromRight(reverbPresets->preferredWidth()).reduced(2));
             auto inner = grp.bounds.reduced(0, 3).withTrimmedTop(m.header);
             inner.removeFromBottom(m.jackH);                 // same fader height as on the Synth tab
             for (const auto& item : grp.items) layoutItem(item, inner.removeFromLeft(m.colW));
@@ -1003,6 +1034,7 @@ bool LMWSynthEditor::connect(int input, int output, float level) {
         showError("Input full", portName(false, input) + " already has " + juce::String(lmw::dsp::Patch::maxPins)
                                 + " cables. Remove one first.");
     shownPatchVersion = processor.patchVersion();
+    if (matrix) matrix->refresh();
     repaint();
     return ok;
 }
@@ -1250,12 +1282,44 @@ void LMWLookAndFeel::drawPopupMenuItem(juce::Graphics& g, const juce::Rectangle<
 
 // ---- Spec S7: tabs, notes and patch files ----
 
-int LMWSynthEditor::titleTextWidth() const { return m.colW >= 80 ? 120 : 96; }
+int LMWSynthEditor::titleTextWidth() const {      // "LMW-Synth 0.1.0" in the title font, plus the label's border
+    return juce::roundToInt(juce::GlyphArrangement::getStringWidth(titleButton.font(), titleButton.getButtonText())) + 12;
+}
+
+void LMWSynthEditor::TitleButton::paintButton(juce::Graphics& g, bool highlighted, bool down) {
+    g.setColour(kFg);
+    g.setFont(font());
+    const auto text = getLocalBounds().reduced(4, 0);
+    g.drawText(getButtonText(), text, juce::Justification::centredLeft, false);
+    if (highlighted || down) {                               // underline: it can be clicked
+        const int width = juce::roundToInt(juce::GlyphArrangement::getStringWidth(font(), getButtonText()));
+        g.fillRect(text.getX(), getHeight() / 2 + juce::roundToInt(fontHeight * 0.55f), width, down ? 2 : 1);
+    }
+    if (hasKeyboardFocus(false)) g.drawRect(getLocalBounds(), 2);
+}
+
+// Spec S6.10: the About dialog (black on white like every alert): version, commit, licence, source, JUCE, 9P.
+void LMWSynthEditor::showAbout() {
+    const juce::String format = juce::AudioProcessor::getWrapperTypeDescription(processor.wrapperType);
+    const auto endpoints = juce::String(processor.ninepEndpoints());
+    juce::String text;
+    text << "Version " LMW_VERSION " (commit " LMW_COMMIT "), " << format << "\n"
+         << "A semi-modular software synthesizer.\n\n"
+         << "Licence: GNU Affero General Public License, version 3 or later (AGPL-3.0-or-later). "
+            "You may use, change and share it under that licence; it comes without any warranty.\n\n"
+         << "Source: " << NinePService::sourceUrl << "\n"
+         << "Built with " << juce::SystemStats::getJUCEVersion() << " (AGPL-3.0).\n"
+         << "9P server: " << (endpoints.isEmpty() ? juce::String("not available") : endpoints.replace(" ", ", "));
+    juce::AlertWindow::showAsync(juce::MessageBoxOptions()
+                                     .withIconType(juce::MessageBoxIconType::NoIcon)
+                                     .withTitle("About LMW-Synth").withMessage(text).withButton("OK", 1)
+                                     .withAssociatedComponent(this), nullptr);
+}
 
 void LMWSynthEditor::showTab(int tab) {
     currentTab = tab;
-    const juce::Component* alwaysShown[] = {&titleLabel, &panelTab, &effectsTab, &matrixTab, &schematicTab, &notesTab, &patchLabel, &loadButton,
-                                            &saveButton, &contrastBox, &resetLayoutButton, &compactButton, &keyboard};
+    const juce::Component* alwaysShown[] = {&titleButton, &panelTab, &effectsTab, &matrixTab, &schematicTab, &notesTab, &patchLabel, &loadButton,
+                                            &saveButton, &aboutButton, &contrastBox, &resetLayoutButton, &compactButton, &keyboard};
     for (auto* child : getChildren()) {
         if (child == &notesEditor || child == matrix.get() || child == schematic.get()
             || std::find(std::begin(alwaysShown), std::end(alwaysShown), child) != std::end(alwaysShown))
@@ -1278,6 +1342,163 @@ void LMWSynthEditor::refreshPatchInfo() {
     const auto name = processor.patchName();
     patchLabel.setText(name.isEmpty() ? juce::String() : "Patch: " + name, juce::dontSendNotification);
     if (notesEditor.getText() != processor.notes()) notesEditor.setText(processor.notes(), false);
+}
+
+// ---- Spec S7.5: module presets ----
+
+LMWSynthEditor::PresetButton::PresetButton(LMWSynthEditor& e, juce::String m, juce::String t)
+    : juce::Button(t + " presets"), module(std::move(m)), panelTitle(std::move(t)), editor(e) {
+    setTitle(panelTitle + " presets");
+    setDescription("Opens the preset menu of this panel.");
+    setTooltip("Presets for " + panelTitle + ": instrument starting points, Default, your own; Save as preset...");
+    setMouseCursor(juce::MouseCursor::PointingHandCursor);
+    setWantsKeyboardFocus(true);
+}
+
+int LMWSynthEditor::PresetButton::preferredWidth() const {
+    return juce::roundToInt(juce::GlyphArrangement::getStringWidth(juce::FontOptions(editor.m.titleFont * 0.85f), "Presets")
+                            + editor.m.titleFont * 1.6f) + 4;
+}
+
+// Black text, a black frame and a black triangle on the title colour (no fill: the bar shows through);
+// pressed: white on black. Hover or focus: a thicker frame.
+void LMWSynthEditor::PresetButton::paintButton(juce::Graphics& g, bool highlighted, bool down) {
+    const auto b = getLocalBounds();
+    if (down) g.fillAll(kFg);
+    g.setColour(down ? kBg : kFg);
+    g.drawRect(b, highlighted || hasKeyboardFocus(false) ? 2 : 1);
+    const float h = editor.m.titleFont * 0.85f;
+    auto area = b.toFloat().reduced(4.0f, 0.0f);
+    const auto arrowArea = area.removeFromRight(h * 0.8f);
+    g.setFont(juce::FontOptions(h));
+    g.drawText("Presets", area, juce::Justification::centred, false);
+    juce::Path triangle;
+    const float cx = arrowArea.getCentreX(), cy = arrowArea.getCentreY(), w = h * 0.3f;
+    triangle.addTriangle(cx - w, cy - w * 0.5f, cx + w, cy - w * 0.5f, cx, cy + w * 0.6f);
+    g.fillPath(triangle);
+}
+
+void LMWSynthEditor::PresetButton::clicked() { editor.showPresetMenu(*this); }
+
+juce::String LMWSynthEditor::presetModuleOf(const juce::String& panelTitle) {
+    const auto words = juce::StringArray::fromTokens(panelTitle, " ", "");
+    if (words.isEmpty()) return {};
+    const auto first = words[0].toLowerCase();
+    const auto module = words.size() > 1 && words[1].containsOnly("0123456789") ? first + words[1] : first;
+    return lmw::presets::kindOf(module.toStdString()) ? module : juce::String();
+}
+
+juce::File LMWSynthEditor::presetFolder(lmw::presets::Kind kind) {
+    const auto k = lmw::presets::folderName(kind);
+    return juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("LMW-Synth Presets")
+        .getChildFile(juce::String(k.data(), k.size()));
+}
+
+void LMWSynthEditor::showPresetMenu(PresetButton& button) {
+    const auto kind = lmw::presets::kindOf(button.module.toStdString());
+    if (!kind) return;
+    const auto& builtIn = lmw::presets::builtIn(*kind);
+    const auto folder = presetFolder(*kind);
+    auto own = folder.findChildFiles(juce::File::findFiles, false, "*.lmwpreset");
+    std::sort(own.begin(), own.end(), [](const juce::File& a, const juce::File& b) {
+        return a.getFileNameWithoutExtension().compareNatural(b.getFileNameWithoutExtension()) < 0;
+    });
+    juce::PopupMenu menu;
+    menu.setLookAndFeel(&lookAndFeel);              // black on white (Spec S6.2); no greyed-out items
+    menu.addSectionHeader(button.panelTitle + " presets");
+    menu.addItem(1, "Default");
+    for (std::size_t i = 0; i < builtIn.size(); ++i)
+        menu.addItem(100 + static_cast<int>(i), juce::String::fromUTF8(builtIn[i].name.c_str()));
+    if (!own.isEmpty()) {
+        menu.addSectionHeader("Your presets");
+        for (int i = 0; i < own.size(); ++i) menu.addItem(1000 + i, own[i].getFileNameWithoutExtension());
+    }
+    menu.addSeparator();
+    menu.addItem(2, "Save as preset...");
+    if (folder.isDirectory()) menu.addItem(3, "Show presets folder");
+    menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&button),
+        [safe = juce::Component::SafePointer<LMWSynthEditor>(this), module = button.module, title = button.panelTitle,
+         kind = *kind, own, folder](int result) {
+            if (safe == nullptr || result == 0) return;
+            const auto& list = lmw::presets::builtIn(kind);
+            if (result == 1) {
+                safe->applyDefaults(module);
+            } else if (result == 2) {
+                safe->savePresetAs(module, title);
+            } else if (result == 3) {
+                folder.revealToUser();
+            } else if (result >= 100 && result < 100 + static_cast<int>(list.size())) {
+                safe->applyPreset(module, list[static_cast<std::size_t>(result - 100)]);
+            } else if (result >= 1000 && result < 1000 + own.size()) {
+                const auto file = own[result - 1000];
+                std::string error;
+                auto preset = lmw::presets::parse(kind, file.loadFileAsString().toStdString(), &error);
+                if (!preset) { safe->showError("Cannot use this preset", file.getFileName() + ": " + juce::String(error)); return; }
+                safe->applyPreset(module, *preset);
+            }
+        });
+}
+
+// Sets the module's parameters from the preset's texts, as a patch file would (S7.1): numbers in the
+// parameter's unit, clipped to its range; choices by name. Keys the preset lacks stay as they are.
+void LMWSynthEditor::applyPreset(const juce::String& module, const lmw::presets::Preset& preset) {
+    juce::StringArray bad;
+    for (const auto& [key, value] : preset.values) {
+        auto* r = dynamic_cast<juce::RangedAudioParameter*>(processor.state().getParameter(module + "." + juce::String(key)));
+        const auto text = juce::String::fromUTF8(value.c_str());
+        const auto normalised = r != nullptr ? LMWSynthProcessor::parseValue(*r, text) : std::nullopt;
+        if (!normalised) { bad.add(juce::String(key) + " = " + text); continue; }
+        processor.rememberText(*r, value);              // reads back as in the preset (S10.10)
+        LMWSynthProcessor::setNormalised(*r, *normalised);
+    }
+    if (!bad.isEmpty())
+        showError("Preset partly used", "These values were not understood and were left as they were:\n" + bad.joinIntoString("\n"));
+}
+
+void LMWSynthEditor::applyDefaults(const juce::String& module) {
+    const auto kind = lmw::presets::kindOf(module.toStdString());
+    if (!kind) return;
+    for (auto key : lmw::presets::keys(*kind))
+        if (auto* r = dynamic_cast<juce::RangedAudioParameter*>(processor.state().getParameter(module + "." + juce::String(key.data(), key.size()))))
+            LMWSynthProcessor::setNormalised(*r, r->getDefaultValue());
+}
+
+void LMWSynthEditor::savePresetAs(const juce::String& module, const juce::String& panelTitle) {
+    const auto kind = lmw::presets::kindOf(module.toStdString());
+    if (!kind) return;
+    const auto k = lmw::presets::folderName(*kind);
+    auto* w = new juce::AlertWindow("Save " + panelTitle + " preset",
+                                    "Name of the preset (it can be used on every " + juce::String(k.data(), k.size()) + " panel):",
+                                    juce::MessageBoxIconType::NoIcon, this);
+    w->addTextEditor("name", {});
+    w->addButton("Save", 1, juce::KeyPress(juce::KeyPress::returnKey));
+    w->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
+    w->enterModalState(true, juce::ModalCallbackFunction::create(
+        [safe = juce::Component::SafePointer<LMWSynthEditor>(this), w, module, kind = *kind](int result) {
+            if (safe == nullptr || result != 1) return;
+            const auto name = w->getTextEditorContents("name").trim();
+            if (name.isEmpty()) return;
+            const auto file = presetFolder(kind).getChildFile(juce::String::fromUTF8(lmw::presets::fileName(name.toStdString()).c_str())
+                                                              + ".lmwpreset");
+            if (!file.existsAsFile()) { safe->writePreset(module, name, file); return; }
+            juce::AlertWindow::showAsync(juce::MessageBoxOptions()
+                    .withIconType(juce::MessageBoxIconType::NoIcon).withTitle("Replace preset?")
+                    .withMessage("A preset \"" + file.getFileNameWithoutExtension() + "\" exists. Replace it?")
+                    .withButton("Replace", 1).withButton("Cancel", 0).withAssociatedComponent(safe.getComponent()),
+                [safe, module, name, file](int answer) { if (safe != nullptr && answer == 1) safe->writePreset(module, name, file); });
+        }), true);
+    if (auto* field = w->getTextEditor("name")) field->grabKeyboardFocus();   // type the name at once
+}
+
+void LMWSynthEditor::writePreset(const juce::String& module, const juce::String& name, const juce::File& file) {
+    const auto kind = lmw::presets::kindOf(module.toStdString());
+    if (!kind) return;
+    lmw::presets::Preset p{name.toStdString(), {}};
+    for (auto key : lmw::presets::keys(*kind))
+        if (auto* r = dynamic_cast<juce::RangedAudioParameter*>(processor.state().getParameter(module + "." + juce::String(key.data(), key.size()))))
+            p.values.emplace_back(std::string(key), processor.currentText(*r));
+    if (!file.getParentDirectory().createDirectory() || !file.replaceWithText(juce::String::fromUTF8(lmw::presets::write(*kind, p).c_str())))
+        showError("Preset not saved", "Could not write " + file.getFullPathName());
 }
 
 juce::File LMWSynthEditor::patchFolder() {

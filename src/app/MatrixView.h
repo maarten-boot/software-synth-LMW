@@ -7,6 +7,8 @@
 //          Delete removes the cable; Home / End = 100 % / remove. Other keys (QWERTY notes) pass on.
 // Gate inputs (env1.gate, env2.gate) are on/off only. Black and white (Spec S6.2), except the row and column
 // labels, which have their unit's colour (S6.9).
+// A level slider on the right (0-100 %, user 2026-11-18) shows and sets the level of the cell under the
+// cursor; it is active for every cell that takes a level (not on gate inputs, nor on an empty cell of a full input).
 #pragma once
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "dsp/Patch.h"
@@ -20,10 +22,12 @@ public:
     // tells the user). patch(): the current patch mirror (message thread).
     MatrixView(std::function<const lmw::dsp::Patch&()> patch, std::function<bool(int, int, float)> setPin);
 
-    void setFontSize(float size) { fontSize = size; repaint(); }
+    void setFontSize(float size) { fontSize = size; resized(); syncSlider(); repaint(); }
     void setPalette(const lmw::ui::theme::Palette& p) { palette = p; repaint(); }
 
     void paint(juce::Graphics&) override;
+    void resized() override;
+    void refresh();                      // the patch changed elsewhere: update the level slider
     void mouseDown(const juce::MouseEvent&) override;
     void mouseDrag(const juce::MouseEvent&) override;
     void mouseUp(const juce::MouseEvent&) override;
@@ -31,6 +35,7 @@ public:
     bool keyPressed(const juce::KeyPress&) override;
     void focusGained(FocusChangeType) override { repaint(); }
     void focusLost(FocusChangeType) override { repaint(); }
+    void focusOfChildComponentChanged(FocusChangeType) override { repaint(); }   // the slider: keep the cursor shown
     juce::String getTooltip() override;
 
     struct Cell { int input = 0, output = 0; bool operator==(const Cell&) const = default; };
@@ -44,6 +49,8 @@ private:
     void typeLevel(Cell c);
     int labelWidth() const { return juce::roundToInt(fontSize * 7.5f); }
     int headerHeight() const { return juce::roundToInt(fontSize * 2.8f); }
+    int sliderWidth() const { return juce::roundToInt(fontSize * 8.0f); }
+    void syncSlider();
     int cellWidth() const;
     int cellHeight() const;
 
@@ -56,6 +63,9 @@ private:
     float dragStartLevel = 0.0f;
     bool dragged = false;
     juce::Point<int> mouse;              // last mouse position, for the tooltip
+    juce::Label levelLabel;              // the cursor cell ("lfo1.out -> vcf1.cutoff") and why the slider is off
+    juce::Slider levelSlider{juce::Slider::LinearVertical, juce::Slider::TextBoxBelow};
+    bool syncing = false;                // setting the slider from the patch, not from the user
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MatrixView)
 };

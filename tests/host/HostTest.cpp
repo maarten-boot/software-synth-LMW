@@ -4,6 +4,7 @@
 // endpoints (S10.5), 9P changes answering "busy" while the message thread is blocked (S10.12), and - when a
 // display exists - the editor. Usage: LMWHostTest <path to .vst3>
 #include "ninep/Transport.h"
+#include "app/ModulePresets.h"
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_events/juce_events.h>
 #include <cmath>
@@ -15,7 +16,9 @@
 #else
  #include <unistd.h>
 #endif
+#include <algorithm>
 #include <atomic>
+#include <cctype>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
@@ -356,6 +359,13 @@ int main(int argc, char* argv[]) {
         CHECK(std::fabs(cutoffOver9P(sock) - 2000.0) < 0.5);
 
         // 4c. /info (Spec S10.10): one JSON object per parameter, e.g. the cutoff exactly as Kukel expects.
+        // /version (Spec S6.10): "<version> <commit>\n", the version from CMakeLists.txt.
+        const auto version = read9P(sock, {"version"});
+        std::printf("/version: %s", version.c_str());
+        const auto versionNumber = version.substr(0, version.find(' '));
+        CHECK(!versionNumber.empty() && std::isdigit(static_cast<unsigned char>(versionNumber[0])) != 0
+              && std::count(versionNumber.begin(), versionNumber.end(), '.') == 2 && versionNumber.size() < version.size() - 2
+              && version.back() == '\n');
         const auto info = read9P(sock, {"info"});
         int objects = 0;
         for (std::size_t at = 0; (at = info.find("{\"id\": ", at)) != std::string::npos; ++at) ++objects;
@@ -422,6 +432,24 @@ int main(int argc, char* argv[]) {
         CHECK(read9P(sock, {"params", "vcf1", "cutoff"}) == "18000\n");
         CHECK(write9P(sock, {"patch"}, "format = 1\n[parameters]\nvcf1.cutoff = 987.65432\n").empty());
         CHECK(read9P(sock, {"params", "vcf1", "cutoff"}) == "987.65432\n");
+
+        // 4f. Module presets (Spec S7.5): every value of every built-in preset is valid for the real parameter:
+        //     written over 9P (as the panel menu sets it) it is accepted and reads back as written.
+        int presetValues = 0, presetExact = 0;
+        for (const char* module : {"env2", "vcf2", "vco3", "reverb"}) {
+            const auto kind = *lmw::presets::kindOf(module);
+            for (const auto& preset : lmw::presets::builtIn(kind))
+                for (const auto& [key, value] : preset.values) {
+                    const auto presetReply = write9P(sock, {"params", module, key}, value);
+                    const auto back = read9P(sock, {"params", module, key.c_str()});
+                    ++presetValues;
+                    if (presetReply.empty() && back == value + "\n") ++presetExact;
+                    else std::printf("  preset %s %s: %s = %s (%s), read back %s", module, preset.name.c_str(),
+                                     key.c_str(), value.c_str(), presetReply.c_str(), back.c_str());
+                }
+        }
+        std::printf("module presets: %d of %d values accepted and read back\n", presetExact, presetValues);
+        CHECK(presetValues > 200 && presetExact == presetValues);
 
         // 4e. /serial goes up with every change (parameters, cables, notes); /keys plays notes (Spec S10.10).
         auto serial = [&] { return std::strtoull(read9P(sock, {"serial"}).c_str(), nullptr, 10); };

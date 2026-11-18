@@ -19,13 +19,56 @@ MatrixView::MatrixView(std::function<const lmw::dsp::Patch&()> p, std::function<
     setWantsKeyboardFocus(true);
     setTitle("Patch matrix");
     setDescription("Rows: inputs, columns: outputs. Arrow keys move, Space toggles, plus and minus change the level.");
+    levelLabel.setJustificationType(juce::Justification::centredTop);
+    levelLabel.setColour(juce::Label::textColourId, kFg);
+    levelLabel.setColour(juce::Label::backgroundColourId, kBg);
+    addAndMakeVisible(levelLabel);
+    levelSlider.setRange(0.0, 100.0, 1.0);
+    levelSlider.setTextValueSuffix(" %");
+    levelSlider.setTitle("Cable level");
+    levelSlider.setWantsKeyboardFocus(true);              // Tab from the matrix; Up/Down change the level
+    levelSlider.onValueChange = [this] {
+        if (!syncing) this->set(cursor, static_cast<float>(levelSlider.getValue()) / 100.0f);   // not the ctor argument
+    };
+    addAndMakeVisible(levelSlider);
+    syncSlider();
+}
+
+void MatrixView::resized() {
+    auto right = getLocalBounds().removeFromRight(sliderWidth()).withTrimmedTop(headerHeight()).reduced(6, 4);
+    levelLabel.setBounds(right.removeFromTop(juce::roundToInt(fontSize * 5.0f)));
+    levelSlider.setBounds(right.withSizeKeepingCentre(std::min(right.getWidth(), juce::roundToInt(fontSize * 6.0f)),
+                                                      right.getHeight()));
+    levelSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, juce::roundToInt(fontSize * 5.0f),
+                                juce::roundToInt(fontSize * 1.8f));
+}
+
+void MatrixView::refresh() { syncSlider(); repaint(); }
+
+// The slider follows the cursor cell: its level, or off where a level cannot be set.
+void MatrixView::syncSlider() {
+    const auto in = static_cast<lmw::dsp::In>(cursor.input);
+    const float l = level(cursor);
+    const juce::String link = name(lmw::dsp::outputNames[static_cast<std::size_t>(cursor.output)]) + "\n"
+                            + juce::String::fromUTF8("\xe2\x86\x93") + "\n"
+                            + name(lmw::dsp::inputNames[static_cast<std::size_t>(cursor.input)]);
+    juce::String why;
+    if (isGate(cursor.input)) why = "on/off only";
+    else if (l <= 0.0f && patch().pinCount(in) >= lmw::dsp::Patch::maxPins) why = "input full (4 cables)";
+    levelLabel.setFont(juce::FontOptions(fontSize));
+    levelLabel.setText(link + (why.isEmpty() ? juce::String() : "\n(" + why + ")"), juce::dontSendNotification);
+    const juce::ScopedValueSetter<bool> s(syncing, true);
+    levelSlider.setValue(std::round(l * 100.0f), juce::sendNotificationSync);
+    levelSlider.setEnabled(why.isEmpty());
+    levelSlider.setTooltip(why.isEmpty() ? "Level of the cable " + link.replace("\n", " ") + " (0 % removes it)"
+                                         : "No level here: " + why);
 }
 
 bool MatrixView::isGate(int input) noexcept {
     return input == static_cast<int>(lmw::dsp::In::Env1Gate) || input == static_cast<int>(lmw::dsp::In::Env2Gate);
 }
 
-int MatrixView::cellWidth() const { return std::max(24, (getWidth() - labelWidth() - 1) / lmw::dsp::numOutputs); }
+int MatrixView::cellWidth() const { return std::max(24, (getWidth() - labelWidth() - sliderWidth() - 1) / lmw::dsp::numOutputs); }
 int MatrixView::cellHeight() const { return std::max(14, (getHeight() - headerHeight() - 1) / lmw::dsp::numInputs); }
 
 juce::Rectangle<int> MatrixView::cellBounds(Cell c) const {
@@ -47,6 +90,7 @@ void MatrixView::set(Cell c, float l) {
     if (isGate(c.input)) l = l > 0.0f ? 1.0f : 0.0f;                  // gates: on/off
     if (std::fabs(l - level(c)) < 1e-6f) return;           // unchanged
     setPin(c.input, c.output, l);
+    syncSlider();
     repaint();
 }
 
@@ -123,14 +167,14 @@ void MatrixView::paint(juce::Graphics& g) {
         g.fillRect(edge ? 0 : lw, hh + i * ch - (edge ? 1 : 0), edge ? right : right - lw, edge ? 2 : 1);
     }
 
-    if (hasKeyboardFocus(false)) g.drawRect(cellBounds(cursor).expanded(1), 3);   // cell cursor
+    if (hasKeyboardFocus(true)) g.drawRect(cellBounds(cursor).expanded(1), 3);    // cell cursor (also while the slider has focus)
 }
 
 void MatrixView::mouseDown(const juce::MouseEvent& e) {
     grabKeyboardFocus();
     dragCell = cellAt(e.getPosition());
     dragged = false;
-    if (dragCell) { cursor = *dragCell; dragStartLevel = level(*dragCell); repaint(); }
+    if (dragCell) { cursor = *dragCell; dragStartLevel = level(*dragCell); syncSlider(); repaint(); }
 }
 
 void MatrixView::mouseDrag(const juce::MouseEvent& e) {
@@ -169,6 +213,7 @@ void MatrixView::typeLevel(Cell c) {
             if (text.isEmpty() || !text.containsOnly("0123456789.")) return;
             safe->set(c, static_cast<float>(text.getDoubleValue()) / 100.0f);
         }), true);
+    if (auto* field = w->getTextEditor("level")) { field->grabKeyboardFocus(); field->selectAll(); }   // type at once
 }
 
 bool MatrixView::keyPressed(const juce::KeyPress& key) {
@@ -178,6 +223,7 @@ bool MatrixView::keyPressed(const juce::KeyPress& key) {
     auto move = [this](int di, int dout) {
         cursor.input = juce::jlimit(0, lmw::dsp::numInputs - 1, cursor.input + di);
         cursor.output = juce::jlimit(0, lmw::dsp::numOutputs - 1, cursor.output + dout);
+        syncSlider();
         repaint();
         return true;
     };

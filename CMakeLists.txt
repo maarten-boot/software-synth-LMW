@@ -58,6 +58,15 @@ if(LMW_BUILD_PLUGIN)
         FORMATS                  Standalone VST3
         COPY_PLUGIN_AFTER_BUILD  FALSE)
 
+    # Spec S6.10: version and git commit, shown in the title bar, the About dialog and 9P /version.
+    add_custom_target(lmw_version
+        COMMAND ${CMAKE_COMMAND} -DVERSION=${PROJECT_VERSION} -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
+                -DOUT=${CMAKE_BINARY_DIR}/generated/LMWVersion.h -P ${CMAKE_SOURCE_DIR}/cmake/LMWVersion.cmake
+        BYPRODUCTS ${CMAKE_BINARY_DIR}/generated/LMWVersion.h
+        COMMENT "LMW-Synth version" VERBATIM)
+    add_dependencies(LMWSynth lmw_version)
+    target_include_directories(LMWSynth PRIVATE ${CMAKE_BINARY_DIR}/generated)
+
     target_sources(LMWSynth PRIVATE
         src/app/PluginProcessor.cpp
         src/app/PluginEditor.cpp
@@ -128,6 +137,9 @@ if(LMW_BUILD_TESTS)
     add_executable(test_rack tests/test_rack.cpp)
     target_link_libraries(test_rack PRIVATE lmw_ui_core)
     add_test(NAME T-S6.5-layout COMMAND test_rack)
+    add_executable(test_presets tests/test_presets.cpp)
+    target_include_directories(test_presets PRIVATE src)
+    add_test(NAME T-S7.5-presets COMMAND test_presets)
     add_executable(test_patchtext tests/test_patchtext.cpp)
     target_link_libraries(test_patchtext PRIVATE lmw_dsp)
     add_test(NAME T-S5.4-text COMMAND test_patchtext)
