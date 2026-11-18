@@ -3,6 +3,10 @@
 Changes between releases.
 
 ## Unreleased
+
+## 1.0.0 (2026-11-18)
+First release. A semi-modular polyphonic synthesizer (1–32 voices) as standalone app and VST3 plugin for Windows, macOS and Linux: three VCOs, NOISE with sample & hold, mixer, two multimode VCFs (24/12/6 dB; low, high, band, notch), VCA, two ADSRs, two LFOs, reverb; normalled connections that cables (up to 4 per input, with levels) replace, on the Synth tab, the Matrix and the Schematic; patch files and module presets (built-in instrument starting points and your own); notes; black-on-white GUI with adjustable contrast (AA, AAA, Max, custom) and a compact view; a 9P server for remote control (the Kukel GUI); a Windows installer. Everything that led here, from the project's start:
+
 - Project started: architecture docs (Spec, Plan, Tests, conversation log).
 - Decisions: C++20, JUCE 8, AGPLv3, semi-modular design, standalone + VST3 targets.
 - Added LICENSE (GNU AGPLv3).
@@ -86,3 +90,4 @@ Changes between releases.
 - 2026-11-18: Matrix tab level slider on the right for the cell under the cursor (S6.8); the type-a-level dialog focuses its text field.
 - 2026-11-18: Module presets: a Presets menu in the title bar of ENV, VCF, VCO and REVERB panels — Default, 53 built-in starting points after classical instruments (flute, recorder, oboe, clarinet, ...) and rooms, the user's own (.lmwpreset text files in Documents/LMW-Synth Presets), Save as preset... (S7.5).
 - 2026-11-18: Windows installer LMW-Synth-<version>-setup.exe (NSIS): Just me or All users, updates in place, uninstaller; built and tested in CI; THIRD_PARTY.md (S9.5). Version 0.1.0 → 0.2.0 (S6.10).
+- 2026-11-18: Version 1.0.0; release workflow on tags vX.Y.Z (GitHub Release with the Windows setup, zip and the macOS/Linux archives, checksums, notes from this file); daily cleanup monitor for old releases and CI downloads (S9.6, S9.7).

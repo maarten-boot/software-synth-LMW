@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(LMWSynth VERSION 0.2.0 LANGUAGES C CXX)   # Spec S6.10: raised with every release
+project(LMWSynth VERSION 1.0.0 LANGUAGES C CXX)   # Spec S6.10: raised with every release
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -160,6 +160,9 @@ if(LMW_BUILD_TESTS)
     add_executable(test_rack tests/test_rack.cpp)
     target_link_libraries(test_rack PRIVATE lmw_ui_core)
     add_test(NAME T-S6.5-layout COMMAND test_rack)
+    if(NOT WIN32)                                   # Spec S9.7: the cleanup monitor's selection (bash)
+        add_test(NAME T-S9.7-cleanup COMMAND bash ${CMAKE_SOURCE_DIR}/tests/test_cleanup.sh)
+    endif()
     add_executable(test_presets tests/test_presets.cpp)
     target_include_directories(test_presets PRIVATE src)
     add_test(NAME T-S7.5-presets COMMAND test_presets)

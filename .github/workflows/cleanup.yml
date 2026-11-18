@@ -1,0 +1,57 @@
+name: cleanup
+# Spec S9.7: monitor that removes old releases and CI downloads, daily (03:17 UTC) and by hand
+# (Actions -> cleanup -> Run workflow; "dry run" only lists what would go).
+#   Releases: the 2 newest are always kept; any other release older than 14 days is deleted. Its git
+#             tag stays, so that version can still be checked out and rebuilt.
+#   Artifacts (the per-push downloads of build.yml): once there are more than 2 releases, every
+#             artifact older than 14 days is deleted.
+# The selection is scripts/cleanup-select.sh (tested by T-S9.7-cleanup).
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Only list what would be deleted'
+        type: boolean
+        default: true
+permissions:
+  contents: write          # delete releases
+  actions: write           # delete artifacts
+concurrency:
+  group: cleanup
+jobs:
+  cleanup:
+    runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      DAYS: '14'
+      KEEP: '2'
+      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || false }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Releases and artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          now=$(date +%s)
+          act() { if [ "$DRY_RUN" = "true" ]; then echo "  (dry run) would delete $1"; else gh api -X DELETE "$2" >/dev/null && echo "  deleted $1"; fi; }
+          # Published releases (drafts have no date and are left alone).
+          gh api "repos/$REPO/releases" --paginate \
+            --jq '.[] | select(.draft | not) | [(.published_at | fromdateiso8601), .id, .tag_name] | @tsv' > releases.tsv
+          count=$(wc -l < releases.tsv)
+          echo "releases: $count (keep the $KEEP newest; delete others older than $DAYS days)"
+          scripts/cleanup-select.sh "$now" "$DAYS" "$KEEP" < releases.tsv | while IFS=$'\t' read -r _ id tag; do
+            act "release $tag (tag kept)" "repos/$REPO/releases/$id"
+          done
+          if [ "$count" -le "$KEEP" ]; then
+            echo "artifacts: kept ($count releases, not more than $KEEP)"
+            exit 0
+          fi
+          gh api "repos/$REPO/actions/artifacts?per_page=100" --paginate \
+            --jq '.artifacts[] | select(.expired | not) | [(.created_at | fromdateiso8601), .id, "\(.name) (run \(.workflow_run.id))"] | @tsv' > artifacts.tsv
+          echo "artifacts: $(wc -l < artifacts.tsv) (delete those older than $DAYS days)"
+          scripts/cleanup-select.sh "$now" "$DAYS" 0 < artifacts.tsv | while IFS=$'\t' read -r _ id name; do
+            act "artifact $name" "repos/$REPO/actions/artifacts/$id"
+          done

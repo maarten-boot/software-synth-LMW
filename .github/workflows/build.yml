@@ -1,10 +1,13 @@
 name: build
 # Pushes and pull requests that only change the architecture docs (Spec, Plan, Tests, logs) skip CI.
+# Tags (v1.0.0) do not start this workflow on their own: release.yml calls it (Spec S9.6).
 on:
   push:
+    branches: ['**']
     paths-ignore: ['architecture/**']
   pull_request:
     paths-ignore: ['architecture/**']
+  workflow_call:
 jobs:
   build:
     name: build (${{ matrix.name }})

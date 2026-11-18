@@ -24,3 +24,11 @@ Asked: VST3 place → ask at install (Just me / All users); version scheme → 0
 **User:** where did 0.1.0 come from? After the installer move to v0.2.0 and continue until a sufficient product for version 1 (mostly cosmetic UI things now). (corrections: "whwre" → "where", "untill" → "until")
 Answer: 0.1.0 was set in CMakeLists.txt with the Phase 0 skeleton and never raised. Now 0.2.0, raised per release.
 Done (Phase 13b, S9.5): installer/LMW-Synth.nsi after mini-daw's (NSIS 3.13 pinned from Chocolatey in CI), mode page with UAC restart for all users, refusals (other mode, downgrade), in-use checks, uninstaller with elevation for all users; CMake target `installer`; CI builds it, runs scripts/test-installer.ps1 and adds the setup to the Windows download; README, THIRD_PARTY.md (VST3 SDK: MIT). Not testable here (no makensis without your permission): compiled and tested only in CI.
+
+CI: run 44348905763 for 46bceed (Phase 13): all four green (host test 12.9 s Linux, 35.1 s macOS, 15.4 s Windows; T-S7.5-presets; validators 47 of 47).
+
+**User:** pushed, wait for CI — run 44352426051 for b191ed5 (installer, 0.2.0): Windows green, the installer test 32 of 32 in both modes (makensis v3.13); Ubuntu green; Fedora failed in the VST3 validators: pluginval reported SUCCESS and then crashed on exit (segmentation fault) — new, no plugin code changed since the green run; macOS cancelled before it started (no runner within 15 minutes; no steps ran).
+
+**User:** the synth is sufficiently mature to move to v1.0.0 and a release CI flow; add a monitor to clean up artifacts and releases older than 14 days after we have more than 2 releases. (corrections: "synt" → "synth", "then" → "than" twice)
+Asked: cleanup → keep the 2 newest releases, others older than 14 days deleted, artifacts older than 14 days only once there are more than 2 releases; tags kept; release by pushing tag v1.0.0; monitor daily.
+Done (Phase 14, S9.6, S9.7): version 1.0.0; release.yml (tag = version check, build.yml as reusable workflow, publish with gh release create); build.yml no longer runs for tags; cleanup.yml + scripts/cleanup-select.sh + tests/test_cleanup.sh (ctest T-S9.7-cleanup); Changes.md 1.0.0 section with a summary; README. Native: 22 of 22 pass.
