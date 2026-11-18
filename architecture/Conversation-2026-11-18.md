@@ -46,3 +46,7 @@ Done (S7.5, Plan 15a): the label is the last chosen preset (or Default), with "*
 
 **User:** raise the version to 1.1.0 for a release
 Done: CMakeLists.txt project(VERSION) 1.1.0; Changes.md "Unreleased" → "## 1.1.0 (2026-11-18)" (release notes come from that section); Spec S6.10. Native build shows 1.1.0. Next: push, then git tag v1.1.0 && git push origin v1.1.0.
+
+**User:** tagged v1.1.0 and pushed, wait for the release — build run 44395511556 for ccd0883: all four green (ctest 22 of 22, 21 on Windows; validators 47 of 47; pluginval SUCCESS; installer test all passed). Release run 44395518886 failed in the tag check, as designed: the pushed tag was v1.0.1, not v1.1.0 (CMakeLists.txt 1.1.0); build and publish skipped, no release made. Asked the user to remove tag v1.0.1 and push v1.1.0.
+
+**User:** tagged v1.1.0 and pushed, wait for the release — release run 44398812297: tag check (v1.1.0 = 1.1.0), build on all four, publish: success. https://github.com/maarten-boot/software-synth-LMW/releases/tag/v1.1.0 (Latest) with the 5 downloads + SHA256SUMS.txt; setup.exe checksum verified after download. Releases now: 1.1.0, 1.0.0 (2: the cleanup monitor deletes nothing yet).
