@@ -43,3 +43,6 @@ Done (Phase 14, S9.6, S9.7): version 1.0.0; release.yml (tag = version check, bu
 Done (S7.5, Plan 15a): the label is the last chosen preset (or Default), with "*" once a value differs from what it set; without a chosen one (new instance, loaded patch) a built-in preset matched exactly, else Default / Default*. Kept in the saved state (not in patch files: Kukel reads that format; loading a patch clears it). Long names cut off with "…", full name in the Presets hover text. Xvfb checked (T-S7.5-label); native and Ubuntu 24 container 22 of 22.
 
 **User:** pushed, wait for CI — run 44389641194 for 8847f88 (preset labels): all four green (ctest 22 of 22, 21 on Windows; validators 47 of 47; pluginval SUCCESS; Windows installer test all passed). macOS waited for a runner but finished.
+
+**User:** raise the version to 1.1.0 for a release
+Done: CMakeLists.txt project(VERSION) 1.1.0; Changes.md "Unreleased" → "## 1.1.0 (2026-11-18)" (release notes come from that section); Spec S6.10. Native build shows 1.1.0. Next: push, then git tag v1.1.0 && git push origin v1.1.0.

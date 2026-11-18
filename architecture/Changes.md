@@ -2,7 +2,7 @@
 
 Changes between releases.
 
-## Unreleased
+## 1.1.0 (2026-11-18)
 - 2026-11-18: The panel title bars of ENV, VCF, VCO and REVERB show the module's preset at the left ("Flute", "Flute*" when changed since, "Default"), kept in the saved state (S7.5).
 
 ## 1.0.0 (2026-11-18)

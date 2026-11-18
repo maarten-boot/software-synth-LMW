@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(LMWSynth VERSION 1.0.0 LANGUAGES C CXX)   # Spec S6.10: raised with every release
+project(LMWSynth VERSION 1.1.0 LANGUAGES C CXX)   # Spec S6.10: raised with every release
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
