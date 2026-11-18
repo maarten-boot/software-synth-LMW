@@ -11,6 +11,7 @@
 #include "MatrixView.h"
 #include "SchematicView.h"
 #include "ModulePresets.h"
+#include <map>
 #include "ui/RackLayout.h"
 #include "ui/Config.h"
 #include "ui/Theme.h"
@@ -108,6 +109,7 @@ private:
         void paintButton(juce::Graphics&, bool highlighted, bool down) override;
         void clicked() override;
         int preferredWidth() const;
+        juce::String getTooltip() override;     // with the current preset's full name (S7.5)
         juce::String module, panelTitle;
     private:
         LMWSynthEditor& editor;
@@ -245,6 +247,14 @@ private:
     static juce::File presetFolder(lmw::presets::Kind);
     // "VCO 2" -> "vco2", "VCF 1" -> "vcf1", "ENV 1 -> VCA" -> "env1", "REVERB" -> "reverb"; else empty.
     static juce::String presetModuleOf(const juce::String& panelTitle);
+    // Spec S7.5: "Flute", "Flute*" (changed since), "Default", "Default*" for a module; updated by the timer.
+    juce::String computePresetLabel(const juce::String& module) const;
+    bool moduleMatches(const juce::String& module, const lmw::presets::Preset&) const;
+    bool moduleAtDefaults(const juce::String& module) const;
+    void updatePresetLabels();
+    juce::String presetLabel(const juce::String& module) const;
+    std::map<juce::String, juce::String> presetLabels;   // module -> shown label
+    int presetLabelTick = 0;
     int titleTextWidth() const;
     juce::String describeInput(lmw::dsp::In) const;   // "<source> → <input> (normalled|cable)"
 

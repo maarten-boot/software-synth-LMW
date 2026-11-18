@@ -597,6 +597,7 @@ bool LMWSynthProcessor::loadPatchText(const juce::String& text, juce::String& er
     setSchematicLayout(l && !l->isDefault() ? juce::String(l->serialize()) : juce::String());
     setNotes(juce::String::fromUTF8(p->notes.c_str()));
     setPatchName(juce::String::fromUTF8(p->name.c_str()));
+    clearPresetRecords();                    // Spec S7.5: the panels show what the patch matches
     ++loadedPatches;
     return true;
 }

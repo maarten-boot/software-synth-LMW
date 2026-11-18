@@ -153,6 +153,20 @@ public:
     juce::String schematicLayout() const { return apvts.state.getProperty(schematicProp).toString(); }
     void setSchematicLayout(const juce::String& text) { apvts.state.setProperty(schematicProp, text, nullptr); }
     std::uint32_t patchFileVersion() const noexcept { return loadedPatches; }   // changes on every load
+    // Spec S7.5: the preset last chosen per module ("env1", "vcf2", "vco3", "reverb"): its name and the
+    // values it set ("key=value;key=value", empty for Default), kept in the saved state (not in patch
+    // files; a loaded patch clears them). Message thread.
+    juce::String presetName(const juce::String& module) const { return apvts.state.getProperty("preset_" + module).toString(); }
+    juce::String presetValues(const juce::String& module) const { return apvts.state.getProperty("presetValues_" + module).toString(); }
+    void setPresetRecord(const juce::String& module, const juce::String& name, const juce::String& values) {
+        apvts.state.setProperty("preset_" + module, name, nullptr);
+        apvts.state.setProperty("presetValues_" + module, values, nullptr);
+    }
+    void clearPresetRecords() {
+        for (int i = apvts.state.getNumProperties(); --i >= 0;)
+            if (const auto id = apvts.state.getPropertyName(i).toString(); id.startsWith("preset_") || id.startsWith("presetValues_"))
+                apvts.state.removeProperty(id, nullptr);
+    }
 
     // Spec S10.10 /serial: goes up with every change to parameters, cables, patch name, notes, schematic
     // (and the rest of the saved state). Any thread; lock-free.

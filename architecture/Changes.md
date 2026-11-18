@@ -3,6 +3,7 @@
 Changes between releases.
 
 ## Unreleased
+- 2026-11-18: The panel title bars of ENV, VCF, VCO and REVERB show the module's preset at the left ("Flute", "Flute*" when changed since, "Default"), kept in the saved state (S7.5).
 
 ## 1.0.0 (2026-11-18)
 First release. A semi-modular polyphonic synthesizer (1–32 voices) as standalone app and VST3 plugin for Windows, macOS and Linux: three VCOs, NOISE with sample & hold, mixer, two multimode VCFs (24/12/6 dB; low, high, band, notch), VCA, two ADSRs, two LFOs, reverb; normalled connections that cables (up to 4 per input, with levels) replace, on the Synth tab, the Matrix and the Schematic; patch files and module presets (built-in instrument starting points and your own); notes; black-on-white GUI with adjustable contrast (AA, AAA, Max, custom) and a compact view; a 9P server for remote control (the Kukel GUI); a Windows installer. Everything that led here, from the project's start:

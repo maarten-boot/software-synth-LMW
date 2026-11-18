@@ -430,6 +430,7 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
 
     refreshPatchInfo();                          // patch name and notes from the saved state
     p.resetKeyboardDisplay();
+    updatePresetLabels();                        // Spec S7.5: the title-bar preset labels from the start
     startTimerHz(30);                            // show external MIDI notes on the keyboard
     juce::MessageManager::callAsync([safe = juce::Component::SafePointer<juce::Component>(&keyboard)] {
         if (safe != nullptr && safe->isShowing()) safe->grabKeyboardFocus();
@@ -450,6 +451,7 @@ void LMWSynthEditor::timerCallback() {
             && notesEditor.getText() != processor.notes()))   // patch loaded, or state restored by the host
         refreshPatchInfo();
     if (schematic) schematic->poll(processor.schematicLayout());   // Key faders; layout from a loaded patch
+    if (++presetLabelTick >= 8) { presetLabelTick = 0; updatePresetLabels(); }   // S7.5, about 4 times a second
     if (processor.patchVersion() != shownPatchVersion) {    // cables changed (e.g. state restored)
         shownPatchVersion = processor.patchVersion();
         if (matrix) matrix->refresh();                        // its level slider (S6.8)
@@ -570,8 +572,18 @@ void LMWSynthEditor::PanelHeader::paint(juce::Graphics& g) {
     g.fillAll(toJuce(editor.palette.unitColour(lmw::ui::theme::unitOf(title.toStdString()))));
     g.setColour(kFg);
     if (editor.draggedPanel == panel) g.drawRect(getLocalBounds(), 2);   // keep the thick drag frame visible
-    g.setFont(juce::FontOptions(editor.m.titleFont, juce::Font::bold));
+    const juce::FontOptions titleFont(editor.m.titleFont, juce::Font::bold);
+    g.setFont(titleFont);
     g.drawText(title, getLocalBounds(), juce::Justification::centred);
+    // Spec S7.5: the module's preset ("Flute", "Flute*" when changed since) in the space left of the title.
+    if (const auto label = editor.presetLabel(presetModuleOf(title)); label.isNotEmpty()) {
+        const int titleWidth = juce::roundToInt(juce::GlyphArrangement::getStringWidth(titleFont, title));
+        const int room = (getWidth() - titleWidth) / 2 - 10;
+        if (room > 16) {
+            g.setFont(juce::FontOptions(editor.m.titleFont * 0.85f));
+            g.drawText(label, juce::Rectangle<int>(5, 0, room, getHeight() - 1), juce::Justification::centredLeft, true);
+        }
+    }
     g.fillRect(0, getHeight() - 1, getWidth(), 1);
     if (hasKeyboardFocus(false)) g.drawRect(getLocalBounds().withTrimmedBottom(1), 2);   // focus ring
 }
@@ -731,6 +743,15 @@ void LMWSynthEditor::paint(juce::Graphics& g) {
             const auto& b = grp.bounds;
             g.drawRect(b, 1);
             g.drawText(grp.title, b.getX(), b.getY(), b.getWidth(), m.header - 3, juce::Justification::centred);
+            if (const auto label = presetLabel(presetModuleOf(grp.title)); label.isNotEmpty()) {   // Spec S7.5
+                const juce::FontOptions titleFont(m.titleFont, juce::Font::bold);
+                const int room = (b.getWidth() - juce::roundToInt(juce::GlyphArrangement::getStringWidth(titleFont, grp.title))) / 2 - 10;
+                if (room > 16) {
+                    g.setFont(juce::FontOptions(m.titleFont * 0.85f));
+                    g.drawText(label, b.getX() + 5, b.getY(), room, m.header - 3, juce::Justification::centredLeft, true);
+                    g.setFont(titleFont);
+                }
+            }
             g.drawHorizontalLine(b.getY() + m.header - 3, static_cast<float>(b.getX()), static_cast<float>(b.getRight()));
         }
     }
@@ -1380,6 +1401,12 @@ void LMWSynthEditor::PresetButton::paintButton(juce::Graphics& g, bool highlight
 
 void LMWSynthEditor::PresetButton::clicked() { editor.showPresetMenu(*this); }
 
+juce::String LMWSynthEditor::PresetButton::getTooltip() {
+    const auto label = editor.presetLabel(module);
+    return (label.isEmpty() ? juce::String() : "Preset: " + label + (label.endsWith("*") ? " (changed since)" : "") + "\n")
+         + juce::Button::getTooltip();
+}
+
 juce::String LMWSynthEditor::presetModuleOf(const juce::String& panelTitle) {
     const auto words = juce::StringArray::fromTokens(panelTitle, " ", "");
     if (words.isEmpty()) return {};
@@ -1451,6 +1478,10 @@ void LMWSynthEditor::applyPreset(const juce::String& module, const lmw::presets:
         processor.rememberText(*r, value);              // reads back as in the preset (S10.10)
         LMWSynthProcessor::setNormalised(*r, *normalised);
     }
+    juce::StringArray values;                           // Spec S7.5: remembered for the title-bar label
+    for (const auto& [key, value] : preset.values) values.add(juce::String(key) + "=" + juce::String::fromUTF8(value.c_str()));
+    processor.setPresetRecord(module, juce::String::fromUTF8(preset.name.c_str()), values.joinIntoString(";"));
+    updatePresetLabels();
     if (!bad.isEmpty())
         showError("Preset partly used", "These values were not understood and were left as they were:\n" + bad.joinIntoString("\n"));
 }
@@ -1461,6 +1492,78 @@ void LMWSynthEditor::applyDefaults(const juce::String& module) {
     for (auto key : lmw::presets::keys(*kind))
         if (auto* r = dynamic_cast<juce::RangedAudioParameter*>(processor.state().getParameter(module + "." + juce::String(key.data(), key.size()))))
             LMWSynthProcessor::setNormalised(*r, r->getDefaultValue());
+    processor.setPresetRecord(module, "Default", {});
+    updatePresetLabels();
+}
+
+namespace {
+// Whether parameter r stands at the value the text sets (as a patch file would set it).
+bool atText(juce::RangedAudioParameter& r, const juce::String& text) {
+    const auto n = LMWSynthProcessor::parseValue(r, text);
+    if (!n) return false;
+    const auto& range = r.getNormalisableRange();
+    const float want = range.convertFrom0to1(*n), have = range.convertFrom0to1(r.getValue());
+    return std::fabs(want - have) <= 1e-6f * (range.end - range.start);
+}
+}
+
+bool LMWSynthEditor::moduleMatches(const juce::String& module, const lmw::presets::Preset& preset) const {
+    for (const auto& [key, value] : preset.values) {
+        auto* r = dynamic_cast<juce::RangedAudioParameter*>(processor.state().getParameter(module + "." + juce::String(key)));
+        if (r != nullptr && !atText(*r, juce::String::fromUTF8(value.c_str()))) return false;
+    }
+    return true;
+}
+
+bool LMWSynthEditor::moduleAtDefaults(const juce::String& module) const {
+    const auto kind = lmw::presets::kindOf(module.toStdString());
+    if (!kind) return false;
+    for (auto key : lmw::presets::keys(*kind))
+        if (auto* r = dynamic_cast<juce::RangedAudioParameter*>(processor.state().getParameter(module + "." + juce::String(key.data(), key.size())))) {
+            const auto& range = r->getNormalisableRange();
+            if (std::fabs(range.convertFrom0to1(r->getDefaultValue()) - range.convertFrom0to1(r->getValue()))
+                > 1e-6f * (range.end - range.start))
+                return false;
+        }
+    return true;
+}
+
+// The last chosen preset, with "*" once a value differs from what it set. Without one (new instance,
+// loaded patch): a built-in preset the module matches exactly, else "Default" / "Default*".
+juce::String LMWSynthEditor::computePresetLabel(const juce::String& module) const {
+    const auto kind = lmw::presets::kindOf(module.toStdString());
+    if (!kind) return {};
+    const auto name = processor.presetName(module);
+    if (name.isNotEmpty() && name != "Default") {
+        lmw::presets::Preset p;
+        for (const auto& pair : juce::StringArray::fromTokens(processor.presetValues(module), ";", ""))
+            if (pair.contains("="))
+                p.values.emplace_back(pair.upToFirstOccurrenceOf("=", false, false).toStdString(),
+                                      pair.fromFirstOccurrenceOf("=", false, false).toStdString());
+        return moduleMatches(module, p) ? name : name + "*";
+    }
+    if (name.isEmpty())
+        for (const auto& p : lmw::presets::builtIn(*kind))
+            if (moduleMatches(module, p)) return juce::String::fromUTF8(p.name.c_str());
+    return moduleAtDefaults(module) ? juce::String("Default") : juce::String("Default*");
+}
+
+void LMWSynthEditor::updatePresetLabels() {
+    for (std::size_t i = 0; i < groups.size(); ++i)
+        if (const auto module = presetModuleOf(groups[i].title); module.isNotEmpty())
+            if (auto label = computePresetLabel(module); presetLabels[module] != label) {
+                presetLabels[module] = label;
+                headers[i]->repaint();
+            }
+    if (auto label = computePresetLabel("reverb"); presetLabels["reverb"] != label) {
+        presetLabels["reverb"] = label;
+        for (const auto& grp : effectGroups) repaint(grp.bounds.withHeight(m.header));
+    }
+}
+
+juce::String LMWSynthEditor::presetLabel(const juce::String& module) const {
+    const auto it = presetLabels.find(module);
+    return it != presetLabels.end() ? it->second : juce::String();
 }
 
 void LMWSynthEditor::savePresetAs(const juce::String& module, const juce::String& panelTitle) {
