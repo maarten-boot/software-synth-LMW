@@ -66,7 +66,9 @@ jobs:
             echo "LMW-Synth $v — semi-modular software synthesizer, standalone and VST3 (GNU AGPL-3.0-or-later)."
             echo
             echo "**Windows:** LMW-Synth-$v-setup.exe installs or updates the app and the VST3 plugin (just for you, or for all users). Not signed: SmartScreen asks first (More info → Run anyway)."
+            echo
             echo "**macOS, Linux:** unpack the .tar.gz; copy LMW-Synth.vst3 to ~/Library/Audio/Plug-Ins/VST3 (macOS) or ~/.vst3 (Linux). Not signed: macOS asks first (right-click → Open)."
+            echo
             echo "Checksums: SHA256SUMS.txt. Source: ${{ github.server_url }}/${{ github.repository }}/tree/v$v"
             echo
             # The version's section of Changes.md ("## 1.0.0 ..." up to the next "## ").
