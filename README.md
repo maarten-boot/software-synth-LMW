@@ -7,7 +7,9 @@ Licence: GNU AGPLv3 (see `LICENSE`). Design documents: `architecture/`.
 
 ## Download
 
-Every CI run (Actions tab → a green "build" run → Artifacts) offers LMW-Synth-ubuntu-24.04, -fedora-45, -macos and -windows: the standalone app, the LMW-Synth.vst3 plugin and the lmw9p client. Linux/macOS builds are a .tar.gz inside the zip. The builds are not code-signed, so Windows and macOS warn on first start. Install the plugin by copying LMW-Synth.vst3 to ~/.vst3 (Linux), ~/Library/Audio/Plug-Ins/VST3 (macOS) or C:\Program Files\Common Files\VST3 (Windows).
+Every CI run (Actions tab → a green "build" run → Artifacts) offers LMW-Synth-ubuntu-24.04, -fedora-45, -macos and -windows: the standalone app, the LMW-Synth.vst3 plugin and the lmw9p client. Linux/macOS builds are a .tar.gz inside the zip. The builds are not code-signed, so Windows and macOS warn on first start. Install the plugin by copying LMW-Synth.vst3 to ~/.vst3 (Linux) or ~/Library/Audio/Plug-Ins/VST3 (macOS).
+
+Windows: the -windows download also holds LMW-Synth-<version>-setup.exe. It installs the app (Start menu, Apps & features) and the VST3 plugin, either just for you (no administrator rights; the plugin goes to %LOCALAPPDATA%\Programs\Common\VST3, which some DAWs must be told to scan) or for all users (administrator rights; the plugin goes to C:\Program Files\Common Files\VST3, where every DAW looks). Running a newer setup updates LMW-Synth in place; uninstall in Settings → Apps. Patches and presets in Documents stay. The setup is not signed: SmartScreen asks first (More info → Run anyway). Silent: `LMW-Synth-<version>-setup.exe /S [/CURRENTUSER|/ALLUSERS]`.
 
 ## Build
 ```sh

@@ -48,6 +48,22 @@ jobs:
         with:
           path: .juce-cache
           key: juce-${{ hashFiles('cmake/JuceVersion.cmake') }}
+      # Spec S9.5: NSIS for the Windows installer, a pinned version from Chocolatey (the runner image
+      # has none; not an action, so not pinnable by hash, Spec S2.3). Up to 3 tries a minute apart.
+      - name: Install NSIS (Windows installer)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          for ($try = 1; $try -le 3; $try++) {
+            choco install nsis --version=3.13.0 -y --no-progress --allow-downgrade
+            if ($LASTEXITCODE -eq 0) { break }
+            if ($try -eq 3) { throw "NSIS could not be installed (3 tries)" }
+            Write-Output "choco failed (exit $LASTEXITCODE), try $($try + 1) of 3 in 60 s"
+            Start-Sleep -Seconds 60
+          }
+          $v = & "C:\Program Files (x86)\NSIS\makensis.exe" -VERSION
+          Write-Output "makensis $v"
+          if ($v -ne "v3.13") { throw "unexpected NSIS version $v" }
       - name: Fetch JUCE archive (cache miss only; retries)
         shell: bash
         run: cmake -DDEST="$GITHUB_WORKSPACE/.juce-cache/juce.tar.gz" -P cmake/FetchJuceArchive.cmake
@@ -69,6 +85,18 @@ jobs:
       - name: VST3 validators
         shell: bash
         run: LMW_VALIDATOR_DIR="$PWD/.validators" bash scripts/validate-vst3.sh
+      # Spec S9.5: the Windows installer, then a silent install / update / uninstall test of it
+      # (T-S9.5-installer, both "just me" and "all users").
+      - name: Build the installer
+        if: runner.os == 'Windows'
+        run: cmake --build build --config Release --target installer
+      - name: Test the installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem build\LMW-Synth-*-setup.exe | Select-Object -First 1
+          pwsh -NoProfile -File scripts/test-installer.ps1 $setup.FullName
+          if ($LASTEXITCODE -ne 0) { throw "installer test failed" }
       # Downloadable build per platform (Spec S9.3): standalone app, VST3 bundle and the lmw9p client.
       # Unix: packed as .tar.gz first, because an artifact zip loses the executable bit.
       - name: Package
@@ -84,6 +112,7 @@ jobs:
           cp LICENSE "dist/$d/"
           echo "LMW-Synth ${{ github.sha }} built on ${{ matrix.name }}; source: ${{ github.server_url }}/${{ github.repository }}/tree/${{ github.sha }}" > "dist/$d/BUILD.txt"
           if [ "${{ runner.os }}" != "Windows" ]; then (cd dist && tar czf "$d.tar.gz" "$d" && rm -rf "$d"); fi
+          if [ "${{ runner.os }}" = "Windows" ]; then cp build/LMW-Synth-*-setup.exe dist/; fi   # Spec S9.5
           ls -R dist | head -40
       - name: Upload build
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

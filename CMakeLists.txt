@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(LMWSynth VERSION 0.1.0 LANGUAGES C CXX)
+project(LMWSynth VERSION 0.2.0 LANGUAGES C CXX)   # Spec S6.10: raised with every release
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -94,6 +94,29 @@ if(LMW_BUILD_PLUGIN)
             juce::juce_recommended_warning_flags)
     if(WIN32)
         target_link_libraries(LMWSynth PRIVATE ws2_32)   # 9P sockets
+        # Spec S9.5: Windows installer, `cmake --build <build> --config Release --target installer` when
+        # NSIS 3 is found. makensis gets native paths (backslashes; see installer/LMW-Synth.nsi).
+        find_program(LMW_MAKENSIS makensis PATHS "C:/Program Files (x86)/NSIS" "C:/Program Files/NSIS")
+        if(LMW_MAKENSIS)
+            set(lmw_stage ${CMAKE_BINARY_DIR}/installer-stage)
+            set(lmw_setup ${CMAKE_BINARY_DIR}/LMW-Synth-${PROJECT_VERSION}-setup.exe)
+            file(TO_NATIVE_PATH "${lmw_stage}" lmw_stage_native)
+            file(TO_NATIVE_PATH "${lmw_setup}" lmw_setup_native)
+            add_custom_target(installer
+                COMMAND ${CMAKE_COMMAND} -E rm -rf ${lmw_stage}
+                COMMAND ${CMAKE_COMMAND} -E make_directory ${lmw_stage}
+                COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:LMWSynth_Standalone> $<TARGET_FILE:lmw9p> ${lmw_stage}/
+                COMMAND ${CMAKE_COMMAND} -E copy_directory
+                        "$<TARGET_GENEX_EVAL:LMWSynth_VST3,$<TARGET_PROPERTY:LMWSynth_VST3,JUCE_PLUGIN_ARTEFACT_FILE>>"
+                        ${lmw_stage}/LMW-Synth.vst3
+                COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/LICENSE ${lmw_stage}/LICENSE.txt
+                COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/README.md ${CMAKE_SOURCE_DIR}/THIRD_PARTY.md ${lmw_stage}/
+                COMMAND ${LMW_MAKENSIS} -V2 -DVERSION=${PROJECT_VERSION} -DSTAGE=${lmw_stage_native}
+                        -DOUTFILE=${lmw_setup_native} ${CMAKE_SOURCE_DIR}/installer/LMW-Synth.nsi
+                DEPENDS LMWSynth_Standalone LMWSynth_VST3 lmw9p
+                COMMENT "Building ${lmw_setup}"
+                VERBATIM)
+        endif()
     endif()
 
     # T-S9.2-host (Phase 8): loads the built VST3 through JUCE's VST3 hosting, as a DAW would.

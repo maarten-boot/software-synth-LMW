@@ -85,3 +85,4 @@ Changes between releases.
 - 2026-11-18: Version shown: title "LMW-Synth 0.1.0" (a button that opens About), About... button (normal view) and About dialog (version, git commit, licence, source, JUCE, 9P), 9P /version (S6.10). Compact view: "Reset layout" → "Reset".
 - 2026-11-18: Matrix tab level slider on the right for the cell under the cursor (S6.8); the type-a-level dialog focuses its text field.
 - 2026-11-18: Module presets: a Presets menu in the title bar of ENV, VCF, VCO and REVERB panels — Default, 53 built-in starting points after classical instruments (flute, recorder, oboe, clarinet, ...) and rooms, the user's own (.lmwpreset text files in Documents/LMW-Synth Presets), Save as preset... (S7.5).
+- 2026-11-18: Windows installer LMW-Synth-<version>-setup.exe (NSIS): Just me or All users, updates in place, uninstaller; built and tested in CI; THIRD_PARTY.md (S9.5). Version 0.1.0 → 0.2.0 (S6.10).
