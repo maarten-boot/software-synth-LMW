@@ -44,6 +44,7 @@ APVTS::ParameterLayout LMWSynthProcessor::createLayout(std::map<std::string, Flo
     const auto hertz    = attr(tx::hertz, tx::parseHertz, "Hz");
     const auto octaves  = attr(tx::octaves, tx::parseNumber, "oct");
     const auto semis    = attr(tx::semitones, tx::parseNumber, "st");
+    const auto vowels   = attr(tx::vowel, tx::parseVowel, "vowel");   // Spec S5.16: 0 = A .. 4 = U
     auto f = [&info](const char* id, const char* name, Skewed r, float def, const Text& t) {
         info[id] = FloatInfo{t.unit, def, r.centre};
         return std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{id, 1}, name, r.range, def, t.attr);
@@ -87,6 +88,12 @@ APVTS::ParameterLayout LMWSynthProcessor::createLayout(std::map<std::string, Flo
               std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{P::vcfType[n], 1}, name + " Type",
                   juce::StringArray{"Lowpass", "Highpass", "Bandpass", "Notch"}, 0));
     }
+    // Spec S5.16: FORMANT. Mix 0 = off (bypassed exactly).
+    l.add(f(P::formantVowel, "Formant Vowel", Range(0.0f, 4.0f), 0.0f, vowels),
+          std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{P::formantVoice, 1}, "Formant Voice",
+              juce::StringArray{"Bass", "Baritone", "Tenor", "Alto", "Soprano", "Child"}, 2),
+          f(P::formantRes, "Formant Resonance", Range(0.0f, 1.0f), 0.5f, percent),
+          f(P::formantMix, "Formant Mix", Range(0.0f, 1.0f), 0.0f, percent));
     l.add(f(P::vcaInitial, "VCA Initial",  Range(0.0f, 1.0f), 0.0f, percent),
           f(P::vcaTremolo, "VCA Tremolo",  Range(0.0f, 1.0f), 0.0f, percent));   // Spec S5.12
     envelope(l, P::env1Attack, P::env1Decay, P::env1Sustain, P::env1Release, "Env1", 0.01f, 0.2f, 0.7f, 0.3f);
@@ -124,6 +131,8 @@ LMWSynthProcessor::LMWSynthProcessor()
     raw.revMix = get(P::reverbMix); raw.revSize = get(P::reverbSize);
     raw.revDamping = get(P::reverbDamping); raw.revWidth = get(P::reverbWidth);
     raw.noiseColour = get(P::noiseColour); raw.noiseRate = get(P::noiseRate); raw.noiseSmooth = get(P::noiseSmooth);
+    raw.formantVowel = get(P::formantVowel); raw.formantVoice = get(P::formantVoice);
+    raw.formantRes = get(P::formantRes); raw.formantMix = get(P::formantMix);
     for (std::size_t n = 0; n < 3; ++n) {
         raw.wave[n] = get(P::vcoWave[n]); raw.fm[n] = get(P::vcoFm[n]); raw.octave[n] = get(P::vcoOctave[n]);
         raw.tune[n] = get(P::vcoTune[n]); raw.mixVco[n] = get(P::mixVco[n]);
@@ -258,6 +267,10 @@ void LMWSynthProcessor::pullParameters() noexcept {
     m.vcf2Cutoff  = raw.cutoff[1]->load();   m.vcf2Resonance = raw.resonance[1]->load();
     m.vcf2EnvOctaves = raw.vcfEnv[1]->load(); m.vcf2Slope    = slope(1);   m.vcf2Type = type(1);
     m.keyTrack    = raw.vcfKey[0]->load();   m.vcf2KeyTrack  = raw.vcfKey[1]->load();
+    m.formantVowel = raw.formantVowel->load();      // Spec S5.16
+    m.formantVoice = static_cast<lmw::dsp::FormantVoice>(static_cast<int>(raw.formantVoice->load()));
+    m.formantRes   = raw.formantRes->load();
+    m.formantMix   = raw.formantMix->load();
     m.vcaInitial  = raw.vcaInitial->load();
     m.lfoRate     = raw.lfoRate->load();
     m.lfoWave     = static_cast<lmw::dsp::LfoWave>(static_cast<int>(raw.lfoWave->load()));

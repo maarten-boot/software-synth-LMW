@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Spec S7.5: named presets per module (user 2026-11-18) — starting points for one ENV, VCF, VCO or the
-// REVERB, next to whole-patch files (S7.1). Built-in presets follow classical instruments (flute, recorder,
+// Spec S7.5: named presets per module (user 2026-11-18) — starting points for one ENV, VCF, VCO, the
+// FORMANT (S5.16) or the REVERB, next to whole-patch files (S7.1). Built-in presets follow classical instruments (flute, recorder,
 // oboe, clarinet, ...); the user's own are small text files, one per preset:
 //
 //   # LMW-Synth module preset
@@ -24,7 +24,7 @@
 
 namespace lmw::presets {
 
-enum class Kind { Env, Vcf, Vco, Reverb };
+enum class Kind { Env, Vcf, Vco, Reverb, Formant };
 
 struct Preset {
     std::string name;
@@ -37,6 +37,7 @@ inline std::optional<Kind> kindOf(std::string_view module) {
     if (module == "vcf1" || module == "vcf2") return Kind::Vcf;
     if (module == "vco1" || module == "vco2" || module == "vco3") return Kind::Vco;
     if (module == "reverb") return Kind::Reverb;
+    if (module == "formant") return Kind::Formant;
     return std::nullopt;
 }
 
@@ -45,8 +46,10 @@ inline std::string_view kindName(Kind k) {          // "module = ..." in the fil
         case Kind::Env: return "env";
         case Kind::Vcf: return "vcf";
         case Kind::Vco: return "vco";
-        default:        return "reverb";
+        case Kind::Formant: return "formant";
+        case Kind::Reverb: return "reverb";
     }
+    return "reverb";
 }
 
 inline std::string_view folderName(Kind k) {        // Documents/LMW-Synth Presets/<folder>
@@ -54,8 +57,10 @@ inline std::string_view folderName(Kind k) {        // Documents/LMW-Synth Prese
         case Kind::Env: return "ENV";
         case Kind::Vcf: return "VCF";
         case Kind::Vco: return "VCO";
-        default:        return "REVERB";
+        case Kind::Formant: return "FORMANT";
+        case Kind::Reverb: return "REVERB";
     }
+    return "REVERB";
 }
 
 // The parameters a preset of this kind sets, in panel order.
@@ -64,12 +69,15 @@ inline const std::vector<std::string_view>& keys(Kind k) {
     static const std::vector<std::string_view> vcf{"cutoff", "res", "env", "key", "slope", "type"};
     static const std::vector<std::string_view> vco{"wave", "octave", "tune", "fm"};
     static const std::vector<std::string_view> reverb{"mix", "size", "damping", "width"};
+    static const std::vector<std::string_view> formant{"vowel", "voice", "res", "mix"};
     switch (k) {
         case Kind::Env: return env;
         case Kind::Vcf: return vcf;
         case Kind::Vco: return vco;
-        default:        return reverb;
+        case Kind::Formant: return formant;
+        case Kind::Reverb: return reverb;
     }
+    return reverb;
 }
 
 namespace detail {
@@ -150,12 +158,23 @@ inline const std::vector<Preset>& builtIn(Kind k) {
         make("Cathedral", Kind::Reverb, {"0.35", "0.95", "0.3", "1"}),
         make("Plate", Kind::Reverb, {"0.25", "0.6", "0.1", "1"}),
     };
+    // Spec S5.16: every voice type with every vowel ("Bass A" .. "Child U"): vowel 0-4, voice, resonance, mix 1.
+    static const std::vector<Preset> formant = [] {
+        std::vector<Preset> list;
+        for (const char* voice : {"Bass", "Baritone", "Tenor", "Alto", "Soprano", "Child"})
+            for (int v = 0; v < 5; ++v)
+                list.push_back(make(std::string(voice) + " " + "AEIOU"[v], Kind::Formant,
+                                    {std::to_string(v), voice, "0.5", "1"}));
+        return list;
+    }();
     switch (k) {
         case Kind::Env: return env;
         case Kind::Vcf: return vcf;
         case Kind::Vco: return vco;
-        default:        return reverb;
+        case Kind::Formant: return formant;
+        case Kind::Reverb: return reverb;
     }
+    return reverb;
 }
 
 // A preset's file name (without extension): letters, digits, space, '-', '_', '(', ')', '\'' and '+'

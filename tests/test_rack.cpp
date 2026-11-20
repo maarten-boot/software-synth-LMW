@@ -72,7 +72,12 @@ int main() {
     {   // restoring a saved layout rejects anything incomplete or invalid
         auto r = make();
         CHECK(!r.parse(""));
-        CHECK(!r.parse("0,1,2,3,4,5,6;7"));          // ENV 2 missing
+        CHECK(!r.parse("0,1,2,3,4,5;7,8"));          // OUT missing (a gap: not an older layout)
+        // S5.16: a layout saved before the last panel existed gets it at the end of its default row ...
+        CHECK(r.parse("0,1,2,3,4,5,6;7") && r.serialize() == "0,1,2,3,4,5,6;7,8");
+        // ... or in a new last row when that row is full (row 1 here holds the 12 columns of row 0)
+        CHECK(r.parse("7;0,1,2,3,4,5,6") && r.serialize() == "7;0,1,2,3,4,5,6;8");
+        r.reset();
         CHECK(!r.parse("0,1,2,3,4,5,6;7,8,8"));      // duplicate
         CHECK(!r.parse("0,1,2,3,4,5,6;7,8,9"));      // unknown panel
         CHECK(!r.parse("0,1,2,3,4,5,6,7;8"));        // row too wide

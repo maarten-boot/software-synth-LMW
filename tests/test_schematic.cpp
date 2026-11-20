@@ -29,7 +29,7 @@ int main() {
                 if (ra.intersects(rb)) std::printf("overlap: %s / %s\n", blocks[a].name.data(), blocks[b].name.data());
                 CHECK(!ra.intersects(rb));
             }
-        CHECK(blocks.size() == 14);
+        CHECK(blocks.size() == 15);
     }
     {   // Ports: inputs on the left edge, outputs on the right edge (a triangle's output at its tip); distinct.
         for (const auto& b : blocks) {
@@ -61,10 +61,10 @@ int main() {
         }
         CHECK(!sc::portAt({1, 60}, 0.5f));
     }
-    {   // Default patch: the 20 normalled connections (22 inputs, vcf1.res and vcf2.res have none).
+    {   // Default patch: the 21 normalled connections (24 inputs; vcf1.res, vcf2.res and formant.vowel have none).
         lmw::dsp::Patch p;
         const auto c = sc::connections(p);
-        CHECK(c.size() == 20);
+        CHECK(c.size() == 21);
         for (const auto& x : c) CHECK(x.normalled && x.level == 1.0f);
         CHECK(sc::describeInput(p, In::Vcf1Cutoff) == "env2.out → vcf1.cutoff (normalled)");
         CHECK(sc::describeInput(p, In::Vcf1Res) == "vcf1.res: not connected");
@@ -77,7 +77,7 @@ int main() {
         CHECK(p.connect(In::Vcf1Cutoff, Out::Env2));
         CHECK(p.connect(In::Vcf1Res, Out::KeysVel));
         const auto c = sc::connections(p);
-        CHECK(c.size() == 22);   // 19 normalled + 3 cables
+        CHECK(c.size() == 23);   // 20 normalled + 3 cables
         int cables = 0;
         for (const auto& x : c)
             if (!x.normalled) {
@@ -169,14 +169,14 @@ int main() {
         for (std::size_t i = 0; i < sc::blocks().size(); ++i) CHECK(l.fits(i, l.position(i)));   // default is valid
         const auto vcf2 = *sc::findBlock("VCF 2"), lfo2 = *sc::findBlock("LFO 2"), vcf1 = *sc::findBlock("VCF 1");
         // A free spot: moves (snapped to the grid); ports and internal targets follow.
-        CHECK(l.move(lfo2, {110.4f, 55.6f}));
-        CHECK(l.position(lfo2).x == 110 && l.position(lfo2).y == 56 && !l.isDefault());
-        CHECK(sc::outputPoint(Out::Lfo2, l).x == 120 && sc::outputPoint(Out::Lfo2, l).y == 56 + 4.5f);
-        CHECK(sc::outputPoint(Out::Lfo2).x == 106);                                    // default unchanged
+        CHECK(l.move(lfo2, {96.4f, 55.6f}));
+        CHECK(l.position(lfo2).x == 96 && l.position(lfo2).y == 56 && !l.isDefault());
+        CHECK(sc::outputPoint(Out::Lfo2, l).x == 106 && sc::outputPoint(Out::Lfo2, l).y == 56 + 4.5f);
+        CHECK(sc::outputPoint(Out::Lfo2).x == 120);                                    // default unchanged
         CHECK(sc::portAt(sc::outputPoint(Out::Lfo2, l), 0.5f, false, l).has_value());
         CHECK(!sc::portAt(sc::outputPoint(Out::Lfo2), 0.5f, false, l));
-        CHECK(sc::blockAt({112, 60}, l) == lfo2 && !sc::blockAt({112, 60}));
-        const auto t0 = sc::internalTarget(vcf2), t1 = (l.move(vcf2, {88, 21}), sc::internalTarget(vcf2, l));
+        CHECK(sc::blockAt({98, 60}, l) == lfo2 && !sc::blockAt({98, 60}));
+        const auto t0 = sc::internalTarget(vcf2), t1 = (l.move(vcf2, {86, 21}), sc::internalTarget(vcf2, l));
         CHECK(t1.y == t0.y + 1 && t1.x == t0.x);
         // Refused: on another block, off the canvas, into the legend; nothing changes.
         const auto before = l.serialize();
@@ -196,6 +196,18 @@ int main() {
         CHECK(!sc::Layout::parse("lfo2:110"));                  // malformed
         CHECK(!sc::Layout::parse("lfo2:-5,3"));                 // negative
         CHECK(!sc::Layout::parse("vcf2:68,20"));                // on top of VCF 1
+        // S5.16: a layout saved before FORMANT existed (the old places of VCF 2, VCA, OUT, LFO 2): the
+        // named blocks stay where they were; FORMANT, whose default place is taken by the VCA, gets a free one.
+        {
+            const auto old = sc::Layout::parse("vcf2:88,20;vca:108,20;out:126,22;lfo2:96,50");
+            const auto formant = *sc::findBlock("FORMANT"), vca = *sc::findBlock("VCA");
+            CHECK(old && old->position(vca).x == 108 && old->position(vcf2).x == 88);
+            if (old) {
+                for (std::size_t i = 0; i < sc::blocks().size(); ++i) CHECK(old->fits(i, old->position(i)));
+                CHECK(old->position(formant).x != 104 || old->position(formant).y != 20);
+            }
+            CHECK(!sc::Layout::parse("vcf2:88,20;vca:108,20;formant:104,20"));   // named blocks may not overlap
+        }
         CHECK(sc::blockId("ENV 2") == "env2");
         // Keyboard: the block that holds a port.
         CHECK(sc::blockOf({true, static_cast<int>(In::Vcf2Cutoff)}) == vcf2);

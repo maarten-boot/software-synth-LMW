@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Polyphonic semi-modular engine (Spec S4, S5). Per voice: VCO 1-3, ENV1, ENV2, Mixer, VCF 1-2, VCA;
+// Polyphonic semi-modular engine (Spec S4, S5). Per voice: VCO 1-3, ENV1, ENV2, Mixer, VCF 1-2, FORMANT, VCA;
 // shared: LFO 1-2, Noise, Random (S&H). Every module input reads its patch cable if present, else its normalled
 // source (Spec S5.3, S5.4). Pure C++ (no JUCE) so it can be unit-tested and served over 9P.
 // All methods are RT-safe: no allocation, locks or I/O.
 #pragma once
 #include "dsp/Adsr.h"
+#include "dsp/Formant.h"
 #include "dsp/Ladder.h"
 #include "dsp/Lfo.h"
 #include "dsp/Noise.h"
@@ -43,6 +44,11 @@ struct ModParams {
     float vcf2Cutoff = 18000.0f, vcf2Resonance = 0.0f, vcf2EnvOctaves = 0.0f, vcf2KeyTrack = 0.0f;
     FilterSlope vcf2Slope = FilterSlope::Db24;
     FilterType vcf2Type = FilterType::Lowpass;
+    // FORMANT (Spec S5.16), after VCF 2; Mix 0 (the default) = bypassed exactly.
+    float formantVowel = 0.0f;                  // formant.vowel: 0 = A, 1 = E, 2 = I, 3 = O, 4 = U (between: a glide)
+    FormantVoice formantVoice = FormantVoice::Tenor;   // formant.voice
+    float formantRes = 0.5f;                    // formant.res: 0.5 = the table's bandwidths
+    float formantMix = 0.0f;                    // formant.mix: 0 = dry .. 1 = only the formants
     float vcaInitial = 0.0f;                    // vca.initial (base gain added to vca.cv)
     float lfoRate = 5.0f;                       // lfo1.rate (Hz)
     LfoWave lfoWave = LfoWave::Sine;            // lfo1.wave
@@ -73,8 +79,10 @@ public:
     void prepare(double sr) noexcept {
         for (auto& o : osc) o.setSampleRate(sr);
         env1.setSampleRate(sr); env2.setSampleRate(sr); vcf.setSampleRate(sr); vcf2.setSampleRate(sr);
-        env1.reset(); env2.reset(); vcf.reset(); vcf2.reset(); out.fill(0.0f);
+        formant.setSampleRate(sr);
+        env1.reset(); env2.reset(); vcf.reset(); vcf2.reset(); formant.reset(); out.fill(0.0f);
         vcf2Wet = 0.0f; vcf2WetStep = static_cast<float>(1.0 / (0.02 * sr));
+        formantWet = 0.0f; formantActive = false;
         gate = keyDown = false; played = false; lastPitch.fill(1e9);
         env1GateWasOn = env2GateWasOn = false; env1KeyGated = env2KeyGated = true;
     }
@@ -93,7 +101,7 @@ public:
     // (normalled or by cable) follows the key events directly, so a repeated note retriggers it;
     // an envelope gated by another signal follows that signal's edges in process() (Spec S5.8).
     void noteOn(int n, float vel, const Patch& patch) noexcept {
-        if (!env1.isActive()) { for (auto& o : osc) o.reset(); vcf.reset(); vcf2.reset(); }
+        if (!env1.isActive()) { for (auto& o : osc) o.reset(); vcf.reset(); vcf2.reset(); formant.reset(); }
         note = n; velocity = vel; gate = true; keyDown = true; played = true;
         lastPitch.fill(1e9);                      // force frequency update
         if (keyGated(In::Env1Gate, patch)) env1.noteOn();
@@ -108,7 +116,7 @@ public:
     void releaseKey(bool sustainPedal, const Patch& patch) noexcept { keyDown = false; if (!sustainPedal) noteOff(patch); }
     void setPitchBend(double semitones) noexcept { bend = semitones; }
 
-    // One sample through the voice's modules, in order KEYS, ENV1, ENV2, VCO 1-3, MIX, VCF 1, VCF 2, VCA.
+    // One sample through the voice's modules, in order KEYS, ENV1, ENV2, VCO 1-3, MIX, VCF 1, VCF 2, FORMANT, VCA.
     // `vcoUsed`: VCOs whose output is heard or patched somewhere (others are not computed).
     // Returns this voice's contribution to out.in (only meaningful for per-voice sources).
     float process(const GlobalSignals& g, const Patch& patch, const ModParams& mp,
@@ -163,6 +171,23 @@ public:
         if (open2) vcf2Wet = std::fmax(0.0f, vcf2Wet - vcf2WetStep);
         else       vcf2Wet = std::fmin(1.0f, vcf2Wet + vcf2WetStep);
         out[o(Out::Vcf2)] = vcf2Wet <= 0.0f ? in2 : (vcf2Wet >= 1.0f ? filtered2 : in2 + (filtered2 - in2) * vcf2Wet);
+
+        // FORMANT (Spec S5.16). Mix glides over 20 ms; while it is 0 the input passes exactly and the
+        // filters are not run. Vowel = fader + formant.vowel x 4 (1.0 = the whole A..U span), clamped.
+        const float inF = read(In::FormantIn, g, patch);
+        if (formantWet < mp.formantMix)      formantWet = std::fmin(mp.formantMix, formantWet + vcf2WetStep);
+        else if (formantWet > mp.formantMix) formantWet = std::fmax(mp.formantMix, formantWet - vcf2WetStep);
+        if (formantWet <= 0.0f) {
+            formantActive = false;
+            out[o(Out::Formant)] = inF;
+        } else {
+            if (!formantActive) { formant.reset(); formantActive = true; }
+            const float position = std::clamp(mp.formantVowel + maxVowelPosition * read(In::FormantVowel, g, patch),
+                                              0.0f, maxVowelPosition);
+            formant.setTarget(mp.formantVoice, position, mp.formantRes);
+            const float wet = formant.process(inF);
+            out[o(Out::Formant)] = formantWet >= 1.0f ? wet : inF + (wet - inF) * formantWet;
+        }
 
         float vcaGain = std::clamp(mp.vcaInitial + read(In::VcaCv, g, patch), 0.0f, 1.0f);   // Spec S5.5
         // Spec S5.12: tremolo. vca.mod (+-1) scales the gain between 1 (mod +1) and 1 - depth (mod -1);
@@ -238,6 +263,9 @@ private:
     Adsr env1, env2;
     Ladder vcf, vcf2;
     float vcf2Wet = 0.0f, vcf2WetStep = 1.0f / 960.0f;   // 0 = VCF 2 bypassed (open)
+    FormantFilter formant;                     // Spec S5.16
+    float formantWet = 0.0f;                   // smoothed formant.mix; 0 = bypassed
+    bool formantActive = false;
     static inline const double maxCutoffLog2 = std::log2(Ladder::maxCutoff);
     std::array<float, numOutputs> out{};
     int note = 60;

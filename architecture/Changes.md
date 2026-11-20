@@ -2,6 +2,9 @@
 
 Changes between releases.
 
+## Unreleased
+- 2026-11-20: New FORMANT module (vowel filter) after VCF 2: Vowel A–E–I–O–U (gliding in between, with a Vowel input for modulation), Voice Bass / Baritone / Tenor / Alto / Soprano / Child, Reso, Mix (0 = off, the sound is unchanged); presets "Bass A" … "Child U". Panel at the end of row 2 (window 1496 px wide); also in the Matrix and the Schematic. Saved panel and schematic layouts from before keep their places (S5.16).
+
 ## 1.1.0 (2026-11-18)
 - 2026-11-18: The panel title bars of ENV, VCF, VCO and REVERB show the module's preset at the left ("Flute", "Flute*" when changed since, "Default"), kept in the saved state (S7.5).
 

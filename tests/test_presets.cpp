@@ -12,12 +12,13 @@ static int failures = 0;
 int main() {
     CHECK(kindOf("env1") == Kind::Env && kindOf("env2") == Kind::Env);
     CHECK(kindOf("vcf2") == Kind::Vcf && kindOf("vco3") == Kind::Vco && kindOf("reverb") == Kind::Reverb);
+    CHECK(kindOf("formant") == Kind::Formant && kindName(Kind::Formant) == "formant" && folderName(Kind::Formant) == "FORMANT");
     CHECK(!kindOf("lfo1") && !kindOf("vco4") && !kindOf("env") && !kindOf(""));
 
     // Every built-in preset sets every parameter of its module, in panel order; names are unique; the
     // instruments the user asked for are there (flute, recorder, oboe, clarinet).
     int count = 0;
-    for (Kind k : {Kind::Env, Kind::Vcf, Kind::Vco, Kind::Reverb}) {
+    for (Kind k : {Kind::Env, Kind::Vcf, Kind::Vco, Kind::Reverb, Kind::Formant}) {
         std::set<std::string> names;
         for (const auto& p : builtIn(k)) {
             ++count;
@@ -31,11 +32,14 @@ int main() {
             const auto back = parse(k, write(k, p));
             CHECK(back && back->name == p.name && back->values == p.values);
         }
-        if (k != Kind::Reverb)
+        if (k != Kind::Reverb && k != Kind::Formant)
             for (const char* n : {"Flute", "Recorder", "Oboe", "Clarinet"}) CHECK(names.count(n) == 1);
         CHECK(names.size() >= 6);
     }
     std::printf("%d built-in presets\n", count);
+    CHECK(count == 83);                                        // 53 + 30 FORMANT (S5.16)
+    CHECK(builtIn(Kind::Formant).size() == 30 && builtIn(Kind::Formant).front().name == "Bass A"
+          && builtIn(Kind::Formant).back().name == "Child U");
 
     // File format.
     CHECK(write(Kind::Env, {"Soft", {{"attack", "0.5"}, {"release", "2"}}})

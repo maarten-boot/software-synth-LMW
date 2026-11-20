@@ -72,6 +72,34 @@ inline std::string octaves(float v) {
 inline std::string semitones(float v) { return printf1("%.1f st", v); }
 inline float parseNumber(const std::string& s) { return static_cast<float>(std::strtod(s.c_str(), nullptr)); }
 
+// Spec S5.16: vowel position 0..4 = A, E, I, O, U; between two vowels "A-E 40 %" (40 % of the way
+// from A to E). Accepts that form, a vowel letter ("o"), or the position as a number ("1.4").
+inline std::string vowel(float p) {
+    static constexpr std::string_view names = "AEIOU";
+    p = p < 0.0f ? 0.0f : (p > 4.0f ? 4.0f : p);
+    int lo = static_cast<int>(p);
+    if (lo > 3) lo = 3;
+    const int pct = static_cast<int>(std::lround((p - static_cast<float>(lo)) * 100.0f));
+    if (pct <= 0) return std::string(1, names[static_cast<std::size_t>(lo)]);
+    if (pct >= 100) return std::string(1, names[static_cast<std::size_t>(lo + 1)]);
+    return std::string(1, names[static_cast<std::size_t>(lo)]) + "-" + names[static_cast<std::size_t>(lo + 1)] + " "
+         + std::to_string(pct) + " %";
+}
+inline float parseVowel(const std::string& s) {
+    static constexpr std::string_view names = "AEIOU";
+    std::size_t i = s.find_first_not_of(" \t");
+    if (i == std::string::npos) return 0.0f;
+    const auto letter = names.find(static_cast<char>(std::toupper(static_cast<unsigned char>(s[i]))));
+    if (letter == std::string_view::npos) return parseNumber(s);
+    float p = static_cast<float>(letter);
+    const auto dash = s.find('-', i + 1);
+    if (dash != std::string::npos && letter < 4) {
+        const auto num = s.find_first_of("0123456789.", dash + 1);
+        if (num != std::string::npos) p += static_cast<float>(std::strtod(s.c_str() + num, nullptr) / 100.0);
+    }
+    return p;
+}
+
 // Spec S10.10, S7.1: a choice given as text -> its index, or -1. In order: the exact name (any
 // case); the name with " dB" and a leading "+" ignored ("24" -> "24 dB", "1" -> "+1"); a unique
 // prefix ("low" -> "Lowpass"); finally a plain index ("2" for the third choice).

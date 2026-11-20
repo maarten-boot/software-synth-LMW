@@ -371,7 +371,7 @@ int main(int argc, char* argv[]) {
         for (std::size_t at = 0; (at = info.find("{\"id\": ", at)) != std::string::npos; ++at) ++objects;
         std::printf("/info: %zu bytes, %d parameters\n", info.size(), objects);
         CHECK(info.rfind("[\n", 0) == 0 && info.size() > 2 && info.substr(info.size() - 2) == "]\n");
-        CHECK(objects == 51);
+        CHECK(objects == 55);
         CHECK(info.find("{\"id\": \"vcf1.cutoff\", \"name\": \"VCF 1 Cutoff\", \"kind\": \"float\", \"min\": 20.0, "
                         "\"max\": 18000.0, \"default\": 18000.0, \"unit\": \"Hz\", \"centre\": 600.0}") != std::string::npos);
         CHECK(info.find("{\"id\": \"vco1.tune\", \"name\": \"VCO 1 Tune\", \"kind\": \"float\", \"min\": -7.0, \"max\": 7.0, "
@@ -436,7 +436,7 @@ int main(int argc, char* argv[]) {
         // 4f. Module presets (Spec S7.5): every value of every built-in preset is valid for the real parameter:
         //     written over 9P (as the panel menu sets it) it is accepted and reads back as written.
         int presetValues = 0, presetExact = 0;
-        for (const char* module : {"env2", "vcf2", "vco3", "reverb"}) {
+        for (const char* module : {"env2", "vcf2", "vco3", "reverb", "formant"}) {
             const auto kind = *lmw::presets::kindOf(module);
             for (const auto& preset : lmw::presets::builtIn(kind))
                 for (const auto& [key, value] : preset.values) {

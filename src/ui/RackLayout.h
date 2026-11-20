@@ -100,7 +100,9 @@ public:
         return s;
     }
 
-    // Accepts only a complete, valid layout; otherwise the layout is left unchanged.
+    // Accepts only a complete, valid layout; otherwise the layout is left unchanged. A layout saved before
+    // newer panels existed (it holds panels 0..k-1 only) gets each missing panel at the end of the row
+    // with its default row's number, or in a new last row when that row is full (Spec S6.5, S5.16).
     bool parse(std::string_view text) {
         Rows r(1);
         std::vector<int> seen(columns_.size(), 0);
@@ -125,6 +127,18 @@ public:
             }
         }
         if (!flush()) return false;
+        std::size_t known = 0;                                   // panels 0..known-1 are in the text
+        while (known < seen.size() && seen[known] == 1) ++known;
+        for (std::size_t p = known; p < seen.size(); ++p) {
+            if (seen[p] != 0 || known == 0) return false;        // a gap: not an older layout
+            const int panel = static_cast<int>(p);
+            std::size_t row = 0;
+            for (std::size_t d = 0; d < default_.size(); ++d)
+                for (int q : default_[d]) if (q == panel) row = d;
+            if (row < r.size() && rowColumns(r[row]) + columns_[p] <= maxColumns_) r[row].push_back(panel);
+            else r.push_back({panel});
+            seen[p] = 1;
+        }
         if (static_cast<int>(r.size()) > maxRows_) return false;
         for (int s : seen) if (s != 1) return false;
         for (const auto& row : r) if (row.empty() || rowColumns(row) > maxColumns_) return false;

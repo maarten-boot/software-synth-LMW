@@ -46,7 +46,7 @@ struct Block {
     theme::Unit unit() const noexcept { return theme::unitOf(name); }
 };
 
-inline constexpr float canvasWidth = 136.0f, canvasHeight = 72.0f;
+inline constexpr float canvasWidth = 152.0f, canvasHeight = 72.0f;   // 136 wide before FORMANT (S5.16)
 // Names are drawn inside the symbols (user 2026-11-13), so a block needs no room above it.
 
 inline const std::vector<Block>& blocks() {
@@ -59,12 +59,13 @@ inline const std::vector<Block>& blocks() {
         {"NOISE",  Shape::Noise,    {26, 54, 11, 8},  {}, {Out::Noise, Out::Rand}},
         {"MIX",    Shape::Triangle, {48, 14, 12, 26}, {In::MixIn1, In::MixIn2, In::MixIn3, In::MixIn4}, {Out::Mix}},
         {"VCF 1",  Shape::Triangle, {68, 20, 12, 14}, {In::Vcf1In, In::Vcf1Cutoff, In::Vcf1Res}, {Out::Vcf1}},
-        {"VCF 2",  Shape::Triangle, {88, 20, 12, 14}, {In::Vcf2In, In::Vcf2Cutoff, In::Vcf2Res}, {Out::Vcf2}},
-        {"VCA",    Shape::Triangle, {108, 20, 12, 14},{In::VcaIn, In::VcaCv, In::VcaMod}, {Out::Vca}},
-        {"OUT",    Shape::Out,      {126, 22, 8, 10}, {In::OutIn}, {}},
+        {"VCF 2",  Shape::Triangle, {86, 20, 12, 14}, {In::Vcf2In, In::Vcf2Cutoff, In::Vcf2Res}, {Out::Vcf2}},
+        {"FORMANT", Shape::Triangle, {104, 20, 12, 14}, {In::FormantIn, In::FormantVowel}, {Out::Formant}},   // S5.16
+        {"VCA",    Shape::Triangle, {122, 20, 12, 14},{In::VcaIn, In::VcaCv, In::VcaMod}, {Out::Vca}},
+        {"OUT",    Shape::Out,      {140, 22, 8, 10}, {In::OutIn}, {}},
         {"ENV 1",  Shape::Adsr,     {50, 58, 12, 8},  {In::Env1Gate}, {Out::Env1}},
         {"ENV 2",  Shape::Adsr,     {50, 45, 12, 8},  {In::Env2Gate}, {Out::Env2}},
-        {"LFO 2",  Shape::Triangle, {96, 50, 10, 9},  {}, {Out::Lfo2}},
+        {"LFO 2",  Shape::Triangle, {110, 50, 10, 9}, {}, {Out::Lfo2}},
     };
     return b;
 }
@@ -128,10 +129,13 @@ public:
         }
         return s;
     }
-    // Reads that text; blocks not named keep their default place. Nothing (use the default) for an unknown
-    // block, a malformed entry, or a result where a block does not fit.
+    // Reads that text; blocks not named keep their default place. A block added in a later version (FORMANT,
+    // S5.16) that the text does not name, and whose default place is taken, gets the first free place, row
+    // by row (a layout saved before it existed). Nothing (use the default) for an unknown block, a malformed
+    // entry, or a result where a block does not fit.
     static std::optional<Layout> parse(std::string_view text) {
         Layout l;
+        std::vector<bool> named(l.pos.size(), false);
         while (!text.empty()) {
             const auto semi = text.find(';');
             auto item = trim(text.substr(0, semi));
@@ -147,9 +151,24 @@ public:
             while (i < blocks().size() && blockId(blocks()[i].name) != id) ++i;
             if (i == blocks().size()) return std::nullopt;
             l.pos[i] = {static_cast<float>(x), static_cast<float>(y)};
+            named[i] = true;
         }
-        for (std::size_t i = 0; i < l.pos.size(); ++i)
-            if (!l.fits(i, l.pos[i])) return std::nullopt;
+        const auto later = [](std::string_view name) { return name == "FORMANT"; };
+        for (std::size_t i = 0; i < l.pos.size(); ++i) {           // the others: inside, not on each other
+            if (!named[i] && later(blocks()[i].name)) continue;
+            const Rect r = l.box(i);
+            if (r.x < 0 || r.right() > canvasWidth || r.y < 0 || r.bottom() > canvasHeight - 4) return std::nullopt;
+            for (std::size_t j = 0; j < l.pos.size(); ++j)
+                if (j != i && (named[j] || !later(blocks()[j].name)) && r.intersects(l.box(j))) return std::nullopt;
+        }
+        for (std::size_t i = 0; i < l.pos.size(); ++i) {
+            if (named[i] || !later(blocks()[i].name) || l.fits(i, l.pos[i])) continue;
+            bool placed = false;
+            for (int y = 0; y <= static_cast<int>(canvasHeight) && !placed; ++y)
+                for (int x = 0; x <= static_cast<int>(canvasWidth) && !placed; ++x)
+                    placed = l.move(i, {static_cast<float>(x), static_cast<float>(y)});
+            if (!placed) return std::nullopt;
+        }
         return l;
     }
 

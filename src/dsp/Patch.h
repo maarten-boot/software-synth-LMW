@@ -11,9 +11,10 @@ namespace lmw::dsp {
 
 // Order = order in menus: roughly signal flow. Saved patches use the names, not the numbers.
 enum class Out : std::uint8_t { KeysPitch, KeysGate, KeysVel, Vco1, Vco2, Vco3, Noise, Rand, Lfo1, Lfo2, Env1, Env2, Mix,
-                                Vcf1, Vcf2, Vca, Count };
+                                Vcf1, Vcf2, Formant, Vca, Count };
 enum class In  : std::uint8_t { Vco1Pitch, Vco1Fm, Vco2Pitch, Vco2Fm, Vco3Pitch, Vco3Fm, Env1Gate, Env2Gate,
-                                MixIn1, MixIn2, MixIn3, MixIn4, Vcf1In, Vcf1Cutoff, Vcf1Res, Vcf2In, Vcf2Cutoff, Vcf2Res, VcaIn, VcaCv,
+                                MixIn1, MixIn2, MixIn3, MixIn4, Vcf1In, Vcf1Cutoff, Vcf1Res, Vcf2In, Vcf2Cutoff, Vcf2Res,
+                                FormantIn, FormantVowel, VcaIn, VcaCv,
                                 VcaMod, OutIn,
                                 Count };
 
@@ -29,20 +30,22 @@ inline constexpr int numInputs  = static_cast<int>(In::Count);
 // Port names, as used in cable text, patch files and the 9P /cables file (Spec S5.3, S10.10).
 inline constexpr std::array<std::string_view, numOutputs> outputNames{
     "keys.pitch", "keys.gate", "keys.vel", "vco1.out", "vco2.out", "vco3.out",
-    "noise.out", "noise.rand", "lfo1.out", "lfo2.out", "env1.out", "env2.out", "mix.out", "vcf1.out", "vcf2.out", "vca.out"};
+    "noise.out", "noise.rand", "lfo1.out", "lfo2.out", "env1.out", "env2.out", "mix.out", "vcf1.out", "vcf2.out", "formant.out", "vca.out"};
 inline constexpr std::array<std::string_view, numInputs> inputNames{
     "vco1.pitch", "vco1.fm", "vco2.pitch", "vco2.fm", "vco3.pitch", "vco3.fm", "env1.gate", "env2.gate",
     "mix.in1", "mix.in2", "mix.in3", "mix.in4", "vcf1.in", "vcf1.cutoff", "vcf1.res", "vcf2.in", "vcf2.cutoff", "vcf2.res",
-    "vca.in", "vca.cv",
+    "formant.in", "formant.vowel", "vca.in", "vca.cv",
     "vca.mod", "out.in"};
 
 // An input without a normalled source reads 0 until a cable is plugged in (Spec S5.13: vcfN.res).
 inline constexpr Out noSource = Out::Count;
 
-// Spec S5.3, S5.8 normalled sources; S5.12: LFO 1 -> VCO FM (vibrato), LFO 2 -> vca.mod (tremolo).
+// Spec S5.3, S5.8 normalled sources; S5.12: LFO 1 -> VCO FM (vibrato), LFO 2 -> vca.mod (tremolo);
+// S5.16: VCF 2 -> FORMANT -> VCA (formant.vowel has no normalled source).
 inline constexpr std::array<Out, numInputs> normalled{
     Out::KeysPitch, Out::Lfo1, Out::KeysPitch, Out::Lfo1, Out::KeysPitch, Out::Lfo1, Out::KeysGate, Out::KeysGate,
-    Out::Vco1, Out::Vco2, Out::Vco3, Out::Noise, Out::Mix, Out::Env2, noSource, Out::Vcf1, Out::Env2, noSource, Out::Vcf2, Out::Env1, Out::Lfo2,
+    Out::Vco1, Out::Vco2, Out::Vco3, Out::Noise, Out::Mix, Out::Env2, noSource, Out::Vcf1, Out::Env2, noSource,
+    Out::Vcf2, noSource, Out::Formant, Out::Env1, Out::Lfo2,
     Out::Vca};
 
 // Name of an output, or "none" for noSource (hover texts, 9P /ports).

@@ -139,7 +139,7 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     };
 
     // Spec S6.1, S5.10: module panels in three rows (signal flow left to right, top to bottom):
-    // VCO 1 | VCO 2 | VCO 3 | NOISE | LFO 1;  MIXER | VCF 1 | VCF 2;  KEYS | ENV 1 | ENV 2 | LFO 2 | VCA | OUT.
+    // VCO 1 | VCO 2 | VCO 3 | NOISE | LFO 1;  MIXER | VCF 1 | VCF 2 | FORMANT;  KEYS | ENV 1 | ENV 2 | LFO 2 | VCA | OUT.
     // Titles of the envelopes name their normalled destination (S5.2).
     std::array<std::size_t, 3> vcoPanel{};
     for (int n = 0; n < 3; ++n) {
@@ -224,6 +224,19 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
                          "Tremolo depth: vca.mod swings the gain down by up to this much (0 = off)"))}, {}});
     const std::size_t outPanel = groups.size();
     groups.push_back({"OUT", 2, {addFader(P::gain, "Volume", inputTip(In::OutIn, "All voices summed, then soft limiter"))}, {}});
+    // Spec S5.16: FORMANT, after VCF 2 in row 2. Created last, so saved rack layouts keep their panel
+    // numbers (S6.5: a stored layout without it gets it at the end of its default row).
+    const std::size_t formantPanel = groups.size();
+    groups.push_back({"FORMANT", 1,
+        {addFader(P::formantVowel, "Vowel", inputTip(In::FormantVowel,
+             "Vowel A, E, I, O, U, gliding in between.\nA signal on the Vowel input adds to it: 1.0 = the whole A to U span.")),
+         addChoice(P::formantVoice, "Voice", {"Bass", "Bari", "Tenor", "Alto", "Sopr", "Child"},
+                   "Voice type: Bass, Baritone, Tenor, Alto, Soprano or Child (formants from low to high)"),
+         addFader(P::formantRes, "Reso", [] {
+             return juce::String("Sharpness of the formants: 50 % = as sung, higher = narrower peaks");
+         }),
+         addFader(P::formantMix, "Mix", inputTip(In::FormantIn,
+             "0 = off (the input passes unchanged), 100 % = only the formants"))}, {}});
     // Spec S7.4: Effects tab. The reverb follows everything on the Synth tab (after OUT's limiter).
     effectGroups.push_back({"REVERB", 0,
         {addFader(P::reverbMix, "Mix", [] { return juce::String("Dry/wet balance: 0 = off (no reverb at all), 100 % = only reverb"); }),
@@ -285,6 +298,8 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
             {outPanel, 0, false, in(In::OutIn), "In"},
             {env1Panel, 0, false, in(In::Env1Gate), "Gate"},    {env1Panel, 3, true, out(Out::Env1), "Out"},
             {env2Panel, 0, false, in(In::Env2Gate), "Gate"},    {env2Panel, 3, true, out(Out::Env2), "Out"},
+            {formantPanel, 0, false, in(In::FormantVowel), "Vowel"}, {formantPanel, 3, false, in(In::FormantIn), "In"},
+            {formantPanel, 3, true, out(Out::Formant), "Out"},
         };
         for (int n = 0; n < 3; ++n) {                         // FM under FM, Pitch under Tune, Out last
             const auto g = vcoPanel[static_cast<std::size_t>(n)];

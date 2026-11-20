@@ -38,6 +38,11 @@ inline constexpr std::array<const char*, 2> vcfEnv   {"vcf1.env",    "vcf2.env"}
 inline constexpr std::array<const char*, 2> vcfKey   {"vcf1.key",    "vcf2.key"};     // Spec S5.13
 inline constexpr std::array<const char*, 2> vcfSlope {"vcf1.slope",  "vcf2.slope"};
 inline constexpr std::array<const char*, 2> vcfType  {"vcf1.type",   "vcf2.type"};
+// Spec S5.16: FORMANT (vowel filter) after VCF 2.
+inline constexpr const char* formantVowel = "formant.vowel";
+inline constexpr const char* formantVoice = "formant.voice";
+inline constexpr const char* formantRes   = "formant.res";
+inline constexpr const char* formantMix   = "formant.mix";
 inline constexpr const char* vcaInitial  = "vca.initial";
 inline constexpr const char* vcaTremolo  = "vca.tremolo";   // Spec S5.12
 inline constexpr const char* env1Attack  = "env1.attack";
@@ -226,7 +231,7 @@ private:
     // notes go audio -> GUI (display only), each through its own lock-free SPSC queue.
     lmw::dsp::SpscQueue<lmw::dsp::NoteEvent, 256> guiToAudio;
     lmw::dsp::SpscQueue<lmw::dsp::NoteEvent, 256> audioToGui;
-    lmw::dsp::SpscQueue<lmw::dsp::PatchCommand, 256> patchToAudio;   // a whole patch: 22 x (1 + 4)
+    lmw::dsp::SpscQueue<lmw::dsp::PatchCommand, 256> patchToAudio;   // a whole patch: 24 x (1 + 4)
     inline static const juce::Identifier notesProp{"notes"}, nameProp{"patchName"}, schematicProp{"schematicLayout"};
     std::uint32_t loadedPatches = 0;                  // message thread only
     std::unique_ptr<class NinePService> ninep;        // Spec S10: 9P server (started in the constructor)
@@ -241,7 +246,7 @@ private:
         std::atomic<float> *voices{}, *mixNoise{}, *vcaInitial{},
             *e1a{}, *e1d{}, *e1s{}, *e1r{}, *e2a{}, *e2d{}, *e2s{}, *e2r{}, *lfoRate{}, *lfoWave{}, *gain{},
             *lfo2Rate{}, *lfo2Wave{}, *tremolo{}, *revMix{}, *revSize{}, *revDamping{}, *revWidth{},
-            *noiseColour{}, *noiseRate{}, *noiseSmooth{};
+            *noiseColour{}, *noiseRate{}, *noiseSmooth{}, *formantVowel{}, *formantVoice{}, *formantRes{}, *formantMix{};
         std::array<std::atomic<float>*, 2> cutoff{}, resonance{}, vcfEnv{}, vcfKey{}, vcfSlope{}, vcfType{};
         std::array<std::atomic<float>*, 3> wave{}, fm{}, octave{}, tune{}, mixVco{};
     } raw;

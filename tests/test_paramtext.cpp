@@ -52,6 +52,11 @@ int main() {
     CHECK(near(parseNumber("+2.0 oct"), 2.0f));
     CHECK(near(parseNumber("-1.5"), -1.5f));
     for (float v : {20.0f, 150.0f, 999.0f, 1234.0f, 17000.0f}) CHECK(std::fabs(parseHertz(hertz(v)) - v) / v < 0.006f);
+    // Spec S5.16: vowel position 0..4 = A..U, "E-I 40 %" between.
+    CHECK(vowel(0) == "A" && vowel(1) == "E" && vowel(4) == "U" && vowel(1.4f) == "E-I 40 %" && vowel(3.999f) == "U");
+    CHECK(vowel(-1) == "A" && vowel(9) == "U" && vowel(3.5f) == "O-U 50 %");
+    CHECK(parseVowel("i") == 2.0f && parseVowel("U") == 4.0f && parseVowel("2.5") == 2.5f);
+    CHECK(std::fabs(parseVowel("E-I 40 %") - 1.4f) < 1e-6f && std::fabs(parseVowel(vowel(2.25f)) - 2.25f) < 1e-6f);
 
     // Round trip: text shown for a value parses back to (nearly) the same value.
     for (float v : {0.005f, 0.2f, 0.75f, 3.3f, 9.0f}) CHECK(std::fabs(parseTime(time(v)) - v) <= 0.006f);

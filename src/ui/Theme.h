@@ -40,7 +40,7 @@ inline constexpr Unit unitOf(std::string_view name) noexcept {
     const std::string_view k(c, 3);
     if (k == "vco") return Unit::Vco;
     if (k == "noi") return Unit::Noise;
-    if (k == "vcf") return Unit::Vcf;
+    if (k == "vcf" || k == "for") return Unit::Vcf;      // FORMANT is a filter too (S5.16)
     if (k == "vca") return Unit::Vca;
     if (k == "env") return Unit::Env;
     if (k == "lfo") return Unit::Lfo;
