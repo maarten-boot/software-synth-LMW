@@ -53,6 +53,28 @@ inline constexpr std::string_view sourceName(Out o) noexcept {
     return o == noSource ? std::string_view("none") : outputNames[static_cast<std::size_t>(o)];
 }
 
+// Spec S5.17: VCF routing (vcf2.routing). Serial (default): mix.out -> VCF 1 -> VCF 2 -> FORMANT. Parallel:
+// mix.out is normalled to vcf2.in too, and formant.in gets the average of the two VCFs (each at 50 %).
+// Only those two inputs change; a cable on them overrides it as usual.
+enum class VcfRouting : std::uint8_t { Serial, Parallel };
+struct Normal { Out source = noSource; float level = 1.0f; };
+struct Normals { std::array<Normal, 2> s{}; int n = 0; };   // the normalled sources of an input (0-2)
+inline Normals normals(In in, VcfRouting r) noexcept {
+    if (r == VcfRouting::Parallel) {
+        if (in == In::Vcf2In) return {{{{Out::Mix, 1.0f}, {}}}, 1};
+        if (in == In::FormantIn) return {{{{Out::Vcf1, 0.5f}, {Out::Vcf2, 0.5f}}}, 2};
+    }
+    const Out o = normalled[static_cast<std::size_t>(in)];
+    if (o == noSource) return {};
+    return {{{{o, 1.0f}, {}}}, 1};
+}
+// The level at which `o` is normalled to `in` (0 = not normalled from it).
+inline float normalLevel(In in, Out o, VcfRouting r) noexcept {
+    const auto ns = normals(in, r);
+    for (int k = 0; k < ns.n; ++k) if (ns.s[static_cast<std::size_t>(k)].source == o) return ns.s[static_cast<std::size_t>(k)].level;
+    return 0.0f;
+}
+
 inline constexpr bool isGlobal(Out o) noexcept { return o == Out::Lfo1 || o == Out::Lfo2 || o == Out::Noise || o == Out::Rand; }
 
 // Spec S5.14 (Phase 10): a patch is a pin matrix. Every input has up to maxPins pins, each an output
@@ -85,6 +107,12 @@ public:
     void disconnect(In in) noexcept { count[idx(in)] = 0; }                     // all pins of the input
     void clear() noexcept { count.fill(0); }
 
+    // Spec S5.17: the VCF routing decides two inputs' normalled sources; not part of the pins or the cable text.
+    void setRouting(VcfRouting r) noexcept { route = r; }
+    VcfRouting routing() const noexcept { return route; }
+    Normals normals(In in) const noexcept { return lmw::dsp::normals(in, route); }
+    float normalLevel(In in, Out o) const noexcept { return lmw::dsp::normalLevel(in, o, route); }
+
     bool isPatched(In in) const noexcept { return count[idx(in)] > 0; }
     int pinCount(In in) const noexcept { return count[idx(in)]; }
     const Pin& pin(In in, int k) const noexcept { return pins[idx(in)][static_cast<std::size_t>(k)]; }
@@ -95,12 +123,12 @@ public:
     }
     // The first pin's output, else the normalled source (for code that shows one source).
     Out source(In in) const noexcept {
-        return isPatched(in) ? static_cast<Out>(pin(in, 0).source) : normalled[idx(in)];
+        return isPatched(in) ? static_cast<Out>(pin(in, 0).source) : normals(in).s[0].source;
     }
     // True when the input gets exactly `o` at full level: normalled (no pins) or one pin at 1.
     bool onlySource(In in, Out o) const noexcept {
         const int n = count[idx(in)];
-        if (n == 0) return normalled[idx(in)] == o;
+        if (n == 0) { const auto ns = normals(in); return ns.n == 1 && ns.s[0].source == o; }
         return n == 1 && pin(in, 0).source == static_cast<std::int8_t>(o) && pin(in, 0).level >= 1.0f;
     }
     bool samePins(const Patch& other, In in) const noexcept {   // same pins and levels, any order
@@ -120,6 +148,7 @@ private:
     }
     std::array<std::array<Pin, maxPins>, numInputs> pins{};
     std::array<std::uint8_t, numInputs> count{};
+    VcfRouting route = VcfRouting::Serial;
 };
 
 // A pin change sent from the GUI / 9P thread to the audio thread (Spec S5.4, S10.2): output none =

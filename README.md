@@ -13,6 +13,14 @@ Every CI run (Actions tab → a green "build" run → Artifacts) offers LMW-Synt
 
 Windows: the -windows download also holds LMW-Synth-<version>-setup.exe. It installs the app (Start menu, Apps & features) and the VST3 plugin, either just for you (no administrator rights; the plugin goes to %LOCALAPPDATA%\Programs\Common\VST3, which some DAWs must be told to scan) or for all users (administrator rights; the plugin goes to C:\Program Files\Common Files\VST3, where every DAW looks). Running a newer setup updates LMW-Synth in place; uninstall in Settings → Apps. Patches and presets in Documents stay. The setup is not signed: SmartScreen asks first (More info → Run anyway). Silent: `LMW-Synth-<version>-setup.exe /S [/CURRENTUSER|/ALLUSERS]`.
 
+## Prepare
+```sh
+scripts/prepare.sh            # lists the build dependencies and which are missing
+scripts/prepare.sh --install  # installs the missing ones (apt, dnf or brew; asks for sudo)
+scripts/prepare.sh --optional # also Xvfb, xdotool, ImageMagick (GUI checks) and podman (container build)
+```
+Ubuntu/Debian, Fedora and macOS; on Windows it names what to install (Visual Studio 2026 with C++, CMake, Git, NSIS).
+
 ## Build
 ```sh
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release

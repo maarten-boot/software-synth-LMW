@@ -81,7 +81,7 @@ inline const std::array<std::array<FormantSet, numVowels>, numFormantVoices>& fo
 // The formants of `voice` at vowel position 0..4 (A, E, I, O, U; clamped), interpolated between vowels.
 inline FormantSet formants(FormantVoice voice, float position) noexcept {
     const auto& row = detail::formantTable()[static_cast<std::size_t>(std::clamp(static_cast<int>(voice), 0, numFormantVoices - 1))];
-    const float p = std::clamp(position, 0.0f, maxVowelPosition);
+    const float p = std::isfinite(position) ? std::clamp(position, 0.0f, maxVowelPosition) : 0.0f;   // NaN: A
     const int lo = std::min(static_cast<int>(p), numVowels - 2);
     const float t = p - static_cast<float>(lo);
     const auto& a = row[static_cast<std::size_t>(lo)];

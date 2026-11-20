@@ -27,3 +27,7 @@ Done (Phase 16a, S5.16): src/dsp/Formant.h (five parallel SVF band-passes, sung-
 
 **User:** yes, commit them
 Committed Phase 16a on main (code, tests, Spec/Plan/Tests/Changes, this log); the user pushes.
+
+**User:** pushed, wait for CI — run 44829843368 for 91d2104 (watching). **User:** start with 16b while CI runs.
+CI run 44829843368: Windows, Ubuntu 24.04, macOS green; Fedora 45 failed in the VST3 validators: Steinberg 47 of 47, then pluginval segfaulted during "Fuzz parameters" (no display in CI, so not the editor). Unlike the crash on exit of run 44352426051. Investigating: running the validators locally; hardened the vowel code against NaN (a NaN position cast to int could index outside the formant table and the vowel text).
+Done (Phase 16b, S5.17): vcf2.routing Serial/Parallel; normalled sources now depend on it (Patch::normals, routing kept on the Patch: engine from the parameter, the GUI mirror refreshed in currentPatch()); parallel: vcf2.in ← mix.out, formant.in ← vcf1.out + vcf2.out at 50 %; hover texts, Matrix rings, Schematic lines and 9P /ports follow it; box under VCF 2's Type without label (compact "Ser"/"Par", the box text refreshed from the parameter). New test T-S5.17-routing (24 ctests); host test: 56 parameters, 2137 in a host. One unexplained host-test failure once, then 3 runs green (log overwritten).

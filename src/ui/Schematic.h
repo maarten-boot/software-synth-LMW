@@ -248,8 +248,9 @@ inline std::vector<Connection> connections(const lmw::dsp::Patch& p) {
                 const auto& pin = p.pin(in, k);
                 c.push_back({static_cast<Out>(pin.source), in, pin.level, false});
             }
-        } else if (const auto n = lmw::dsp::normalled[static_cast<std::size_t>(i)]; n != lmw::dsp::noSource) {
-            c.push_back({n, in, 1.0f, true});
+        } else {                                     // normalled: 1 source, or 2 at 50 % (parallel VCFs, S5.17)
+            const auto ns = p.normals(in);
+            for (int k = 0; k < ns.n; ++k) c.push_back({ns.s[static_cast<std::size_t>(k)].source, in, ns.s[static_cast<std::size_t>(k)].level, true});
         }
     }
     return c;
@@ -274,9 +275,16 @@ inline std::string percent(float level) { return std::to_string(static_cast<int>
 inline std::string describeInput(const lmw::dsp::Patch& p, In in) {
     const std::string name(lmw::dsp::inputNames[static_cast<std::size_t>(in)]);
     if (!p.isPatched(in)) {
-        const auto n = lmw::dsp::normalled[static_cast<std::size_t>(in)];
-        if (n == lmw::dsp::noSource) return name + ": not connected";
-        return std::string(lmw::dsp::outputNames[static_cast<std::size_t>(n)]) + " → " + name + " (normalled)";
+        const auto ns = p.normals(in);
+        if (ns.n == 0) return name + ": not connected";
+        std::string s;
+        for (int k = 0; k < ns.n; ++k) {
+            const auto& x = ns.s[static_cast<std::size_t>(k)];
+            if (k > 0) s += " + ";
+            s += lmw::dsp::outputNames[static_cast<std::size_t>(x.source)];
+            if (x.level < 1.0f) s += " (" + percent(x.level) + ")";
+        }
+        return s + " → " + name + (ns.n > 1 ? " (normalled, summed)" : " (normalled)");
     }
     std::string s;
     for (int k = 0; k < p.pinCount(in); ++k) {

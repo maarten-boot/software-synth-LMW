@@ -91,8 +91,10 @@ private:
         Fader* fader = nullptr;
         Choice* choice = nullptr;
         Choice* choice2 = nullptr;      // stacked below `choice`
+        Choice* choice3 = nullptr;      // a third box below, without its label (S5.17: VCF routing)
     };
     static Item stacked(Item top, Item bottom) { return {nullptr, top.choice, bottom.choice}; }
+    static Item stacked(Item top, Item middle, Item bottom) { return {nullptr, top.choice, middle.choice, bottom.choice}; }
     struct Group {                      // a framed module panel (Spec S6.1)
         juce::String title;
         int row = 0;                    // row in the default layout (Spec S6.5)
@@ -262,7 +264,7 @@ private:
     LMWLookAndFeel lookAndFeel;
     Metrics m = normalMetrics;
     std::array<Fader, 41> faders;
-    std::array<Choice, 14> choices;
+    std::array<Choice, 15> choices;
     std::size_t usedFaders = 0, usedChoices = 0;
     std::vector<Group> groups;
     std::vector<std::unique_ptr<PanelHeader>> headers;    // one per group, same index
@@ -274,6 +276,8 @@ private:
     std::vector<std::unique_ptr<Jack>> jacks;
     std::vector<std::vector<Jack*>> groupJacks;           // sockets per panel, same index as groups
     std::optional<CableDrag> drag;
+    Choice* routingChoice = nullptr;    // Spec S5.17: "Serial"/"Parallel", "Ser"/"Par" in compact view
+    lmw::dsp::VcfRouting shownRouting = lmw::dsp::VcfRouting::Serial;   // Spec S5.17: redraw on change
     std::uint32_t shownPatchVersion = 0;
     std::unique_ptr<CableLayer> cables;                   // added last: on top of everything
     juce::TextButton compactButton{"Compact"};

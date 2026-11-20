@@ -76,7 +76,7 @@ inline float parseNumber(const std::string& s) { return static_cast<float>(std::
 // from A to E). Accepts that form, a vowel letter ("o"), or the position as a number ("1.4").
 inline std::string vowel(float p) {
     static constexpr std::string_view names = "AEIOU";
-    p = p < 0.0f ? 0.0f : (p > 4.0f ? 4.0f : p);
+    p = !(p > 0.0f) ? 0.0f : (p > 4.0f ? 4.0f : p);   // also NaN -> A
     int lo = static_cast<int>(p);
     if (lo > 3) lo = 3;
     const int pct = static_cast<int>(std::lround((p - static_cast<float>(lo)) * 100.0f));

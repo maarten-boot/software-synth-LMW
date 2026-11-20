@@ -55,6 +55,7 @@ int main() {
     // Spec S5.16: vowel position 0..4 = A..U, "E-I 40 %" between.
     CHECK(vowel(0) == "A" && vowel(1) == "E" && vowel(4) == "U" && vowel(1.4f) == "E-I 40 %" && vowel(3.999f) == "U");
     CHECK(vowel(-1) == "A" && vowel(9) == "U" && vowel(3.5f) == "O-U 50 %");
+    CHECK(vowel(std::nanf("")) == "A");                    // never an index out of range
     CHECK(parseVowel("i") == 2.0f && parseVowel("U") == 4.0f && parseVowel("2.5") == 2.5f);
     CHECK(std::fabs(parseVowel("E-I 40 %") - 1.4f) < 1e-6f && std::fabs(parseVowel(vowel(2.25f)) - 2.25f) < 1e-6f);
 

@@ -194,13 +194,26 @@ void NinePService::build() {
         true);
 
     // /ports: inputs with their normalled source, then outputs (signal-flow order: source -> input).
-    std::string ports;
-    for (int i = 0; i < lmw::dsp::numInputs; ++i)
-        ports += "input  " + name(lmw::dsp::sourceName(lmw::dsp::normalled[static_cast<std::size_t>(i)]))
-               + " -> " + name(lmw::dsp::inputNames[static_cast<std::size_t>(i)]) + "\n";
-    for (int o = 0; o < lmw::dsp::numOutputs; ++o)
-        ports += "output " + name(lmw::dsp::outputNames[static_cast<std::size_t>(o)]) + "\n";
-    tree.file("ports", [ports] { return ports; });
+    // Spec S5.17: with parallel VCFs, vcf2.in is normalled from mix.out and formant.in from both VCFs
+    // ("vcf1.out@0.5+vcf2.out@0.5", as in /cables).
+    tree.file("ports", [p = &proc] {
+        const auto routing = p->vcfRouting();          // an atomic parameter: safe on the 9P thread
+        std::string ports;
+        for (int i = 0; i < lmw::dsp::numInputs; ++i) {
+            const auto ns = lmw::dsp::normals(static_cast<lmw::dsp::In>(i), routing);
+            std::string src = ns.n == 0 ? std::string("none") : std::string();
+            for (int k = 0; k < ns.n; ++k) {
+                const auto& x = ns.s[static_cast<std::size_t>(k)];
+                if (k > 0) src += "+";
+                src += lmw::dsp::sourceName(x.source);
+                if (x.level < 1.0f) { char buf[16]; std::snprintf(buf, sizeof buf, "@%g", static_cast<double>(x.level)); src += buf; }
+            }
+            ports += "input  " + name(src) + " -> " + name(lmw::dsp::inputNames[static_cast<std::size_t>(i)]) + "\n";
+        }
+        for (int o = 0; o < lmw::dsp::numOutputs; ++o)
+            ports += "output " + name(lmw::dsp::outputNames[static_cast<std::size_t>(o)]) + "\n";
+        return ports;
+    });
 }
 
 std::string NinePService::start(std::optional<std::pair<std::string, int>> tcp) {

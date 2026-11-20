@@ -49,6 +49,7 @@ struct ModParams {
     FormantVoice formantVoice = FormantVoice::Tenor;   // formant.voice
     float formantRes = 0.5f;                    // formant.res: 0.5 = the table's bandwidths
     float formantMix = 0.0f;                    // formant.mix: 0 = dry .. 1 = only the formants
+    VcfRouting vcfRouting = VcfRouting::Serial;  // vcf2.routing (Spec S5.17)
     float vcaInitial = 0.0f;                    // vca.initial (base gain added to vca.cv)
     float lfoRate = 5.0f;                       // lfo1.rate (Hz)
     LfoWave lfoWave = LfoWave::Sine;            // lfo1.wave
@@ -182,8 +183,9 @@ public:
             out[o(Out::Formant)] = inF;
         } else {
             if (!formantActive) { formant.reset(); formantActive = true; }
-            const float position = std::clamp(mp.formantVowel + maxVowelPosition * read(In::FormantVowel, g, patch),
-                                              0.0f, maxVowelPosition);
+            const float cv = read(In::FormantVowel, g, patch);
+            const float position = std::isfinite(cv) ? std::clamp(mp.formantVowel + maxVowelPosition * cv, 0.0f, maxVowelPosition)
+                                                     : mp.formantVowel;   // a NaN or inf signal: the fader alone
             formant.setTarget(mp.formantVoice, position, mp.formantRes);
             const float wet = formant.process(inF);
             out[o(Out::Formant)] = formantWet >= 1.0f ? wet : inF + (wet - inF) * formantWet;
@@ -239,7 +241,13 @@ private:
     // Spec S5.14: the normalled source, or the sum of level x output over the input's pins.
     float read(In in, const GlobalSignals& g, const Patch& patch) const noexcept {
         const int n = patch.pinCount(in);
-        if (n == 0) return value(normalled[static_cast<std::size_t>(in)], g);
+        if (n == 0) {
+            if (patch.routing() == VcfRouting::Serial) return value(normalled[static_cast<std::size_t>(in)], g);
+            const auto ns = patch.normals(in);                // Spec S5.17: parallel VCFs
+            float s = 0.0f;
+            for (int k = 0; k < ns.n; ++k) s += value(ns.s[static_cast<std::size_t>(k)].source, g) * ns.s[static_cast<std::size_t>(k)].level;
+            return s;
+        }
         float sum = 0.0f;
         for (int k = 0; k < n; ++k) {
             const auto& p = patch.pin(in, k);
@@ -305,6 +313,7 @@ public:
     void setParams(const VoiceParams& p) noexcept { for (auto& v : voices) v.setParams(p); }
     void setModParams(const ModParams& p) noexcept {
         mod = p;
+        patch.setRouting(p.vcfRouting);          // Spec S5.17
         updateRouting();
         cutoffTarget = std::log2(std::clamp(static_cast<double>(p.cutoff), Ladder::minCutoff, Ladder::maxCutoff));
         cutoff2Target = std::log2(std::clamp(static_cast<double>(p.vcf2Cutoff), Ladder::minCutoff, Ladder::maxCutoff));

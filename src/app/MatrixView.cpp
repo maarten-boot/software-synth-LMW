@@ -149,7 +149,7 @@ void MatrixView::paint(juce::Graphics& g) {
                 }
                 g.setColour(kFg);
                 g.drawRect(b, 1);
-            } else if (!p.isPatched(in) && normalled[static_cast<std::size_t>(i)] == static_cast<Out>(o)) {
+            } else if (!p.isPatched(in) && p.normalLevel(in, static_cast<Out>(o)) > 0.0f) {
                 g.drawEllipse(b.toFloat().withSizeKeepingCentre(9.0f, 9.0f), 1.5f);    // normalled: ring
             }
         }
@@ -263,8 +263,8 @@ juce::String MatrixView::getTooltip() {
     const float l = p.level(in, out);
     juce::String state;
     if (l > 0.0f) state = "cable at " + percent(l);
-    else if (!p.isPatched(in) && lmw::dsp::normalled[static_cast<std::size_t>(c->input)] == out)
-        state = "normalled (used while this input has no cables)";
+    else if (const float n = p.isPatched(in) ? 0.0f : p.normalLevel(in, out); n > 0.0f)
+        state = "normalled" + (n < 1.0f ? " at " + percent(n) : juce::String()) + " (used while this input has no cables)";
     else state = "no cable";
     juce::String how = isGate(c->input) ? "Click: on/off." : "Click: on/off. Drag up/down: level. Double-click: type the level.";
     if (l <= 0.0f && p.pinCount(in) >= lmw::dsp::Patch::maxPins) how = "This input already has 4 cables.";

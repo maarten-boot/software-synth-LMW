@@ -88,6 +88,9 @@ APVTS::ParameterLayout LMWSynthProcessor::createLayout(std::map<std::string, Flo
               std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{P::vcfType[n], 1}, name + " Type",
                   juce::StringArray{"Lowpass", "Highpass", "Bandpass", "Notch"}, 0));
     }
+    // Spec S5.17: VCF routing, on the VCF 2 panel.
+    l.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{P::vcfRouting, 1}, "VCF Routing",
+              juce::StringArray{"Serial", "Parallel"}, 0));
     // Spec S5.16: FORMANT. Mix 0 = off (bypassed exactly).
     l.add(f(P::formantVowel, "Formant Vowel", Range(0.0f, 4.0f), 0.0f, vowels),
           std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{P::formantVoice, 1}, "Formant Voice",
@@ -133,6 +136,7 @@ LMWSynthProcessor::LMWSynthProcessor()
     raw.noiseColour = get(P::noiseColour); raw.noiseRate = get(P::noiseRate); raw.noiseSmooth = get(P::noiseSmooth);
     raw.formantVowel = get(P::formantVowel); raw.formantVoice = get(P::formantVoice);
     raw.formantRes = get(P::formantRes); raw.formantMix = get(P::formantMix);
+    raw.vcfRouting = get(P::vcfRouting);
     for (std::size_t n = 0; n < 3; ++n) {
         raw.wave[n] = get(P::vcoWave[n]); raw.fm[n] = get(P::vcoFm[n]); raw.octave[n] = get(P::vcoOctave[n]);
         raw.tune[n] = get(P::vcoTune[n]); raw.mixVco[n] = get(P::mixVco[n]);
@@ -271,6 +275,7 @@ void LMWSynthProcessor::pullParameters() noexcept {
     m.formantVoice = static_cast<lmw::dsp::FormantVoice>(static_cast<int>(raw.formantVoice->load()));
     m.formantRes   = raw.formantRes->load();
     m.formantMix   = raw.formantMix->load();
+    m.vcfRouting   = vcfRouting();                    // Spec S5.17
     m.vcaInitial  = raw.vcaInitial->load();
     m.lfoRate     = raw.lfoRate->load();
     m.lfoWave     = static_cast<lmw::dsp::LfoWave>(static_cast<int>(raw.lfoWave->load()));

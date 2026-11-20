@@ -175,7 +175,11 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
          addFader(P::mixVco[1], "VCO 2", inputTip(In::MixIn2, "Level of mixer input 2")),
          addFader(P::mixVco[2], "VCO 3", inputTip(In::MixIn3, "Level of mixer input 3")),
          addFader(P::mixNoise, "Noise", inputTip(In::MixIn4, "Level of mixer input 4"))}, {}});
-    std::array<std::size_t, 2> vcfPanel{};               // Spec S5.9, S5.11: VCF 1 -> VCF 2 in series
+    std::array<std::size_t, 2> vcfPanel{};               // Spec S5.9, S5.11: VCF 1 -> VCF 2 in series (S5.17: or parallel)
+    const auto routing = addChoice(P::vcfRouting, "Routing", {"Serial", "Parallel"},   // Spec S5.17, on VCF 2
+                                   "VCF routing. Serial: mixer -> VCF 1 -> VCF 2.\n"
+                                   "Parallel: the mixer feeds both VCFs; FORMANT gets their average (50 % each).");
+    routingChoice = routing.choice;
     for (int n = 0; n < 2; ++n) {
         const auto i = static_cast<std::size_t>(n);
         const In in = n == 0 ? In::Vcf1In : In::Vcf2In, cut = n == 0 ? In::Vcf1Cutoff : In::Vcf2Cutoff,
@@ -191,10 +195,15 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
                  return juce::String("Key tracking: at 100 % the cutoff follows the keys one octave per octave\n"
                                      "(unchanged at C4); 0 % = same cutoff for every note");
              }),
-             stacked(addChoice(P::vcfSlope[i], "Slope", {"24 dB", "12 dB", "6 dB"},
-                               "Steepness. Bandpass and notch: 12 or 24 dB (6 dB acts as 12 dB)."),
-                     addChoice(P::vcfType[i], "Type", {"Low", "High", "Band", "Notch"},
-                               "Lowpass, highpass, bandpass or notch"))}, {}});
+             n == 0 ? stacked(addChoice(P::vcfSlope[i], "Slope", {"24 dB", "12 dB", "6 dB"},
+                                        "Steepness. Bandpass and notch: 12 or 24 dB (6 dB acts as 12 dB)."),
+                              addChoice(P::vcfType[i], "Type", {"Low", "High", "Band", "Notch"},
+                                        "Lowpass, highpass, bandpass or notch"))
+                    : stacked(addChoice(P::vcfSlope[i], "Slope", {"24 dB", "12 dB", "6 dB"},
+                                        "Steepness. Bandpass and notch: 12 or 24 dB (6 dB acts as 12 dB)."),
+                              addChoice(P::vcfType[i], "Type", {"Low", "High", "Band", "Notch"},
+                                        "Lowpass, highpass, bandpass or notch"),
+                              routing)}, {}});
     }
     const std::size_t keysPanel = groups.size();        // Spec S5.8; 2 columns for 3 sockets
     groups.push_back({"KEYS", 2, {addFader(P::voices, "Voices", [] {
@@ -467,8 +476,10 @@ void LMWSynthEditor::timerCallback() {
         refreshPatchInfo();
     if (schematic) schematic->poll(processor.schematicLayout());   // Key faders; layout from a loaded patch
     if (++presetLabelTick >= 8) { presetLabelTick = 0; updatePresetLabels(); }   // S7.5, about 4 times a second
-    if (processor.patchVersion() != shownPatchVersion) {    // cables changed (e.g. state restored)
+    if (processor.patchVersion() != shownPatchVersion || processor.vcfRouting() != shownRouting) {   // cables or routing changed
         shownPatchVersion = processor.patchVersion();
+        shownRouting = processor.vcfRouting();
+        if (schematic) schematic->repaint();
         if (matrix) matrix->refresh();                        // its level slider (S6.8)
         repaint();
     }
@@ -536,6 +547,14 @@ LMWSynthEditor::Item LMWSynthEditor::addChoice(const char* paramId, const juce::
 
 void LMWSynthEditor::setCompact(bool compact) {
     m = compact ? compactMetrics : normalMetrics;
+    if (routingChoice != nullptr) {                  // Spec S5.17: short texts where the box is narrow
+        routingChoice->box.changeItemText(1, compact ? "Ser" : "Serial");
+        routingChoice->box.changeItemText(2, compact ? "Par" : "Parallel");
+        // The box shows the old text until reselected; the selection comes from the parameter.
+        const int id = processor.vcfRouting() == lmw::dsp::VcfRouting::Parallel ? 2 : 1;
+        routingChoice->box.setSelectedId(0, juce::dontSendNotification);
+        routingChoice->box.setSelectedId(id, juce::dontSendNotification);
+    }
     for (std::size_t i = 0; i < usedFaders; ++i) {
         faders[i].slider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, m.boxW, m.boxH);
         faders[i].label.setFont(juce::FontOptions(m.labelFont));
@@ -793,6 +812,11 @@ void LMWSynthEditor::layoutItem(const Item& item, juce::Rectangle<int> column) c
             column.removeFromTop(m.gap);
             item.choice2->label.setBounds(column.removeFromTop(m.labelH));
             item.choice2->box.setBounds(column.removeFromTop(m.boxH + 2));
+        }
+        if (item.choice3 != nullptr) {                       // no label: the box text says it (Serial / Parallel)
+            column.removeFromTop(m.gap / 2);
+            item.choice3->label.setBounds({});
+            item.choice3->box.setBounds(column.removeFromTop(m.boxH + 2));
         }
     }
 }
@@ -1086,7 +1110,8 @@ juce::String LMWSynthEditor::describeOutput(lmw::dsp::Out out) const {
     for (int i = 0; i < lmw::dsp::numInputs; ++i) {
         const auto in = static_cast<lmw::dsp::In>(i);
         if (!patch.isPatched(in)) {
-            if (lmw::dsp::normalled[static_cast<std::size_t>(i)] == out) fed.add(portName(false, i) + " (normalled)");
+            if (const float n = patch.normalLevel(in, out); n > 0.0f)   // Spec S5.17: 50 % each when parallel
+                fed.add(portName(false, i) + (n < 1.0f ? " (normalled " + juce::String(juce::roundToInt(n * 100.0f)) + " %)" : " (normalled)"));
         } else if (const float l = patch.level(in, out); l > 0.0f) {
             fed.add(portName(false, i) + (l < 1.0f ? " (cable " + juce::String(juce::roundToInt(l * 100.0f)) + " %)" : " (cable)"));
         }

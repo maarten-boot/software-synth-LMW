@@ -71,6 +71,20 @@ int main() {
         CHECK(sc::describeOutput(p, Out::KeysPitch) == "keys.pitch → vco1.pitch (normalled), vco2.pitch (normalled), vco3.pitch (normalled)");
         CHECK(sc::describeOutput(p, Out::Rand) == "noise.rand → nothing");
     }
+    {   // S5.17: parallel VCFs: vcf2.in from mix.out, formant.in from both VCFs at 50 % (22 normalled lines).
+        lmw::dsp::Patch p;
+        p.setRouting(lmw::dsp::VcfRouting::Parallel);
+        const auto c = sc::connections(p);
+        CHECK(c.size() == 22);
+        int toFormant = 0;
+        for (const auto& x : c) {
+            if (x.to == In::FormantIn) { ++toFormant; CHECK(x.level == 0.5f && x.normalled); }
+            if (x.to == In::Vcf2In) CHECK(x.from == Out::Mix);
+        }
+        CHECK(toFormant == 2);
+        CHECK(sc::describeInput(p, In::FormantIn) == "vcf1.out (50 %) + vcf2.out (50 %) → formant.in (normalled, summed)");
+        CHECK(sc::describeInput(p, In::Vcf2In) == "mix.out → vcf2.in (normalled)");
+    }
     {   // Cables replace the normalled line of their input; several pins each give a line with their level.
         lmw::dsp::Patch p;
         CHECK(p.connect(In::Vcf1Cutoff, Out::Lfo2, 0.5f));

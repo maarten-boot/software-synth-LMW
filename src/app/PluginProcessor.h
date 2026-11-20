@@ -38,6 +38,7 @@ inline constexpr std::array<const char*, 2> vcfEnv   {"vcf1.env",    "vcf2.env"}
 inline constexpr std::array<const char*, 2> vcfKey   {"vcf1.key",    "vcf2.key"};     // Spec S5.13
 inline constexpr std::array<const char*, 2> vcfSlope {"vcf1.slope",  "vcf2.slope"};
 inline constexpr std::array<const char*, 2> vcfType  {"vcf1.type",   "vcf2.type"};
+inline constexpr const char* vcfRouting  = "vcf2.routing";   // Spec S5.17: Serial / Parallel
 // Spec S5.16: FORMANT (vowel filter) after VCF 2.
 inline constexpr const char* formantVowel = "formant.vowel";
 inline constexpr const char* formantVoice = "formant.voice";
@@ -187,7 +188,11 @@ public:
     std::uint32_t patchVersion() const noexcept { return patchSerial; }
     // Message thread: the patch as last requested (mirror of the engine's patch) and the latest
     // mod wheel value — for hover texts in the GUI.
-    const lmw::dsp::Patch& currentPatch() const noexcept { return guiPatch; }
+    // Its VCF routing (Spec S5.17) is taken from the parameter at each call.
+    const lmw::dsp::Patch& currentPatch() const noexcept { guiPatch.setRouting(vcfRouting()); return guiPatch; }
+    lmw::dsp::VcfRouting vcfRouting() const noexcept {   // any thread
+        return raw.vcfRouting->load() >= 0.5f ? lmw::dsp::VcfRouting::Parallel : lmw::dsp::VcfRouting::Serial;
+    }
     float modWheel() const noexcept { return modWheelValue.load(std::memory_order_relaxed); }
 
 private:
@@ -236,7 +241,7 @@ private:
     std::uint32_t loadedPatches = 0;                  // message thread only
     std::unique_ptr<class NinePService> ninep;        // Spec S10: 9P server (started in the constructor)
     std::string ninepAddress;
-    lmw::dsp::Patch guiPatch;                         // message thread only
+    mutable lmw::dsp::Patch guiPatch;                 // message thread only (routing refreshed by currentPatch())
     std::uint32_t patchSerial = 0;                    // message thread only
     std::atomic<float> modWheelValue{0.0f};           // written by the audio thread
     bool applyingMidiInput = false;   // message thread only: don't echo displayed notes back
@@ -246,7 +251,7 @@ private:
         std::atomic<float> *voices{}, *mixNoise{}, *vcaInitial{},
             *e1a{}, *e1d{}, *e1s{}, *e1r{}, *e2a{}, *e2d{}, *e2s{}, *e2r{}, *lfoRate{}, *lfoWave{}, *gain{},
             *lfo2Rate{}, *lfo2Wave{}, *tremolo{}, *revMix{}, *revSize{}, *revDamping{}, *revWidth{},
-            *noiseColour{}, *noiseRate{}, *noiseSmooth{}, *formantVowel{}, *formantVoice{}, *formantRes{}, *formantMix{};
+            *noiseColour{}, *noiseRate{}, *noiseSmooth{}, *formantVowel{}, *formantVoice{}, *formantRes{}, *formantMix{}, *vcfRouting{};
         std::array<std::atomic<float>*, 2> cutoff{}, resonance{}, vcfEnv{}, vcfKey{}, vcfSlope{}, vcfType{};
         std::array<std::atomic<float>*, 3> wave{}, fm{}, octave{}, tune{}, mixVco{};
     } raw;

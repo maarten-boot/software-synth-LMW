@@ -55,6 +55,7 @@ int main() {
         const float mid = formants(FormantVoice::Tenor, 0.5f).freq[1];
         CHECK(std::fabs(mid - std::sqrt(1080.0f * 1700.0f)) < 1.0f);
         CHECK(formants(FormantVoice::Tenor, -3.0f).freq[0] == 650.0f && formants(FormantVoice::Tenor, 9.0f).freq[0] == 350.0f);
+        CHECK(formants(FormantVoice::Tenor, std::nanf("")).freq[0] == 650.0f);   // NaN: A, no index out of range
     }
     // (b) response: peaks at F1 and F2, a dip between them (tenor A: 650, 1080; I: 290, 1870)
     for (float vowel : {0.0f, 2.0f}) {

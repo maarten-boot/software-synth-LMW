@@ -40,10 +40,7 @@ trap 'rm -rf "$stage"' EXIT
     "$IMAGE" bash -euo pipefail -c '
         export DEBIAN_FRONTEND=noninteractive
         echo "== installing build dependencies"
-        apt-get update -qq
-        apt-get install -y -qq cmake ninja-build g++ curl ca-certificates pkg-config \
-            libasound2-dev libfreetype-dev libfontconfig1-dev libx11-dev libxrandr-dev \
-            libxinerama-dev libxcursor-dev libxext-dev libgl1-mesa-dev libxi-dev libegl-dev >/dev/null
+        bash /src/scripts/prepare.sh --install --quiet      # the one package list (Spec S2.4)
         echo "== configuring"
         cmake -S /src -B /build -G Ninja -DCMAKE_BUILD_TYPE=Release >/dev/null
         echo "== building"

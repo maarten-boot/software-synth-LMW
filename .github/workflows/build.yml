@@ -30,20 +30,15 @@ jobs:
     runs-on: ${{ matrix.os }}
     container: ${{ matrix.container }}
     steps:
-      - name: Fedora deps
+      # git before the checkout, so it is a real clone (the build reads the commit from .git).
+      - name: Fedora git
         if: startsWith(matrix.name, 'fedora')
-        run: |
-          dnf install -y git tar gzip cmake ninja-build gcc-c++ pkgconf-pkg-config alsa-lib-devel freetype-devel \
-            fontconfig-devel libX11-devel libXrandr-devel libXinerama-devel libXcursor-devel libXext-devel \
-            mesa-libGL-devel libXi-devel mesa-libEGL-devel
+        run: dnf install -y -q git tar gzip
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Ubuntu deps
-        if: startsWith(matrix.name, 'ubuntu')
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ninja-build libasound2-dev libfreetype-dev libfontconfig1-dev \
-            libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxext-dev libgl1-mesa-dev \
-            libxi-dev libegl-dev
+      # Spec S2.4: the one package list is in scripts/prepare.sh (apt on Ubuntu, dnf on Fedora).
+      - name: Linux deps
+        if: runner.os == 'Linux'
+        run: bash scripts/prepare.sh --install --quiet
       # JUCE archive cached between runs (key = pinned version file), so a GitHub download hiccup
       # cannot fail the build; the archive's SHA-256 is verified on every use (Spec S2.3).
       - name: JUCE archive cache
