@@ -1,6 +1,6 @@
 # Handover — software-synth-LMW (2026-11-07)
 
-> **Snapshot of 2026-11-07 (before the move).** Current status: see `Plan.md`, `Tests.md` and `Changes.md`. Since then: pushed to GitHub, CI green on 4 platforms, JUCE 9.0.5, Linux targets Ubuntu 24.04+ / Fedora 45, faders replace knobs. As of 2026-11-21: version 1.1.0 released, Phases 0–6 and 8–16 done (16: FORMANT, VCF routing, Pulse wave, LFO rate inputs; unreleased), Phase 7 (Kukel GUI) pending in the Kukel project; sections 3–5 below are out of date.
+> **Snapshot of 2026-11-07 (before the move).** Current status: see `Plan.md`, `Tests.md` and `Changes.md`. Since then: pushed to GitHub, CI green on 4 platforms, JUCE 9.0.5, Linux targets Ubuntu 24.04+ / Fedora 45, faders replace knobs. As of 2026-11-21: version 1.1.0 released, Phases 0–6 and 8–17 done (16: FORMANT, VCF routing, Pulse wave, LFO rate inputs, PM, COMB; 17: instrument presets, tutorial with lesson presets and screenshots, DELAY, COMB/DELAY presets, rack grey; all unreleased), Phase 7 (Kukel GUI) done in the Kukel project; next: 17f Matrix mouse, then 18 (MCP server), 19 (SEQ), 20 (Python GUI over 9P); sections 3–5 below are out of date.
 
 Read this first when you continue the project in a new location or a new Claude Code session.
 The full history is in `Conversation-2026-11-07.md`; requirements in `Spec.md`; phases in `Plan.md`;

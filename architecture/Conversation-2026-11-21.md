@@ -146,3 +146,12 @@ Done (17b lesson presets, S7.9): lesson 9 text updated for the delay; cmake/Tuto
 - CI run 44936550415 (2fbec57: COMB/DELAY presets, rack grey): green on all four. Plan 17d/17e updated.
 - User: mix out → vcf in + vcf out → vcf in gives mostly a stable augmented sound with more volume and body. T-S6.6g pass.
 - User: add the cable hint to the Plan and commit. Plan: later row "Cable hint".
+
+## Crosscheck (evening)
+
+- User: do the crosscheck and fix the stale lines.
+- Checked Spec counts against code/tests: 69 parameters, 33 × 21 matrix, 19 schematic blocks, 99 module presets, 19 instruments, 11 lessons, 2150 host params, 30 ctests — all match.
+- Fixed: Spec S7.6 (DELAY in the order and processing, "No COMB presets yet" / "delay planned" removed), S7.7 (comb body = COMB preset of the name), PluginProcessor.h comment, Handover status line, Tutorial Lesson 9 (effect presets) and Lesson 10 (COMB/REVERB labels); Plan crosscheck line.
+- User: tutorial looks good → Tutorial.md status "reviewed", Plan 17b.
+- User: number the "later" items and make the Matrix mouse the next item (the most counter-intuitive one). Plan: Matrix mouse is now Phase 17f (next); later rows numbered L1 cable hint, L2 depth faders, L3 FM option 2, L4 FM option 3, L5 sines VCO, L6 audio input / VST3 effect; the misplaced 16f row moved to its place.
+- User: Phase 7 (Kukel GUI) is done; make our own Python GUI instead (Python is more general). Plan: Phase 7 done, new Phase 20 Python GUI as a 9P client (to discuss); Spec S10.8 noted.

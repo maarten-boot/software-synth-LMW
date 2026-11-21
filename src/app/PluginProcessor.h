@@ -190,7 +190,7 @@ public:
     juce::String schematicLayout() const { return apvts.state.getProperty(schematicProp).toString(); }
     void setSchematicLayout(const juce::String& text) { apvts.state.setProperty(schematicProp, text, nullptr); }
     std::uint32_t patchFileVersion() const noexcept { return loadedPatches; }   // changes on every load
-    // Spec S7.5: the preset last chosen per module ("env1", "vcf2", "vco3", "reverb"): its name and the
+    // Spec S7.5: the preset last chosen per module ("env1", "vcf2", "vco3", "comb", "delay", "reverb"): its name and the
     // values it set ("key=value;key=value", empty for Default), kept in the saved state (not in patch
     // files; a loaded patch clears them). Message thread.
     juce::String presetName(const juce::String& module) const { return apvts.state.getProperty("preset_" + module).toString(); }

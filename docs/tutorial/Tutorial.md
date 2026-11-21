@@ -5,7 +5,7 @@ Eleven short lessons, from the first note to remote control. Each lesson starts 
 something to try on your own. A lesson takes 5 to 10 minutes. Lessons 1–4 are the basics; take the
 others in any order.
 
-Status: draft for review (2026-11-21). Screenshots: the *String section* preset.
+Status: reviewed (2026-11-21). Screenshots: the *String section* preset.
 
 **Conventions**
 - Controls are written as *PANEL › Control*, e.g. *VCF 1 › Cutoff*.
@@ -207,6 +207,9 @@ by default; Mix 0 means an effect is off.
    *COMB › In*, *COMB › Out* → *MAIN › In*: now the comb colours the reverb too (the delay is out of
    the chain until you patch it back).
 
+Each effect has its own **Presets** in its title bar, e.g. *DELAY › Presets › Ping-pong* or
+*COMB › Presets › Hollow tube*.
+
 **Listen for:** COMB is tied to the pitch (with Key), DELAY to time, REVERB to the room.
 **Try yourself:** COMB Key 0 %, Freq 100 Hz, Feedback 90 %: a metallic, flanger-like ring; DELAY
 Time 30 ms, Feedback 70 %: a short metallic repeat (a slap echo).
@@ -218,7 +221,8 @@ Time 30 ms, Feedback 70 %: a short metallic repeat (a slap echo).
 **Lesson sound:** *Clarinet*.
 
 1. *Presets* (header) › *Clarinet*: a whole sound — modules, voices (1), comb, reverb. Look at the
-   panels: VCO 1, VCF 1, ENV 1 and ENV 2 show "Clarinet" in their title bars.
+   panels: VCO 1, VCF 1, ENV 1 and ENV 2 show "Clarinet" in their title bars; on the Effects tab
+   COMB shows "Clarinet" and REVERB "Chamber".
 2. Change *VCF 1 › Cutoff*: the header says *Patch: Clarinet\**, the VCF 1 title *Clarinet\**.
 3. *Module presets*: *VCF 1 › Presets › Oboe* changes only that filter.
 4. *Presets › Save as instrument preset…*: your sound, under *Your presets* from now on.
