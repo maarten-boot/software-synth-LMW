@@ -65,13 +65,14 @@ int main() {
 
     // matchChoice (9P writes, patch files): names, " dB", "+", unique prefixes, then indices.
     const std::vector<std::string> slope{"24 dB", "12 dB", "6 dB"}, oct{"-2", "-1", "0", "+1", "+2"},
-        type{"Lowpass", "Highpass", "Bandpass", "Notch"}, wave{"Sine", "Saw", "Square", "Triangle"};
+        type{"Lowpass", "Highpass", "Bandpass", "Notch"}, wave{"Sine", "Saw", "Square", "Triangle", "Pulse"};
     CHECK(matchChoice(slope, "24") == 0 && matchChoice(slope, "6 dB") == 2 && matchChoice(slope, "12db") == 1);
     CHECK(matchChoice(slope, "1") == 1);                     // index as last resort
     CHECK(matchChoice(oct, "1") == 3 && matchChoice(oct, "+1") == 3 && matchChoice(oct, "-1") == 1 && matchChoice(oct, "0") == 2);
     CHECK(matchChoice(type, "low") == 0 && matchChoice(type, "Band") == 2 && matchChoice(type, "NOTCH") == 3);
     CHECK(matchChoice(wave, "s") == -1);                      // ambiguous prefix
     CHECK(matchChoice(wave, "sq") == 2 && matchChoice(wave, "3") == 3 && matchChoice(wave, "Triangle\n") == 3);
+    CHECK(matchChoice(wave, "pu") == 4 && matchChoice(wave, "p") == 4);   // S5.18
     CHECK(matchChoice(wave, "9") == -1 && matchChoice(wave, "") == -1 && matchChoice(wave, "flute") == -1);
 
     std::printf(failures ? "%d failure(s)\n" : "all passed\n", failures);

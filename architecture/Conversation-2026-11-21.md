@@ -18,3 +18,12 @@ Rebuilt with the NaN guard and the routing box fix: native 24 of 24; Xvfb: VCF 2
 
 **User:** yes, commit them
 Committed 16b (VCF routing), the NaN guard, prepare.sh with the CI / container change, docs and logs on main (the Ubuntu 24 container build was still running at commit time); the user pushes.
+
+**User:** pushed, wait for CI; rerun started
+Ubuntu 24 container build (with prepare.sh inside): installed via prepare.sh, 24 of 24. CI: run 44829843368 attempt 2 (Fedora re-run of 91d2104) green on all four → the pluginval crash was intermittent; run 44838477888 for 59fff69 green on all four (the new prepare.sh CI steps work).
+
+**User:** start with 16c while CI runs
+Done (Phase 16c, S5.18): VCO wave Pulse (5th choice), 12.5 % duty, polyBLEP edges, DC removed, −1/7 … +1. Test T-S5.18 (tolerance widened after the first run: edges cost about one sample per cycle). Found and fixed a host-test flake: /serial counted JUCE's timed copy of parameter values into the state tree (PARAM "value") a second time, so it could tick after a write; the 4f preset writes made it show more often. Host test 8 of 8 green; native 24 of 24.
+
+**User:** yes, commit them; then we stop for today; tomorrow we continue
+Committed 16c (Pulse) and the /serial fix on main; the user pushes. Next session: 16d (LFO rate inputs), then a Spec ↔ Plan ↔ code crosscheck after Phase 16, then Phase 17 (instrument presets). Open for the user: listening tests T-S5.16-listen, T-S5.17-listen (and the Pulse wave).

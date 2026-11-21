@@ -219,7 +219,11 @@ private:
     void noteChange() noexcept { changeSerial.fetch_add(1, std::memory_order_relaxed); }
     void parameterValueChanged(int, float) override { noteChange(); }
     void parameterGestureChanged(int, bool) override {}
-    void valueTreePropertyChanged(juce::ValueTree&, const juce::Identifier&) override { noteChange(); }
+    // JUCE copies parameter values into the state tree on a timer (PARAM "value"): already counted by
+    // parameterValueChanged, and later, so /serial would tick again on its own after a write.
+    void valueTreePropertyChanged(juce::ValueTree& t, const juce::Identifier& id) override {
+        if (!(t.hasType("PARAM") && id == juce::Identifier("value"))) noteChange();
+    }
     void valueTreeChildAdded(juce::ValueTree&, juce::ValueTree&) override { noteChange(); }
     void valueTreeChildRemoved(juce::ValueTree&, juce::ValueTree&, int) override { noteChange(); }
     void valueTreeRedirected(juce::ValueTree&) override { noteChange(); }

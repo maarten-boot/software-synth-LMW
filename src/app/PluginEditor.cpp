@@ -149,7 +149,8 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
             {addFader(P::vcoFm[i], "FM", fmTip(n)),                // above the FM input socket
              addFader(P::vcoTune[i], "Tune", inputTip(lmw::dsp::vcoPitchIn(n),
                       "Detune, -7 to +7 semitones; Oct shifts by whole octaves")),
-             stacked(addChoice(P::vcoWave[i], "Wave", {"Sine", "Saw", "Square", "Triangle"}),
+             stacked(addChoice(P::vcoWave[i], "Wave", {"Sine", "Saw", "Square", "Triangle", "Pulse"},
+                               "Waveform. Pulse: narrow (12.5 %), bright and nasal, good under FORMANT"),
                      addChoice(P::vcoOctave[i], "Oct", {"-2", "-1", "0", "+1", "+2"}, "Octave"))}, {}});
     }
     // Spec S5.15: NOISE — colour, and the sample & hold random source (Rate, Smooth); both shared.

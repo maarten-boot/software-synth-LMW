@@ -20,12 +20,23 @@ static int risingZeroCrossings(Waveform w, double hz, int samples) {
 
 int main() {
     // T-S5.1-osc: pitch of every waveform = 440 Hz (+-1 cycle over 1 s), output bounded.
-    for (auto w : {Waveform::Sine, Waveform::Saw, Waveform::Square, Waveform::Triangle}) {
+    for (auto w : {Waveform::Sine, Waveform::Saw, Waveform::Square, Waveform::Triangle, Waveform::Pulse}) {
         const int z = risingZeroCrossings(w, 440.0, static_cast<int>(SR));
         CHECK(z >= 439 && z <= 441);
         Oscillator o; o.setSampleRate(SR); o.setFrequency(3000.0); o.setWaveform(w);
         float peak = 0; for (int i = 0; i < 48000; ++i) peak = std::fmax(peak, std::fabs(o.next()));
         CHECK(peak <= 1.2f && peak > 0.5f);
+    }
+    // T-S5.18: pulse high 12.5 % of the time, mean 0, low level -1/7, peak +1.
+    {
+        Oscillator o; o.setSampleRate(SR); o.setFrequency(100.0); o.setWaveform(Waveform::Pulse);
+        int high = 0; double sum = 0, lo = 0, hi = 0;
+        for (int i = 0; i < 48000; ++i) {
+            const double y = o.next(); sum += y; lo = std::fmin(lo, y); hi = std::fmax(hi, y); high += y > 0.43 ? 1 : 0;
+        }
+        std::printf("pulse: high %.4f of the time, mean %.5f, %.3f .. %.3f\n", high / 48000.0, sum / 48000.0, lo, hi);
+        CHECK(std::fabs(high / 48000.0 - 0.125) < 0.004 && std::fabs(sum / 48000.0) < 0.002);   // edges: about 1 sample per cycle
+        CHECK(std::fabs(lo + 1.0 / 7.0) < 0.01 && hi <= 1.05 && hi > 0.99);
     }
     CHECK(std::fabs(midiNoteToHz(69) - 440.0) < 1e-9);
     CHECK(std::fabs(midiNoteToHz(57) - 220.0) < 1e-9);

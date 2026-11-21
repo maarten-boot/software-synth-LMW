@@ -1,12 +1,17 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// VCO core (Spec S5.1). Band-limited saw/square via polyBLEP. RT-safe.
+// VCO core (Spec S5.1). Band-limited saw/square/pulse via polyBLEP. RT-safe.
 #pragma once
 #include <cmath>
 #include <numbers>
 
 namespace lmw::dsp {
 
-enum class Waveform { Sine = 0, Saw, Square, Triangle };
+// Order = parameter choice order; Pulse (Spec S5.18) last, so saved states keep their waves.
+enum class Waveform { Sine = 0, Saw, Square, Triangle, Pulse };
+
+// Spec S5.18: narrow pulse, high for 12.5 % of the cycle; DC removed and scaled to a peak of +1
+// (-1/7 .. +1), like an AC-coupled analogue pulse: quieter than the square, rich in overtones.
+inline constexpr double pulseWidth = 0.125;
 
 class Oscillator {
 public:
@@ -24,6 +29,12 @@ public:
             case Waveform::Square:   y = (t < 0.5 ? 1.0 : -1.0) + polyBlep(t, dt)
                                          - polyBlep(std::fmod(t + 0.5, 1.0), dt); break;
             case Waveform::Triangle: y = 4.0 * std::fabs(t - 0.5) - 1.0; break;
+            case Waveform::Pulse: {
+                const double raw = (t < pulseWidth ? 1.0 : -1.0) + polyBlep(t, dt)
+                                 - polyBlep(std::fmod(t + 1.0 - pulseWidth, 1.0), dt);
+                y = (raw + (1.0 - 2.0 * pulseWidth)) / (2.0 - 2.0 * pulseWidth);   // mean 0, peak +1
+                break;
+            }
         }
         phase += dt;
         if (phase >= 1.0) phase -= 1.0;

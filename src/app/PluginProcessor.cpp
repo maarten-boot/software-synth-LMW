@@ -64,7 +64,7 @@ APVTS::ParameterLayout LMWSynthProcessor::createLayout(std::map<std::string, Flo
         const juce::String name = "VCO " + juce::String(static_cast<int>(n) + 1);
         Range tune(-7.0f, 7.0f, 0.01f);
         l.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{P::vcoWave[n], 1}, name + " Wave",
-                  juce::StringArray{"Sine", "Saw", "Square", "Triangle"}, 1),
+                  juce::StringArray{"Sine", "Saw", "Square", "Triangle", "Pulse"}, 1),   // Pulse: S5.18
               std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{P::vcoOctave[n], 1}, name + " Octave",
                   juce::StringArray{"-2", "-1", "0", "+1", "+2"}, 2),
               f(P::vcoTune[n], (name + " Tune").toRawUTF8(), tune, 0.0f, semis),
