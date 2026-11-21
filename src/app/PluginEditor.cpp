@@ -251,12 +251,25 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
          }),
          addFader(P::formantMix, "Mix", inputTip(In::FormantIn,
              "0 = off (the input passes unchanged), 100 % = only the formants"))}, {}});
-    // Spec S7.4: Effects tab. The reverb follows everything on the Synth tab (after OUT's limiter).
+    // Spec S7.4, S7.6: Effects tab: SYNTH (out.out, the synth after OUT) | COMB | REVERB | MAIN (main.in, what
+    // is heard); normalled SYNTH -> COMB -> REVERB -> MAIN, cables change the order.
+    effectGroups.push_back({"SYNTH", 0, {}, {}, 1});
+    effectGroups.push_back({"COMB", 0,
+        {addFader(P::combFreq, "Freq", [] { return juce::String("Comb frequency: the resonances lie at its multiples (hollow, tube-like)"); }),
+         addFader(P::combKey, "Key", [] {
+             return juce::String("Key tracking: at 100 % the frequency follows the newest note one octave per octave (from C4)");
+         }),
+         addFader(P::combFeedback, "Feedback", [] {
+             return juce::String("Positive: resonances at every multiple; negative: at the odd ones (clarinet-like). 0 = off");
+         }),
+         addFader(P::combDamping, "Damping", [] { return juce::String("Softens the high resonances"); }),
+         addFader(P::combMix, "Mix", [] { return juce::String("Dry/wet: 0 = off (the input passes unchanged), 100 % = only the comb"); })}, {}});
     effectGroups.push_back({"REVERB", 0,
         {addFader(P::reverbMix, "Mix", [] { return juce::String("Dry/wet balance: 0 = off (no reverb at all), 100 % = only reverb"); }),
          addFader(P::reverbSize, "Size", [] { return juce::String("Room size: longer decay when larger"); }),
          addFader(P::reverbDamping, "Damping", [] { return juce::String("High-frequency damping of the reflections: darker when higher"); }),
          addFader(P::reverbWidth, "Width", [] { return juce::String("Stereo width of the reverb: 0 = mono, 100 % = widest"); })}, {}});
+    effectGroups.push_back({"MAIN", 0, {}, {}, 1});
     reverbPresets = std::make_unique<PresetButton>(*this, "reverb", "REVERB");
     addChildComponent(*reverbPresets);
     effectComponents.push_back(reverbPresets.get());
@@ -329,6 +342,21 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
             jacks.back()->column = d.column;
             groupJacks[d.group].push_back(jacks.back().get());
             addAndMakeVisible(*jacks.back());
+        }
+        // Spec S7.6: sockets of the Effects tab (SYNTH, COMB, REVERB, MAIN); shown with that tab.
+        const std::vector<PortDef> effectPorts = {
+            {0, 0, true, out(Out::OutOut), "Out"},
+            {1, 4, false, in(In::CombIn), "In"}, {1, 4, true, out(Out::CombOut), "Out"},
+            {2, 0, false, in(In::ReverbIn), "In"}, {2, 0, true, out(Out::ReverbOut), "Out"},
+            {3, 0, false, in(In::MainIn), "In"},
+        };
+        effectGroupJacks.resize(effectGroups.size());
+        for (const auto& d : effectPorts) {
+            jacks.push_back(std::make_unique<Jack>(*this, d.output, d.port, d.name));
+            jacks.back()->column = d.column;
+            effectGroupJacks[d.group].push_back(jacks.back().get());
+            addChildComponent(*jacks.back());
+            effectComponents.push_back(jacks.back().get());
         }
     }
 
@@ -490,6 +518,16 @@ void LMWSynthEditor::timerCallback() {
         if (matrix) matrix->refresh();                        // its level slider (S6.8)
         repaint();
     }
+}
+
+// A closed popup menu leaves keyboard focus nowhere, so computer-keyboard notes (S3.2) went silent until the
+// on-screen keyboard was clicked (user 2026-11-21). Focus goes back to what had it, else to the keyboard.
+juce::Component::SafePointer<juce::Component> LMWSynthEditor::focusNow() {
+    return juce::Component::SafePointer<juce::Component>(juce::Component::getCurrentlyFocusedComponent());
+}
+void LMWSynthEditor::restoreFocus(juce::Component::SafePointer<juce::Component> c) {
+    if (c != nullptr && c->isShowing()) c->grabKeyboardFocus();
+    else if (keyboard.isShowing()) keyboard.grabKeyboardFocus();
 }
 
 bool LMWSynthEditor::isTypingText() {
@@ -760,8 +798,9 @@ void LMWSynthEditor::showPanelMenu(int panel) {
     menu.addSeparator();
     menu.addItem(5, "Reset layout");
     menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(headers[static_cast<std::size_t>(panel)].get()),
-                       [safe = juce::Component::SafePointer<LMWSynthEditor>(this), panel](int result) {
+                       [safe = juce::Component::SafePointer<LMWSynthEditor>(this), panel, focus = focusNow()](int result) {
                            if (safe == nullptr) return;
+                           safe->restoreFocus(focus);
                            if (result >= 1 && result <= 4) {
                                safe->movePanel(panel, result - 1);
                            } else if (result == 5) {
@@ -804,6 +843,7 @@ void LMWSynthEditor::paint(juce::Graphics& g) {
                 }
             }
             g.drawHorizontalLine(b.getY() + m.header - 3, static_cast<float>(b.getX()), static_cast<float>(b.getRight()));
+            g.drawHorizontalLine(b.getBottom() - 3 - m.jackH, static_cast<float>(b.getX()), static_cast<float>(b.getRight()));   // S7.6
         }
     }
     if (currentTab != 0) return;                             // other tabs: no rack panel frames
@@ -814,6 +854,18 @@ void LMWSynthEditor::paint(juce::Graphics& g) {
             g.drawHorizontalLine(b.getBottom() - 3 - m.jackH, static_cast<float>(b.getX()), static_cast<float>(b.getRight()));
     }
     if (drop) g.fillRect(drop->marker);                     // drop marker (Spec S6.5)
+}
+
+// Sockets per fader column (Spec S6.6); sockets sharing a column split it evenly.
+void LMWSynthEditor::layoutJacks(const std::vector<Jack*>& js, int columns, juce::Rectangle<int> jackRow) const {
+    for (int c = 0; c < columns; ++c) {
+        std::vector<Jack*> col;
+        for (auto* j : js) if (j->column == c) col.push_back(j);
+        const int left = jackRow.getX() + c * m.colW, n = static_cast<int>(col.size());
+        for (int k = 0; k < n; ++k)
+            col[static_cast<std::size_t>(k)]->setBounds(left + m.colW * k / n, jackRow.getY(),
+                                                        m.colW * (k + 1) / n - m.colW * k / n, jackRow.getHeight());
+    }
 }
 
 void LMWSynthEditor::layoutItem(const Item& item, juce::Rectangle<int> column) const {
@@ -887,7 +939,8 @@ void LMWSynthEditor::resized() {
                 reverbPresets->setBounds(grp.bounds.withHeight(m.header - 3).reduced(1)
                                              .removeFromRight(reverbPresets->preferredWidth()).reduced(2));
             auto inner = grp.bounds.reduced(0, 3).withTrimmedTop(m.header);
-            inner.removeFromBottom(m.jackH);                 // same fader height as on the Synth tab
+            auto jackRow = inner.removeFromBottom(m.jackH).withTrimmedTop(2);   // same fader height as on the Synth tab
+            layoutJacks(effectGroupJacks[static_cast<std::size_t>(&grp - effectGroups.data())], grp.columns(), jackRow);
             for (const auto& item : grp.items) layoutItem(item, inner.removeFromLeft(m.colW));
         }
     }
@@ -906,15 +959,7 @@ void LMWSynthEditor::resized() {
                                                                  grp.bounds.getWidth() - 2, m.header - 4);
             auto inner = grp.bounds.reduced(0, 3).withTrimmedTop(m.header);
             auto jackRow = inner.removeFromBottom(m.jackH).withTrimmedTop(2);   // Spec S6.6
-            const auto& js = groupJacks[static_cast<std::size_t>(index)];
-            for (int c = 0; c < grp.columns(); ++c) {                            // sockets per fader column
-                std::vector<Jack*> col;
-                for (auto* j : js) if (j->column == c) col.push_back(j);
-                const int left = jackRow.getX() + c * m.colW, n = static_cast<int>(col.size());
-                for (int k = 0; k < n; ++k)
-                    col[static_cast<std::size_t>(k)]->setBounds(left + m.colW * k / n, jackRow.getY(),
-                                                                m.colW * (k + 1) / n - m.colW * k / n, jackRow.getHeight());
-            }
+            layoutJacks(groupJacks[static_cast<std::size_t>(index)], grp.columns(), jackRow);
             for (const auto& item : grp.items) layoutItem(item, inner.removeFromLeft(m.colW));
         }
     }
@@ -1042,7 +1087,8 @@ void LMWSynthEditor::CableLayer::paint(juce::Graphics& g) {
             if (editor.drag && editor.drag->detachedInput == i && editor.drag->detachedSource == src) continue;
             auto* from = editor.jackFor(true, src);
             auto* to = editor.jackFor(false, i);
-            if (from != nullptr && to != nullptr) draw(from->centreInEditor(), to->centreInEditor());
+            if (from != nullptr && to != nullptr && from->isVisible() && to->isVisible())   // this tab's sockets
+                draw(from->centreInEditor(), to->centreInEditor());
         }
     }
     if (const auto& d = editor.drag)
@@ -1057,7 +1103,7 @@ LMWSynthEditor::Jack* LMWSynthEditor::jackFor(bool output, int port) const {
 
 LMWSynthEditor::Jack* LMWSynthEditor::findJack(juce::Point<float> where, const Jack& from) const {
     for (const auto& j : jacks)
-        if (j->output != from.output && getLocalArea(j.get(), j->getLocalBounds()).toFloat().expanded(4.0f).contains(where))
+        if (j->output != from.output && j->isVisible() && getLocalArea(j.get(), j->getLocalBounds()).toFloat().expanded(4.0f).contains(where))
             return j.get();
     return nullptr;
 }
@@ -1106,6 +1152,11 @@ void LMWSynthEditor::cancelCableDrag() {
 }
 
 bool LMWSynthEditor::connect(int input, int output, float level) {
+    if (output != lmw::dsp::Patch::none && level > 0.0f
+        && !lmw::dsp::canConnect(static_cast<lmw::dsp::In>(input), static_cast<lmw::dsp::Out>(output))) {   // Spec S7.6
+        showError("Not possible", "Effect sockets (Effects tab) connect only to effect sockets, synth sockets only to synth sockets.");
+        return false;
+    }
     const bool ok = processor.requestPatch(static_cast<lmw::dsp::In>(input), static_cast<std::int8_t>(output), level);
     if (!ok && output != lmw::dsp::Patch::none && level > 0.0f)
         showError("Input full", portName(false, input) + " already has " + juce::String(lmw::dsp::Patch::maxPins)
@@ -1153,6 +1204,7 @@ void LMWSynthEditor::showPortMenu(bool output, int port, juce::Rectangle<int> sc
         const bool full = patch.pinCount(in) >= lmw::dsp::Patch::maxPins;
         for (int o = 0; o < lmw::dsp::numOutputs; ++o) {           // only possible items (no greyed ones, contrast)
             const bool cabled = patch.level(in, static_cast<Out>(o)) > 0.0f;
+            if (!lmw::dsp::canConnect(in, static_cast<Out>(o))) continue;   // Spec S7.6: the other domain
             if (cabled || !full) sub.addItem(100 + o, portName(true, o), true, cabled);
         }
         menu.addSubMenu("Connect from (ticked = cable; choose again to remove)", sub);
@@ -1165,6 +1217,7 @@ void LMWSynthEditor::showPortMenu(bool output, int port, juce::Rectangle<int> sc
             const auto in = static_cast<In>(i);
             const bool cabled = patch.level(in, out) > 0.0f;
             feeds = feeds || cabled;
+            if (!lmw::dsp::canConnect(in, out)) continue;           // Spec S7.6: the other domain
             if (cabled || patch.pinCount(in) < lmw::dsp::Patch::maxPins) sub.addItem(200 + i, portName(false, i), true, cabled);
         }
         menu.addSubMenu("Connect to (ticked = cable; choose again to remove)", sub);
@@ -1179,7 +1232,8 @@ void LMWSynthEditor::showPortMenu(bool output, int port, juce::Rectangle<int> sc
         menu.addItem(4, "Reset schematic layout");
     }
     menu.showMenuAsync(juce::PopupMenu::Options().withTargetScreenArea(screenArea),
-                       [safe = juce::Component::SafePointer<LMWSynthEditor>(this), output, port](int r) {
+                       [safe = juce::Component::SafePointer<LMWSynthEditor>(this), output, port, focus = focusNow()](int r) {
+        if (safe != nullptr) safe->restoreFocus(focus);
         if (safe == nullptr || r == 0) return;
         const auto& p = safe->processor.currentPatch();
         if (r == 1) {
@@ -1405,6 +1459,7 @@ void LMWSynthEditor::showTab(int tab) {
         const bool effect = std::find(effectComponents.begin(), effectComponents.end(), child) != effectComponents.end();
         child->setVisible(effect ? tab == 1 : tab == 0);   // hidden controls take no Tab focus either
     }
+    if (cables) cables->setVisible(tab == 0 || tab == 1);   // Spec S7.6: cables on the Effects tab too
     matrix->setVisible(tab == 2);
     schematic->setVisible(tab == 4);
     notesEditor.setVisible(tab == 3);
@@ -1502,7 +1557,8 @@ void LMWSynthEditor::showPresetMenu(PresetButton& button) {
     if (folder.isDirectory()) menu.addItem(3, "Show presets folder");
     menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&button),
         [safe = juce::Component::SafePointer<LMWSynthEditor>(this), module = button.module, title = button.panelTitle,
-         kind = *kind, own, folder](int result) {
+         kind = *kind, own, folder, focus = focusNow()](int result) {
+            if (safe != nullptr) safe->restoreFocus(focus);
             if (safe == nullptr || result == 0) return;
             const auto& list = lmw::presets::builtIn(kind);
             if (result == 1) {

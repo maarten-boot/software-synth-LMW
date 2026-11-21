@@ -206,6 +206,9 @@ private:
     Item addChoice(const char* paramId, const juce::String& text, const juce::StringArray& options,
                    const juce::String& tip = {});
     void layoutItem(const Item&, juce::Rectangle<int> column) const;
+    void layoutJacks(const std::vector<Jack*>& js, int columns, juce::Rectangle<int> jackRow) const;
+    static juce::Component::SafePointer<juce::Component> focusNow();   // around popup menus (S3.2)
+    void restoreFocus(juce::Component::SafePointer<juce::Component> c);
     void setCompact(bool compact);
     void updateSize();                                    // window size from metrics and row count
     std::optional<DropTarget> findDrop(int panel, juce::Point<int> where) const;
@@ -263,7 +266,7 @@ private:
     LMWSynthProcessor& processor;
     LMWLookAndFeel lookAndFeel;
     Metrics m = normalMetrics;
-    std::array<Fader, 44> faders;
+    std::array<Fader, 49> faders;
     std::array<Choice, 15> choices;
     std::size_t usedFaders = 0, usedChoices = 0;
     std::vector<Group> groups;
@@ -275,6 +278,7 @@ private:
     juce::TextButton resetLayoutButton{"Reset layout"};
     std::vector<std::unique_ptr<Jack>> jacks;
     std::vector<std::vector<Jack*>> groupJacks;           // sockets per panel, same index as groups
+    std::vector<std::vector<Jack*>> effectGroupJacks;     // Spec S7.6: sockets of the Effects tab panels
     std::optional<CableDrag> drag;
     Choice* routingChoice = nullptr;    // Spec S5.17: "Serial"/"Parallel", "Ser"/"Par" in compact view
     lmw::dsp::VcfRouting shownRouting = lmw::dsp::VcfRouting::Serial;   // Spec S5.17: redraw on change

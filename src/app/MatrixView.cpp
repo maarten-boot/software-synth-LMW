@@ -54,15 +54,16 @@ void MatrixView::syncSlider() {
                             + juce::String::fromUTF8("\xe2\x86\x93") + "\n"
                             + name(lmw::dsp::inputNames[static_cast<std::size_t>(cursor.input)]);
     juce::String why;
-    if (isGate(cursor.input)) why = "on/off only";
+    if (!lmw::dsp::canConnect(in, static_cast<lmw::dsp::Out>(cursor.output))) why = "synth and effects do not connect";   // S7.6
+    else if (isGate(cursor.input)) why = "on/off only";
     else if (l <= 0.0f && patch().pinCount(in) >= lmw::dsp::Patch::maxPins) why = "input full (4 cables)";
     levelLabel.setFont(juce::FontOptions(fontSize));
     levelLabel.setText(link + (why.isEmpty() ? juce::String() : "\n(" + why + ")"), juce::dontSendNotification);
     const juce::ScopedValueSetter<bool> s(syncing, true);
     levelSlider.setValue(std::round(l * 100.0f), juce::sendNotificationSync);
     levelSlider.setEnabled(why.isEmpty());
-    levelSlider.setTooltip(why.isEmpty() ? "Level of the cable " + link.replace("\n", " ") + " (0 % removes it)"
-                                         : "No level here: " + why);
+    levelSlider.setTooltip((why.isEmpty() ? "Level of the cable " + link.replace("\n", " ") + " (0 % removes it)"
+                                          : "No level here: " + why) + "\nScale: linear");   // S6.1
 }
 
 bool MatrixView::isGate(int input) noexcept {
@@ -88,6 +89,7 @@ float MatrixView::level(Cell c) const {
 
 void MatrixView::set(Cell c, float l) {
     l = juce::jlimit(0.0f, 1.0f, std::round(l * 100.0f) / 100.0f);   // whole percent
+    if (!lmw::dsp::canConnect(static_cast<lmw::dsp::In>(c.input), static_cast<lmw::dsp::Out>(c.output))) return;   // S7.6
     if (isGate(c.input)) l = l > 0.0f ? 1.0f : 0.0f;                  // gates: on/off
     if (std::fabs(l - level(c)) < 1e-6f) return;           // unchanged
     setPin(c.input, c.output, l);
@@ -152,6 +154,9 @@ void MatrixView::paint(juce::Graphics& g) {
                 g.drawRect(b, 1);
             } else if (!p.isPatched(in) && p.normalLevel(in, static_cast<Out>(o)) > 0.0f) {
                 g.drawEllipse(b.toFloat().withSizeKeepingCentre(9.0f, 9.0f), 1.5f);    // normalled: ring
+            } else if (!canConnect(in, static_cast<Out>(o))) {                          // S7.6: other domain
+                const auto r = b.toFloat().reduced(4.0f);
+                g.drawLine(r.getX(), r.getBottom(), r.getRight(), r.getY(), 1.0f);
             }
         }
     }
@@ -263,6 +268,8 @@ juce::String MatrixView::getTooltip() {
                             + juce::String::fromUTF8("\xe2\x86\x92") + " " + name(lmw::dsp::inputNames[static_cast<std::size_t>(c->input)]);
     const float l = p.level(in, out);
     juce::String state;
+    if (!lmw::dsp::canConnect(in, out))                                      // Spec S7.6
+        return link + ": not possible (effect sockets connect only to effect sockets, synth sockets only to synth sockets)";
     if (l > 0.0f) state = "cable at " + percent(l);
     else if (const float n = p.isPatched(in) ? 0.0f : p.normalLevel(in, out); n > 0.0f)
         state = "normalled" + (n < 1.0f ? " at " + percent(n) : juce::String()) + " (used while this input has no cables)";

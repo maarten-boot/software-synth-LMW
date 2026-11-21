@@ -11,12 +11,15 @@ namespace lmw::dsp {
 
 // Order = order in menus: roughly signal flow. Saved patches use the names, not the numbers.
 enum class Out : std::uint8_t { KeysPitch, KeysGate, KeysVel, Vco1, Vco2, Vco3, Noise, Rand, Lfo1, Lfo2, Env1, Env2, Mix,
-                                Vcf1, Vcf2, Formant, Vca, Count };
+                                Vcf1, Vcf2, Formant, Vca,
+                                OutOut, CombOut, ReverbOut,              // effects (Spec S7.6): after OUT
+                                Count };
 enum class In  : std::uint8_t { Vco1Pitch, Vco1Fm, Vco1Pm, Vco2Pitch, Vco2Fm, Vco2Pm, Vco3Pitch, Vco3Fm, Vco3Pm,   // PM: S5.20
                                 Env1Gate, Env2Gate,
                                 MixIn1, MixIn2, MixIn3, MixIn4, Vcf1In, Vcf1Cutoff, Vcf1Res, Vcf2In, Vcf2Cutoff, Vcf2Res,
                                 FormantIn, FormantVowel, VcaIn, VcaCv,
                                 VcaMod, OutIn, Lfo1Rate, Lfo2Rate,      // LFO rate inputs: Spec S5.19
+                                CombIn, ReverbIn, MainIn,                // effects (Spec S7.6)
                                 Count };
 
 // Spec S5.10: three VCOs per voice.
@@ -32,13 +35,14 @@ inline constexpr int numInputs  = static_cast<int>(In::Count);
 // Port names, as used in cable text, patch files and the 9P /cables file (Spec S5.3, S10.10).
 inline constexpr std::array<std::string_view, numOutputs> outputNames{
     "keys.pitch", "keys.gate", "keys.vel", "vco1.out", "vco2.out", "vco3.out",
-    "noise.out", "noise.rand", "lfo1.out", "lfo2.out", "env1.out", "env2.out", "mix.out", "vcf1.out", "vcf2.out", "formant.out", "vca.out"};
+    "noise.out", "noise.rand", "lfo1.out", "lfo2.out", "env1.out", "env2.out", "mix.out", "vcf1.out", "vcf2.out", "formant.out", "vca.out",
+    "out.out", "comb.out", "reverb.out"};
 inline constexpr std::array<std::string_view, numInputs> inputNames{
     "vco1.pitch", "vco1.fm", "vco1.pm", "vco2.pitch", "vco2.fm", "vco2.pm", "vco3.pitch", "vco3.fm", "vco3.pm",
     "env1.gate", "env2.gate",
     "mix.in1", "mix.in2", "mix.in3", "mix.in4", "vcf1.in", "vcf1.cutoff", "vcf1.res", "vcf2.in", "vcf2.cutoff", "vcf2.res",
     "formant.in", "formant.vowel", "vca.in", "vca.cv",
-    "vca.mod", "out.in", "lfo1.rate", "lfo2.rate"};
+    "vca.mod", "out.in", "lfo1.rate", "lfo2.rate", "comb.in", "reverb.in", "main.in"};
 
 // An input without a normalled source reads 0 until a cable is plugged in (Spec S5.13: vcfN.res).
 inline constexpr Out noSource = Out::Count;
@@ -50,7 +54,8 @@ inline constexpr std::array<Out, numInputs> normalled{
     Out::KeysGate, Out::KeysGate,
     Out::Vco1, Out::Vco2, Out::Vco3, Out::Noise, Out::Mix, Out::Env2, noSource, Out::Vcf1, Out::Env2, noSource,
     Out::Vcf2, noSource, Out::Formant, Out::Env1, Out::Lfo2,
-    Out::Vca, noSource, noSource};
+    Out::Vca, noSource, noSource,
+    Out::OutOut, Out::CombOut, Out::ReverbOut};   // S7.6: out.out -> COMB -> REVERB -> main.in
 
 // Name of an output, or "none" for noSource (hover texts, 9P /ports).
 inline constexpr std::string_view sourceName(Out o) noexcept {
@@ -79,6 +84,12 @@ inline float normalLevel(In in, Out o, VcfRouting r) noexcept {
     return 0.0f;
 }
 
+// Spec S7.6: two domains. Effect ports (out.out, the effects' ins and outs, main.in) carry the summed
+// stereo signal after OUT; they connect only to each other, synth ports only to synth ports.
+inline constexpr bool isEffectOut(Out o) noexcept { return o >= Out::OutOut && o < Out::Count; }
+inline constexpr bool isEffectIn(In i) noexcept { return i >= In::CombIn && i < In::Count; }
+inline constexpr bool canConnect(In i, Out o) noexcept { return isEffectIn(i) == isEffectOut(o); }
+
 inline constexpr bool isGlobal(Out o) noexcept { return o == Out::Lfo1 || o == Out::Lfo2 || o == Out::Noise || o == Out::Rand; }
 
 // Spec S5.14 (Phase 10): a patch is a pin matrix. Every input has up to maxPins pins, each an output
@@ -96,6 +107,7 @@ public:
         auto& ps = pins[idx(in)];
         auto& n = count[idx(in)];
         const auto src = static_cast<std::int8_t>(from);
+        if (!canConnect(in, from)) return level <= 0.0f;            // across the domains (S7.6): refused
         for (int k = 0; k < n; ++k)
             if (ps[static_cast<std::size_t>(k)].source == src) {
                 if (level <= 0.0f) { removeAt(in, k); return true; }

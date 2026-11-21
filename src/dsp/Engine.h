@@ -403,6 +403,9 @@ public:
         }
     }
 
+    // Spec S7.6: keys.pitch (octaves from C4, with bend) of the newest note, for the COMB's key tracking.
+    float newestKeyOctaves() const noexcept { return voices[static_cast<std::size_t>(newestVoice)].output(Out::KeysPitch); }
+
     int activeVoices() const noexcept {
         int n = 0; for (const auto& v : voices) n += v.isActive() ? 1 : 0; return n;
     }

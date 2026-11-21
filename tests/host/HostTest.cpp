@@ -371,7 +371,7 @@ int main(int argc, char* argv[]) {
         for (std::size_t at = 0; (at = info.find("{\"id\": ", at)) != std::string::npos; ++at) ++objects;
         std::printf("/info: %zu bytes, %d parameters\n", info.size(), objects);
         CHECK(info.rfind("[\n", 0) == 0 && info.size() > 2 && info.substr(info.size() - 2) == "]\n");
-        CHECK(objects == 59);   // 59 since S5.20 (vcoN.pm)
+        CHECK(objects == 64);   // 64 since S7.6 (comb.*), 59 with S5.20
         CHECK(info.find("{\"id\": \"vcf1.cutoff\", \"name\": \"VCF 1 Cutoff\", \"kind\": \"float\", \"min\": 20.0, "
                         "\"max\": 18000.0, \"default\": 18000.0, \"unit\": \"Hz\", \"centre\": 600.0}") != std::string::npos);
         CHECK(info.find("{\"id\": \"vco1.tune\", \"name\": \"VCO 1 Tune\", \"kind\": \"float\", \"min\": -7.0, \"max\": 7.0, "
@@ -460,6 +460,18 @@ int main(int argc, char* argv[]) {
         CHECK(write9P(sock, {"cables"}, "vcf1.cutoff=lfo2.out@0.5").empty());
         const auto s2 = serial();
         CHECK(write9P(sock, {"cables"}, "vcf1.cutoff=").empty());
+        // Spec S7.6: effect ports connect only to effect ports; /ports lists the effect chain.
+        CHECK(write9P(sock, {"cables"}, "vcf1.in=comb.out").find("not possible") != std::string::npos);
+        CHECK(write9P(sock, {"cables"}, "main.in=vca.out").find("not possible") != std::string::npos);
+        CHECK(write9P(sock, {"cables"}, "reverb.in=out.out").empty());
+        CHECK(read9P(sock, {"cables"}).find("reverb.in=out.out") != std::string::npos);
+        CHECK(write9P(sock, {"cables"}, "reverb.in=").empty());
+        {
+            const auto ports = read9P(sock, {"ports"});
+            CHECK(ports.find("input  out.out -> comb.in\n") != std::string::npos
+                  && ports.find("input  comb.out -> reverb.in\n") != std::string::npos
+                  && ports.find("input  reverb.out -> main.in\n") != std::string::npos);
+        }
         CHECK(write9P(sock, {"notes"}, "serial test").empty());
         const auto s3 = serial();
         CHECK(serial() == s3);                                        // nothing changed: the same number

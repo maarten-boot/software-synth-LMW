@@ -6,6 +6,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_audio_utils/juce_audio_utils.h>
 #include "dsp/Engine.h"
+#include "dsp/Comb.h"
 #include "dsp/SpscQueue.h"
 #include "dsp/MidiParse.h"
 #include <array>
@@ -66,6 +67,12 @@ inline constexpr const char* reverbMix     = "reverb.mix";
 inline constexpr const char* reverbSize    = "reverb.size";
 inline constexpr const char* reverbDamping = "reverb.damping";
 inline constexpr const char* reverbWidth   = "reverb.width";
+// Spec S7.6: COMB on the Effects tab.
+inline constexpr const char* combFreq     = "comb.freq";
+inline constexpr const char* combKey      = "comb.key";
+inline constexpr const char* combFeedback = "comb.feedback";
+inline constexpr const char* combDamping  = "comb.damping";
+inline constexpr const char* combMix      = "comb.mix";
 }
 
 class LMWSynthProcessor final : public juce::AudioProcessor,
@@ -90,7 +97,10 @@ public:
     bool producesMidi() const override { return false; }
     bool isMidiEffect() const override { return false; }
     // The reverb rings on after the last note (Spec S7.4); without it the sound stops with the notes.
-    double getTailLengthSeconds() const override { return raw.revMix->load() > 0.0f ? 10.0 : 0.0; }
+    // Spec S7.6: the comb rings on too (high feedback).
+    double getTailLengthSeconds() const override {
+        return raw.revMix->load() > 0.0f ? 10.0 : (raw.combMix->load() > 0.0f ? 2.0 : 0.0);
+    }
 
     int getNumPrograms() override { return 1; }
     int getCurrentProgram() override { return 0; }
@@ -208,7 +218,12 @@ private:
     void pullParameters() noexcept;
     void handleMidi(const juce::uint8* data, int size) noexcept;
     void applyNoteEvent(const lmw::dsp::NoteEvent&) noexcept;
-    void applyReverb(float* left, float* right, int n) noexcept;   // Spec S7.4, audio thread
+    // Spec S7.4, S7.6: the effects after the synth (in place on the output), per sample in the order
+    // COMB, REVERB, main; their inputs follow the patch (effect ports). Audio thread.
+    void processEffects(float* left, float* right, int n) noexcept;
+    struct Stereo { float l = 0.0f, r = 0.0f; };
+    Stereo combSample(Stereo in) noexcept;
+    Stereo reverbSample(Stereo in, bool stereo) noexcept;
     juce::Reverb::Parameters reverbParameters() const noexcept;
 
     // MidiKeyboardState::Listener — called on the message thread by on-screen / QWERTY keys.
@@ -256,7 +271,8 @@ private:
         std::atomic<float> *voices{}, *mixNoise{}, *vcaInitial{},
             *e1a{}, *e1d{}, *e1s{}, *e1r{}, *e2a{}, *e2d{}, *e2s{}, *e2r{}, *lfoRate{}, *lfoWave{}, *gain{},
             *lfo2Rate{}, *lfo2Wave{}, *tremolo{}, *revMix{}, *revSize{}, *revDamping{}, *revWidth{},
-            *noiseColour{}, *noiseRate{}, *noiseSmooth{}, *formantVowel{}, *formantVoice{}, *formantRes{}, *formantMix{}, *vcfRouting{};
+            *noiseColour{}, *noiseRate{}, *noiseSmooth{},
+            *combFreq{}, *combKey{}, *combFeedback{}, *combDamping{}, *combMix{}, *formantVowel{}, *formantVoice{}, *formantRes{}, *formantMix{}, *vcfRouting{};
         std::array<std::atomic<float>*, 2> cutoff{}, resonance{}, vcfEnv{}, vcfKey{}, vcfSlope{}, vcfType{};
         std::array<std::atomic<float>*, 3> wave{}, fm{}, pm{}, octave{}, tune{}, mixVco{};
     } raw;
@@ -264,9 +280,13 @@ private:
     // Spec S7.4: reverb (JUCE's Freeverb), wet only, mixed in with our own 20 ms Mix smoothing. While Mix
     // is 0 it is not run at all, so the output is exactly the synth's. Buffers sized in prepareToPlay.
     juce::Reverb reverb;
-    std::vector<float> wetLeft, wetRight;
     juce::SmoothedValue<float> reverbMix;
     bool reverbRunning = false;
+    // Spec S7.6: COMB, one comb line per channel; Mix 0 = not run, the input passes exactly.
+    lmw::dsp::Comb combL, combR;
+    juce::SmoothedValue<float> combMix;
+    bool combRunning = false;
+    Stereo prevComb, prevReverb;                       // last sample's effect outputs (feedback order)
 
     JUCE_DECLARE_WEAK_REFERENCEABLE(LMWSynthProcessor)
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(LMWSynthProcessor)

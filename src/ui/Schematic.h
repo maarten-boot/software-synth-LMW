@@ -46,7 +46,7 @@ struct Block {
     theme::Unit unit() const noexcept { return theme::unitOf(name); }
 };
 
-inline constexpr float canvasWidth = 152.0f, canvasHeight = 72.0f;   // 136 wide before FORMANT (S5.16)
+inline constexpr float canvasWidth = 160.0f, canvasHeight = 72.0f;   // 152 before the effects (S7.6), 136 before FORMANT (S5.16)
 // Names are drawn inside the symbols (user 2026-11-13), so a block needs no room above it.
 
 inline const std::vector<Block>& blocks() {
@@ -63,10 +63,14 @@ inline const std::vector<Block>& blocks() {
         {"VCF 2",  Shape::Triangle, {86, 20, 12, 14}, {In::Vcf2In, In::Vcf2Cutoff, In::Vcf2Res}, {Out::Vcf2}},
         {"FORMANT", Shape::Triangle, {104, 20, 12, 14}, {In::FormantIn, In::FormantVowel}, {Out::Formant}},   // S5.16
         {"VCA",    Shape::Triangle, {122, 20, 12, 14},{In::VcaIn, In::VcaCv, In::VcaMod}, {Out::Vca}},
-        {"OUT",    Shape::Out,      {140, 22, 8, 10}, {In::OutIn}, {}},
+        {"OUT",    Shape::Triangle, {140, 22, 10, 10}, {In::OutIn}, {Out::OutOut}},   // S7.6: feeds the effects
         {"ENV 1",  Shape::Adsr,     {50, 58, 12, 8},  {In::Env1Gate}, {Out::Env1}},
         {"ENV 2",  Shape::Adsr,     {50, 45, 12, 8},  {In::Env2Gate}, {Out::Env2}},
         {"LFO 2",  Shape::Triangle, {110, 50, 10, 9}, {In::Lfo2Rate}, {Out::Lfo2}},
+        // Spec S7.6: the effects rack; MAIN (what is heard) has the line-out symbol OUT had before.
+        {"COMB",   Shape::Triangle, {118, 40, 12, 10}, {In::CombIn}, {Out::CombOut}},
+        {"REVERB", Shape::Triangle, {134, 40, 12, 10}, {In::ReverbIn}, {Out::ReverbOut}},
+        {"MAIN",   Shape::Out,      {150, 41, 8, 8}, {In::MainIn}, {}},
     };
     return b;
 }
@@ -131,7 +135,7 @@ public:
         return s;
     }
     // Reads that text; blocks not named keep their default place. A block added in a later version (FORMANT,
-    // S5.16) that the text does not name, and whose default place is taken, gets the first free place, row
+    // S5.16; COMB, REVERB, MAIN, S7.6) that the text does not name, and whose default place is taken, gets the first free place, row
     // by row (a layout saved before it existed). Nothing (use the default) for an unknown block, a malformed
     // entry, or a result where a block does not fit.
     static std::optional<Layout> parse(std::string_view text) {
@@ -154,7 +158,9 @@ public:
             l.pos[i] = {static_cast<float>(x), static_cast<float>(y)};
             named[i] = true;
         }
-        const auto later = [](std::string_view name) { return name == "FORMANT"; };
+        const auto later = [](std::string_view name) {   // blocks added after Phase 12c
+            return name == "FORMANT" || name == "COMB" || name == "REVERB" || name == "MAIN";
+        };
         for (std::size_t i = 0; i < l.pos.size(); ++i) {           // the others: inside, not on each other
             if (!named[i] && later(blocks()[i].name)) continue;
             const Rect r = l.box(i);

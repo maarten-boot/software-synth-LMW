@@ -29,7 +29,7 @@ int main() {
                 if (ra.intersects(rb)) std::printf("overlap: %s / %s\n", blocks[a].name.data(), blocks[b].name.data());
                 CHECK(!ra.intersects(rb));
             }
-        CHECK(blocks.size() == 15);
+        CHECK(blocks.size() == 18);   // 18 since S7.6 (COMB, REVERB, MAIN)
     }
     {   // Ports: inputs on the left edge, outputs on the right edge (a triangle's output at its tip); distinct.
         for (const auto& b : blocks) {
@@ -47,7 +47,7 @@ int main() {
         for (const auto& b : blocks) {
             const std::string_view n = b.name;
             const auto want = n.starts_with("ENV") ? sc::Shape::Adsr : n == "KEYS" ? sc::Shape::Keys
-                            : n == "NOISE" ? sc::Shape::Noise : n == "OUT" ? sc::Shape::Out : sc::Shape::Triangle;
+                            : n == "NOISE" ? sc::Shape::Noise : n == "MAIN" ? sc::Shape::Out : sc::Shape::Triangle;   // S7.6: MAIN line-out
             CHECK(b.shape == want);
         }
         // Hit test finds each port at its own place.
@@ -64,7 +64,7 @@ int main() {
     {   // Default patch: the 21 normalled connections (24 inputs; vcf1.res, vcf2.res and formant.vowel have none).
         lmw::dsp::Patch p;
         const auto c = sc::connections(p);
-        CHECK(c.size() == 21);
+        CHECK(c.size() == 24);   // + comb.in, reverb.in, main.in (S7.6)
         for (const auto& x : c) CHECK(x.normalled && x.level == 1.0f);
         CHECK(sc::describeInput(p, In::Vcf1Cutoff) == "env2.out → vcf1.cutoff (normalled)");
         CHECK(sc::describeInput(p, In::Vcf1Res) == "vcf1.res: not connected");
@@ -75,7 +75,7 @@ int main() {
         lmw::dsp::Patch p;
         p.setRouting(lmw::dsp::VcfRouting::Parallel);
         const auto c = sc::connections(p);
-        CHECK(c.size() == 22);
+        CHECK(c.size() == 25);
         int toFormant = 0;
         for (const auto& x : c) {
             if (x.to == In::FormantIn) { ++toFormant; CHECK(x.level == 0.5f && x.normalled); }
@@ -91,7 +91,7 @@ int main() {
         CHECK(p.connect(In::Vcf1Cutoff, Out::Env2));
         CHECK(p.connect(In::Vcf1Res, Out::KeysVel));
         const auto c = sc::connections(p);
-        CHECK(c.size() == 23);   // 20 normalled + 3 cables
+        CHECK(c.size() == 26);   // 23 normalled + 3 cables
         int cables = 0;
         for (const auto& x : c)
             if (!x.normalled) {
@@ -250,7 +250,7 @@ int main() {
             if (order[j].input && order[j].index == static_cast<int>(lmw::dsp::In::MixIn3)) mix3 = j;
         CHECK(order[sc::blockJump(mix3, 1)].input && order[sc::blockJump(mix3, 1)].index == static_cast<int>(lmw::dsp::In::Vcf1In));
         CHECK(sc::blocks()[sc::blockOf(order[sc::blockJump(mix3, -1)])].name == std::string("NOISE"));
-        CHECK(sc::blockJump(0, -1) == order.size() - 2);             // LFO 1 up: LFO 2 (rate in, out: the last two)
+        CHECK(sc::blockJump(0, -1) == order.size() - 1);             // LFO 1 up: MAIN (one port, the last; S7.6)
     }
     std::printf(failures == 0 ? "test_schematic: all passed\n" : "test_schematic: %d failure(s)\n", failures);
     return failures == 0 ? 0 : 1;

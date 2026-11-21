@@ -69,3 +69,10 @@ Plan: "later" rows for the delay and the audio input / VST3 effect. Answered wit
 
 **User:** commit; comb now before phase 17, controls ok
 Committed the scale lines in the hover texts. Started Phase 16f: COMB effect (Freq, Key tracking, Feedback ±, Damping, Mix) and patchable effects (ports, normalled chain out → COMB → REVERB → main).
+Done (Phase 16f, S7.6): COMB (src/dsp/Comb.h: feedback comb per channel, fractional delay gliding ~10 ms, damping in the loop, output × √(1−g²)); parameters comb.freq/key/feedback/damping/mix; effect ports out.out, comb.out, reverb.out → comb.in, reverb.in, main.in, normalled SYNTH → COMB → REVERB → MAIN, a domain of their own (refused across in GUI, menus, Matrix, 9P); processor effects graph per sample (COMB, REVERB, main; later sources from the previous sample; normalled = exact, so default bit-identical); Effects tab SYNTH | COMB | REVERB | MAIN with sockets and cables; Matrix 32 × 20 with struck-through cross-domain cells; Schematic OUT (triangle) → COMB → REVERB → MAIN (line-out symbol). New tests T-S7.6-comb (27 ctests) and 9P checks in the host test.
+
+**User:** small item: after switching presets, the computer keyboard stays silent until the on-screen keyboard is played. (correction: "staye" → "stays")
+Reproduced on Xvfb (ENV 1 → Flute, then `a`: nothing). Cause: a closed popup menu leaves focus nowhere. Fix: the preset, socket and panel-title menus give focus back to what had it (else the keyboard). Verified: `a` plays C4 after choosing a preset.
+
+**User:** yes, commit and refresh build-u24
+Committed 16f and the focus fix; Ubuntu 24 container build started.

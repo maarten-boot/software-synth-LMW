@@ -133,7 +133,7 @@ int main() {
     CHECK(normalled[static_cast<std::size_t>(In::FormantIn)] == Out::Vcf2);
     CHECK(normalled[static_cast<std::size_t>(In::VcaIn)] == Out::Formant);
     CHECK(normalled[static_cast<std::size_t>(In::FormantVowel)] == noSource);
-    CHECK(numInputs == 29 && numOutputs == 17);   // 29 since S5.20
+    CHECK(numInputs == 32 && numOutputs == 20);   // 32 / 20 since S7.6 (effect ports)
 
     std::printf(failures ? "%d FAILED\n" : "all passed\n", failures);
     return failures ? 1 : 0;

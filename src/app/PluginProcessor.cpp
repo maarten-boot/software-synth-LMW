@@ -117,6 +117,12 @@ APVTS::ParameterLayout LMWSynthProcessor::createLayout(std::map<std::string, Flo
           f(P::reverbSize,    "Reverb Size",    Range(0.0f, 1.0f), 0.5f, percent),
           f(P::reverbDamping, "Reverb Damping", Range(0.0f, 1.0f), 0.5f, percent),
           f(P::reverbWidth,   "Reverb Width",   Range(0.0f, 1.0f), 1.0f, percent));
+    // Spec S7.6: COMB on the Effects tab. Mix 0 = off (bypassed exactly).
+    l.add(f(P::combFreq,     "Comb Frequency", logRange(20.0f, 5000.0f, 440.0f), 440.0f, hertz),
+          f(P::combKey,      "Comb Key",       Range(0.0f, 1.0f), 0.0f, percent),
+          f(P::combFeedback, "Comb Feedback",  Range(-0.95f, 0.95f), 0.5f, percent),
+          f(P::combDamping,  "Comb Damping",   Range(0.0f, 1.0f), 0.2f, percent),
+          f(P::combMix,      "Comb Mix",       Range(0.0f, 1.0f), 0.0f, percent));
     return l;
 }
 
@@ -136,6 +142,8 @@ LMWSynthProcessor::LMWSynthProcessor()
     raw.lfo2Rate = get(P::lfo2Rate); raw.lfo2Wave = get(P::lfo2Wave); raw.tremolo = get(P::vcaTremolo);
     raw.revMix = get(P::reverbMix); raw.revSize = get(P::reverbSize);
     raw.revDamping = get(P::reverbDamping); raw.revWidth = get(P::reverbWidth);
+    raw.combFreq = get(P::combFreq); raw.combKey = get(P::combKey); raw.combFeedback = get(P::combFeedback);
+    raw.combDamping = get(P::combDamping); raw.combMix = get(P::combMix);
     raw.noiseColour = get(P::noiseColour); raw.noiseRate = get(P::noiseRate); raw.noiseSmooth = get(P::noiseSmooth);
     raw.formantVowel = get(P::formantVowel); raw.formantVoice = get(P::formantVoice);
     raw.formantRes = get(P::formantRes); raw.formantMix = get(P::formantMix);
@@ -195,12 +203,14 @@ void LMWSynthProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
     reverb.setParameters(reverbParameters());      // before setSampleRate, which makes them current (no glide)
     reverb.setSampleRate(sampleRate);              // allocates: here, not on the audio thread
     reverb.reset();
-    const auto chunk = static_cast<std::size_t>(std::max(samplesPerBlock, 512));   // larger blocks: in chunks
-    wetLeft.assign(chunk, 0.0f);
-    wetRight.assign(chunk, 0.0f);
     reverbMix.reset(sampleRate, 0.02);
     reverbMix.setCurrentAndTargetValue(raw.revMix->load());
     reverbRunning = false;
+    combL.prepare(sampleRate); combR.prepare(sampleRate);   // allocates: Spec S7.6
+    combMix.reset(sampleRate, 0.02);
+    combMix.setCurrentAndTargetValue(raw.combMix->load());
+    combRunning = false;
+    prevComb = {}; prevReverb = {};
 }
 
 juce::Reverb::Parameters LMWSynthProcessor::reverbParameters() const noexcept {
@@ -215,33 +225,93 @@ juce::Reverb::Parameters LMWSynthProcessor::reverbParameters() const noexcept {
 
 // Spec S7.4: out = dry x (1 - mix) + wet x mix, mix smoothed over 20 ms. The reverb runs while Mix is
 // above 0 or still fading; once Mix has reached 0 it stops and its tail is cleared (it would be silent).
-void LMWSynthProcessor::applyReverb(float* left, float* right, int n) noexcept {
-    reverbMix.setTargetValue(raw.revMix->load());
-    if (!reverbRunning && !reverbMix.isSmoothing() && reverbMix.getCurrentValue() <= 0.0f) return;
+LMWSynthProcessor::Stereo LMWSynthProcessor::reverbSample(Stereo in, bool stereo) noexcept {
+    if (!reverbRunning && !reverbMix.isSmoothing() && reverbMix.getCurrentValue() <= 0.0f) return in;
     reverbRunning = true;
-    reverb.setParameters(reverbParameters());
-    const int chunk = static_cast<int>(wetLeft.size());
-    for (int pos = 0; pos < n; pos += chunk) {
-        const int k = std::min(chunk, n - pos);
-        float* l = left + pos;
-        float* r = right != nullptr ? right + pos : nullptr;
-        std::copy(l, l + k, wetLeft.data());
-        if (r != nullptr) {
-            std::copy(r, r + k, wetRight.data());
-            reverb.processStereo(wetLeft.data(), wetRight.data(), k);
-        } else {
-            reverb.processMono(wetLeft.data(), k);
-        }
-        for (int i = 0; i < k; ++i) {
-            const float m = reverbMix.getNextValue();
-            const auto ui = static_cast<std::size_t>(i);
-            l[i] = l[i] * (1.0f - m) + wetLeft[ui] * m;
-            if (r != nullptr) r[i] = r[i] * (1.0f - m) + wetRight[ui] * m;
-        }
-    }
+    Stereo wet = in;
+    if (stereo) reverb.processStereo(&wet.l, &wet.r, 1);
+    else        { reverb.processMono(&wet.l, 1); wet.r = wet.l; }
+    const float m = reverbMix.getNextValue();
+    const Stereo out{in.l * (1.0f - m) + wet.l * m, in.r * (1.0f - m) + wet.r * m};
     if (!reverbMix.isSmoothing() && reverbMix.getCurrentValue() <= 0.0f) {
         reverb.reset();                            // RT-safe: clears the delay lines
         reverbRunning = false;
+    }
+    return out;
+}
+
+// Spec S7.6: COMB, the same Mix rule as the reverb.
+LMWSynthProcessor::Stereo LMWSynthProcessor::combSample(Stereo in) noexcept {
+    if (!combRunning && !combMix.isSmoothing() && combMix.getCurrentValue() <= 0.0f) return in;
+    combRunning = true;
+    const float m = combMix.getNextValue();
+    const Stereo wet{combL.process(in.l), combR.process(in.r)};
+    const Stereo out{in.l * (1.0f - m) + wet.l * m, in.r * (1.0f - m) + wet.r * m};
+    if (!combMix.isSmoothing() && combMix.getCurrentValue() <= 0.0f) {
+        combL.reset(); combR.reset();
+        combRunning = false;
+    }
+    return out;
+}
+
+// Spec S7.4, S7.6: the effects rack. Effect inputs read out.out (the synth after OUT), comb.out and
+// reverb.out: their normalled sources (out.out -> COMB -> REVERB -> main.in) or their cables. Per sample
+// in the order COMB, REVERB, main; a source later in that order is its previous sample's value.
+void LMWSynthProcessor::processEffects(float* left, float* right, int n) noexcept {
+    using lmw::dsp::In;
+    using lmw::dsp::Out;
+    reverbMix.setTargetValue(raw.revMix->load());
+    combMix.setTargetValue(raw.combMix->load());
+    if (reverbRunning || reverbMix.isSmoothing() || reverbMix.getTargetValue() > 0.0f) reverb.setParameters(reverbParameters());
+    {   // COMB frequency with key tracking (newest note), feedback, damping
+        const double hz = static_cast<double>(raw.combFreq->load())
+                        * std::exp2(static_cast<double>(raw.combKey->load() * engine.newestKeyOctaves()));
+        for (auto* c : {&combL, &combR}) c->setParameters(hz, raw.combFeedback->load(), raw.combDamping->load());
+    }
+    const auto& patch = engine.getPatch();
+    struct Source { Out out; float level; };
+    struct Sources { std::array<Source, lmw::dsp::Patch::maxPins> s{}; int n = 0; bool plain = false; };
+    const auto sourcesOf = [&patch](In in) {
+        Sources r;
+        const int k = patch.pinCount(in);
+        if (k == 0) {                                 // normalled: one source at full level
+            r.s[0] = {lmw::dsp::normalled[static_cast<std::size_t>(in)], 1.0f}; r.n = 1; r.plain = true;
+        } else {
+            for (int i = 0; i < k; ++i) r.s[static_cast<std::size_t>(i)] = {static_cast<Out>(patch.pin(in, i).source), patch.pin(in, i).level};
+            r.n = k;
+        }
+        return r;
+    };
+    const Sources comb = sourcesOf(In::CombIn), rev = sourcesOf(In::ReverbIn), mainIn = sourcesOf(In::MainIn);
+    const bool stereo = right != nullptr;
+    for (int i = 0; i < n; ++i) {
+        const Stereo synth{left[i], stereo ? right[i] : left[i]};
+        Stereo combOut = prevComb, revOut = prevReverb;   // until computed this sample
+        const auto value = [&](Out o) {
+            switch (o) {
+                case Out::OutOut:    return synth;
+                case Out::CombOut:   return combOut;
+                case Out::ReverbOut: return revOut;
+                default:             return Stereo{};
+            }
+        };
+        const auto sum = [&](const Sources& src) {
+            if (src.plain) return value(src.s[0].out);   // exactly the source (default: bit-identical)
+            Stereo t;
+            for (int k = 0; k < src.n; ++k) {
+                const auto v = value(src.s[static_cast<std::size_t>(k)].out);
+                t.l += v.l * src.s[static_cast<std::size_t>(k)].level;
+                t.r += v.r * src.s[static_cast<std::size_t>(k)].level;
+            }
+            return t;
+        };
+        combOut = combSample(sum(comb));
+        revOut = reverbSample(sum(rev), stereo);
+        const Stereo out = sum(mainIn);
+        left[i] = out.l;
+        if (stereo) right[i] = out.r;
+        prevComb = combOut;
+        prevReverb = revOut;
     }
 }
 
@@ -349,7 +419,7 @@ void LMWSynthProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Mid
         handleMidi(meta.data, meta.numBytes);
     }
     engine.render(left + pos, right ? right + pos : nullptr, n - pos);
-    applyReverb(left, right, n);                         // Spec S7.4
+    processEffects(left, right, n);                      // Spec S7.4, S7.6
     for (int ch = 2; ch < buffer.getNumChannels(); ++ch) buffer.clear(ch, 0, n);
 }
 

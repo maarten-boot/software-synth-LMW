@@ -5,6 +5,8 @@ Changes between releases.
 ## Unreleased
 - 2026-11-20: New FORMANT module (vowel filter) after VCF 2: Vowel A–E–I–O–U (gliding in between, with a Vowel input for modulation), Voice Bass / Baritone / Tenor / Alto / Soprano / Child, Reso, Mix (0 = off, the sound is unchanged); presets "Bass A" … "Child U". Panel at the end of row 2 (window 1496 px wide); also in the Matrix and the Schematic. Saved panel and schematic layouts from before keep their places (S5.16).
 - 2026-11-20: VCF routing Serial / Parallel (box under VCF 2's Type): Parallel feeds both VCFs from the mixer and mixes their outputs 50/50 into FORMANT (S5.17).
+- 2026-11-21: New COMB effect (Freq, Key tracking, Feedback ±, Damping, Mix) on the Effects tab; the effects now have sockets: SYNTH → COMB → REVERB → MAIN by default, re-ordered by cables (S7.6).
+- 2026-11-21: Computer-keyboard notes keep playing after a Presets or socket menu closes (they were silent until the on-screen keyboard was clicked).
 - 2026-11-21: The VCO FM and PM faders are skewed: half way is 1 semitone (FM) and index 2 (PM), giving more control over small values. DAW automation of FM made with 1.0/1.1 now maps to other depths; patches are not affected.
 - 2026-11-21: Phase modulation: every VCO gets a PM input and a PM fader (index), so VCOs can modulate each other or themselves for FM sounds such as bells and electric pianos (S5.20).
 - 2026-11-21: LFO 1 and LFO 2 get a Rate input: +1.0 doubles the rate (per-voice sources such as ENV 2 follow the newest note) (S5.19).
