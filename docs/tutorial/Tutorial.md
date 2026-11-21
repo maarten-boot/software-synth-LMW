@@ -131,8 +131,10 @@ Schematic), and a cable replaces a normal connection where you want something el
 1. Sockets are under the panels: white = input, black = output. Drag from *LFO 2 › Out* to
    *VCF 1 › Cut* (the cutoff input). The filter now wobbles with LFO 2 instead of following ENV 2.
 2. Open the **Matrix** tab: every input is a row, every output a column. The cable is a filled cell
-   at 100 %. Click the cell and drag up/down, or use the slider on the right: set it to 30 %. A ring
-   in a cell shows a normal connection, used while that input has no cable.
+   at 100 %. Click the cell (that only selects it) and drag up/down, or use the slider on the right:
+   set it to 30 %. A click on an empty cell makes a cable at 100 %, a double-click removes a cable, and
+   right-click opens a small menu (100 %, Type level..., Remove cable). A ring in a cell shows a normal
+   connection, used while that input has no cable.
 
    ![The Matrix tab: inputs as rows, outputs as columns; rings are the normal connections](../images/matrix.png)
 

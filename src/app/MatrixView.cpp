@@ -18,7 +18,8 @@ MatrixView::MatrixView(std::function<const lmw::dsp::Patch&()> p, std::function<
     : patch(std::move(p)), setPin(std::move(set)) {
     setWantsKeyboardFocus(true);
     setTitle("Patch matrix");
-    setDescription("Rows: inputs, columns: outputs. Arrow keys move, Space toggles, plus and minus change the level.");
+    setDescription("Rows: inputs, columns: outputs. Arrow keys move, Space toggles, plus and minus change the level, "
+                   "Shift+F10 opens the cell menu.");
     levelLabel.setJustificationType(juce::Justification::centredTop);
     levelLabel.setColour(juce::Label::textColourId, kFg);
     levelLabel.setColour(juce::Label::backgroundColourId, kBg);
@@ -181,6 +182,11 @@ void MatrixView::mouseDown(const juce::MouseEvent& e) {
     dragCell = cellAt(e.getPosition());
     dragged = false;
     if (dragCell) { cursor = *dragCell; dragStartLevel = level(*dragCell); syncSlider(); repaint(); }
+    if (dragCell && e.mods.isPopupMenu()) {                 // right-click: the cell menu, no drag
+        const auto c = *dragCell;
+        dragCell.reset();
+        showCellMenu(c);
+    }
 }
 
 void MatrixView::mouseDrag(const juce::MouseEvent& e) {
@@ -192,14 +198,53 @@ void MatrixView::mouseDrag(const juce::MouseEvent& e) {
     set(*dragCell, dragStartLevel - static_cast<float>(e.getDistanceFromDragStartY()) / 150.0f);
 }
 
+// Phase 17f (user 2026-11-21): a click selects; only an empty cell gets a cable (100 %, a gate "on").
 void MatrixView::mouseUp(const juce::MouseEvent& e) {
-    if (dragCell && !dragged && e.getNumberOfClicks() == 1 && cellAt(e.getPosition()) == std::optional<Cell>(*dragCell))
-        set(*dragCell, level(*dragCell) > 0.0f ? 0.0f : 1.0f);
+    if (dragCell && !dragged && e.getNumberOfClicks() == 1 && cellAt(e.getPosition()) == std::optional<Cell>(*dragCell)
+        && level(*dragCell) <= 0.0f) {
+        set(*dragCell, 1.0f);
+        if (level(*dragCell) > 0.0f) { justMade = *dragCell; justMadeAt = juce::Time::getMillisecondCounter(); }
+    }
     dragCell.reset();
 }
 
+// Double-click removes a cable, except the one the first click of this double-click just made.
 void MatrixView::mouseDoubleClick(const juce::MouseEvent& e) {
-    if (const auto c = cellAt(e.getPosition()); c && !isGate(c->input)) typeLevel(*c);
+    const auto c = cellAt(e.getPosition());
+    if (!c || e.mods.isPopupMenu()) return;
+    const bool fresh = justMade == c
+                    && juce::Time::getMillisecondCounter() - justMadeAt <= static_cast<juce::uint32>(juce::MouseEvent::getDoubleClickTimeout()) + 200;
+    justMade.reset();
+    if (!fresh && level(*c) > 0.0f) set(*c, 0.0f);
+}
+
+// The cell menu (right-click, Shift+F10): only what is possible here (S6.2).
+void MatrixView::showCellMenu(Cell c) {
+    const auto in = static_cast<lmw::dsp::In>(c.input);
+    if (!lmw::dsp::canConnect(in, static_cast<lmw::dsp::Out>(c.output))) return;
+    const float l = level(c);
+    const bool full = l <= 0.0f && patch().pinCount(in) >= lmw::dsp::Patch::maxPins;
+    juce::PopupMenu menu;
+    menu.addSectionHeader(name(lmw::dsp::outputNames[static_cast<std::size_t>(c.output)]) + " "
+                          + juce::String::fromUTF8("\xe2\x86\x92") + " "
+                          + name(lmw::dsp::inputNames[static_cast<std::size_t>(c.input)]));
+    if (isGate(c.input)) {
+        if (l <= 0.0f && !full) menu.addItem(2, "On");
+    } else if (!full) {
+        if (l < 1.0f) menu.addItem(2, "100 %");
+        menu.addItem(3, "Type level...");
+    }
+    if (l > 0.0f) menu.addItem(1, isGate(c.input) ? "Off (remove cable)" : "Remove cable");
+    if (full && l <= 0.0f) menu.addItem(4, "Input full (4 cables)", false);
+    menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this)
+                           .withTargetScreenArea(localAreaToGlobal(cellBounds(c))),
+                       [safe = juce::Component::SafePointer<MatrixView>(this), c](int result) {
+                           if (safe == nullptr) return;
+                           safe->grabKeyboardFocus();               // computer keys keep playing (S3.2)
+                           if (result == 1) safe->set(c, 0.0f);
+                           else if (result == 2) safe->set(c, 1.0f);
+                           else if (result == 3) safe->typeLevel(c);
+                       });
 }
 
 void MatrixView::typeLevel(Cell c) {
@@ -233,6 +278,7 @@ bool MatrixView::keyPressed(const juce::KeyPress& key) {
         repaint();
         return true;
     };
+    if (code == juce::KeyPress::F10Key && mods.isShiftDown()) { showCellMenu(cursor); return true; }
     if (code == juce::KeyPress::upKey)    return move(-1, 0);
     if (code == juce::KeyPress::downKey)  return move(1, 0);
     if (code == juce::KeyPress::leftKey)  return move(0, -1);
@@ -274,7 +320,10 @@ juce::String MatrixView::getTooltip() {
     else if (const float n = p.isPatched(in) ? 0.0f : p.normalLevel(in, out); n > 0.0f)
         state = "normalled" + (n < 1.0f ? " at " + percent(n) : juce::String()) + " (used while this input has no cables)";
     else state = "no cable";
-    juce::String how = isGate(c->input) ? "Click: on/off." : "Click: on/off. Drag up/down: level. Double-click: type the level.";
+    juce::String how = isGate(c->input)
+        ? (l > 0.0f ? "Double-click: off. Right-click: menu." : "Click: on. Right-click: menu.")
+        : (l > 0.0f ? "Click: select (the slider shows the level). Drag up/down: level. Double-click: remove. Right-click: menu."
+                    : "Click: cable at 100 %. Drag up/down: level. Right-click: menu.");
     if (l <= 0.0f && p.pinCount(in) >= lmw::dsp::Patch::maxPins) how = "This input already has 4 cables.";
     return link + ": " + state + "\n" + how;
 }

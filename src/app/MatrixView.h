@@ -2,9 +2,13 @@
 // Spec S6.8: the Matrix tab — a VCS3-like pin matrix of the patch (S5.14). Rows are the inputs, columns
 // the outputs; every crossing shows the pin level (empty = no cable, a black bar filled to the level with
 // the % as text). The normalled source of an input without cables is marked with a ring.
-//   Mouse: click toggles 0 / 100 %; drag up/down sets the level; double-click types it.
+//   Mouse (user 2026-11-21, Phase 17f): a click selects a cell — the level slider shows its level and a
+//          cable keeps it; a click on an empty cell makes a 100 % cable. Drag up/down sets the level;
+//          double-click removes a cable (not the one its own first click just made); right-click opens a
+//          menu: 100 %, Type level..., Remove cable (only what is possible).
 //   Keys:  arrows move the cell cursor; Space or Enter toggles; + / - change by 10 %, Page Up / Down by 1 %;
-//          Delete removes the cable; Home / End = 100 % / remove. Other keys (QWERTY notes) pass on.
+//          Delete removes the cable; Home / End = 100 % / remove; Shift+F10 opens the cell menu. Other keys
+//          (QWERTY notes) pass on.
 // Gate inputs (env1.gate, env2.gate) are on/off only. Black and white (Spec S6.2), except the row and column
 // labels, which have their unit's colour (S6.9).
 // A level slider on the right (0-100 %, user 2026-11-18) shows and sets the level of the cell under the
@@ -47,6 +51,7 @@ private:
     float level(Cell c) const;
     void set(Cell c, float level);
     void typeLevel(Cell c);
+    void showCellMenu(Cell c);
     int labelWidth() const { return juce::roundToInt(fontSize * 7.5f); }
     int headerHeight() const { return juce::roundToInt(fontSize * 2.8f); }
     int sliderWidth() const { return juce::roundToInt(fontSize * 8.0f); }
@@ -62,6 +67,8 @@ private:
     std::optional<Cell> dragCell;        // cell being dragged
     float dragStartLevel = 0.0f;
     bool dragged = false;
+    std::optional<Cell> justMade;        // the cell a single click just made a cable in, and when
+    juce::uint32 justMadeAt = 0;
     juce::Point<int> mouse;              // last mouse position, for the tooltip
     juce::Label levelLabel;              // the cursor cell ("lfo1.out -> vcf1.cutoff") and why the slider is off
     juce::Slider levelSlider{juce::Slider::LinearVertical, juce::Slider::TextBoxBelow};

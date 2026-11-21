@@ -5,6 +5,7 @@ Changes between releases.
 ## Unreleased
 - 2026-11-20: New FORMANT module (vowel filter) after VCF 2: Vowel A–E–I–O–U (gliding in between, with a Vowel input for modulation), Voice Bass / Baritone / Tenor / Alto / Soprano / Child, Reso, Mix (0 = off, the sound is unchanged); presets "Bass A" … "Child U". Panel at the end of row 2 (window 1496 px wide); also in the Matrix and the Schematic. Saved panel and schematic layouts from before keep their places (S5.16).
 - 2026-11-20: VCF routing Serial / Parallel (box under VCF 2's Type): Parallel feeds both VCFs from the mixer and mixes their outputs 50/50 into FORMANT (S5.17).
+- 2026-11-21: Matrix tab: a click on a cable only selects it (the slider shows its level) instead of removing it; a click on an empty cell still makes a 100 % cable; double-click removes a cable; right-click (or Shift+F10) opens a menu with 100 %, Type level... and Remove cable.
 - 2026-11-21: The Synth and Effects tabs have a very light grey (#F7F7F7) around the white panels (white at the Max contrast preset).
 - 2026-11-21: Presets on the COMB (Flute, Oboe, Clarinet, Bassoon, Guitar (plucked), Hollow tube, Odd harmonics, Metallic, Low resonator) and DELAY panels (Doubling, Slapback, Short echo, Ping-pong, Tape echo, Dub, Long ambient), with your own like the other panels (S7.5).
 - 2026-11-21: New DELAY effect between COMB and REVERB: Time (glides like tape), Feedback, Damping, Spread (ping-pong), Mix (S7.8).

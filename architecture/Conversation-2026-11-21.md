@@ -155,3 +155,8 @@ Done (17b lesson presets, S7.9): lesson 9 text updated for the delay; cmake/Tuto
 - User: tutorial looks good → Tutorial.md status "reviewed", Plan 17b.
 - User: number the "later" items and make the Matrix mouse the next item (the most counter-intuitive one). Plan: Matrix mouse is now Phase 17f (next); later rows numbered L1 cable hint, L2 depth faders, L3 FM option 2, L4 FM option 3, L5 sines VCO, L6 audio input / VST3 effect; the misplaced 16f row moved to its place.
 - User: Phase 7 (Kukel GUI) is done; make our own Python GUI instead (Python is more general). Plan: Phase 7 done, new Phase 20 Python GUI as a 9P client (to discuss); Spec S10.8 noted.
+
+## Phase 17f — Matrix mouse
+
+- User: commit (f6ebf5b) and start with 17f.
+- Done: MatrixView — click selects (a cable keeps its level; an empty cell gets 100 %), drag sets the level, double-click removes (not the cable its own first click made), right-click / Shift+F10 menu (100 %, Type level..., Remove cable; gates On / Off; full input greyed). Hover texts per state. Spec S6.8, T-S6.8-mouse, Tutorial Lesson 6, Changes, Plan. Xvfb checks with /cables after each step all as expected.
