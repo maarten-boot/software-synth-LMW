@@ -11,6 +11,9 @@
 //          (QWERTY notes) pass on.
 // Gate inputs (env1.gate, env2.gate) are on/off only. Black and white (Spec S6.2), except the row and column
 // labels, which have their unit's colour (S6.9).
+// Finding a crossing (user 2026-11-21): the row and column under the mouse get a grey band and their labels
+// invert (white on black); clicking a row or column label pins that band until clicked again; the selected
+// cell's labels have a black frame.
 // A level slider on the right (0-100 %, user 2026-11-18) shows and sets the level of the cell under the
 // cursor; it is active for every cell that takes a level (not on gate inputs, nor on an empty cell of a full input).
 #pragma once
@@ -36,6 +39,8 @@ public:
     void mouseDrag(const juce::MouseEvent&) override;
     void mouseUp(const juce::MouseEvent&) override;
     void mouseDoubleClick(const juce::MouseEvent&) override;
+    void mouseMove(const juce::MouseEvent&) override;
+    void mouseExit(const juce::MouseEvent&) override;
     bool keyPressed(const juce::KeyPress&) override;
     void focusGained(FocusChangeType) override { repaint(); }
     void focusLost(FocusChangeType) override { repaint(); }
@@ -48,6 +53,8 @@ public:
 private:
     juce::Rectangle<int> cellBounds(Cell c) const;
     std::optional<Cell> cellAt(juce::Point<int> p) const;
+    int rowAt(juce::Point<int> p) const;     // the input row under p (cell or row label), else -1
+    int columnAt(juce::Point<int> p) const;  // the output column under p (cell or column label), else -1
     float level(Cell c) const;
     void set(Cell c, float level);
     void typeLevel(Cell c);
@@ -67,6 +74,8 @@ private:
     std::optional<Cell> dragCell;        // cell being dragged
     float dragStartLevel = 0.0f;
     bool dragged = false;
+    int hoverRow = -1, hoverColumn = -1;  // under the mouse
+    int pinnedRow = -1, pinnedColumn = -1;  // kept highlighted by a click on its label
     std::optional<Cell> justMade;        // the cell a single click just made a cable in, and when
     juce::uint32 justMadeAt = 0;
     juce::Point<int> mouse;              // last mouse position, for the tooltip

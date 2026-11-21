@@ -84,6 +84,18 @@ std::optional<MatrixView::Cell> MatrixView::cellAt(juce::Point<int> p) const {
     return Cell{row, col};
 }
 
+int MatrixView::rowAt(juce::Point<int> p) const {
+    const int row = (p.y - headerHeight()) / cellHeight();
+    if (p.y < headerHeight() || row >= lmw::dsp::numInputs || p.x < 0 || p.x >= labelWidth() + lmw::dsp::numOutputs * cellWidth()) return -1;
+    return row;
+}
+
+int MatrixView::columnAt(juce::Point<int> p) const {
+    const int col = (p.x - labelWidth()) / cellWidth();
+    if (p.x < labelWidth() || col >= lmw::dsp::numOutputs || p.y < 0 || p.y >= headerHeight() + lmw::dsp::numInputs * cellHeight()) return -1;
+    return col;
+}
+
 float MatrixView::level(Cell c) const {
     return patch().level(static_cast<lmw::dsp::In>(c.input), static_cast<lmw::dsp::Out>(c.output));
 }
@@ -108,28 +120,45 @@ void MatrixView::paint(juce::Graphics& g) {
 
     // Column headers: output names on two lines ("vcf1" / "out"); row labels: input names. Both on their
     // unit's colour (Spec S6.9; white for keys, mix, out and at the Max preset).
+    // Highlighted (user 2026-11-21): under the mouse or pinned by a click on the label — a grey band over the
+    // cells and the label inverted; the selected cell: its labels bold and framed.
+    const bool focused = hasKeyboardFocus(true);
+    auto rowLit = [&](int i) { return i == hoverRow || i == pinnedRow; };
+    auto columnLit = [&](int o) { return o == hoverColumn || o == pinnedColumn; };
+    g.setColour(colour(palette.band));
+    for (int i = 0; i < numInputs; ++i) if (rowLit(i)) g.fillRect(lw, hh + i * ch, numOutputs * cw, ch);
+    for (int o = 0; o < numOutputs; ++o) if (columnLit(o)) g.fillRect(lw + o * cw, hh, cw, numInputs * ch);
     auto unitFill = [&](std::string_view port) { return colour(palette.unitColour(lmw::ui::theme::unitOf(port))); };
     for (int o = 0; o < numOutputs; ++o) {
-        g.setColour(unitFill(outputNames[static_cast<std::size_t>(o)]));
+        g.setColour(columnLit(o) ? kFg : unitFill(outputNames[static_cast<std::size_t>(o)]));
         g.fillRect(lw + o * cw, 0, cw, hh);
     }
     for (int i = 0; i < numInputs; ++i) {
-        g.setColour(unitFill(inputNames[static_cast<std::size_t>(i)]));
+        g.setColour(rowLit(i) ? kFg : unitFill(inputNames[static_cast<std::size_t>(i)]));
         g.fillRect(0, hh + i * ch, lw, ch);
     }
-    g.setColour(kFg);
     g.setFont(bold);
     for (int o = 0; o < numOutputs; ++o) {
         const auto n = outputNames[static_cast<std::size_t>(o)];
         const auto dot = n.find('.');
         auto area = juce::Rectangle<int>(lw + o * cw, 0, cw, hh).reduced(1, 2);
+        g.setColour(columnLit(o) ? kBg : kFg);
         g.drawText(name(n.substr(0, dot)), area.removeFromTop(area.getHeight() / 2), juce::Justification::centredBottom, true);
         g.drawText(name(n.substr(dot + 1)), area, juce::Justification::centredTop, true);
     }
-    g.setFont(font);
-    for (int i = 0; i < numInputs; ++i)
+    for (int i = 0; i < numInputs; ++i) {
+        g.setFont(font);                                    // not bold: long names would be cut off
+        g.setColour(rowLit(i) ? kBg : kFg);
         g.drawText(name(inputNames[static_cast<std::size_t>(i)]) + (isGate(i) ? " (on/off)" : ""),
                    juce::Rectangle<int>(0, hh + i * ch, lw - 6, ch), juce::Justification::centredRight, true);
+    }
+    g.setColour(kFg);
+    g.drawRect(juce::Rectangle<int>(0, hh + cursor.input * ch, lw, ch).reduced(1), 2);          // selected cell's labels
+    g.drawRect(juce::Rectangle<int>(lw + cursor.output * cw, 0, cw, hh).reduced(1), 2);
+    if (rowLit(cursor.input)) { g.setColour(kBg); g.drawRect(juce::Rectangle<int>(0, hh + cursor.input * ch, lw, ch).reduced(3), 1); }
+    if (columnLit(cursor.output)) { g.setColour(kBg); g.drawRect(juce::Rectangle<int>(lw + cursor.output * cw, 0, cw, hh).reduced(3), 1); }
+    g.setColour(kFg);
+    g.setFont(font);
 
     // Cells.
     const auto& p = patch();
@@ -174,12 +203,28 @@ void MatrixView::paint(juce::Graphics& g) {
         g.fillRect(edge ? 0 : lw, hh + i * ch - (edge ? 1 : 0), edge ? right : right - lw, edge ? 2 : 1);
     }
 
-    if (hasKeyboardFocus(true)) g.drawRect(cellBounds(cursor).expanded(1), 3);    // cell cursor (also while the slider has focus)
+    if (focused) g.drawRect(cellBounds(cursor).expanded(1), 3);    // cell cursor (also while the slider has focus)
+}
+
+void MatrixView::mouseMove(const juce::MouseEvent& e) {
+    const int r = rowAt(e.getPosition()), c = columnAt(e.getPosition());
+    if (r != hoverRow || c != hoverColumn) { hoverRow = r; hoverColumn = c; repaint(); }
+}
+
+void MatrixView::mouseExit(const juce::MouseEvent&) {
+    if (hoverRow >= 0 || hoverColumn >= 0) { hoverRow = hoverColumn = -1; repaint(); }
 }
 
 void MatrixView::mouseDown(const juce::MouseEvent& e) {
     grabKeyboardFocus();
     dragCell = cellAt(e.getPosition());
+    if (!dragCell && !e.mods.isPopupMenu()) {               // a row or column label: pin / release its band
+        const auto p = e.getPosition();
+        if (p.x < labelWidth() && rowAt(p) >= 0) pinnedRow = pinnedRow == rowAt(p) ? -1 : rowAt(p);
+        else if (p.y < headerHeight() && columnAt(p) >= 0) pinnedColumn = pinnedColumn == columnAt(p) ? -1 : columnAt(p);
+        repaint();
+        return;
+    }
     dragged = false;
     if (dragCell) { cursor = *dragCell; dragStartLevel = level(*dragCell); syncSlider(); repaint(); }
     if (dragCell && e.mods.isPopupMenu()) {                 // right-click: the cell menu, no drag
@@ -305,8 +350,15 @@ bool MatrixView::keyPressed(const juce::KeyPress& key) {
 }
 
 juce::String MatrixView::getTooltip() {
-    const auto c = cellAt(getMouseXYRelative());
-    if (!c) return {};
+    const auto mp = getMouseXYRelative();
+    const auto c = cellAt(mp);
+    if (!c) {
+        if (mp.x < labelWidth() && rowAt(mp) >= 0)
+            return name(lmw::dsp::inputNames[static_cast<std::size_t>(rowAt(mp))]) + "\nClick: keep this row highlighted (click again to release).";
+        if (mp.y < headerHeight() && columnAt(mp) >= 0)
+            return name(lmw::dsp::outputNames[static_cast<std::size_t>(columnAt(mp))]) + "\nClick: keep this column highlighted (click again to release).";
+        return {};
+    }
     const auto in = static_cast<lmw::dsp::In>(c->input);
     const auto out = static_cast<lmw::dsp::Out>(c->output);
     const auto& p = patch();

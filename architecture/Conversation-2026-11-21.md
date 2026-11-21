@@ -160,3 +160,7 @@ Done (17b lesson presets, S7.9): lesson 9 text updated for the delay; cmake/Tuto
 
 - User: commit (f6ebf5b) and start with 17f.
 - Done: MatrixView — click selects (a cable keeps its level; an empty cell gets 100 %), drag sets the level, double-click removes (not the cable its own first click made), right-click / Shift+F10 menu (100 %, Type level..., Remove cable; gates On / Off; full input greyed). Hover texts per state. Spec S6.8, T-S6.8-mouse, Tutorial Lesson 6, Changes, Plan. Xvfb checks with /cables after each step all as expected.
+- CI run 44944182998 (1291ae4, Matrix mouse): green on all four.
+- User: highlight the in/out path under the mouse in the (large) Matrix; alternatively click the output label (top) / input label (left) to highlight its column / row. Corrections confirmed (matrix, alternatively, symbol, highlights); chosen: both, and the selected cell's labels highlighted lighter.
+- Done: hover band + inverted labels, label click pins row/column, selected cell's labels framed (not bold: long names were cut off); theme band #E0E0E0 (15.9:1, white at Max, in pairs()); Spec S6.8, T-S6.8-highlight, Changes, Plan. Xvfb checked.
+- User: undo/redo for the Matrix, the Schematic and the synth settings in the next release (not this one) → Plan L7.

@@ -16,6 +16,9 @@ inline constexpr Rgb keyDownDesign{0x76, 0x76, 0x76};   // 4.54:1 on white, 4.63
 // Spec S6.2 (user 2026-11-21): the Synth and Effects tabs show a very light grey around the panels
 // (the panels stay white); 19.6:1 with black. Raised towards white with the contrast preset (white at Max).
 inline constexpr Rgb rackDesign{0xF7, 0xF7, 0xF7};
+// Spec S6.8 (user 2026-11-21): the Matrix band behind the row and column under the mouse or pinned;
+// 15.9:1 with black, raised towards white with the contrast preset (white at Max: the labels still invert).
+inline constexpr Rgb bandDesign{0xE0, 0xE0, 0xE0};
 
 // Spec S6.9: unit colours — light tints behind black title text, one per unit type. Units without a
 // colour (KEYS, OUT, effects) keep white.
@@ -61,22 +64,24 @@ struct Palette {
     Rgb whiteKeyDown{keyDownDesign};   // pressed white key, against the white keys around it
     Rgb blackKeyDown{keyDownDesign};   // pressed black key, against the black keys around it
     Rgb rack{rackDesign};              // behind the panels on the Synth and Effects tabs
+    Rgb band{bandDesign};              // Matrix: highlighted row / column
     std::array<Rgb, static_cast<std::size_t>(Unit::Count)> unit{unitDesign};   // title bar fills (S6.9)
 
     Rgb unitColour(Unit u) const noexcept { return unit[static_cast<std::size_t>(u)]; }
 
     // (foreground, background) pairs actually drawn by the GUI.
-    std::array<std::pair<Rgb, Rgb>, 6 + static_cast<std::size_t>(Unit::Count)> pairs() const noexcept {
-        std::array<std::pair<Rgb, Rgb>, 6 + static_cast<std::size_t>(Unit::Count)> p{{
+    std::array<std::pair<Rgb, Rgb>, 7 + static_cast<std::size_t>(Unit::Count)> pairs() const noexcept {
+        std::array<std::pair<Rgb, Rgb>, 7 + static_cast<std::size_t>(Unit::Count)> p{{
             {foreground, background},             // text, faders, value boxes, outlines, cables, black keys
             {background, foreground},             // highlighted menu text, fader cap line, output sockets
             {whiteKeyDown, background},           // pressed white key
             {blackKeyDown, foreground},           // pressed black key
             {textOn(whiteKeyDown), whiteKeyDown}, // note name (C4) on a pressed white key
             {foreground, rack},                   // panel frames and the drop marker on the rack grey
+            {foreground, band},                   // Matrix: rings, strokes and grid on a highlighted band
         }};
         for (std::size_t i = 0; i < unit.size(); ++i)
-            p[6 + i] = {foreground, unit[i]};     // black title text, line and focus ring on a unit colour
+            p[7 + i] = {foreground, unit[i]};     // black title text, line and focus ring on a unit colour
         return p;
     }
 };
@@ -87,6 +92,7 @@ inline Palette palette(double minRatio) noexcept {
     p.whiteKeyDown = enforceContrast(keyDownDesign, background, minRatio);
     p.blackKeyDown = enforceContrast(keyDownDesign, foreground, minRatio);
     p.rack = enforceContrast(rackDesign, foreground, minRatio);
+    p.band = enforceContrast(bandDesign, foreground, minRatio);
     // Unit colours are lightened (towards white) until black text on them meets the ratio; at Max (21:1)
     // that is white, so the bars are black and white like everything else.
     for (std::size_t i = 0; i < p.unit.size(); ++i) p.unit[i] = enforceContrast(unitDesign[i], foreground, minRatio);
