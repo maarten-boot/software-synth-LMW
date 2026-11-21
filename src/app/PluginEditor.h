@@ -242,6 +242,10 @@ private:
     void loadPatch();
     void showError(const juce::String& title, const juce::String& message);
     void refreshPatchInfo();                              // name label and notes from the processor
+    void updatePatchLabel();                              // "Patch: name", "*" when changed since (S7.7)
+    void showInstrumentMenu();                            // Spec S7.7: whole-instrument presets
+    void saveInstrumentAs();
+    static juce::File instrumentFolder();
     static juce::File patchFolder();
     // Spec S7.5: module presets.
     void showPresetMenu(PresetButton&);
@@ -290,6 +294,7 @@ private:
     lmw::ui::theme::Palette palette;
     juce::ComboBox contrastBox;
     // Spec S7: tabs, patch name, notes and patch files.
+    juce::TextButton instrumentButton{"Presets"};          // Spec S7.7, in the header left of Load...
     juce::TextButton panelTab{"Synth"}, effectsTab{"Effects"}, matrixTab{"Matrix"}, schematicTab{"Schematic"}, notesTab{"Notes"}, loadButton{"Load..."},
         saveButton{"Save..."}, aboutButton{"About..."};   // Spec S6.10: version, licence, source
     std::unique_ptr<MatrixView> matrix;                   // Spec S6.8: the Matrix tab

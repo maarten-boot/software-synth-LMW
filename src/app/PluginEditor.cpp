@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "PluginEditor.h"
+#include "app/InstrumentPresets.h"
 #include "ui/Theme.h"
 #include "ui/CableEdit.h"
 #include "LMWVersion.h"
@@ -396,6 +397,10 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     loadButton.setTooltip("Load a patch file (parameters, cables, notes)");
     saveButton.setTooltip("Save parameters, cables and notes as a patch file");
     loadButton.onClick = [this] { loadPatch(); };
+    instrumentButton.setTooltip("Whole-instrument presets: a complete sound (all modules, voices, effects, cables).\n"
+                                "Your notes and the schematic layout stay.");
+    instrumentButton.onClick = [this] { showInstrumentMenu(); };
+    addAndMakeVisible(instrumentButton);
     saveButton.onClick = [this] { savePatch(); };
     addAndMakeVisible(loadButton);
     addAndMakeVisible(saveButton);
@@ -510,7 +515,7 @@ void LMWSynthEditor::timerCallback() {
             && notesEditor.getText() != processor.notes()))   // patch loaded, or state restored by the host
         refreshPatchInfo();
     if (schematic) schematic->poll(processor.schematicLayout());   // Key faders; layout from a loaded patch
-    if (++presetLabelTick >= 8) { presetLabelTick = 0; updatePresetLabels(); }   // S7.5, about 4 times a second
+    if (++presetLabelTick >= 8) { presetLabelTick = 0; updatePresetLabels(); updatePatchLabel(); }   // S7.5, S7.7: ~4/s
     if (processor.patchVersion() != shownPatchVersion || processor.vcfRouting() != shownRouting) {   // cables or routing changed
         shownPatchVersion = processor.patchVersion();
         shownRouting = processor.vcfRouting();
@@ -906,6 +911,8 @@ void LMWSynthEditor::resized() {
     saveButton.setBounds(title.removeFromRight(m.colW >= 80 ? 76 : 64).reduced(0, 2));
     title.removeFromRight(m.gap / 2);
     loadButton.setBounds(title.removeFromRight(m.colW >= 80 ? 76 : 64).reduced(0, 2));
+    title.removeFromRight(m.gap / 2);
+    instrumentButton.setBounds(title.removeFromRight(m.colW >= 80 ? 76 : 64).reduced(0, 2));   // Spec S7.7
     aboutButton.setVisible(wide);                            // compact: the title opens About
     if (wide) {
         title.removeFromRight(m.gap / 2);
@@ -1450,7 +1457,7 @@ void LMWSynthEditor::showAbout() {
 
 void LMWSynthEditor::showTab(int tab) {
     currentTab = tab;
-    const juce::Component* alwaysShown[] = {&titleButton, &panelTab, &effectsTab, &matrixTab, &schematicTab, &notesTab, &patchLabel, &loadButton,
+    const juce::Component* alwaysShown[] = {&titleButton, &instrumentButton, &panelTab, &effectsTab, &matrixTab, &schematicTab, &notesTab, &patchLabel, &loadButton,
                                             &saveButton, &aboutButton, &contrastBox, &resetLayoutButton, &compactButton, &keyboard};
     for (auto* child : getChildren()) {
         if (child == &notesEditor || child == matrix.get() || child == schematic.get()
@@ -1473,7 +1480,8 @@ void LMWSynthEditor::showTab(int tab) {
 void LMWSynthEditor::refreshPatchInfo() {
     shownPatchFile = processor.patchFileVersion();
     const auto name = processor.patchName();
-    patchLabel.setText(name.isEmpty() ? juce::String() : "Patch: " + name, juce::dontSendNotification);
+    juce::ignoreUnused(name);
+    updatePatchLabel();
     if (notesEditor.getText() != processor.notes()) notesEditor.setText(processor.notes(), false);
 }
 
@@ -1745,6 +1753,8 @@ void LMWSynthEditor::savePatch() {
             safe->processor.setPatchName(patchName);
             if (!file.replaceWithText(safe->processor.patchText(patchName)))
                 safe->showError("Save patch", "Could not write " + file.getFullPathName());
+            else
+                safe->processor.recordSound();             // Spec S7.7: saved, so not "changed since"
             safe->refreshPatchInfo();
         });
 }
@@ -1821,4 +1831,104 @@ void LMWLookAndFeel::drawFileBrowserRow(juce::Graphics& g, int width, int height
     } else {
         g.drawFittedText(filename, x, 0, width - x, height, juce::Justification::centredLeft, 1);
     }
+}
+
+// ---- Spec S7.7: whole-instrument presets ----
+
+void LMWSynthEditor::updatePatchLabel() {
+    const auto name = processor.patchName();
+    const auto text = name.isEmpty() ? juce::String() : "Patch: " + name + (processor.soundChanged() ? "*" : "");
+    if (patchLabel.getText() != text) patchLabel.setText(text, juce::dontSendNotification);
+    patchLabel.setTooltip(name.isEmpty() ? juce::String("Patch name (the file name when saved or loaded)")
+                          : "Patch name: " + name + (processor.soundChanged()
+                                ? "\n* = changed since it was chosen, loaded or saved" : juce::String()));
+}
+
+juce::File LMWSynthEditor::instrumentFolder() {
+    const auto k = lmw::instruments::folderName;
+    return juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("LMW-Synth Presets")
+        .getChildFile(juce::String(k.data(), k.size()));
+}
+
+void LMWSynthEditor::showInstrumentMenu() {
+    const auto& builtIn = lmw::instruments::builtIn();
+    const auto folder = instrumentFolder();
+    auto own = folder.findChildFiles(juce::File::findFiles, false, "*.lmwpatch");
+    std::sort(own.begin(), own.end(), [](const juce::File& a, const juce::File& b) {
+        return a.getFileNameWithoutExtension().compareNatural(b.getFileNameWithoutExtension()) < 0;
+    });
+    juce::PopupMenu menu;
+    menu.setLookAndFeel(&lookAndFeel);              // black on white (Spec S6.2)
+    menu.addSectionHeader("Instrument presets");
+    menu.addItem(1, "Default");
+    for (std::size_t i = 0; i < builtIn.size(); ++i)
+        menu.addItem(100 + static_cast<int>(i), juce::String::fromUTF8(builtIn[i].name.c_str()));
+    if (!own.isEmpty()) {
+        menu.addSectionHeader("Your presets");
+        for (int i = 0; i < own.size(); ++i) menu.addItem(1000 + i, own[i].getFileNameWithoutExtension());
+    }
+    menu.addSeparator();
+    menu.addItem(2, "Save as instrument preset...");
+    if (folder.isDirectory()) menu.addItem(3, "Show presets folder");
+    menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&instrumentButton),
+        [safe = juce::Component::SafePointer<LMWSynthEditor>(this), own, folder, focus = focusNow()](int result) {
+            if (safe != nullptr) safe->restoreFocus(focus);
+            if (safe == nullptr || result == 0) return;
+            juce::String error;
+            const auto& list = lmw::instruments::builtIn();
+            bool ok = true;
+            if (result == 1) {
+                ok = safe->processor.applySound("Default", {}, {}, error);
+            } else if (result == 2) {
+                safe->saveInstrumentAs();
+            } else if (result == 3) {
+                folder.revealToUser();
+            } else if (result >= 100 && result < 100 + static_cast<int>(list.size())) {
+                const auto& ins = list[static_cast<std::size_t>(result - 100)];
+                std::map<std::string, std::string> values;
+                for (const auto& [id, value] : ins.values) values[id] = value;   // later entries win
+                ok = safe->processor.applySound(juce::String::fromUTF8(ins.name.c_str()), values, ins.cables, error);
+            } else if (result >= 1000 && result < 1000 + own.size()) {
+                const auto file = own[result - 1000];
+                ok = safe->processor.loadPatchText(file.loadFileAsString(), error, true);
+                if (!ok) error = file.getFileName() + ": " + error;
+            }
+            if (!ok) safe->showError("Cannot use this preset", error);
+            safe->refreshPatchInfo();
+            safe->repaint();
+        });
+}
+
+void LMWSynthEditor::saveInstrumentAs() {
+    auto* w = new juce::AlertWindow("Save instrument preset",
+                                    "Name of the preset (the whole sound: all modules, voices, effects, cables):",
+                                    juce::MessageBoxIconType::NoIcon, this);
+    w->addTextEditor("name", processor.patchName());
+    w->addButton("Save", 1, juce::KeyPress(juce::KeyPress::returnKey));
+    w->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
+    w->enterModalState(true, juce::ModalCallbackFunction::create(
+        [safe = juce::Component::SafePointer<LMWSynthEditor>(this), w](int result) {
+            if (safe == nullptr || result != 1) return;
+            const auto name = w->getTextEditorContents("name").trim();
+            if (name.isEmpty()) return;
+            const auto file = instrumentFolder().getChildFile(juce::String::fromUTF8(lmw::presets::fileName(name.toStdString()).c_str())
+                                                              + ".lmwpatch");
+            auto write = [safe, name, file] {
+                if (safe == nullptr) return;
+                safe->processor.setPatchName(name);
+                if (!file.getParentDirectory().createDirectory() || !file.replaceWithText(safe->processor.patchText(name))) {
+                    safe->showError("Preset not saved", "Could not write " + file.getFullPathName());
+                    return;
+                }
+                safe->processor.recordSound();
+                safe->refreshPatchInfo();
+            };
+            if (!file.existsAsFile()) { write(); return; }
+            juce::AlertWindow::showAsync(juce::MessageBoxOptions()
+                    .withIconType(juce::MessageBoxIconType::NoIcon).withTitle("Replace preset?")
+                    .withMessage("An instrument preset \"" + file.getFileNameWithoutExtension() + "\" exists. Replace it?")
+                    .withButton("Replace", 1).withButton("Cancel", 0).withAssociatedComponent(safe.getComponent()),
+                [write](int answer) { if (answer == 1) write(); });
+        }), true);
+    if (auto* field = w->getTextEditor("name")) { field->grabKeyboardFocus(); field->selectAll(); }
 }

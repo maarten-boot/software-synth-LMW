@@ -1,0 +1,132 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Spec S7.7: whole-instrument presets (Phase 17, user 2026-11-20: option B, the same names as the module
+// presets, voice count included). A preset is a whole sound: values for the parameters it names (every
+// other parameter goes to its default) and its cables (none: everything normalled). Most are built from
+// the module presets of the same name (ENV 1 and ENV 2, VCF 1, VCO 1; S7.5), so the panels then show those
+// names, plus what makes the instrument: voices, mixer, vibrato, breath noise, comb body, reverb.
+// Pure C++ (no JUCE).
+#pragma once
+#include "app/ModulePresets.h"
+#include <string>
+#include <utility>
+#include <vector>
+
+namespace lmw::instruments {
+
+struct Instrument {
+    std::string name;
+    std::vector<std::pair<std::string, std::string>> values;   // parameter id -> value text (as in patch files)
+    std::string cables;                                         // cable text (PatchText.h); empty = none
+};
+
+namespace detail {
+// The values of module preset `preset` of `kind`, for the module `prefix` ("env1", "vcf1", ...).
+inline void addModule(Instrument& i, std::string_view prefix, presets::Kind kind, std::string_view preset) {
+    for (const auto& p : presets::builtIn(kind))
+        if (p.name == preset)
+            for (const auto& [key, value] : p.values) i.values.emplace_back(std::string(prefix) + "." + key, value);
+}
+// An instrument from the module presets of its name (ENV 1 and ENV 2, VCF 1, VCO 1), then `extra` values.
+inline Instrument fromModules(const std::string& name, std::vector<std::pair<std::string, std::string>> extra,
+                              std::string cables = {}) {
+    Instrument i{name, {}, std::move(cables)};
+    addModule(i, "env1", presets::Kind::Env, name);
+    addModule(i, "env2", presets::Kind::Env, name);
+    addModule(i, "vcf1", presets::Kind::Vcf, name);
+    addModule(i, "vco1", presets::Kind::Vco, name);
+    for (auto& v : extra) i.values.push_back(std::move(v));
+    return i;
+}
+// The reverb preset of that name (S7.5).
+inline std::vector<std::pair<std::string, std::string>> reverb(std::string_view preset) {
+    Instrument i;
+    addModule(i, "reverb", presets::Kind::Reverb, preset);
+    return i.values;
+}
+inline std::vector<std::pair<std::string, std::string>> join(std::vector<std::pair<std::string, std::string>> a,
+                                                             const std::vector<std::pair<std::string, std::string>>& b) {
+    a.insert(a.end(), b.begin(), b.end());
+    return a;
+}
+} // namespace detail
+
+// Built-in instruments, in menu order. Starting points, not models of the real instruments.
+inline const std::vector<Instrument>& builtIn() {
+    using detail::fromModules;
+    using detail::join;
+    using detail::reverb;
+    static const std::vector<Instrument> list = [] {
+        const auto solo = std::pair<std::string, std::string>{"voice.count", "1"};
+        const auto vibrato = std::pair<std::string, std::string>{"lfo1.rate", "5.5"};
+        std::vector<Instrument> v;
+        // Winds: one voice; breath noise; a comb body that follows the notes (Key 100 %, from C4).
+        v.push_back(fromModules("Flute", join({solo, vibrato, {"mix.noise", "0.06"}, {"noise.colour", "Pink"},
+                                               {"comb.freq", "261.6"}, {"comb.key", "1"}, {"comb.feedback", "0.4"},
+                                               {"comb.damping", "0.3"}, {"comb.mix", "0.2"}}, reverb("Chamber"))));
+        v.push_back(fromModules("Recorder", join({solo, {"mix.noise", "0.04"}, {"noise.colour", "Pink"}}, reverb("Small room"))));
+        v.push_back(fromModules("Oboe", join({solo, vibrato, {"comb.freq", "261.6"}, {"comb.key", "1"}, {"comb.feedback", "0.3"},
+                                              {"comb.damping", "0.2"}, {"comb.mix", "0.25"}}, reverb("Chamber"))));
+        v.push_back(fromModules("Clarinet", join({solo, vibrato, {"comb.freq", "261.6"}, {"comb.key", "1"},
+                                                  {"comb.feedback", "-0.5"}, {"comb.damping", "0.2"}, {"comb.mix", "0.3"}},
+                                                 reverb("Chamber"))));
+        v.push_back(fromModules("Bassoon", join({solo, vibrato, {"comb.freq", "261.6"}, {"comb.key", "1"},
+                                                 {"comb.feedback", "-0.4"}, {"comb.damping", "0.3"}, {"comb.mix", "0.25"}},
+                                                reverb("Chamber"))));
+        // Brass: one voice; VCO 2 slightly detuned for width.
+        v.push_back(fromModules("Trumpet", join({solo, vibrato, {"vco2.wave", "Saw"}, {"vco2.tune", "0.06"}, {"mix.vco2", "0.5"}},
+                                                reverb("Concert hall"))));
+        v.push_back(fromModules("French horn", join({solo, vibrato, {"vco2.wave", "Saw"}, {"vco2.octave", "-1"},
+                                                     {"vco2.tune", "0.04"}, {"mix.vco2", "0.4"}}, reverb("Concert hall"))));
+        // Strings.
+        v.push_back(fromModules("Violin", join({solo, vibrato, {"vco2.wave", "Saw"}, {"vco2.tune", "0.05"}, {"mix.vco2", "0.4"}},
+                                               reverb("Concert hall"))));
+        v.push_back(fromModules("String section", join({{"voice.count", "12"}, {"lfo1.rate", "5"}, {"vco1.fm", "0.12"},
+                                                        {"vco2.wave", "Saw"}, {"vco2.tune", "0.1"}, {"vco2.fm", "0.12"}, {"mix.vco2", "0.8"},
+                                                        {"vco3.wave", "Saw"}, {"vco3.tune", "-0.08"}, {"vco3.fm", "0.12"}, {"mix.vco3", "0.6"}},
+                                                       reverb("Concert hall"))));
+        // Keyboards and plucked.
+        v.push_back(fromModules("Organ", join({{"voice.count", "16"}, {"vco2.wave", "Sine"}, {"vco2.octave", "+1"}, {"mix.vco2", "0.5"},
+                                               {"vco3.wave", "Sine"}, {"vco3.octave", "-1"}, {"mix.vco3", "0.5"},
+                                               {"lfo2.rate", "6"}, {"vca.tremolo", "0.15"}}, reverb("Cathedral"))));
+        v.push_back(fromModules("Piano", join({{"voice.count", "16"}, {"vco2.wave", "Triangle"}, {"vco2.tune", "0.03"},
+                                               {"mix.vco2", "0.5"}}, reverb("Small room"))));
+        v.push_back(fromModules("Harpsichord", join({{"voice.count", "12"}, {"vco2.wave", "Square"}, {"vco2.octave", "+1"},
+                                                     {"mix.vco2", "0.3"}}, reverb("Chamber"))));
+        v.push_back(fromModules("Guitar (plucked)", join({{"voice.count", "6"}, {"comb.freq", "261.6"}, {"comb.key", "1"},
+                                                          {"comb.feedback", "0.6"}, {"comb.damping", "0.4"}, {"comb.mix", "0.3"}},
+                                                         reverb("Ambience"))));
+        v.push_back(fromModules("Marimba", join({{"voice.count", "8"}}, reverb("Small room"))));
+        v.push_back(fromModules("Pad (slow)", join({{"voice.count", "12"}, {"lfo1.rate", "0.3"}, {"vco1.fm", "0.1"},
+                                                    {"vco2.wave", "Saw"}, {"vco2.tune", "0.12"}, {"mix.vco2", "0.8"},
+                                                    {"lfo2.rate", "0.2"}, {"vca.tremolo", "0.1"}}, reverb("Concert hall"))));
+        // Beyond the module-preset names (user 2026-11-20/21): voices (FORMANT, S5.16) and FM (PM, S5.20).
+        v.push_back({"Choir (aah)", join({{"voice.count", "12"},
+                                          {"vco1.wave", "Pulse"}, {"vco1.fm", "0.1"}, {"vco2.wave", "Saw"}, {"vco2.tune", "0.1"},
+                                          {"vco2.fm", "0.1"}, {"mix.vco2", "0.7"}, {"lfo1.rate", "5"},
+                                          {"env1.attack", "0.35"}, {"env1.decay", "0.3"}, {"env1.sustain", "0.9"}, {"env1.release", "0.9"},
+                                          {"formant.vowel", "0"}, {"formant.voice", "Alto"}, {"formant.res", "0.6"}, {"formant.mix", "1"}},
+                                         reverb("Concert hall")), {}});
+        v.push_back({"Male voice (ooo)", join({solo, {"vco1.wave", "Pulse"}, {"vco1.octave", "-1"}, {"vco1.fm", "0.12"}, {"lfo1.rate", "5.2"},
+                                               {"env1.attack", "0.15"}, {"env1.decay", "0.2"}, {"env1.sustain", "0.9"}, {"env1.release", "0.4"},
+                                               {"formant.vowel", "3"}, {"formant.voice", "Baritone"}, {"formant.res", "0.6"},
+                                               {"formant.mix", "1"}}, reverb("Chamber")), {}});
+        v.push_back({"Violin (PM vibrato)", join({solo, {"vco1.wave", "Saw"}, {"vco1.pm", "0.6"}, {"vco2.wave", "Saw"},
+                                                  {"vco2.tune", "0.05"}, {"vco2.pm", "0.6"}, {"mix.vco2", "0.5"}, {"lfo1.rate", "5.5"},
+                                                  {"env1.attack", "0.15"}, {"env1.decay", "0.3"}, {"env1.sustain", "0.9"}, {"env1.release", "0.3"},
+                                                  {"vcf1.cutoff", "3000"}, {"vcf1.res", "0.2"}, {"vcf1.slope", "12 dB"}, {"vcf1.key", "0.5"}},
+                                                 reverb("Concert hall")),
+                     "vco1.pm=lfo1.out;vco2.pm=lfo1.out;vco3.pm=lfo1.out"});
+        v.push_back({"Electric piano (FM)", join({{"voice.count", "12"}, {"vco1.wave", "Sine"}, {"vco1.pm", "1.5"},
+                                                  {"vco2.wave", "Sine"}, {"mix.vco2", "0"},
+                                                  {"env1.attack", "0.002"}, {"env1.decay", "2.5"}, {"env1.sustain", "0"}, {"env1.release", "0.4"}},
+                                                 reverb("Small room")),
+                     "vco1.pm=vco2.out"});
+        return v;
+    }();
+    return list;
+}
+
+// Spec S7.7: own instrument presets are patch files in Documents/LMW-Synth Presets/INSTRUMENT.
+inline constexpr std::string_view folderName = "INSTRUMENT";
+
+} // namespace lmw::instruments

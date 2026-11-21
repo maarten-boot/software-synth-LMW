@@ -90,3 +90,13 @@ T-S5.20-listen: pass. Suggested keeping it as a whole-instrument preset in Phase
 
 **User:** yes, commit the docs
 Committed (listening results, CI result, Plan notes).
+
+**User:** pushed; start phase 17
+Started Phase 17 (instrument presets). Design: a built-in instrument preset is a whole sound (all parameters, cables), applied like a patch but keeping the notes and the schematic layout; the patch label gets "*" when the sound changed since a preset/patch was applied, loaded or saved.
+
+**User:** and let's plan a tutorial with some presets for new users to look at. (correction: "lates" → "let's", confirmed by the user)
+Plan: 17b tutorial, to plan after Phase 17.
+Done (Phase 17, S7.7): src/app/InstrumentPresets.h, 19 built-ins (15 module-preset names built from those module presets + voices, vibrato, breath noise, comb body, reverb; Choir (aah), Male voice (ooo), Violin (PM vibrato), Electric piano (FM)); header Presets button (Default, built-ins, Your presets, Save as instrument preset..., Show folder); applying sets parameters, cables and patch name, keeps notes and schematic (loadPatchText refactored: applySound, soundOnly); "Patch: name*" when the sound differs from the last applied/loaded/saved one (soundRecorded in the state). Tests T-S7.7-instruments (28 ctests), host 4h (477 of 477 values), Xvfb check.
+
+**User:** yes, commit and refresh build-u24
+Committed Phase 17; Ubuntu 24 container build started.

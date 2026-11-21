@@ -650,7 +650,7 @@ juce::String LMWSynthProcessor::patchText(const juce::String& name) const {
     return juce::String::fromUTF8(lmw::patchfile::write(p).c_str());
 }
 
-bool LMWSynthProcessor::loadPatchText(const juce::String& text, juce::String& error) {
+bool LMWSynthProcessor::loadPatchText(const juce::String& text, juce::String& error, bool soundOnly) {
     const auto p = lmw::patchfile::parse(text.toStdString());
     if (!p) {
         error = "Not an LMW-Synth patch file (or made by a newer version).";
@@ -663,33 +663,54 @@ bool LMWSynthProcessor::loadPatchText(const juce::String& text, juce::String& er
         if (!cableText.empty()) cableText += ';';
         cableText += in + "=" + from;
     }
-    const auto cables = lmw::dsp::patchFromText(lmw::migration::cables(version, cableText));
-    if (!cables) {
-        error = "The [cables] section names an unknown socket or one input twice.";
-        return false;
-    }
     std::map<std::string, std::string> values;
     for (const auto& prm : p->parameters) values[lmw::migration::parameterId(version, prm.id)] = prm.value;
+    if (!applySound(juce::String::fromUTF8(p->name.c_str()), values, lmw::migration::cables(version, cableText), error))
+        return false;
+    if (!soundOnly) {
+        // Spec S6.7: the schematic as saved; without a [schematic] section (or an unreadable one) the default.
+        std::string layout;
+        for (const auto& [id, at] : p->schematic) layout += id + ":" + at + ";";
+        const auto l = lmw::ui::schematic::Layout::parse(layout);
+        setSchematicLayout(l && !l->isDefault() ? juce::String(l->serialize()) : juce::String());
+        setNotes(juce::String::fromUTF8(p->notes.c_str()));
+    }
+    return true;
+}
 
+bool LMWSynthProcessor::applySound(const juce::String& name, const std::map<std::string, std::string>& values,
+                                   const std::string& cablesText, juce::String& error) {
+    const auto cables = lmw::dsp::patchFromText(cablesText);
+    if (!cables) {
+        error = "The cables name an unknown socket or one input twice.";
+        return false;
+    }
     for (auto* param : getParameters()) {
         auto* r = dynamic_cast<juce::RangedAudioParameter*>(param);
         if (r == nullptr) continue;
         float normalised = r->getDefaultValue();                 // missing or unreadable: default
         if (const auto it = values.find(r->paramID.toStdString()); it != values.end()) {
             normalised = parseValue(*r, juce::String::fromUTF8(it->second.c_str())).value_or(normalised);
-            rememberText(*r, it->second);       // read back as in the file (S7.1)
+            rememberText(*r, it->second);       // read back as written (S7.1)
         }
         setNormalised(*r, normalised);
     }
     setPatch(*cables);
-    // Spec S6.7: the schematic as saved; without a [schematic] section (or an unreadable one) the default.
-    std::string layout;
-    for (const auto& [id, at] : p->schematic) layout += id + ":" + at + ";";
-    const auto l = lmw::ui::schematic::Layout::parse(layout);
-    setSchematicLayout(l && !l->isDefault() ? juce::String(l->serialize()) : juce::String());
-    setNotes(juce::String::fromUTF8(p->notes.c_str()));
-    setPatchName(juce::String::fromUTF8(p->name.c_str()));
-    clearPresetRecords();                    // Spec S7.5: the panels show what the patch matches
+    setPatchName(name);
+    clearPresetRecords();                    // Spec S7.5: the panels show what the sound matches
+    recordSound();                           // Spec S7.7: "*" once it changes
     ++loadedPatches;
     return true;
+}
+
+// Every parameter's value (normalised, exact) and the cables: equal exactly when the sound is the same.
+std::string LMWSynthProcessor::soundSignature() const {
+    std::string s;
+    char buf[24];
+    for (auto* param : getParameters()) {
+        if (dynamic_cast<const juce::RangedAudioParameter*>(param) == nullptr) continue;
+        std::snprintf(buf, sizeof buf, "%.9g;", static_cast<double>(param->getValue()));
+        s += buf;
+    }
+    return s + "|" + lmw::dsp::patchToText(guiPatch);
 }

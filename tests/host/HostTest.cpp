@@ -5,6 +5,7 @@
 // display exists - the editor. Usage: LMWHostTest <path to .vst3>
 #include "ninep/Transport.h"
 #include "app/ModulePresets.h"
+#include "app/InstrumentPresets.h"
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_events/juce_events.h>
 #include <cmath>
@@ -450,6 +451,22 @@ int main(int argc, char* argv[]) {
         }
         std::printf("module presets: %d of %d values accepted and read back\n", presetExact, presetValues);
         CHECK(presetValues > 200 && presetExact == presetValues);
+
+        // 4h. Instrument presets (Spec S7.7): every value of every built-in is valid for its parameter.
+        int instrumentValues = 0, instrumentExact = 0;
+        for (const auto& ins : lmw::instruments::builtIn())
+            for (const auto& [id, value] : ins.values) {
+                const auto dot = id.find('.');
+                const std::string module = id.substr(0, dot), key = id.substr(dot + 1);
+                const auto reply = write9P(sock, {"params", module.c_str(), key.c_str()}, value);
+                const auto back = read9P(sock, {"params", module.c_str(), key.c_str()});
+                ++instrumentValues;
+                if (reply.empty() && back == value + "\n") ++instrumentExact;
+                else std::printf("  instrument %s: %s = %s (%s), read back %s", ins.name.c_str(), id.c_str(), value.c_str(),
+                                 reply.c_str(), back.c_str());
+            }
+        std::printf("instrument presets: %d of %d values accepted and read back\n", instrumentExact, instrumentValues);
+        CHECK(instrumentValues > 300 && instrumentExact == instrumentValues);
 
         // 4e. /serial goes up with every change (parameters, cables, notes); /keys plays notes (Spec S10.10).
         auto serial = [&] { return std::strtoull(read9P(sock, {"serial"}).c_str(), nullptr, 10); };

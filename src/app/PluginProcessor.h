@@ -159,7 +159,20 @@ public:
     // default; floats with unit, centre and step where they have one). Built from createLayout().
     std::string parameterInfo() const;
     const std::string& ninepEndpoints() const noexcept { return ninepAddress; }  // "unix!<path> tcp!..."
-    bool loadPatchText(const juce::String& text, juce::String& error);
+    // soundOnly (Spec S7.7, instrument presets): parameters, cables and name only; notes and the schematic stay.
+    bool loadPatchText(const juce::String& text, juce::String& error, bool soundOnly = false);
+    // Spec S7.7: sets the whole sound — every parameter (`values` by id; missing: default) and the cables —
+    // and the patch name; keeps notes and the schematic. Message thread.
+    bool applySound(const juce::String& name, const std::map<std::string, std::string>& values,
+                    const std::string& cablesText, juce::String& error);
+    // Spec S7.7: "changed since": the sound (all parameter values, the cables) when the last preset or patch
+    // was applied, loaded or saved, kept in the saved state; soundChanged() compares with it. Message thread.
+    void recordSound() { apvts.state.setProperty(soundProp, juce::String(soundSignature()), nullptr); }
+    bool soundChanged() const {
+        const auto recorded = apvts.state.getProperty(soundProp).toString();
+        return recorded.isNotEmpty() && recorded != juce::String(soundSignature());
+    }
+    std::string soundSignature() const;
     // Free-text notes and the patch name, kept in the saved state and in patch files.
     juce::String notes() const { return apvts.state.getProperty(notesProp).toString(); }
     void setNotes(const juce::String& text) { apvts.state.setProperty(notesProp, text, nullptr); }
@@ -257,7 +270,8 @@ private:
     lmw::dsp::SpscQueue<lmw::dsp::NoteEvent, 256> guiToAudio;
     lmw::dsp::SpscQueue<lmw::dsp::NoteEvent, 256> audioToGui;
     lmw::dsp::SpscQueue<lmw::dsp::PatchCommand, 256> patchToAudio;   // a whole patch: 26 x (1 + 4)
-    inline static const juce::Identifier notesProp{"notes"}, nameProp{"patchName"}, schematicProp{"schematicLayout"};
+    inline static const juce::Identifier notesProp{"notes"}, nameProp{"patchName"}, schematicProp{"schematicLayout"},
+                                         soundProp{"soundRecorded"};   // Spec S7.7
     std::uint32_t loadedPatches = 0;                  // message thread only
     std::unique_ptr<class NinePService> ninep;        // Spec S10: 9P server (started in the constructor)
     std::string ninepAddress;
