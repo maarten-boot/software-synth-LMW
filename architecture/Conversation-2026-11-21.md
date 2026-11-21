@@ -36,3 +36,12 @@ Ubuntu 24 container build 25 of 25 (build-u24 has all of Phase 16).
 
 **User:** ok commit
 Committed 16d on main; the user pushes. Proposed next: Spec ↔ Plan ↔ code crosscheck after Phase 16 (awaiting the user's answer).
+
+**User:** pushed, wait for CI; then do the crosscheck
+Crosscheck Spec ↔ Plan ↔ code after Phase 16: the code matched the Spec (parameter, port, block, preset and host counts; panel numbers; /ports text; LFO rate clamp/NaN; prepare.sh lists). Fixed stale current-state lines: S6.4 window sizes (1496×884, compact 1116×678), S5.6 per-voice list (FORMANT, LFO-rate rule), S6.7 triangle list, S5.15 width note, T-S6.4b, T-S6.7 normalled count, Handover status; Plan crosscheck line.
+
+**User:** question: could we add an FM (or phase modulation) VCO like the DX7 and its competitors, as an option (switch between types of VCO, as Arturia does)?
+Answered (discussion, nothing built): yes. Three levels: (1) a phase-modulation input per VCO, so VCO 1–3 act as operators patched by cable (cheapest, fits the semi-modular idea); (2) a Type switch per VCO, Analog / FM, where FM is a built-in 2-operator pair with Ratio, Index and Feedback; (3) a separate multi-operator FM engine with algorithms and per-operator envelopes (a large project). Recommended (1), then (2). Waiting for the user's choice.
+
+**User:** start with 1, before phase 17; commit the docs; not option 3 as a future option; on a similar note the Cherry Audio Sines synth has good ideas but is very difficult to operate; later: a sines-only VCO with 4–8 separate sines per voice for church organ sounds, also with phase-modulation parameters. (corrections proposed: "sytnh" → "synth", "chruch" → "church"; "not option 3 as a future option" is ambiguous — "note option 3 as a future option" or "option 3 not even later"? asked)
+Committed the crosscheck doc fixes. Started Phase 16e: PM inputs on VCO 1–3.
