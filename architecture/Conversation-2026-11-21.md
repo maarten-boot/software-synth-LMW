@@ -125,3 +125,5 @@ Done (17b lesson presets, S7.9): lesson 9 text updated for the delay; cmake/Tuto
 - Answer: a step sequencer as a module inside (patchable pitch/gate/CV outputs, host tempo / own BPM, saved with patches, 9P); a song/piano-roll sequencer stays outside (DAW, MIDI, 9P scripts).
 - User: add SEQ to the Plan; each step a note + duration, more than one track so each VCO can be driven separately (unlike the usual single step size and single track).
 - Done: Plan Phase 19 (SEQ), with the open design questions; commit d8cd5a2 (DELAY + lesson presets) pushed by the user, CI run 44924053614 watched; build-u24 refreshed (30/30).
+- CI run 44924053614 (d8cd5a2): Windows, macOS, Fedora green; Ubuntu 24.04: Steinberg validator 47/47, pluginval printed SUCCESS and then segfaulted on exit (the intermittent teardown crash seen before on Fedora). Locally 12 runs (6 without, 6 with editor tests on Xvfb) all SUCCESS, no crash. Asked the user to re-run the failed job.
+- Re-run of the Ubuntu job (by the user): green; run 44924053614 now green on all four. Plan 17b/17c updated.
