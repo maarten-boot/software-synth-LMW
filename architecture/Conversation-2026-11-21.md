@@ -164,3 +164,11 @@ Done (17b lesson presets, S7.9): lesson 9 text updated for the delay; cmake/Tuto
 - User: highlight the in/out path under the mouse in the (large) Matrix; alternatively click the output label (top) / input label (left) to highlight its column / row. Corrections confirmed (matrix, alternatively, symbol, highlights); chosen: both, and the selected cell's labels highlighted lighter.
 - Done: hover band + inverted labels, label click pins row/column, selected cell's labels framed (not bold: long names were cut off); theme band #E0E0E0 (15.9:1, white at Max, in pairs()); Spec S6.8, T-S6.8-highlight, Changes, Plan. Xvfb checked.
 - User: undo/redo for the Matrix, the Schematic and the synth settings in the next release (not this one) → Plan L7.
+- User: matrix highlight looks good (adb0710 pushed).
+
+## Release 1.2.0
+
+- User: where are we until we can release? → status given (1.2.0 proposed, steps, cleanup effect: 1.0.0 release deleted after 14 days, tag kept).
+- User: do the upgrade check and prepare 1.2.0.
+- Upgrade check (T-S9.6-upgrade): 1.1.0 release on Xvfb → state and patch text → new build: cables, values, notes back, new parameters default, layout fine. Downloads and test homes removed from the scratchpad.
+- Prepared: CMakeLists 1.2.0, Changes "## 1.2.0 (2026-11-21)" (with an upgrade note), Spec S6.10, Plan row, Tests.

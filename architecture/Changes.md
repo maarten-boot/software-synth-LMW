@@ -3,6 +3,9 @@
 Changes between releases.
 
 ## Unreleased
+
+## 1.2.0 (2026-11-21)
+- 2026-11-21: Patches and saved settings from 1.1.0 load unchanged (parameters, cables, notes, panel layout); everything new starts at its default, so an old sound plays as before.
 - 2026-11-20: New FORMANT module (vowel filter) after VCF 2: Vowel A–E–I–O–U (gliding in between, with a Vowel input for modulation), Voice Bass / Baritone / Tenor / Alto / Soprano / Child, Reso, Mix (0 = off, the sound is unchanged); presets "Bass A" … "Child U". Panel at the end of row 2 (window 1496 px wide); also in the Matrix and the Schematic. Saved panel and schematic layouts from before keep their places (S5.16).
 - 2026-11-20: VCF routing Serial / Parallel (box under VCF 2's Type): Parallel feeds both VCFs from the mixer and mixes their outputs 50/50 into FORMANT (S5.17).
 - 2026-11-21: Matrix tab: the row and column under the mouse are highlighted (grey band, inverted labels); clicking a row or column label keeps it highlighted; the selected cell's labels are framed.
