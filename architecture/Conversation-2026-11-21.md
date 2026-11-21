@@ -76,3 +76,17 @@ Reproduced on Xvfb (ENV 1 → Flute, then `a`: nothing). Cause: a closed popup m
 
 **User:** yes, commit and refresh build-u24
 Committed 16f and the focus fix; Ubuntu 24 container build started.
+Ubuntu 24 container build 27 of 27 (build-u24 has Phase 16 complete with COMB).
+
+**User:** pushed, wait for CI (watching). **User:** listen test: formant works; the others after the synth rebuild has finished. (correction: "th" → "the")
+T-S5.16-listen: pass. Told the user build-u24 was already rebuilt.
+CI run 44908747252 for 0ff54dc (16e, skew, hover scale, 16f, focus fix): green on all four.
+
+**User:** Comb ok, Pulse OK, Routing ok (default effectively means bypass); one item: routing the LFO to the formant vowel, I cannot control the LFO's amplitude, so the depth around the vowel is large; to look at later. (corrections: "effectivly" → "effectively", "largs" → "large")
+Recorded T-S7.6-listen, T-S5.18-listen, T-S5.17-listen as pass. Explained: the depth is the cable's level (Matrix cell or level slider; drag up/down in the cell); a cable at 25 % sweeps ±1 vowel. Plan "later": depth faders for inputs without one.
+
+**User:** PM is very nice: an LFO routed to all the PM inputs, manipulating the amount of modulation, gives a wonderful violin effect. (correction: "wonderfull" → "wonderful")
+T-S5.20-listen: pass. Suggested keeping it as a whole-instrument preset in Phase 17 (e.g. "Violin (PM vibrato)").
+
+**User:** yes, commit the docs
+Committed (listening results, CI result, Plan notes).
