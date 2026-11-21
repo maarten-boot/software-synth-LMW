@@ -67,7 +67,7 @@ inline std::string_view folderName(Kind k) {        // Documents/LMW-Synth Prese
 inline const std::vector<std::string_view>& keys(Kind k) {
     static const std::vector<std::string_view> env{"attack", "decay", "sustain", "release"};
     static const std::vector<std::string_view> vcf{"cutoff", "res", "env", "key", "slope", "type"};
-    static const std::vector<std::string_view> vco{"wave", "octave", "tune", "fm"};
+    static const std::vector<std::string_view> vco{"wave", "octave", "tune", "fm", "pm"};   // pm: S5.20
     static const std::vector<std::string_view> reverb{"mix", "size", "damping", "width"};
     static const std::vector<std::string_view> formant{"vowel", "voice", "res", "mix"};
     switch (k) {
@@ -131,23 +131,23 @@ inline const std::vector<Preset>& builtIn(Kind k) {
         make("Acid bass", Kind::Vcf, {"300", "0.75", "3.5", "0.3", "24 dB", "Lowpass"}),
         make("Telephone", Kind::Vcf, {"1000", "0.2", "0", "0", "12 dB", "Bandpass"}),
     };
-    // wave, octave, tune semitones, FM (vibrato depth from LFO 1) semitones
+    // wave, octave, tune semitones, FM (vibrato depth from LFO 1) semitones; PM index 0 (S5.20)
     static const std::vector<Preset> vco{
-        make("Flute", Kind::Vco, {"Sine", "0", "0", "0.15"}),
-        make("Piccolo", Kind::Vco, {"Sine", "+1", "0", "0.15"}),
-        make("Recorder", Kind::Vco, {"Triangle", "0", "0", "0"}),
-        make("Oboe", Kind::Vco, {"Saw", "0", "0", "0.1"}),
-        make("Clarinet", Kind::Vco, {"Square", "0", "0", "0.05"}),
-        make("Bassoon", Kind::Vco, {"Saw", "-1", "0", "0.05"}),
-        make("Trumpet", Kind::Vco, {"Saw", "0", "0", "0.08"}),
-        make("French horn", Kind::Vco, {"Saw", "-1", "0", "0.05"}),
-        make("Violin", Kind::Vco, {"Saw", "0", "0", "0.25"}),
-        make("Cello", Kind::Vco, {"Saw", "-1", "0", "0.2"}),
-        make("Organ", Kind::Vco, {"Sine", "0", "0", "0"}),
-        make("Organ 16'", Kind::Vco, {"Sine", "-1", "0", "0"}),
-        make("Detuned +8 cents", Kind::Vco, {"Saw", "0", "0.08", "0"}),
-        make("Fifth above", Kind::Vco, {"Saw", "0", "7", "0"}),
-        make("Sub bass", Kind::Vco, {"Square", "-2", "0", "0"}),
+        make("Flute", Kind::Vco, {"Sine", "0", "0", "0.15", "0"}),
+        make("Piccolo", Kind::Vco, {"Sine", "+1", "0", "0.15", "0"}),
+        make("Recorder", Kind::Vco, {"Triangle", "0", "0", "0", "0"}),
+        make("Oboe", Kind::Vco, {"Saw", "0", "0", "0.1", "0"}),
+        make("Clarinet", Kind::Vco, {"Square", "0", "0", "0.05", "0"}),
+        make("Bassoon", Kind::Vco, {"Saw", "-1", "0", "0.05", "0"}),
+        make("Trumpet", Kind::Vco, {"Saw", "0", "0", "0.08", "0"}),
+        make("French horn", Kind::Vco, {"Saw", "-1", "0", "0.05", "0"}),
+        make("Violin", Kind::Vco, {"Saw", "0", "0", "0.25", "0"}),
+        make("Cello", Kind::Vco, {"Saw", "-1", "0", "0.2", "0"}),
+        make("Organ", Kind::Vco, {"Sine", "0", "0", "0", "0"}),
+        make("Organ 16'", Kind::Vco, {"Sine", "-1", "0", "0", "0"}),
+        make("Detuned +8 cents", Kind::Vco, {"Saw", "0", "0.08", "0", "0"}),
+        make("Fifth above", Kind::Vco, {"Saw", "0", "7", "0", "0"}),
+        make("Sub bass", Kind::Vco, {"Square", "-2", "0", "0", "0"}),
     };
     // mix 0-1, size 0-1, damping 0-1, width 0-1
     static const std::vector<Preset> reverb{

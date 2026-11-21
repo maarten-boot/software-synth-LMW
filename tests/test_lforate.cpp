@@ -29,7 +29,7 @@ static int risingCrossings(const std::vector<float>& x) {
 
 int main() {
     CHECK(normalled[static_cast<std::size_t>(In::Lfo1Rate)] == noSource && normalled[static_cast<std::size_t>(In::Lfo2Rate)] == noSource);
-    CHECK(inputNames[static_cast<std::size_t>(In::Lfo1Rate)] == "lfo1.rate" && numInputs == 26);
+    CHECK(inputNames[static_cast<std::size_t>(In::Lfo1Rate)] == "lfo1.rate" && numInputs == 29);   // 29 since S5.20
     // Unpatched = the fader's rate (5 Hz: 10 cycles in 2 s); plugging and unplugging leaves it exactly so.
     {
         Engine a = makeEngine(5.0f), b = makeEngine(5.0f);

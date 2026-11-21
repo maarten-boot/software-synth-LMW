@@ -53,9 +53,10 @@ inline const std::vector<Block>& blocks() {
     static const std::vector<Block> b{
         {"LFO 1",  Shape::Triangle, {2, 6, 10, 9},    {In::Lfo1Rate}, {Out::Lfo1}},   // rate input: S5.19
         {"KEYS",   Shape::Keys,     {2, 23, 12, 9},   {}, {Out::KeysPitch, Out::KeysGate, Out::KeysVel}},
-        {"VCO 1",  Shape::Triangle, {26, 4, 11, 10},  {In::Vco1Pitch, In::Vco1Fm}, {Out::Vco1}},
-        {"VCO 2",  Shape::Triangle, {26, 18, 11, 10}, {In::Vco2Pitch, In::Vco2Fm}, {Out::Vco2}},
-        {"VCO 3",  Shape::Triangle, {26, 32, 11, 10}, {In::Vco3Pitch, In::Vco3Fm}, {Out::Vco3}},
+        // VCO 1-3: 12 x 14 like the VCFs since S5.20 (three inputs: pitch, fm, pm); 11 x 10 before
+        {"VCO 1",  Shape::Triangle, {26, 2, 12, 14},  {In::Vco1Pitch, In::Vco1Fm, In::Vco1Pm}, {Out::Vco1}},
+        {"VCO 2",  Shape::Triangle, {26, 17, 12, 14}, {In::Vco2Pitch, In::Vco2Fm, In::Vco2Pm}, {Out::Vco2}},
+        {"VCO 3",  Shape::Triangle, {26, 32, 12, 14}, {In::Vco3Pitch, In::Vco3Fm, In::Vco3Pm}, {Out::Vco3}},
         {"NOISE",  Shape::Noise,    {26, 54, 11, 8},  {}, {Out::Noise, Out::Rand}},
         {"MIX",    Shape::Triangle, {48, 14, 12, 26}, {In::MixIn1, In::MixIn2, In::MixIn3, In::MixIn4}, {Out::Mix}},
         {"VCF 1",  Shape::Triangle, {68, 20, 12, 14}, {In::Vcf1In, In::Vcf1Cutoff, In::Vcf1Res}, {Out::Vcf1}},

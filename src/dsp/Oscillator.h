@@ -20,8 +20,11 @@ public:
     void setWaveform(Waveform w) noexcept { wave = w; }
     void reset() noexcept { phase = 0.0; }
 
-    float next() noexcept {
-        const double t = phase, dt = increment;
+    // Spec S5.20: `phaseOffset` in cycles (phase modulation); 0 = the plain oscillator, exactly.
+    float next(double phaseOffset = 0.0) noexcept {
+        double t = phase;
+        if (phaseOffset < 0.0 || phaseOffset > 0.0) { t += phaseOffset; t -= std::floor(t); }
+        const double dt = increment;
         double y = 0.0;
         switch (wave) {
             case Waveform::Sine:     y = std::sin(2.0 * std::numbers::pi * t); break;

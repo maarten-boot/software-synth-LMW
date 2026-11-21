@@ -30,6 +30,7 @@ struct VoiceParams {
 // Module parameters shared by all voices (Spec S5a.1).
 struct ModParams {
     std::array<float, numVcos> fmSemitones{};   // vcoN.fm (base depth; the mod wheel adds up to +1 st)
+    std::array<float, numVcos> pmIndex{};       // vcoN.pm: phase-modulation index in radians per 1.0 at vcoN.pm (S5.20)
     std::array<int, numVcos> octave{};          // vcoN.octave, -2..+2 (Spec S5.10)
     std::array<float, numVcos> tune{};          // vcoN.tune, semitones
     std::array<float, numVcos> mixVco{1.0f, 0.0f, 0.0f};   // mix.vco1..3
@@ -144,7 +145,13 @@ public:
                                + (12.0 * mp.octave[i] + static_cast<double>(mp.tune[i]));   // Spec S5.10
             if (pitch < lastPitch[i] || pitch > lastPitch[i]) { lastPitch[i] = pitch;   // changed (exact check)
                 osc[i].setFrequency(midiNoteToHz(keysPitchZeroNote) * std::exp2(pitch / 12.0)); }
-            out[o(vcoOut(n))] = osc[i].next();
+            // Spec S5.20: phase modulation, index x input radians; off (exactly) while the PM fader is 0.
+            double pm = 0.0;
+            if (mp.pmIndex[i] > 0.0f) {
+                const float x = read(vcoPmIn(n), g, patch);
+                if (std::isfinite(x)) pm = static_cast<double>(mp.pmIndex[i] * x) / (2.0 * std::numbers::pi);
+            }
+            out[o(vcoOut(n))] = osc[i].next(pm);
         }
 
         out[o(Out::Mix)] = read(In::MixIn1, g, patch) * mp.mixVco[0] + read(In::MixIn2, g, patch) * mp.mixVco[1]

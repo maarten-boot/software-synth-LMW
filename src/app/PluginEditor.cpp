@@ -147,6 +147,10 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
         vcoPanel[i] = groups.size();
         groups.push_back({"VCO " + juce::String(n + 1), 0,
             {addFader(P::vcoFm[i], "FM", fmTip(n)),                // above the FM input socket
+             addFader(P::vcoPm[i], "PM", inputTip(lmw::dsp::vcoPmIn(n),   // Spec S5.20, above the PM socket
+                      "Phase modulation (FM as on DX synths): index in radians for 1.0 at the PM input.\n"
+                      "Patch another VCO here (it becomes the modulator), or this VCO's own Out (feedback).\n"
+                      "0 = off; a sine carrier and modulator sound clearest")),
              addFader(P::vcoTune[i], "Tune", inputTip(lmw::dsp::vcoPitchIn(n),
                       "Detune, -7 to +7 semitones; Oct shifts by whole octaves")),
              stacked(addChoice(P::vcoWave[i], "Wave", {"Sine", "Saw", "Square", "Triangle", "Pulse"},
@@ -315,8 +319,9 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
         for (int n = 0; n < 3; ++n) {                         // FM under FM, Pitch under Tune, Out last
             const auto g = vcoPanel[static_cast<std::size_t>(n)];
             ports.push_back({g, 0, false, in(lmw::dsp::vcoFmIn(n)), "FM"});
-            ports.push_back({g, 1, false, in(lmw::dsp::vcoPitchIn(n)), "Pitch"});
-            ports.push_back({g, 2, true, out(lmw::dsp::vcoOut(n)), "Out"});
+            ports.push_back({g, 1, false, in(lmw::dsp::vcoPmIn(n)), "PM"});      // Spec S5.20
+            ports.push_back({g, 2, false, in(lmw::dsp::vcoPitchIn(n)), "Pitch"});
+            ports.push_back({g, 3, true, out(lmw::dsp::vcoOut(n)), "Out"});
         }
         groupJacks.resize(groups.size());
         for (const auto& d : ports) {

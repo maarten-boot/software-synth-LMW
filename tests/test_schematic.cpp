@@ -201,7 +201,7 @@ int main() {
         CHECK(!l.move(vcf2, {130, 20}) && !l.move(vcf2, {88, -1}) && !l.move(vcf2, {88, 60}));
         CHECK(l.serialize() == before);
         // Text form: every block; round trip; partial text keeps the others at their default place.
-        CHECK(sc::Layout().serialize().starts_with("lfo1:2,6;keys:2,23;vco1:26,4;"));
+        CHECK(sc::Layout().serialize().starts_with("lfo1:2,6;keys:2,23;vco1:26,2;"));   // VCO 1 at y 2 since S5.20
         const auto back = sc::Layout::parse(before);
         CHECK(back && *back == l);
         const auto partial = sc::Layout::parse(" lfo2 : 110 , 56 ");

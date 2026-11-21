@@ -45,6 +45,7 @@ APVTS::ParameterLayout LMWSynthProcessor::createLayout(std::map<std::string, Flo
     const auto octaves  = attr(tx::octaves, tx::parseNumber, "oct");
     const auto semis    = attr(tx::semitones, tx::parseNumber, "st");
     const auto vowels   = attr(tx::vowel, tx::parseVowel, "vowel");   // Spec S5.16: 0 = A .. 4 = U
+    const auto index    = attr(tx::index, tx::parseNumber, "rad");     // Spec S5.20: PM index
     auto f = [&info](const char* id, const char* name, Skewed r, float def, const Text& t) {
         info[id] = FloatInfo{t.unit, def, r.centre};
         return std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{id, 1}, name, r.range, def, t.attr);
@@ -69,6 +70,7 @@ APVTS::ParameterLayout LMWSynthProcessor::createLayout(std::map<std::string, Flo
                   juce::StringArray{"-2", "-1", "0", "+1", "+2"}, 2),
               f(P::vcoTune[n], (name + " Tune").toRawUTF8(), tune, 0.0f, semis),
               f(P::vcoFm[n],   (name + " FM").toRawUTF8(), Range(0.0f, 12.0f), 0.0f, semis),
+              f(P::vcoPm[n],   (name + " PM").toRawUTF8(), Range(0.0f, 10.0f), 0.0f, index),   // Spec S5.20
               f(P::mixVco[n],  ("Mixer " + name).toRawUTF8(), Range(0.0f, 1.0f), n == 0 ? 1.0f : 0.0f, percent));
     }
     l.add(f(P::mixNoise,  "Mixer Noise",   Range(0.0f, 1.0f), 0.0f, percent));
@@ -138,7 +140,7 @@ LMWSynthProcessor::LMWSynthProcessor()
     raw.formantRes = get(P::formantRes); raw.formantMix = get(P::formantMix);
     raw.vcfRouting = get(P::vcfRouting);
     for (std::size_t n = 0; n < 3; ++n) {
-        raw.wave[n] = get(P::vcoWave[n]); raw.fm[n] = get(P::vcoFm[n]); raw.octave[n] = get(P::vcoOctave[n]);
+        raw.wave[n] = get(P::vcoWave[n]); raw.fm[n] = get(P::vcoFm[n]); raw.pm[n] = get(P::vcoPm[n]); raw.octave[n] = get(P::vcoOctave[n]);
         raw.tune[n] = get(P::vcoTune[n]); raw.mixVco[n] = get(P::mixVco[n]);
     }
     keyboard.addListener(this);
@@ -259,6 +261,7 @@ void LMWSynthProcessor::pullParameters() noexcept {
     lmw::dsp::ModParams m;
     for (std::size_t n = 0; n < 3; ++n) {
         m.fmSemitones[n] = raw.fm[n]->load();
+        m.pmIndex[n]     = raw.pm[n]->load();        // Spec S5.20
         m.octave[n]      = static_cast<int>(raw.octave[n]->load()) - 2;    // choice index 0..4 = -2..+2
         m.tune[n]        = raw.tune[n]->load();
         m.mixVco[n]      = raw.mixVco[n]->load();

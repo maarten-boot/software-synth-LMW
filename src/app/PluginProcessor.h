@@ -23,6 +23,7 @@ inline constexpr const char* voices      = "voice.count";
 // Spec S5.10: per VCO (index 0..2 = VCO 1..3).
 inline constexpr std::array<const char*, 3> vcoWave  {"vco1.wave",   "vco2.wave",   "vco3.wave"};
 inline constexpr std::array<const char*, 3> vcoFm    {"vco1.fm",     "vco2.fm",     "vco3.fm"};
+inline constexpr std::array<const char*, 3> vcoPm    {"vco1.pm",     "vco2.pm",     "vco3.pm"};   // Spec S5.20
 inline constexpr std::array<const char*, 3> vcoOctave{"vco1.octave", "vco2.octave", "vco3.octave"};
 inline constexpr std::array<const char*, 3> vcoTune  {"vco1.tune",   "vco2.tune",   "vco3.tune"};
 inline constexpr std::array<const char*, 3> mixVco   {"mix.vco1",    "mix.vco2",    "mix.vco3"};
@@ -257,7 +258,7 @@ private:
             *lfo2Rate{}, *lfo2Wave{}, *tremolo{}, *revMix{}, *revSize{}, *revDamping{}, *revWidth{},
             *noiseColour{}, *noiseRate{}, *noiseSmooth{}, *formantVowel{}, *formantVoice{}, *formantRes{}, *formantMix{}, *vcfRouting{};
         std::array<std::atomic<float>*, 2> cutoff{}, resonance{}, vcfEnv{}, vcfKey{}, vcfSlope{}, vcfType{};
-        std::array<std::atomic<float>*, 3> wave{}, fm{}, octave{}, tune{}, mixVco{};
+        std::array<std::atomic<float>*, 3> wave{}, fm{}, pm{}, octave{}, tune{}, mixVco{};
     } raw;
 
     // Spec S7.4: reverb (JUCE's Freeverb), wet only, mixed in with our own 20 ms Mix smoothing. While Mix

@@ -71,6 +71,8 @@ inline std::string octaves(float v) {
 }
 inline std::string semitones(float v) { return printf1("%.1f st", v); }
 inline float parseNumber(const std::string& s) { return static_cast<float>(std::strtod(s.c_str(), nullptr)); }
+// Spec S5.20: PM index (radians per 1.0 of input), "2.50".
+inline std::string index(float v) { return printf1("%.2f", v); }
 
 // Spec S5.16: vowel position 0..4 = A, E, I, O, U; between two vowels "A-E 40 %" (40 % of the way
 // from A to E). Accepts that form, a vowel letter ("o"), or the position as a number ("1.4").
