@@ -100,3 +100,14 @@ Done (Phase 17, S7.7): src/app/InstrumentPresets.h, 19 built-ins (15 module-pres
 
 **User:** yes, commit and refresh build-u24
 Committed Phase 17; Ubuntu 24 container build started.
+
+**User:** pushed, wait for CI (watching). **User:** start planning the tutorial (17b)
+Proposed forms (lesson patches with notes / a Tutorial tab / a document / a combination), a 10-lesson outline, and asked for decisions.
+
+**User:** D, content first, English, document in the repo, yes add advanced
+Writing docs/tutorial/Tutorial.md (11 lessons, each with a starting sound, steps, what to listen for, try yourself) for review; lesson presets and the menu section follow once the text is agreed.
+Draft docs/tutorial/Tutorial.md written (11 lessons, lesson-sound table); open decision: lesson presets bring their notes (an exception to S7.7)?
+CI run 44912586107 for 557e595 (Phase 17): green on all four.
+
+**User:** a, commit the draft
+Decision: lesson presets replace the notes with the lesson's steps (the one exception to S7.7). Committed the tutorial draft and the doc updates.
