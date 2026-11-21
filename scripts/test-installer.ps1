@@ -115,8 +115,9 @@ function Page([string]$title, [string]$button, [string]$what, [int]$seconds = 20
     # Wait until the header shows $title (any title when empty) and button 1 reads $button, then click it.
     $ok = Wait-For { ($title -eq '' -or [Wiz]::Text($h, 1037) -like "$title*") -and
                      [Wiz]::Text($h, 1).Replace('&', '') -like "$button*" -and [Wiz]::Ready($h, 1) } $seconds
-    if (-not $ok) { Write-Output ("     now: header '{0}', button '{1}'" -f [Wiz]::Text($h, 1037), [Wiz]::Text($h, 1)) }
-    Check ([bool]$ok) "pages: $what"
+    # Out-Host: the lines go to the log, not into this function's return value.
+    if (-not $ok) { Write-Output ("     now: header '{0}', button '{1}'" -f [Wiz]::Text($h, 1037), [Wiz]::Text($h, 1)) | Out-Host }
+    Check ([bool]$ok) "pages: $what" | Out-Host
     if ($ok) { [void][Wiz]::Click($h, 1); Start-Sleep -Milliseconds 500 }
     return [bool]$ok
 }
