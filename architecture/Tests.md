@@ -61,7 +61,7 @@
 | T-S6.6d | S6.6 | Output menu (right-click) black on white, submenu Connect to → vca.cv patches lfo.out → vca.cv; no greyed items | pass (Xvfb) |
 | T-S6.6e | S6.6, S6.4, S6.5 | Cables follow compact view and a panel moved with the keyboard | pass (Xvfb) |
 | T-S6.6f | S6.6 | Cables are restored after close/reopen | pass (Xvfb) |
-| T-S6.6g | S6.6, S5.4 | Listening test: LFO → VCA CV gives tremolo; ENV 2 → FM gives a pitch sweep; VCF Out → VCF In feedback stays stable | tremolo and pitch sweep pass (user 2026-11-21); VCF feedback still to try (resonance at max chirps: self-oscillation, expected) |
+| T-S6.6g | S6.6, S5.4 | Listening test: LFO → VCA CV gives tremolo; ENV 2 → FM gives a pitch sweep; VCF Out → VCF In feedback stays stable (how: keep mix.out → vcf1.in and add vcf1.out → vcf1.in as a second cable, e.g. in the Matrix; a single cable replaces the mixer feed and the loop has no source, so it is silent by design) | pass (user 2026-11-21: tremolo, pitch sweep; mix.out + vcf.out → vcf.in "mostly a stable augmented sound", more volume and body; resonance at max chirps: self-oscillation, expected) |
 | T-S6.1e | S6.1 | Hover texts and menu headers name connections as "source → input" (e.g. FM: "lfo.out → vco1.fm (normalled)") | pass (Xvfb) |
 | T-S6.1f | S6.1, S6.6 | VCO panel: FM fader is the left column, directly above the FM socket | pass (Xvfb) |
 | T-S5.8a | S5.8 | Engine: keys.pitch = (note − 60 + bend)/12; keys.gate 1 while held/sustained, 0 after release; keys.vel = velocity | pass (test_keys) |
