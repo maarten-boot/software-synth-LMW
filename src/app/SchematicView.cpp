@@ -101,19 +101,19 @@ void SchematicView::drawBlock(juce::Graphics& g, std::size_t index) const {
                            juce::Rectangle<float>(p.x + 0.7f * s, p.y - s, r.getWidth() * 0.6f, 2 * s), juce::Justification::centredLeft, false);
             }
         }
-        {   // Name: on a row free of port labels — the centre for 0, 2 or 4 inputs, else between the two
+        {   // Name: on a row free of port labels — the centre for 0, 1, 2 or 4 inputs, else between the two
             // middle ports (VCF, VCA: between "in" and "cutoff" / "cv") — left-aligned next to the ports,
             // as wide as the triangle allows there.
             const auto n = b.inputs.size();
             float y = r.getCentreY();
-            if (n % 2 == 1) {
+            if (n % 2 == 1 && n >= 3) {                 // one input has no label (LFO rate, S5.19): the centre
                 const float lower = r.getY() + r.getHeight() * static_cast<float>(n / 2 + 1) / static_cast<float>(n + 1);
                 const float upper = n >= 3 ? r.getY() + r.getHeight() * static_cast<float>(n / 2) / static_cast<float>(n + 1) : r.getY();
                 y = (upper + lower) / 2;
             }
             const float halfH = r.getHeight() / 2, textH = 1.8f * s;
             const float f = std::clamp(1.0f - (std::abs(y - r.getCentreY()) + textH / 2) / halfH, 0.0f, 1.0f);   // usable fraction
-            const float left = r.getX() + 0.8f * s;
+            const float left = r.getX() + (n == 1 ? 1.8f : 0.8f) * s;   // one input: its socket is on this row
             drawName(juce::Rectangle<float>(left, y - textH / 2, std::max(0.0f, r.getX() + f * r.getWidth() - left), textH),
                      juce::Justification::centredLeft);
         }

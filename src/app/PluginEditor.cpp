@@ -166,10 +166,10 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     // Spec S5.12: LFO 1 = vibrato (normalled to the VCO FM inputs), LFO 2 = tremolo (normalled to vca.mod).
     const std::size_t lfoPanel = groups.size();
     groups.push_back({"LFO 1", 0, {addChoice(P::lfoWave, "Wave", {"Sine", "Triangle", "Saw", "Square"}),
-                                   addFader(P::lfoRate, "Rate", [] {
-                                       return juce::String("Shared LFO 1 (vibrato): lfo1.out feeds vco1.fm, vco2.fm and vco3.fm\n"
-                                                           "(normalled); the FM faders set the depth");
-                                   })}, {}});
+                                   addFader(P::lfoRate, "Rate", inputTip(In::Lfo1Rate,
+                                       "Shared LFO 1 (vibrato): lfo1.out feeds vco1.fm, vco2.fm and vco3.fm\n"
+                                       "(normalled); the FM faders set the depth.\n"
+                                       "Rate input: +1.0 doubles the rate, -1.0 halves it (per-voice sources: newest note)"))}, {}});
     const std::size_t mixPanel = groups.size();
     groups.push_back({"MIXER", 1,
         {addFader(P::mixVco[0], "VCO 1", inputTip(In::MixIn1, "Level of mixer input 1")),
@@ -221,10 +221,10 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
          addFader(P::env2Sustain, "Sustain"), addFader(P::env2Release, "Release")}, {}});
     const std::size_t lfo2Panel = groups.size();
     groups.push_back({"LFO 2", 2, {addChoice(P::lfo2Wave, "Wave", {"Sine", "Triangle", "Saw", "Square"}),
-                                   addFader(P::lfo2Rate, "Rate", [] {
-                                       return juce::String("Shared LFO 2 (tremolo): lfo2.out feeds vca.mod (normalled);\n"
-                                                           "the VCA Tremolo fader sets the depth");
-                                   })}, {}});
+                                   addFader(P::lfo2Rate, "Rate", inputTip(In::Lfo2Rate,
+                                       "Shared LFO 2 (tremolo): lfo2.out feeds vca.mod (normalled);\n"
+                                       "the VCA Tremolo fader sets the depth.\n"
+                                       "Rate input: +1.0 doubles the rate, -1.0 halves it (per-voice sources: newest note)"))}, {}});
     const std::size_t vcaPanel = groups.size();
     groups.push_back({"VCA", 2, {addFader(P::vcaInitial, "Initial", [this] {
                          return describeInput(In::VcaIn) + "\n" + describeInput(In::VcaCv)
@@ -304,7 +304,8 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
             {vcfPanel[1], 2, false, in(In::Vcf2Cutoff), "Cut"}, {vcfPanel[1], 4, true, out(Out::Vcf2), "Out"},
             {vcaPanel, 0, false, in(In::VcaIn), "In"},          {vcaPanel, 0, false, in(In::VcaCv), "CV"},
             {vcaPanel, 1, false, in(In::VcaMod), "Mod"},        {vcaPanel, 1, true, out(Out::Vca), "Out"},
-            {lfoPanel, 1, true, out(Out::Lfo1), "Out"},         {lfo2Panel, 1, true, out(Out::Lfo2), "Out"},
+            {lfoPanel, 1, false, in(In::Lfo1Rate), "Rate"},     {lfoPanel, 1, true, out(Out::Lfo1), "Out"},   // S5.19
+            {lfo2Panel, 1, false, in(In::Lfo2Rate), "Rate"},    {lfo2Panel, 1, true, out(Out::Lfo2), "Out"},
             {outPanel, 0, false, in(In::OutIn), "In"},
             {env1Panel, 0, false, in(In::Env1Gate), "Gate"},    {env1Panel, 3, true, out(Out::Env1), "Out"},
             {env2Panel, 0, false, in(In::Env2Gate), "Gate"},    {env2Panel, 3, true, out(Out::Env2), "Out"},

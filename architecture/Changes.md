@@ -5,6 +5,7 @@ Changes between releases.
 ## Unreleased
 - 2026-11-20: New FORMANT module (vowel filter) after VCF 2: Vowel A–E–I–O–U (gliding in between, with a Vowel input for modulation), Voice Bass / Baritone / Tenor / Alto / Soprano / Child, Reso, Mix (0 = off, the sound is unchanged); presets "Bass A" … "Child U". Panel at the end of row 2 (window 1496 px wide); also in the Matrix and the Schematic. Saved panel and schematic layouts from before keep their places (S5.16).
 - 2026-11-20: VCF routing Serial / Parallel (box under VCF 2's Type): Parallel feeds both VCFs from the mixer and mixes their outputs 50/50 into FORMANT (S5.17).
+- 2026-11-21: LFO 1 and LFO 2 get a Rate input: +1.0 doubles the rate (per-voice sources such as ENV 2 follow the newest note) (S5.19).
 - 2026-11-21: VCO wave Pulse: a narrow (12.5 %) pulse, bright and nasal (S5.18).
 - 2026-11-21: 9P /serial no longer ticks a second time shortly after a parameter change.
 - 2026-11-21: scripts/prepare.sh lists or installs the build dependencies (README "Prepare"); CI and the Ubuntu 24 container build use its package list (S2.4).

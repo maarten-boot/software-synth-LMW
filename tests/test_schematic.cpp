@@ -168,7 +168,8 @@ int main() {
         // Port order for the keyboard: every port once, block by block, inputs before outputs.
         const auto order = sc::portOrder();
         CHECK(static_cast<int>(order.size()) == lmw::dsp::numInputs + lmw::dsp::numOutputs);
-        CHECK(order.front().input == false && order.front().index == static_cast<int>(Out::Lfo1));   // LFO 1 first
+        CHECK(order.front().input && order.front().index == static_cast<int>(In::Lfo1Rate));   // LFO 1 first: its rate input (S5.19)
+        CHECK(!order[1].input && order[1].index == static_cast<int>(Out::Lfo1));
         std::set<std::pair<bool, int>> seen;
         for (const auto& h : order) seen.insert({h.input, h.index});
         CHECK(seen.size() == order.size());
@@ -249,7 +250,7 @@ int main() {
             if (order[j].input && order[j].index == static_cast<int>(lmw::dsp::In::MixIn3)) mix3 = j;
         CHECK(order[sc::blockJump(mix3, 1)].input && order[sc::blockJump(mix3, 1)].index == static_cast<int>(lmw::dsp::In::Vcf1In));
         CHECK(sc::blocks()[sc::blockOf(order[sc::blockJump(mix3, -1)])].name == std::string("NOISE"));
-        CHECK(sc::blockJump(0, -1) == order.size() - 1);             // LFO 1 up: LFO 2 (one port, the last)
+        CHECK(sc::blockJump(0, -1) == order.size() - 2);             // LFO 1 up: LFO 2 (rate in, out: the last two)
     }
     std::printf(failures == 0 ? "test_schematic: all passed\n" : "test_schematic: %d failure(s)\n", failures);
     return failures == 0 ? 0 : 1;

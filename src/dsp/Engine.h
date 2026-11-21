@@ -299,6 +299,7 @@ public:
         for (auto& v : voices) v.prepare(sr);
         lfo.setSampleRate(sr); lfo.reset();
         lfo2.setSampleRate(sr); lfo2.reset();
+        lastGlobal = {}; newestVoice = 0;
         noise.reset();
         random.setSampleRate(sr); random.reset();
         gain = 0.0f;                         // fade in like a fresh instance (hosts re-prepare often)
@@ -351,6 +352,7 @@ public:
         const int i = allocate(note);
         voices[static_cast<std::size_t>(i)].noteOn(note, velocity, patch);
         order[static_cast<std::size_t>(i)] = ++counter;
+        newestVoice = i;                                // Spec S5.19: per-voice sources of the LFO rate inputs
     }
     void noteOff(int note) noexcept {
         for (auto& v : voices) if (v.isKeyDown() && v.getNote() == note) v.releaseKey(sustainPedal, patch);
@@ -377,7 +379,12 @@ public:
             if (cutoff2Log2 < cutoff2Target)      cutoff2Log2 = std::fmin(cutoff2Log2 + cutoffStep, cutoff2Target);
             else if (cutoff2Log2 > cutoff2Target) cutoff2Log2 = std::fmax(cutoff2Log2 - cutoffStep, cutoff2Target);
 
+            // Spec S5.19: a patched LFO rate input moves the rate by its signal in octaves (1.0 = double),
+            // read from the previous sample; unpatched, the rate is exactly the fader's.
+            if (lfo1RatePatched) lfo.setRate(modulatedRate(mod.lfoRate, In::Lfo1Rate));
+            if (lfo2RatePatched) lfo2.setRate(modulatedRate(mod.lfo2Rate, In::Lfo2Rate));
             const GlobalSignals g{lfo.next(), lfo2.next(), noise.next(), modWheel, random.next()};
+            lastGlobal = g;
             float sum = 0.0f;
             for (auto& v : voices)                    // includes voices ringing out after a count reduction
                 if (v.isActive() || (drone && v.hasPlayed())) sum += v.process(g, patch, mod, cutoffLog2, cutoff2Log2, vcoUsed);
@@ -400,6 +407,10 @@ private:
     void updateRouting() noexcept {
         drone = patch.isPatched(In::OutIn) || patch.isPatched(In::VcaCv) || mod.vcaInitial > 0.0f
              || !patch.onlySource(In::Env1Gate, Out::KeysGate);
+        lfo1RatePatched = patch.isPatched(In::Lfo1Rate);
+        lfo2RatePatched = patch.isPatched(In::Lfo2Rate);
+        if (!lfo1RatePatched) lfo.setRate(mod.lfoRate);     // back to the fader's rate exactly
+        if (!lfo2RatePatched) lfo2.setRate(mod.lfo2Rate);
         globalOnOut = false;
         for (int k = 0; k < patch.pinCount(In::OutIn); ++k)
             globalOnOut = globalOnOut || isGlobal(static_cast<Out>(patch.pin(In::OutIn, k).source));
@@ -418,6 +429,30 @@ private:
                 if (vco >= 0 && vco < numVcos) vcoUsed[static_cast<std::size_t>(vco)] = true;
             }
         }
+    }
+
+    // Spec S5.19: the value of an input of a shared module (the LFO rate inputs): shared sources as they
+    // were last sample, per-voice sources from the voice of the newest note ("last note").
+    float readShared(In in) const noexcept {
+        const Voice& v = voices[static_cast<std::size_t>(newestVoice)];
+        const auto valueOf = [&](Out src) {
+            if (src == noSource)   return 0.0f;
+            if (src == Out::Lfo1)  return lastGlobal.lfo;
+            if (src == Out::Lfo2)  return lastGlobal.lfo2;
+            if (src == Out::Noise) return lastGlobal.noise;
+            if (src == Out::Rand)  return lastGlobal.rand;
+            return v.output(src);
+        };
+        const int n = patch.pinCount(in);
+        if (n == 0) return valueOf(normalled[static_cast<std::size_t>(in)]);
+        float s = 0.0f;
+        for (int k = 0; k < n; ++k) s += valueOf(static_cast<Out>(patch.pin(in, k).source)) * patch.pin(in, k).level;
+        return s;
+    }
+    float modulatedRate(float base, In in) const noexcept {
+        const float octaves = readShared(in);
+        if (!std::isfinite(octaves)) return base;
+        return std::clamp(base * std::exp2(std::clamp(octaves, -12.0f, 12.0f)), minModulatedLfoRate, maxModulatedLfoRate);
     }
 
     float globalOut(const GlobalSignals& g) const noexcept {   // global pins on out.in, summed once
@@ -456,6 +491,10 @@ private:
     std::uint64_t counter = 0;
     int voiceCount = 8;
     bool sustainPedal = false, drone = false, globalOnOut = false;
+    bool lfo1RatePatched = false, lfo2RatePatched = false;   // Spec S5.19
+    int newestVoice = 0;                     // voice of the newest note (S5.19)
+    GlobalSignals lastGlobal{};              // shared signals of the previous sample (S5.19)
+    static constexpr float minModulatedLfoRate = 0.01f, maxModulatedLfoRate = 50.0f;
     std::array<bool, numVcos> vcoUsed{true, false, false};
     float gain = 0.0f, targetGain = 1.0f, gainStep = 0.001f, modWheel = 0.0f;
     double cutoffLog2 = std::log2(18000.0), cutoffTarget = std::log2(18000.0), cutoffStep = 0.01;

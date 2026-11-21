@@ -51,7 +51,7 @@ inline constexpr float canvasWidth = 152.0f, canvasHeight = 72.0f;   // 136 wide
 
 inline const std::vector<Block>& blocks() {
     static const std::vector<Block> b{
-        {"LFO 1",  Shape::Triangle, {2, 6, 10, 9},    {}, {Out::Lfo1}},
+        {"LFO 1",  Shape::Triangle, {2, 6, 10, 9},    {In::Lfo1Rate}, {Out::Lfo1}},   // rate input: S5.19
         {"KEYS",   Shape::Keys,     {2, 23, 12, 9},   {}, {Out::KeysPitch, Out::KeysGate, Out::KeysVel}},
         {"VCO 1",  Shape::Triangle, {26, 4, 11, 10},  {In::Vco1Pitch, In::Vco1Fm}, {Out::Vco1}},
         {"VCO 2",  Shape::Triangle, {26, 18, 11, 10}, {In::Vco2Pitch, In::Vco2Fm}, {Out::Vco2}},
@@ -65,7 +65,7 @@ inline const std::vector<Block>& blocks() {
         {"OUT",    Shape::Out,      {140, 22, 8, 10}, {In::OutIn}, {}},
         {"ENV 1",  Shape::Adsr,     {50, 58, 12, 8},  {In::Env1Gate}, {Out::Env1}},
         {"ENV 2",  Shape::Adsr,     {50, 45, 12, 8},  {In::Env2Gate}, {Out::Env2}},
-        {"LFO 2",  Shape::Triangle, {110, 50, 10, 9}, {}, {Out::Lfo2}},
+        {"LFO 2",  Shape::Triangle, {110, 50, 10, 9}, {In::Lfo2Rate}, {Out::Lfo2}},
     };
     return b;
 }

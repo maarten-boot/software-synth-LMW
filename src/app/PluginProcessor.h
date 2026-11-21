@@ -240,7 +240,7 @@ private:
     // notes go audio -> GUI (display only), each through its own lock-free SPSC queue.
     lmw::dsp::SpscQueue<lmw::dsp::NoteEvent, 256> guiToAudio;
     lmw::dsp::SpscQueue<lmw::dsp::NoteEvent, 256> audioToGui;
-    lmw::dsp::SpscQueue<lmw::dsp::PatchCommand, 256> patchToAudio;   // a whole patch: 24 x (1 + 4)
+    lmw::dsp::SpscQueue<lmw::dsp::PatchCommand, 256> patchToAudio;   // a whole patch: 26 x (1 + 4)
     inline static const juce::Identifier notesProp{"notes"}, nameProp{"patchName"}, schematicProp{"schematicLayout"};
     std::uint32_t loadedPatches = 0;                  // message thread only
     std::unique_ptr<class NinePService> ninep;        // Spec S10: 9P server (started in the constructor)

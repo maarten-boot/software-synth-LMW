@@ -15,7 +15,7 @@ enum class Out : std::uint8_t { KeysPitch, KeysGate, KeysVel, Vco1, Vco2, Vco3, 
 enum class In  : std::uint8_t { Vco1Pitch, Vco1Fm, Vco2Pitch, Vco2Fm, Vco3Pitch, Vco3Fm, Env1Gate, Env2Gate,
                                 MixIn1, MixIn2, MixIn3, MixIn4, Vcf1In, Vcf1Cutoff, Vcf1Res, Vcf2In, Vcf2Cutoff, Vcf2Res,
                                 FormantIn, FormantVowel, VcaIn, VcaCv,
-                                VcaMod, OutIn,
+                                VcaMod, OutIn, Lfo1Rate, Lfo2Rate,      // LFO rate inputs: Spec S5.19
                                 Count };
 
 // Spec S5.10: three VCOs per voice.
@@ -35,7 +35,7 @@ inline constexpr std::array<std::string_view, numInputs> inputNames{
     "vco1.pitch", "vco1.fm", "vco2.pitch", "vco2.fm", "vco3.pitch", "vco3.fm", "env1.gate", "env2.gate",
     "mix.in1", "mix.in2", "mix.in3", "mix.in4", "vcf1.in", "vcf1.cutoff", "vcf1.res", "vcf2.in", "vcf2.cutoff", "vcf2.res",
     "formant.in", "formant.vowel", "vca.in", "vca.cv",
-    "vca.mod", "out.in"};
+    "vca.mod", "out.in", "lfo1.rate", "lfo2.rate"};
 
 // An input without a normalled source reads 0 until a cable is plugged in (Spec S5.13: vcfN.res).
 inline constexpr Out noSource = Out::Count;
@@ -46,7 +46,7 @@ inline constexpr std::array<Out, numInputs> normalled{
     Out::KeysPitch, Out::Lfo1, Out::KeysPitch, Out::Lfo1, Out::KeysPitch, Out::Lfo1, Out::KeysGate, Out::KeysGate,
     Out::Vco1, Out::Vco2, Out::Vco3, Out::Noise, Out::Mix, Out::Env2, noSource, Out::Vcf1, Out::Env2, noSource,
     Out::Vcf2, noSource, Out::Formant, Out::Env1, Out::Lfo2,
-    Out::Vca};
+    Out::Vca, noSource, noSource};
 
 // Name of an output, or "none" for noSource (hover texts, 9P /ports).
 inline constexpr std::string_view sourceName(Out o) noexcept {

@@ -27,3 +27,12 @@ Done (Phase 16c, S5.18): VCO wave Pulse (5th choice), 12.5 % duty, polyBLEP edge
 
 **User:** yes, commit them; then we stop for today; tomorrow we continue
 Committed 16c (Pulse) and the /serial fix on main; the user pushes. Next session: 16d (LFO rate inputs), then a Spec ↔ Plan ↔ code crosscheck after Phase 16, then Phase 17 (instrument presets). Open for the user: listening tests T-S5.16-listen, T-S5.17-listen (and the Pulse wave).
+
+**User:** pushed. (later) continue
+CI run 44841007218 for 5c40d89 green on all four. 2 releases: no cleanup warning.
+Started 16d (LFO rate inputs, S5.19). Design: the LFOs are shared, so a per-voice source (ENV 2, keys.pitch, ...) on lfoN.rate is taken from the voice of the newest note ("last note", as on most polysynths); shared sources (LFOs, noise, rand) directly; values from the previous sample (as any feedback).
+Done (Phase 16d, S5.19): inputs lfo1.rate, lfo2.rate (no normalled source): rate = fader × 2^input, clamped 0.01–50 Hz; unpatched bit-identical; shared sources direct, per-voice ones from the newest note's voice, previous sample. Sockets Rate beside Out; Schematic LFO inputs (name placement fixed for a single input). New test T-S5.19-lforate (25 ctests). Native 25 of 25; Xvfb checked.
+Ubuntu 24 container build 25 of 25 (build-u24 has all of Phase 16).
+
+**User:** ok commit
+Committed 16d on main; the user pushes. Proposed next: Spec ↔ Plan ↔ code crosscheck after Phase 16 (awaiting the user's answer).
