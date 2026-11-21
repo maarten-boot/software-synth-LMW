@@ -53,7 +53,7 @@ inline std::string section(int n, std::string_view doc = text()) {
 }
 
 // Markdown to plain text for the Notes tab: emphasis marks (* and **) and backticks go, "\*" stays a star,
-// "## " headings lose their marks, code-fence lines (```) are dropped.
+// "## " headings lose their marks, code-fence lines (```) and image lines (![...](...)) are dropped.
 inline std::string plain(std::string_view md) {
     std::string out;
     std::size_t lineStart = 0;
@@ -64,6 +64,10 @@ inline std::string plain(std::string_view md) {
         lineStart = lineEnd + 1;
         const auto first = line.find_first_not_of(' ');
         if (first != std::string_view::npos && line.substr(first, 3) == "```") continue;
+        if (first != std::string_view::npos && line.substr(first, 2) == "![") {        // an image: not in the notes
+            if (lineStart < md.size() && md[lineStart] == '\n') ++lineStart;           // nor the blank line after it
+            continue;
+        }
         if (line.substr(0, 3) == "## ") line.remove_prefix(3);
         for (std::size_t i = 0; i < line.size(); ++i) {
             if (line[i] == '\\' && i + 1 < line.size() && line[i + 1] == '*') { out += '*'; ++i; continue; }

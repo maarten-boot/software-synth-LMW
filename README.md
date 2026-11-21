@@ -5,6 +5,10 @@ A software synth with GUI and VST, using 9P for remote control.
 A semi-modular polyphonic software synthesizer (standalone + VST3), C++20 / JUCE 9.
 Licence: GNU AGPLv3 (see `LICENSE`). Design documents: `architecture/`.
 
+![LMW-Synth: the Synth tab](docs/images/synth.png)
+
+More views: [Schematic](docs/images/schematic.png) (the whole patch as a drawing), [Matrix](docs/images/matrix.png) (every connection), [Effects](docs/images/effects.png) (COMB → DELAY → REVERB).
+
 ## Download
 
 Releases (GitHub → Releases): LMW-Synth-<version>-setup.exe for Windows, -windows.zip, -macos.tar.gz, -ubuntu-24.04.tar.gz and -fedora-45.tar.gz, with SHA256SUMS.txt. The two newest releases are always kept; older ones are removed after 14 days (their tags stay, so every version can be rebuilt from source).

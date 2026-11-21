@@ -32,9 +32,12 @@ int main() {
     // Notes are plain text: no emphasis marks, headings without "##", code fences dropped, "\*" a star.
     CHECK(tutorial::plain("## Lesson 1 — X\n**bold** and *it*, `code`, a \\* star\n```sh\nls\n```") ==
           "Lesson 1 — X\nbold and it, code, a * star\nls\n");
+    // Image lines (screenshots) and the blank line after them stay out of the notes.
+    CHECK(tutorial::plain("a\n\n![alt](../images/x.png)\n\nb") == "a\n\nb");
+    CHECK(tutorial::plain("a\n   ![alt](x.png)\nb") == "a\nb");
     for (const auto& l : tutorial::lessons()) {
         const auto n = tutorial::notes(l.number);
-        CHECK(n.find("**") == std::string::npos && n.find("## ") == std::string::npos && n.find("```") == std::string::npos);
+        CHECK(n.find("**") == std::string::npos && n.find("## ") == std::string::npos && n.find("```") == std::string::npos && n.find("![") == std::string::npos);
     }
     CHECK(tutorial::notes(11).find("lmw9p unix!") != std::string::npos);   // the commands survive
     std::printf(failures ? "%d FAILED\n" : "T-S7.9-tutorial: all passed\n", failures);

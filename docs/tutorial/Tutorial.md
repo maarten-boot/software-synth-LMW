@@ -5,7 +5,7 @@ Eleven short lessons, from the first note to remote control. Each lesson starts 
 something to try on your own. A lesson takes 5 to 10 minutes. Lessons 1–4 are the basics; take the
 others in any order.
 
-Status: draft for review (2026-11-21). Screenshots follow once the text is agreed.
+Status: draft for review (2026-11-21). Screenshots: the *String section* preset.
 
 **Conventions**
 - Controls are written as *PANEL › Control*, e.g. *VCF 1 › Cutoff*.
@@ -25,6 +25,8 @@ The keys work whichever control you used last, except while you type a value.
 
 **Lesson sound:** *Default* (everything at its default; Volume −1.9 dB).
 
+![The Synth tab: the module panels, the on-screen keyboard below](../images/synth.png)
+
 1. Play a few notes and a chord. You hear a plain sawtooth: bright, buzzy, with a short click-free
    start and a short release.
 2. *KEYS › Voices*: drag it down to 1 and play a chord. Only the last note sounds: one voice, like a
@@ -32,6 +34,8 @@ The keys work whichever control you used last, except while you type a value.
 3. *OUT › Volume*: the overall level. The output never clips hard: a soft limiter catches peaks.
 4. Look at the tabs: **Synth** (the panels you see), **Effects**, **Matrix**, **Schematic**, **Notes**.
    Open **Schematic**: the whole instrument as a drawing, the sound flowing from left to right.
+
+![The Schematic tab: the sound flows from the keys and oscillators on the left to MAIN on the right](../images/schematic.png)
 
 **Listen for:** the difference between one and eight voices.
 **Try yourself:** hold a note and click *Compact* (top right): the same synthesizer, smaller.
@@ -129,6 +133,9 @@ Schematic), and a cable replaces a normal connection where you want something el
 2. Open the **Matrix** tab: every input is a row, every output a column. The cable is a filled cell
    at 100 %. Click the cell and drag up/down, or use the slider on the right: set it to 30 %. A ring
    in a cell shows a normal connection, used while that input has no cable.
+
+   ![The Matrix tab: inputs as rows, outputs as columns; rings are the normal connections](../images/matrix.png)
+
 3. Cables add up: in the Matrix also set *env2.out × vcf1.cutoff* to 100 %: envelope **and** wobble.
 4. Back on **Synth**: drag the cable's plug from *VCF 1 › Cut* into empty space to remove it.
    Right-click (or Tab to a socket and press Enter) for a menu of connections.
@@ -185,6 +192,8 @@ that you hear new overtones instead of vibrato.
 
 The **Effects** tab: SYNTH (the instrument) → COMB → DELAY → REVERB → MAIN (what you hear), connected
 by default; Mix 0 means an effect is off.
+
+![The Effects tab: SYNTH, COMB, DELAY, REVERB and MAIN](../images/effects.png)
 
 1. *REVERB › Mix* 25 %, *Size* 80 %: a hall. *Damping* darker, *Width* narrower or wider.
 2. *COMB › Mix* 30 %, *Key* 100 %, *Freq* 262 Hz (C4), *Feedback* 40 %: a resonant body that

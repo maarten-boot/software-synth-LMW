@@ -127,3 +127,8 @@ Done (17b lesson presets, S7.9): lesson 9 text updated for the delay; cmake/Tuto
 - Done: Plan Phase 19 (SEQ), with the open design questions; commit d8cd5a2 (DELAY + lesson presets) pushed by the user, CI run 44924053614 watched; build-u24 refreshed (30/30).
 - CI run 44924053614 (d8cd5a2): Windows, macOS, Fedora green; Ubuntu 24.04: Steinberg validator 47/47, pluginval printed SUCCESS and then segfaulted on exit (the intermittent teardown crash seen before on Fedora). Locally 12 runs (6 without, 6 with editor tests on Xvfb) all SUCCESS, no crash. Asked the user to re-run the failed job.
 - Re-run of the Ubuntu job (by the user): green; run 44924053614 now green on all four. Plan 17b/17c updated.
+
+## Screenshots
+
+- User: added 4 screenshots in ./tmp/ for the tutorial and the README; commit the docs (done: f754199).
+- Done: copied to docs/images/ (synth, matrix, schematic, effects; Effects cropped to the panels, 1501×318); README shows the Synth tab and links the others; tutorial: Lesson 1 Synth + Schematic, Lesson 6 Matrix, Lesson 9 Effects. tutorial::plain() drops image lines (and the blank line after) so the Notes stay clean; test extended; native ctest 30/30. The user's tmp/ is left as is (not ignored by git).

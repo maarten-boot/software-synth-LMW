@@ -73,3 +73,6 @@ Testing/
 
 # CI download cache
 .juce-cache/
+
+# Local scratch folder (screenshots etc.)
+tmp/
