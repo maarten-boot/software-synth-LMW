@@ -108,6 +108,9 @@ jobs:
           cp -R "$a"/Standalone/LMW-Synth* "dist/$d/"
           if [ -f build/Release/lmw9p.exe ]; then cp build/Release/lmw9p.exe "dist/$d/"; else cp build/lmw9p "dist/$d/"; fi
           cp LICENSE "dist/$d/"
+          # Spec S9.8: README, Tutorial, THIRD_PARTY as HTML with their images (a browser opens them).
+          py=$(command -v python3 || command -v python)
+          "$py" -I scripts/md2html.py "dist/$d/docs"
           echo "LMW-Synth ${{ github.sha }} built on ${{ matrix.name }}; source: ${{ github.server_url }}/${{ github.repository }}/tree/${{ github.sha }}" > "dist/$d/BUILD.txt"
           if [ "${{ runner.os }}" != "Windows" ]; then (cd dist && tar czf "$d.tar.gz" "$d" && rm -rf "$d"); fi
           if [ "${{ runner.os }}" = "Windows" ]; then cp build/LMW-Synth-*-setup.exe dist/; fi   # Spec S9.5

@@ -172,3 +172,13 @@ Done (17b lesson presets, S7.9): lesson 9 text updated for the delay; cmake/Tuto
 - User: do the upgrade check and prepare 1.2.0.
 - Upgrade check (T-S9.6-upgrade): 1.1.0 release on Xvfb → state and patch text → new build: cables, values, notes back, new parameters default, layout fine. Downloads and test homes removed from the scratchpad.
 - Prepared: CMakeLists 1.2.0, Changes "## 1.2.0 (2026-11-21)" (with an upgrade note), Spec S6.10, Plan row, Tests.
+- CI run 44947916310 (adb0710) green; user pushed 7578370 and tag v1.2.0; release run 44949539587 green, "LMW-Synth 1.2.0" published with 6 assets. Releases now 3 (1.2.0, 1.1.0, 1.0.0); no artifacts older than 14 days yet, so no cleanup warning; the daily cleanup deletes the 1.0.0 release from 2026-12-02 (tag kept).
+
+## Windows installer bug (1.2.0)
+
+- User: the Windows installer stops at Next on "install for myself or for all"; whatever is selected it does not continue (Windows 10).
+- Cause: CheckOtherMode cleared the error flag before ReadRegStr; a missing value (not installed in the other mode) sets it, so ModePageLeave always aborted. The CI test only runs silent /CURRENTUSER and /ALLUSERS, where the flag is ignored.
+- Reproduced with the 1.2.0 setup under Wine on Xvfb; fixed (ClearErrors after the read); a test installer (Linux makensis 3.10, dummy files) went through all pages and installed; the refusal for the other mode still works. Wine prefix, downloads and NSIS removed afterwards.
+- User: publishing markdown on Windows is difficult, often no default reader (README.md, THIRD_PARTY.md are installed) — options asked.
+- User chose: HTML documents (README, Tutorial, THIRD_PARTY) with Start menu entries; release 1.2.1 now; CI clicks through the installer pages.
+- Done: scripts/md2html.py (no dependencies) + tests/test_md2html.py (T-S9.8-html); CMake installer target and the CI Package step write docs/; installer installs docs\, Start menu Tutorial / Read me, removes the old .md files; prepare.sh lists python3; test-installer.ps1 checks the docs and adds the UI Automation page run (T-S9.5-pages; first run in CI). Wine: silent install/uninstall with docs and shortcuts. Version 1.2.1, Changes section, Spec S9.5/S9.8/S6.10, README, Plan, Tests. Native ctest 31/31.

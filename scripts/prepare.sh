@@ -26,13 +26,13 @@ for a in "$@"; do
 done
 say() { [ "$quiet" = 1 ] || echo "$@"; }
 
-# Required: compiler, CMake, Ninja, git, curl, pkg-config; JUCE's Linux libraries (ALSA, FreeType,
+# Required: compiler, CMake, Ninja, git, curl, pkg-config, Python 3 (scripts/md2html.py, S9.8); JUCE's Linux libraries (ALSA, FreeType,
 # fontconfig, X11 + extensions, OpenGL/EGL).
-apt_required=(cmake ninja-build g++ git curl ca-certificates pkg-config
+apt_required=(cmake ninja-build g++ git curl ca-certificates pkg-config python3
     libasound2-dev libfreetype-dev libfontconfig-dev libx11-dev libxrandr-dev
     libxinerama-dev libxcursor-dev libxext-dev libgl-dev libxi-dev libegl-dev)
 apt_optional=(xvfb xdotool imagemagick podman)
-dnf_required=(cmake ninja-build gcc-c++ git curl tar gzip pkgconf-pkg-config
+dnf_required=(cmake ninja-build gcc-c++ git curl tar gzip pkgconf-pkg-config python3
     alsa-lib-devel freetype-devel fontconfig-devel libX11-devel libXrandr-devel
     libXinerama-devel libXcursor-devel libXext-devel mesa-libGL-devel libXi-devel mesa-libEGL-devel)
 dnf_optional=(xorg-x11-server-Xvfb xdotool ImageMagick podman)

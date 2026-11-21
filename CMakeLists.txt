@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(LMWSynth VERSION 1.2.0 LANGUAGES C CXX)   # Spec S6.10: raised with every release
+project(LMWSynth VERSION 1.2.1 LANGUAGES C CXX)   # Spec S6.10: raised with every release
 include(cmake/TutorialText.cmake)   # Spec S7.9: docs/tutorial/Tutorial.md -> generated/TutorialText.h
 
 set(CMAKE_CXX_STANDARD 20)
@@ -98,7 +98,8 @@ if(LMW_BUILD_PLUGIN)
         # Spec S9.5: Windows installer, `cmake --build <build> --config Release --target installer` when
         # NSIS 3 is found. makensis gets native paths (backslashes; see installer/LMW-Synth.nsi).
         find_program(LMW_MAKENSIS makensis PATHS "C:/Program Files (x86)/NSIS" "C:/Program Files/NSIS")
-        if(LMW_MAKENSIS)
+        find_package(Python3 COMPONENTS Interpreter)   # Spec S9.8: the documents as HTML
+        if(LMW_MAKENSIS AND Python3_Interpreter_FOUND)
             set(lmw_stage ${CMAKE_BINARY_DIR}/installer-stage)
             set(lmw_setup ${CMAKE_BINARY_DIR}/LMW-Synth-${PROJECT_VERSION}-setup.exe)
             file(TO_NATIVE_PATH "${lmw_stage}" lmw_stage_native)
@@ -111,7 +112,7 @@ if(LMW_BUILD_PLUGIN)
                         "$<TARGET_GENEX_EVAL:LMWSynth_VST3,$<TARGET_PROPERTY:LMWSynth_VST3,JUCE_PLUGIN_ARTEFACT_FILE>>"
                         ${lmw_stage}/LMW-Synth.vst3
                 COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/LICENSE ${lmw_stage}/LICENSE.txt
-                COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/README.md ${CMAKE_SOURCE_DIR}/THIRD_PARTY.md ${lmw_stage}/
+                COMMAND ${Python3_EXECUTABLE} -I ${CMAKE_SOURCE_DIR}/scripts/md2html.py ${lmw_stage}/docs
                 COMMAND ${LMW_MAKENSIS} -V2 -DVERSION=${PROJECT_VERSION} -DSTAGE=${lmw_stage_native}
                         -DOUTFILE=${lmw_setup_native} ${CMAKE_SOURCE_DIR}/installer/LMW-Synth.nsi
                 DEPENDS LMWSynth_Standalone LMWSynth_VST3 lmw9p
@@ -161,6 +162,11 @@ if(LMW_BUILD_TESTS)
     add_executable(test_rack tests/test_rack.cpp)
     target_link_libraries(test_rack PRIVATE lmw_ui_core)
     add_test(NAME T-S6.5-layout COMMAND test_rack)
+    find_package(Python3 COMPONENTS Interpreter)    # Spec S9.8: the documents as HTML (no other packages)
+    if(Python3_Interpreter_FOUND)
+        add_test(NAME T-S9.8-html COMMAND ${Python3_EXECUTABLE} -I ${CMAKE_SOURCE_DIR}/tests/test_md2html.py
+                 ${CMAKE_BINARY_DIR}/test-html)
+    endif()
     if(NOT WIN32)                                   # Spec S9.7: the cleanup monitor's selection (bash)
         add_test(NAME T-S9.7-cleanup COMMAND bash ${CMAKE_SOURCE_DIR}/tests/test_cleanup.sh)
     endif()

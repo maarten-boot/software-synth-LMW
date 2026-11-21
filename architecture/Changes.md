@@ -4,6 +4,10 @@ Changes between releases.
 
 ## Unreleased
 
+## 1.2.1 (2026-11-21)
+- 2026-11-21: The read-me, the tutorial and the third-party list come as web pages (docs/README.html, Tutorial.html, THIRD_PARTY.html with the screenshots) in every download; the Windows installer adds "LMW-Synth Tutorial" and "LMW-Synth Read me" to the Start menu (Windows often has no program for .md files).
+- 2026-11-21: Windows installer: "Next" on the "Install for" page works again (in 1.2.0 it did nothing, for both choices, when LMW-Synth was not installed in the other mode).
+
 ## 1.2.0 (2026-11-21)
 - 2026-11-21: Patches and saved settings from 1.1.0 load unchanged (parameters, cables, notes, panel layout); everything new starts at its default, so an old sound plays as before.
 - 2026-11-20: New FORMANT module (vowel filter) after VCF 2: Vowel A–E–I–O–U (gliding in between, with a Vowel input for modulation), Voice Bass / Baritone / Tenor / Alto / Soprano / Child, Reso, Mix (0 = off, the sound is unchanged); presets "Bass A" … "Child U". Panel at the end of row 2 (window 1496 px wide); also in the Matrix and the Schematic. Saved panel and schematic layouts from before keep their places (S5.16).

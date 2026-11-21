@@ -2,8 +2,8 @@
 ; LMW-Synth Windows installer (Spec S9.5, Plan Phase 13b). NSIS 3, Unicode.
 ; Built by `cmake --build <build> --config Release --target installer`, which passes:
 ;   VERSION   e.g. 0.13.1
-;   STAGE     folder with LMW-Synth.exe, LMW-Synth.vst3 (bundle folder), lmw9p.exe, LICENSE.txt,
-;             README.md, THIRD_PARTY.md
+;   STAGE     folder with LMW-Synth.exe, LMW-Synth.vst3 (bundle folder), lmw9p.exe, LICENSE.txt and
+;             docs (README, Tutorial, THIRD_PARTY as HTML with their images, scripts/md2html.py, S9.8)
 ;   OUTFILE   the installer to write
 ;
 ; Install for (a page, or /CURRENTUSER or /ALLUSERS on the command line):
@@ -154,7 +154,6 @@ FunctionEnd
 ; LMW-Synth installed in the other mode: refuse (two plugins with one ID would confuse a DAW).
 ; Returns with the error flag set when refused (page: stay; .onInit: quit).
 Function CheckOtherMode
-  ClearErrors
   ${If} $AllUsers == "1"
     ReadRegStr $1 HKCU "${UNINSTALL_KEY}" "DisplayVersion"
     StrCpy $2 "just for you"
@@ -162,6 +161,9 @@ Function CheckOtherMode
     ReadRegStr $1 HKLM "${UNINSTALL_KEY}" "DisplayVersion"
     StrCpy $2 "for all users"
   ${EndIf}
+  ; ReadRegStr sets the error flag when the value is missing (not installed in the other mode, the
+  ; usual case): clear it here, so only a refusal below sets it (1.2.0 bug: Next did nothing).
+  ClearErrors
   ${If} $1 != ""
     MessageBox MB_ICONEXCLAMATION "${PRODUCT} $1 is already installed $2.$\n$\nRemove it first (Settings, Apps, ${PRODUCT}) or choose that option here, so a DAW does not find the plugin twice." /SD IDOK
     ${If} ${Silent}
@@ -303,8 +305,12 @@ Section "${PRODUCT} (required)" SecMain
   SetOutPath "$INSTDIR"
   File "${STAGE}${SEP}LMW-Synth.exe"
   File "${STAGE}${SEP}LICENSE.txt"
-  File "${STAGE}${SEP}README.md"
-  File "${STAGE}${SEP}THIRD_PARTY.md"
+  ; The documents as HTML (S9.8; a browser opens them, Windows often has nothing for .md); the .md
+  ; copies of 1.2.0 and older go.
+  Delete "$INSTDIR\README.md"
+  Delete "$INSTDIR\THIRD_PARTY.md"
+  RMDir /r "$INSTDIR\docs"
+  File /r "${STAGE}${SEP}docs"
   ; The plugin bundle is replaced as a whole (no files of an older version stay in it).
   RMDir /r "$VstDir\LMW-Synth.vst3"
   SetOutPath "$VstDir"
@@ -317,6 +323,8 @@ Section "${PRODUCT} (required)" SecMain
   WriteINIStr "$INSTDIR\install.ini" "install" "version" "${VERSION}"
   WriteUninstaller "$INSTDIR\uninstall.exe"
   CreateShortcut "$SMPROGRAMS\${PRODUCT}.lnk" "$INSTDIR\LMW-Synth.exe"
+  CreateShortcut "$SMPROGRAMS\${PRODUCT} Tutorial.lnk" "$INSTDIR\docs\Tutorial.html"
+  CreateShortcut "$SMPROGRAMS\${PRODUCT} Read me.lnk" "$INSTDIR\docs\README.html"
 
   WriteRegStr SHCTX "${PRODUCT_KEY}" "InstallDir" "$INSTDIR"
   WriteRegStr SHCTX "${UNINSTALL_KEY}" "DisplayName" "${PRODUCT}"
@@ -342,7 +350,7 @@ Section /o "Desktop shortcut" SecDesktop
 SectionEnd
 
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
-  !insertmacro MUI_DESCRIPTION_TEXT ${SecMain} "The standalone synthesizer, the VST3 plugin and a Start menu entry."
+  !insertmacro MUI_DESCRIPTION_TEXT ${SecMain} "The standalone synthesizer, the VST3 plugin, the tutorial and read-me pages (HTML) and Start menu entries."
   !insertmacro MUI_DESCRIPTION_TEXT ${SecTool} "lmw9p.exe, a small program to read and set the synthesizer over 9P from a terminal."
   !insertmacro MUI_DESCRIPTION_TEXT ${SecDesktop} "An ${PRODUCT} shortcut on the desktop."
 !insertmacro MUI_FUNCTION_DESCRIPTION_END
@@ -388,10 +396,13 @@ Section "Uninstall"
   Delete "$INSTDIR\LICENSE.txt"
   Delete "$INSTDIR\README.md"
   Delete "$INSTDIR\THIRD_PARTY.md"
+  RMDir /r "$INSTDIR\docs"
   Delete "$INSTDIR\install.ini"
   Delete "$INSTDIR\uninstall.exe"
   RMDir "$INSTDIR"
   Delete "$SMPROGRAMS\${PRODUCT}.lnk"
+  Delete "$SMPROGRAMS\${PRODUCT} Tutorial.lnk"
+  Delete "$SMPROGRAMS\${PRODUCT} Read me.lnk"
   Delete "$DESKTOP\${PRODUCT}.lnk"
   DeleteRegKey SHCTX "${UNINSTALL_KEY}"
   DeleteRegKey SHCTX "${PRODUCT_KEY}"
