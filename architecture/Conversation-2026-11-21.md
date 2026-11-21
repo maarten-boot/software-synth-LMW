@@ -53,3 +53,11 @@ Ubuntu 24 container build 26 of 26 (build-u24 has PM).
 
 **User:** yes, commit them; question: FM is most subtle on low settings and becomes chaotic on higher settings; should the fader be non-linear (logarithmic or something that gives more control in the lower settings)? (corrections: "sould" → "should", "someting" → "something")
 Committed 16e. Answered: yes — a skewed fader (as Cutoff and the LFO rates already have), not a true logarithm (that cannot reach 0); proposed PM centre at index 2 (half way = 2); FM (vibrato) fader could get the same, with a note on host automation of a released parameter.
+
+**User:** yes, skew PM at 2 and FM at 1 st
+Done: vcoN.fm skewed (half way 1 st), vcoN.pm (half way index 2); /info shows centre 1.0 / 2.0 (lmw9p on a running standalone); 26 of 26. Spec S5a.1, Changes (note on DAW automation of FM), T-S5a.1-skew.
+
+**User:** best show whether a fader is linear or non-linear in the hover text and the matrix; later change the matrix mouse click: it now toggles a cell to 0 (or 100 %), which changes the setting; instead first show the current setting on the slider, and let the slider go to 0 to switch it off (or a right-click menu straight to 0, or the Arturia way: double-click goes to the default). (corrections proposed: "shold"/"sould" → "should", "menue" → "menu", "artiria" → "Arturia", "doulbel click ggoes" → "double-click goes"; asked what "the matrix" means for lin/non-lin and which click behaviour)
+
+**User:** a, double-click 100 %/remove, later; commit the skew
+Committed the skew. Plan: "later" row for the Matrix mouse change (click selects; slider to 0 removes; double-click 100 % / remove; typing via a right-click menu). Next: hover texts name the fader scale (linear / skewed with its half-way value), the Matrix level slider's hover text says linear (option a).

@@ -69,8 +69,9 @@ APVTS::ParameterLayout LMWSynthProcessor::createLayout(std::map<std::string, Flo
               std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{P::vcoOctave[n], 1}, name + " Octave",
                   juce::StringArray{"-2", "-1", "0", "+1", "+2"}, 2),
               f(P::vcoTune[n], (name + " Tune").toRawUTF8(), tune, 0.0f, semis),
-              f(P::vcoFm[n],   (name + " FM").toRawUTF8(), Range(0.0f, 12.0f), 0.0f, semis),
-              f(P::vcoPm[n],   (name + " PM").toRawUTF8(), Range(0.0f, 10.0f), 0.0f, index),   // Spec S5.20
+              // Skewed for more travel where small changes matter (user 2026-11-21): half way = 1 st, PM index 2.
+              f(P::vcoFm[n],   (name + " FM").toRawUTF8(), skewed(0.0f, 12.0f, 1.0f), 0.0f, semis),
+              f(P::vcoPm[n],   (name + " PM").toRawUTF8(), skewed(0.0f, 10.0f, 2.0f), 0.0f, index),   // Spec S5.20
               f(P::mixVco[n],  ("Mixer " + name).toRawUTF8(), Range(0.0f, 1.0f), n == 0 ? 1.0f : 0.0f, percent));
     }
     l.add(f(P::mixNoise,  "Mixer Noise",   Range(0.0f, 1.0f), 0.0f, percent));
