@@ -141,3 +141,4 @@ Done (17b lesson presets, S7.9): lesson 9 text updated for the delay; cmake/Tuto
 - User: for the Synth and Effects tabs, a very very very light grey background — asked which area and which grey before changing it.
 - User chose: grey behind the panels (panels stay white), #F7F7F7. Done: theme rack colour (19.6:1 with black, white at Max), painted on Synth and Effects; test_contrast extended; native ctest 30/30; Xvfb pixels 247 around / 255 inside.
 - User: commit and refresh build-u24; listening: LFO → VCA CV tremolo and ENV 2 → FM pitch sweep pass, LFO rate input "works super"; asked what "VCF feedback stays stable" means; resonance at max gives chirping sounds (self-oscillation, expected). Tests.md updated (T-S6.6g partly, T-S5.19-listen pass).
+- Commit 2fbec57; build-u24 refreshed (30/30). User decided for the later Matrix mouse item: a single click on an empty cell still makes a 100 % cable (Plan updated).
