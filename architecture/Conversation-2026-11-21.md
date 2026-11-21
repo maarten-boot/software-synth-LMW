@@ -118,3 +118,10 @@ T-S7.7-listen: pass (T-S5.17-listen was already pass).
 **User:** build the lesson presets; and add a delay effect, default sequence comb -> delay -> reverb
 Done (17c, S7.8): src/dsp/Delay.h (stereo, Time with ~50 ms tape-like glide, Feedback, Damping, Spread/ping-pong, Mix); ports delay.in/out, normalled COMB → DELAY → REVERB; Effects tab panel; Schematic block; 69 parameters, 2150 in a host. Found by the glide test: delay times in float stalled about a sample short at long times — Delay and Comb now keep them in double. Test T-S7.8-delay.
 Done (17b lesson presets, S7.9): lesson 9 text updated for the delay; cmake/TutorialText.cmake builds docs/tutorial/Tutorial.md into the program (split at the rulers); src/app/Tutorial.h: lesson sounds, titles and sections from the document, notes as plain text (first try showed raw Markdown); Presets ▸ Tutorial ▸ Lesson 1–11; Lesson 11 keeps the sound. Test T-S7.9-tutorial (30 ctests); Xvfb check. README links the tutorial.
+
+## Sequencer (SEQ) question
+
+- User: would a sequencer be a component in the synth, or should it be separate?
+- Answer: a step sequencer as a module inside (patchable pitch/gate/CV outputs, host tempo / own BPM, saved with patches, 9P); a song/piano-roll sequencer stays outside (DAW, MIDI, 9P scripts).
+- User: add SEQ to the Plan; each step a note + duration, more than one track so each VCO can be driven separately (unlike the usual single step size and single track).
+- Done: Plan Phase 19 (SEQ), with the open design questions; commit d8cd5a2 (DELAY + lesson presets) pushed by the user, CI run 44924053614 watched; build-u24 refreshed (30/30).
