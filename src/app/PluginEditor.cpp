@@ -530,7 +530,17 @@ LMWSynthEditor::Item LMWSynthEditor::addFader(const char* paramId, const juce::S
                                               std::function<juce::String()> tip) {
     Fader& k = faders[usedFaders++];
     k.slider.setSliderSnapsToMousePosition(false);   // drag moves relative; a click does not jump the value
-    k.slider.tip = std::move(tip);
+    // Spec S6.1 (user 2026-11-21): every fader's hover text ends with its scale — linear, or skewed with
+    // the value at half way (more travel for small values).
+    juce::String scale = "Scale: linear";
+    if (auto* f = dynamic_cast<juce::AudioParameterFloat*>(processor.state().getParameter(paramId));
+        f != nullptr && std::abs(f->range.skew - 1.0f) > 1e-6f)
+        scale = "Scale: skewed, half way = " + static_cast<juce::AudioProcessorParameter*>(f)->getText(0.5f, 32)
+              + " (more travel for small values)";
+    k.slider.tip = [inner = std::move(tip), scale] {
+        const auto t = inner ? inner() : juce::String();
+        return t.isEmpty() ? scale : t + "\n" + scale;
+    };
     k.attachment = std::make_unique<SliderAttachment>(processor.state(), paramId, k.slider);
     k.label.setText(text, juce::dontSendNotification);
     k.label.setJustificationType(juce::Justification::centred);

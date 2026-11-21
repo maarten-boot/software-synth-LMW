@@ -61,3 +61,11 @@ Done: vcoN.fm skewed (half way 1 st), vcoN.pm (half way index 2); /info shows ce
 
 **User:** a, double-click 100 %/remove, later; commit the skew
 Committed the skew. Plan: "later" row for the Matrix mouse change (click selects; slider to 0 removes; double-click 100 % / remove; typing via a right-click menu). Next: hover texts name the fader scale (linear / skewed with its half-way value), the Matrix level slider's hover text says linear (option a).
+Done: hover texts end with the fader's scale ("Scale: linear" / "Scale: skewed, half way = <value>"), Matrix level slider "Scale: linear"; 26 of 26; Xvfb: PM fader hover seen.
+
+**User:** I often use a comb filter after the effects stage or just before, to get more dynamics on flute or clarinet; could we add a comb filter to the effects rack, and give the effects inputs, outputs and default (normalled) cables that can be changed; later also a delay in the effects rack for dynamic delay/reverb effects. (correction: "dynmaic" → "dynamic")
+**User:** a complicated question: could we later consider an audio input, so the synth can be used as an audio processor, and later possibly as a VST3 effect for DAWs that support that? (corrections: "a audio" → "an audio", "processors" → "processor")
+Plan: "later" rows for the delay and the audio input / VST3 effect. Answered with a design for the comb filter and patchable effects, and the options for audio input; asked when and which details.
+
+**User:** commit; comb now before phase 17, controls ok
+Committed the scale lines in the hover texts. Started Phase 16f: COMB effect (Freq, Key tracking, Feedback ±, Damping, Mix) and patchable effects (ports, normalled chain out → COMB → REVERB → main).
