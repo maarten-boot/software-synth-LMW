@@ -132,3 +132,12 @@ Done (17b lesson presets, S7.9): lesson 9 text updated for the delay; cmake/Tuto
 
 - User: added 4 screenshots in ./tmp/ for the tutorial and the README; commit the docs (done: f754199).
 - Done: copied to docs/images/ (synth, matrix, schematic, effects; Effects cropped to the panels, 1501×318); README shows the Synth tab and links the others; tutorial: Lesson 1 Synth + Schematic, Lesson 6 Matrix, Lesson 9 Effects. tutorial::plain() drops image lines (and the blank line after) so the Notes stay clean; test extended; native ctest 30/30. The user's tmp/ is left as is (not ignored by git).
+- CI run 44932697642 (599d0b4, screenshots): green on all four. build-u24 refreshed (30/30).
+
+## Effect presets; background colour
+
+- User: listen test — delay works; add some presets on the comb filter and the delay.
+- Done: ModulePresets kinds comb and delay (folders COMB, DELAY); COMB: Flute, Oboe, Clarinet, Bassoon, Guitar (plucked), Hollow tube, Odd harmonics, Metallic, Low resonator; DELAY: Doubling, Slapback, Short echo, Ping-pong, Tape echo, Dub, Long ambient (99 built-ins). Presets buttons and labels on COMB and DELAY (generalised from REVERB). Instruments take their comb body from the COMB preset of their name (same values). Tests: test_presets 99, host 461/461; native ctest 30/30; Xvfb: menus, Ping-pong values, Clarinet instrument labels. T-S7.8-listen pass.
+- User: for the Synth and Effects tabs, a very very very light grey background — asked which area and which grey before changing it.
+- User chose: grey behind the panels (panels stay white), #F7F7F7. Done: theme rack colour (19.6:1 with black, white at Max), painted on Synth and Effects; test_contrast extended; native ctest 30/30; Xvfb pixels 247 around / 255 inside.
+- User: commit and refresh build-u24; listening: LFO → VCA CV tremolo and ENV 2 → FM pitch sweep pass, LFO rate input "works super"; asked what "VCF feedback stays stable" means; resonance at max gives chirping sounds (self-oscillation, expected). Tests.md updated (T-S6.6g partly, T-S5.19-listen pass).

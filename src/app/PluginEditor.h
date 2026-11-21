@@ -255,7 +255,7 @@ private:
     void savePresetAs(const juce::String& module, const juce::String& panelTitle);
     void writePreset(const juce::String& module, const juce::String& name, const juce::File& file);
     static juce::File presetFolder(lmw::presets::Kind);
-    // "VCO 2" -> "vco2", "VCF 1" -> "vcf1", "ENV 1 -> VCA" -> "env1", "REVERB" -> "reverb"; else empty.
+    // "VCO 2" -> "vco2", "VCF 1" -> "vcf1", "ENV 1 -> VCA" -> "env1", "COMB" -> "comb", "REVERB" -> "reverb"; else empty.
     static juce::String presetModuleOf(const juce::String& panelTitle);
     // Spec S7.5: "Flute", "Flute*" (changed since), "Default", "Default*" for a module; updated by the timer.
     juce::String computePresetLabel(const juce::String& module) const;
@@ -303,7 +303,7 @@ private:
     // Spec S7.4: the Effects tab — fixed panels (not part of the rack), one so far: REVERB.
     std::vector<Group> effectGroups;
     std::vector<juce::Component*> effectComponents;        // shown only on the Effects tab
-    std::unique_ptr<PresetButton> reverbPresets;           // Spec S7.5, in the REVERB title
+    std::map<juce::String, std::unique_ptr<PresetButton>> effectPresets;   // Spec S7.5: COMB, DELAY, REVERB titles
     juce::Label patchLabel;
     TitleButton titleButton;              // "LMW-Synth <version>", opens About (S6.10); hover text: 9P address
     void showAbout();

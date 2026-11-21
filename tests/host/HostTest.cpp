@@ -437,7 +437,7 @@ int main(int argc, char* argv[]) {
         // 4f. Module presets (Spec S7.5): every value of every built-in preset is valid for the real parameter:
         //     written over 9P (as the panel menu sets it) it is accepted and reads back as written.
         int presetValues = 0, presetExact = 0;
-        for (const char* module : {"env2", "vcf2", "vco3", "reverb", "formant"}) {
+        for (const char* module : {"env2", "vcf2", "vco3", "reverb", "formant", "comb", "delay"}) {
             const auto kind = *lmw::presets::kindOf(module);
             for (const auto& preset : lmw::presets::builtIn(kind))
                 for (const auto& [key, value] : preset.values) {

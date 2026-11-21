@@ -37,6 +37,12 @@ inline Instrument fromModules(const std::string& name, std::vector<std::pair<std
     for (auto& v : extra) i.values.push_back(std::move(v));
     return i;
 }
+// The comb preset of that name (S7.5, S7.6): the wind and guitar bodies.
+inline std::vector<std::pair<std::string, std::string>> comb(std::string_view preset) {
+    Instrument i;
+    addModule(i, "comb", presets::Kind::Comb, preset);
+    return i.values;
+}
 // The reverb preset of that name (S7.5).
 inline std::vector<std::pair<std::string, std::string>> reverb(std::string_view preset) {
     Instrument i;
@@ -55,23 +61,18 @@ inline const std::vector<Instrument>& builtIn() {
     using detail::fromModules;
     using detail::join;
     using detail::reverb;
+    using detail::comb;
     static const std::vector<Instrument> list = [] {
         const auto solo = std::pair<std::string, std::string>{"voice.count", "1"};
         const auto vibrato = std::pair<std::string, std::string>{"lfo1.rate", "5.5"};
         std::vector<Instrument> v;
-        // Winds: one voice; breath noise; a comb body that follows the notes (Key 100 %, from C4).
-        v.push_back(fromModules("Flute", join({solo, vibrato, {"mix.noise", "0.06"}, {"noise.colour", "Pink"},
-                                               {"comb.freq", "261.6"}, {"comb.key", "1"}, {"comb.feedback", "0.4"},
-                                               {"comb.damping", "0.3"}, {"comb.mix", "0.2"}}, reverb("Chamber"))));
+        // Winds: one voice; breath noise; a comb body that follows the notes (the COMB preset of the name: Key 100 %, from C4).
+        v.push_back(fromModules("Flute", join({solo, vibrato, {"mix.noise", "0.06"}, {"noise.colour", "Pink"}},
+                                              join(comb("Flute"), reverb("Chamber")))));
         v.push_back(fromModules("Recorder", join({solo, {"mix.noise", "0.04"}, {"noise.colour", "Pink"}}, reverb("Small room"))));
-        v.push_back(fromModules("Oboe", join({solo, vibrato, {"comb.freq", "261.6"}, {"comb.key", "1"}, {"comb.feedback", "0.3"},
-                                              {"comb.damping", "0.2"}, {"comb.mix", "0.25"}}, reverb("Chamber"))));
-        v.push_back(fromModules("Clarinet", join({solo, vibrato, {"comb.freq", "261.6"}, {"comb.key", "1"},
-                                                  {"comb.feedback", "-0.5"}, {"comb.damping", "0.2"}, {"comb.mix", "0.3"}},
-                                                 reverb("Chamber"))));
-        v.push_back(fromModules("Bassoon", join({solo, vibrato, {"comb.freq", "261.6"}, {"comb.key", "1"},
-                                                 {"comb.feedback", "-0.4"}, {"comb.damping", "0.3"}, {"comb.mix", "0.25"}},
-                                                reverb("Chamber"))));
+        v.push_back(fromModules("Oboe", join({solo, vibrato}, join(comb("Oboe"), reverb("Chamber")))));
+        v.push_back(fromModules("Clarinet", join({solo, vibrato}, join(comb("Clarinet"), reverb("Chamber")))));
+        v.push_back(fromModules("Bassoon", join({solo, vibrato}, join(comb("Bassoon"), reverb("Chamber")))));
         // Brass: one voice; VCO 2 slightly detuned for width.
         v.push_back(fromModules("Trumpet", join({solo, vibrato, {"vco2.wave", "Saw"}, {"vco2.tune", "0.06"}, {"mix.vco2", "0.5"}},
                                                 reverb("Concert hall"))));
@@ -92,9 +93,7 @@ inline const std::vector<Instrument>& builtIn() {
                                                {"mix.vco2", "0.5"}}, reverb("Small room"))));
         v.push_back(fromModules("Harpsichord", join({{"voice.count", "12"}, {"vco2.wave", "Square"}, {"vco2.octave", "+1"},
                                                      {"mix.vco2", "0.3"}}, reverb("Chamber"))));
-        v.push_back(fromModules("Guitar (plucked)", join({{"voice.count", "6"}, {"comb.freq", "261.6"}, {"comb.key", "1"},
-                                                          {"comb.feedback", "0.6"}, {"comb.damping", "0.4"}, {"comb.mix", "0.3"}},
-                                                         reverb("Ambience"))));
+        v.push_back(fromModules("Guitar (plucked)", join({{"voice.count", "6"}}, join(comb("Guitar (plucked)"), reverb("Ambience")))));
         v.push_back(fromModules("Marimba", join({{"voice.count", "8"}}, reverb("Small room"))));
         v.push_back(fromModules("Pad (slow)", join({{"voice.count", "12"}, {"lfo1.rate", "0.3"}, {"vco1.fm", "0.1"},
                                                     {"vco2.wave", "Saw"}, {"vco2.tune", "0.12"}, {"mix.vco2", "0.8"},

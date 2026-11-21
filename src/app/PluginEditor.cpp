@@ -279,9 +279,13 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
          addFader(P::reverbDamping, "Damping", [] { return juce::String("High-frequency damping of the reflections: darker when higher"); }),
          addFader(P::reverbWidth, "Width", [] { return juce::String("Stereo width of the reverb: 0 = mono, 100 % = widest"); })}, {}});
     effectGroups.push_back({"MAIN", 0, {}, {}, 1});
-    reverbPresets = std::make_unique<PresetButton>(*this, "reverb", "REVERB");
-    addChildComponent(*reverbPresets);
-    effectComponents.push_back(reverbPresets.get());
+    for (const auto& grp : effectGroups)                     // Spec S7.5: COMB, DELAY and REVERB have presets
+        if (const auto module = presetModuleOf(grp.title); module.isNotEmpty()) {
+            auto& button = effectPresets[module];
+            button = std::make_unique<PresetButton>(*this, module, grp.title);
+            addChildComponent(*button);
+            effectComponents.push_back(button.get());
+        }
     for (const auto& grp : effectGroups)
         for (const auto& item : grp.items)
             if (item.fader != nullptr) { effectComponents.push_back(&item.fader->slider); effectComponents.push_back(&item.fader->label); }
@@ -840,6 +844,15 @@ void LMWSynthEditor::paint(juce::Graphics& g) {
     g.setFont(juce::FontOptions(m.titleH * 0.6f, juce::Font::bold));
     const float lineY = static_cast<float>(pad + m.titleH + m.gap / 2);   // between title row and modules
     g.drawLine(static_cast<float>(pad), lineY, static_cast<float>(getWidth() - pad), lineY, 1.0f);
+    if (currentTab == 0 || currentTab == 1) {                // Spec S6.2: light grey around the panels, panels white
+        const int top = juce::roundToInt(lineY) + 1;
+        g.setColour(toJuce(palette.rack));
+        g.fillRect(0, top, getWidth(), keyboard.getY() - top);
+        g.setColour(kBg);
+        if (currentTab == 0) for (const auto& grp : groups) g.fillRect(grp.bounds);
+        else for (const auto& grp : effectGroups) g.fillRect(grp.bounds);
+        g.setColour(kFg);
+    }
 
     if (currentTab == 1) {                                   // Effects tab: fixed panels, titles drawn here
         g.setFont(juce::FontOptions(m.titleFont, juce::Font::bold));
@@ -951,9 +964,9 @@ void LMWSynthEditor::resized() {
         for (auto& grp : effectGroups) {
             grp.bounds = row.removeFromLeft(grp.columns() * m.colW);
             row.removeFromLeft(m.gap);
-            if (presetModuleOf(grp.title) == "reverb" && reverbPresets)   // Spec S7.5: at the right of the title
-                reverbPresets->setBounds(grp.bounds.withHeight(m.header - 3).reduced(1)
-                                             .removeFromRight(reverbPresets->preferredWidth()).reduced(2));
+            if (const auto it = effectPresets.find(presetModuleOf(grp.title)); it != effectPresets.end())   // Spec S7.5
+                it->second->setBounds(grp.bounds.withHeight(m.header - 3).reduced(1)
+                                          .removeFromRight(it->second->preferredWidth()).reduced(2));
             auto inner = grp.bounds.reduced(0, 3).withTrimmedTop(m.header);
             auto jackRow = inner.removeFromBottom(m.jackH).withTrimmedTop(2);   // same fader height as on the Synth tab
             layoutJacks(effectGroupJacks[static_cast<std::size_t>(&grp - effectGroups.data())], grp.columns(), jackRow);
@@ -1685,10 +1698,12 @@ void LMWSynthEditor::updatePresetLabels() {
                 presetLabels[module] = label;
                 headers[i]->repaint();
             }
-    if (auto label = computePresetLabel("reverb"); presetLabels["reverb"] != label) {
-        presetLabels["reverb"] = label;
-        for (const auto& grp : effectGroups) repaint(grp.bounds.withHeight(m.header));
-    }
+    for (const auto& grp : effectGroups)
+        if (const auto module = presetModuleOf(grp.title); module.isNotEmpty())
+            if (auto label = computePresetLabel(module); presetLabels[module] != label) {
+                presetLabels[module] = label;
+                repaint(grp.bounds.withHeight(m.header));
+            }
 }
 
 juce::String LMWSynthEditor::presetLabel(const juce::String& module) const {

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Spec S7.5: named presets per module (user 2026-11-18) — starting points for one ENV, VCF, VCO, the
-// FORMANT (S5.16) or the REVERB, next to whole-patch files (S7.1). Built-in presets follow classical instruments (flute, recorder,
+// FORMANT (S5.16), the COMB (S7.6), DELAY (S7.8) or REVERB, next to whole-patch files (S7.1). Built-in presets follow classical instruments (flute, recorder,
 // oboe, clarinet, ...); the user's own are small text files, one per preset:
 //
 //   # LMW-Synth module preset
@@ -24,7 +24,7 @@
 
 namespace lmw::presets {
 
-enum class Kind { Env, Vcf, Vco, Reverb, Formant };
+enum class Kind { Env, Vcf, Vco, Reverb, Formant, Comb, Delay };
 
 struct Preset {
     std::string name;
@@ -38,6 +38,8 @@ inline std::optional<Kind> kindOf(std::string_view module) {
     if (module == "vco1" || module == "vco2" || module == "vco3") return Kind::Vco;
     if (module == "reverb") return Kind::Reverb;
     if (module == "formant") return Kind::Formant;
+    if (module == "comb") return Kind::Comb;          // S7.6
+    if (module == "delay") return Kind::Delay;        // S7.8
     return std::nullopt;
 }
 
@@ -48,6 +50,8 @@ inline std::string_view kindName(Kind k) {          // "module = ..." in the fil
         case Kind::Vco: return "vco";
         case Kind::Formant: return "formant";
         case Kind::Reverb: return "reverb";
+        case Kind::Comb: return "comb";
+        case Kind::Delay: return "delay";
     }
     return "reverb";
 }
@@ -59,6 +63,8 @@ inline std::string_view folderName(Kind k) {        // Documents/LMW-Synth Prese
         case Kind::Vco: return "VCO";
         case Kind::Formant: return "FORMANT";
         case Kind::Reverb: return "REVERB";
+        case Kind::Comb: return "COMB";
+        case Kind::Delay: return "DELAY";
     }
     return "REVERB";
 }
@@ -70,12 +76,16 @@ inline const std::vector<std::string_view>& keys(Kind k) {
     static const std::vector<std::string_view> vco{"wave", "octave", "tune", "fm", "pm"};   // pm: S5.20
     static const std::vector<std::string_view> reverb{"mix", "size", "damping", "width"};
     static const std::vector<std::string_view> formant{"vowel", "voice", "res", "mix"};
+    static const std::vector<std::string_view> comb{"freq", "key", "feedback", "damping", "mix"};
+    static const std::vector<std::string_view> delay{"time", "feedback", "damping", "spread", "mix"};
     switch (k) {
         case Kind::Env: return env;
         case Kind::Vcf: return vcf;
         case Kind::Vco: return vco;
         case Kind::Formant: return formant;
         case Kind::Reverb: return reverb;
+        case Kind::Comb: return comb;
+        case Kind::Delay: return delay;
     }
     return reverb;
 }
@@ -158,6 +168,30 @@ inline const std::vector<Preset>& builtIn(Kind k) {
         make("Cathedral", Kind::Reverb, {"0.35", "0.95", "0.3", "1"}),
         make("Plate", Kind::Reverb, {"0.25", "0.6", "0.1", "1"}),
     };
+    // COMB (S7.6): frequency Hz, key tracking 0-1 (1: follows the note, Freq at C4), feedback -0.95..0.95
+    // (negative: odd harmonics, clarinet-like), damping 0-1, mix 0-1. The wind and guitar bodies are the
+    // ones the instrument presets of the same name use (S7.7).
+    static const std::vector<Preset> comb{
+        make("Flute", Kind::Comb, {"261.6", "1", "0.4", "0.3", "0.2"}),
+        make("Oboe", Kind::Comb, {"261.6", "1", "0.3", "0.2", "0.25"}),
+        make("Clarinet", Kind::Comb, {"261.6", "1", "-0.5", "0.2", "0.3"}),
+        make("Bassoon", Kind::Comb, {"261.6", "1", "-0.4", "0.3", "0.25"}),
+        make("Guitar (plucked)", Kind::Comb, {"261.6", "1", "0.6", "0.4", "0.3"}),
+        make("Hollow tube", Kind::Comb, {"261.6", "1", "0.75", "0.2", "0.4"}),
+        make("Odd harmonics", Kind::Comb, {"261.6", "1", "-0.8", "0.1", "0.5"}),
+        make("Metallic", Kind::Comb, {"1200", "0", "0.85", "0", "0.35"}),
+        make("Low resonator", Kind::Comb, {"110", "0", "0.9", "0.4", "0.4"}),
+    };
+    // DELAY (S7.8): time s, feedback 0-0.95, damping 0-1, spread 0-1 (1 = ping-pong), mix 0-1.
+    static const std::vector<Preset> delay{
+        make("Doubling", Kind::Delay, {"0.03", "0", "0", "0", "0.4"}),
+        make("Slapback", Kind::Delay, {"0.09", "0.1", "0.2", "0", "0.3"}),
+        make("Short echo", Kind::Delay, {"0.25", "0.3", "0.3", "0", "0.25"}),
+        make("Ping-pong", Kind::Delay, {"0.375", "0.45", "0.3", "1", "0.3"}),
+        make("Tape echo", Kind::Delay, {"0.33", "0.55", "0.6", "0.3", "0.3"}),
+        make("Dub", Kind::Delay, {"0.5", "0.75", "0.7", "0.6", "0.35"}),
+        make("Long ambient", Kind::Delay, {"0.8", "0.65", "0.5", "0.8", "0.3"}),
+    };
     // Spec S5.16: every voice type with every vowel ("Bass A" .. "Child U"): vowel 0-4, voice, resonance, mix 1.
     static const std::vector<Preset> formant = [] {
         std::vector<Preset> list;
@@ -173,6 +207,8 @@ inline const std::vector<Preset>& builtIn(Kind k) {
         case Kind::Vco: return vco;
         case Kind::Formant: return formant;
         case Kind::Reverb: return reverb;
+        case Kind::Comb: return comb;
+        case Kind::Delay: return delay;
     }
     return reverb;
 }

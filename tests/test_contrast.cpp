@@ -67,6 +67,12 @@ int main() {
         for (const auto& c : p12.unit) CHECK(contrastRatio({0, 0, 0}, c) >= 12.0 - 1e-9);
         for (const auto& c : lmw::ui::theme::palette(21.0).unit) CHECK(c.r == 255 && c.g == 255 && c.b == 255);
     }
+    {   // Spec S6.2 (2026-11-21): the rack grey around the panels: #F7F7F7 at AA and AAA, white at Max.
+        const auto aa = lmw::ui::theme::palette(4.5).rack, aaa = lmw::ui::theme::palette(7.0).rack, mx = lmw::ui::theme::palette(21.0).rack;
+        CHECK(aa.r == 0xF7 && aa.g == 0xF7 && aa.b == 0xF7 && aaa.r == 0xF7);
+        CHECK(mx.r == 255 && mx.g == 255 && mx.b == 255);
+        std::printf("rack grey, black text: %.1f\n", contrastRatio({0, 0, 0}, lmw::ui::theme::rackDesign));
+    }
     const auto maxPal = lmw::ui::theme::palette(21.0);
     CHECK(maxPal.whiteKeyDown.r == 0 && maxPal.blackKeyDown.r == 255);
 
