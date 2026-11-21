@@ -2,8 +2,8 @@
 # T-S9.5-installer: silent install / update / refusals / uninstall of the Windows installer, for
 # "just me" and "all users" (Spec S9.5). Needs administrator rights for the all-users part (CI runner).
 # T-S9.5-pages (after the 1.2.0 bug: Next on "Install for" did nothing): the installer's pages clicked
-# through with Windows UI Automation — Welcome, License, Install for (Just me), Components, Folder,
-# Install, Finish — then the result is checked and removed. Needs a desktop session (the CI runner has one).
+# through with window messages — Welcome, License, Install for (Just me), Components, Folder, Install,
+# Finish — then the result is checked and removed. Needs a desktop session (the CI runner has one).
 # Usage: pwsh scripts/test-installer.ps1 <path to LMW-Synth-<version>-setup.exe>
 param([Parameter(Mandatory = $true)][string]$Setup)
 $ErrorActionPreference = 'Stop'
@@ -72,56 +72,66 @@ foreach ($mode in @('CURRENTUSER', 'ALLUSERS')) {
     Check (-not (Test-Path $reg)) "$mode Apps & features entry removed"
 }
 
-# --- T-S9.5-pages: the pages by mouse, as a user does (nothing installed now: the 1.2.0 bug case).
-Write-Output "--- pages (UI Automation)"
-Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
-$A = [System.Windows.Automation.AutomationElement]
-$tree = [System.Windows.Automation.TreeScope]
+# --- T-S9.5-pages: the pages clicked as a user does (nothing installed now: the 1.2.0 bug case).
+# Win32 messages, not UI Automation (on the CI desktop UI Automation saw the window but none of its
+# buttons): the wizard's buttons are dialog items 1 (Next / I Agree / Install / Finish), 2 (Cancel),
+# 3 (Back); MUI2 shows the page title in item 1037 (the header; Welcome and Finish have none).
+Write-Output "--- pages (clicked)"
+Add-Type -TypeDefinition @"
+using System;
+using System.Text;
+using System.Runtime.InteropServices;
+public static class Wiz {
+    [DllImport("user32.dll")] static extern IntPtr GetDlgItem(IntPtr dlg, int id);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowText(IntPtr w, StringBuilder s, int n);
+    [DllImport("user32.dll")] static extern bool IsWindowEnabled(IntPtr w);
+    [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr w);
+    [DllImport("user32.dll")] static extern bool PostMessage(IntPtr w, uint msg, IntPtr wp, IntPtr lp);
+    public static string Text(IntPtr dlg, int id) {
+        IntPtr c = GetDlgItem(dlg, id);
+        if (c == IntPtr.Zero) return "";
+        var s = new StringBuilder(512); GetWindowText(c, s, 512); return s.ToString();
+    }
+    public static bool Ready(IntPtr dlg, int id) {
+        IntPtr c = GetDlgItem(dlg, id);
+        return c != IntPtr.Zero && IsWindowEnabled(c) && IsWindowVisible(c);
+    }
+    // WM_COMMAND with BN_CLICKED from the button, as a mouse click sends it.
+    public static bool Click(IntPtr dlg, int id) {
+        IntPtr c = GetDlgItem(dlg, id);
+        return c != IntPtr.Zero && PostMessage(dlg, 0x0111, (IntPtr)id, c);
+    }
+}
+"@
 function Wait-For([scriptblock]$probe, [int]$seconds = 20) {
     $until = (Get-Date).AddSeconds($seconds)
     while ((Get-Date) -lt $until) { $r = & $probe; if ($r) { return $r }; Start-Sleep -Milliseconds 300 }
     return $null
 }
-function Window([int]$id) {
-    $c = New-Object System.Windows.Automation.PropertyCondition($A::ProcessIdProperty, $id)
-    return $A::RootElement.FindFirst($tree::Children, $c)
-}
-function Named($win, [string]$pattern, [bool]$button = $false) {   # the first element whose name matches
-    foreach ($e in $win.FindAll($tree::Descendants, [System.Windows.Automation.Condition]::TrueCondition)) {
-        if ($e.Current.Name -like $pattern -and (-not $button -or
-            $e.Current.ControlType -eq [System.Windows.Automation.ControlType]::Button)) { return $e }
-    }
-    return $null
-}
-function Press($win, [string]$pattern) {        # a button, when it is enabled
-    $b = Wait-For { $e = Named $win $pattern $true; if ($e -and $e.Current.IsEnabled) { $e } }
-    if (-not $b) { return $false }
-    $b.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
-    return $true
-}
 $p = Start-Process -FilePath $Setup -PassThru
-$win = Wait-For { Window $p.Id }
-Check ($null -ne $win) "pages: the installer window opens"
-if ($win) {
-    Check (Press $win 'Next*') "pages: Welcome, Next"
-    Check ((Wait-For { Named $win '*License Agreement*' }) -ne $null) "pages: License page"
-    Check (Press $win 'I Agree*') "pages: License, I Agree"
-    Check ((Wait-For { Named $win 'Install for*' }) -ne $null) "pages: Install for page"
-    Check (Press $win 'Next*') "pages: Install for (Just me), Next"
-    Check ((Wait-For { Named $win 'Choose Components*' }) -ne $null) "pages: Next leads on to Choose Components (1.2.0: stuck)"
-    Check (Press $win 'Next*') "pages: Components, Next"
-    Check ((Wait-For { Named $win 'Choose Install Location*' }) -ne $null) "pages: Install Location page"
-    Check (Press $win 'Install*') "pages: Install"
-    Check ((Wait-For { Named $win 'Completing*' } 120) -ne $null) "pages: Finish page"
-    $run = Named $win 'Start LMW-Synth*'
-    if ($run) {                               # do not start the app
-        $t = $run.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
-        if ($t.Current.ToggleState -eq 'On') { $t.Toggle() }
-    }
-    Check (Press $win 'Finish*') "pages: Finish"
+$h = Wait-For { $p.Refresh(); if ($p.MainWindowHandle -ne [IntPtr]::Zero) { $p.MainWindowHandle } }
+Check ($null -ne $h) "pages: the installer window opens"
+function Page([string]$title, [string]$button, [string]$what, [int]$seconds = 20) {
+    # Wait until the header shows $title (any title when empty) and button 1 reads $button, then click it.
+    $ok = Wait-For { ($title -eq '' -or [Wiz]::Text($h, 1037) -like "$title*") -and
+                     [Wiz]::Text($h, 1).Replace('&', '') -like "$button*" -and [Wiz]::Ready($h, 1) } $seconds
+    if (-not $ok) { Write-Output ("     now: header '{0}', button '{1}'" -f [Wiz]::Text($h, 1037), [Wiz]::Text($h, 1)) }
+    Check ([bool]$ok) "pages: $what"
+    if ($ok) { [void][Wiz]::Click($h, 1); Start-Sleep -Milliseconds 500 }
+    return [bool]$ok
+}
+if ($h) {
+    $null = (Page '' 'Next' 'Welcome, Next') -and
+            (Page 'License Agreement' 'I Agree' 'License, I Agree') -and
+            (Page 'Install for' 'Next' 'Install for (Just me), Next') -and
+            (Page 'Choose Components' 'Next' 'Next leads on to Choose Components (1.2.0: stuck), Next') -and
+            (Page 'Choose Install Location' 'Install' 'Install Location, Install') -and
+            (Page '' 'Finish' 'Finish page, Finish' 120)
     Check ($p.WaitForExit(20000)) "pages: the installer ends"
 }
 if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }
+Start-Sleep -Seconds 2
+Get-Process -Name 'LMW-Synth' -ErrorAction SilentlyContinue | Stop-Process -Force   # started by the Finish page
 $app = "$env:LOCALAPPDATA\Programs\LMW-Synth"
 Check (Test-Path "$app\LMW-Synth.exe") "pages: installed just for me in $app"
 Check ((Get-ItemProperty "HKCU:\$key" -ErrorAction SilentlyContinue).DisplayVersion -eq $version) "pages: Apps & features entry"
