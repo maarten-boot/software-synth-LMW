@@ -179,22 +179,28 @@ that you hear new overtones instead of vibrato.
 
 ---
 
-## Lesson 9 — Effects: comb and reverb
+## Lesson 9 — Effects: comb, delay and reverb
 
-**Lesson sound:** *Lesson 9* — *Flute* without its comb and reverb (both Mix 0).
+**Lesson sound:** *Lesson 9* — *Flute* without its comb and reverb (all effect Mix faders at 0).
 
-The **Effects** tab: SYNTH (the instrument) → COMB → REVERB → MAIN (what you hear), connected by
-default; Mix 0 means an effect is off.
+The **Effects** tab: SYNTH (the instrument) → COMB → DELAY → REVERB → MAIN (what you hear), connected
+by default; Mix 0 means an effect is off.
 
 1. *REVERB › Mix* 25 %, *Size* 80 %: a hall. *Damping* darker, *Width* narrower or wider.
 2. *COMB › Mix* 30 %, *Key* 100 %, *Freq* 262 Hz (C4), *Feedback* 40 %: a resonant body that
    follows the notes — the breathy flute gets a tube.
 3. *COMB › Feedback* −50 %: odd harmonics, clarinet-like. *Damping* softens it.
-4. Order with cables: on the Effects tab, *SYNTH › Out* → *REVERB › In*, *REVERB › Out* →
-   *COMB › In*, *COMB › Out* → *MAIN › In*: now the comb colours the reverb too.
+4. *DELAY › Mix* 30 %, *Time* 350 ms, *Feedback* 40 %: echoes. *Spread* 100 %: they bounce between
+   left and right (ping-pong). *Damping*: each echo darker.
+5. Hold a note and move *DELAY › Time* while the echoes ring: their pitch bends, like a tape
+   machine slowing down — the "dynamic" delay.
+6. Order with cables: on the Effects tab, *SYNTH › Out* → *REVERB › In*, *REVERB › Out* →
+   *COMB › In*, *COMB › Out* → *MAIN › In*: now the comb colours the reverb too (the delay is out of
+   the chain until you patch it back).
 
-**Listen for:** COMB is tied to the pitch (with Key), REVERB to the room.
-**Try yourself:** COMB Key 0 %, Freq 100 Hz, Feedback 90 %: a metallic, flanger-like ring.
+**Listen for:** COMB is tied to the pitch (with Key), DELAY to time, REVERB to the room.
+**Try yourself:** COMB Key 0 %, Freq 100 Hz, Feedback 90 %: a metallic, flanger-like ring; DELAY
+Time 30 ms, Feedback 70 %: a short metallic repeat (a slap echo).
 
 ---
 
@@ -255,7 +261,7 @@ use it to control the synth.
 | Lesson 6 | Lesson 3 | vcf1.cutoff 800 |
 | Lesson 7 | Default | vco1.wave Pulse, vco2.wave Saw, vco2.tune 0.1, mix.vco2 0.7, formant.mix 1, formant.voice Tenor |
 | Lesson 8 | Default | vco1.wave Sine, vco2.wave Sine, mix.vco2 0, env1.sustain 1, vco1.pm 0; cable vco1.pm = vco2.out |
-| Lesson 9 | Flute | comb.mix 0, reverb.mix 0 |
+| Lesson 9 | Flute | comb.mix 0, reverb.mix 0 (delay.mix is 0 already) |
 
 Lessons 1, 10 and 11 use existing presets (Default, Clarinet, any). Each lesson preset carries its
 lesson's steps in the Notes text. Choosing a preset normally keeps your notes (S7.7); the lesson

@@ -21,7 +21,7 @@ public:
     void prepare(double sr) {
         sampleRate = sr;
         buffer.assign(static_cast<std::size_t>(sr / minFrequency) + 4, 0.0f);
-        glide = static_cast<float>(1.0 - std::exp(-1.0 / (0.01 * sr)));   // ~10 ms
+        glide = 1.0 - std::exp(-1.0 / (0.01 * sr));   // ~10 ms
         reset();
     }
     void reset() noexcept {
@@ -31,7 +31,7 @@ public:
     // Frequency in Hz (clamped), feedback -0.95..0.95, damping 0..1 (0 = none).
     void setParameters(double hz, float feedback, float damping) noexcept {
         const double f = std::clamp(hz, minFrequency, maxFrequency);
-        target = static_cast<float>(sampleRate / f);
+        target = sampleRate / f;
         g = std::clamp(feedback, -maxFeedback, maxFeedback);
         d = std::clamp(damping, 0.0f, 0.99f);
         scale = std::sqrt(1.0f - g * g);
@@ -40,12 +40,12 @@ public:
     float process(float x) noexcept {
         if (buffer.empty()) return x;
         delay += (target - delay) * glide;
-        const auto size = static_cast<float>(buffer.size());
-        float readPos = static_cast<float>(pos) - delay;
-        if (readPos < 0.0f) readPos += size;
+        const auto size = static_cast<double>(buffer.size());
+        double readPos = static_cast<double>(pos) - delay;
+        if (readPos < 0.0) readPos += size;
         const auto i0 = static_cast<std::size_t>(readPos);
         const std::size_t i1 = i0 + 1 < buffer.size() ? i0 + 1 : 0;
-        const float frac = readPos - static_cast<float>(i0);
+        const auto frac = static_cast<float>(readPos - static_cast<double>(i0));
         const float delayed = buffer[i0] + (buffer[i1] - buffer[i0]) * frac;
         lp = delayed * (1.0f - d) + lp * d;                       // damping in the loop
         const float y = x + g * lp;
@@ -53,13 +53,13 @@ public:
         pos = pos + 1 < buffer.size() ? pos + 1 : 0;
         return y * scale;
     }
-    float delaySamples() const noexcept { return delay; }
+    double delaySamples() const noexcept { return delay; }
 
 private:
     std::vector<float> buffer;
     std::size_t pos = 0;
     double sampleRate = 48000.0;
-    float target = 109.0f, delay = 109.0f, glide = 0.002f;
+    double target = 109.0, delay = 109.0, glide = 0.002;   // double: the glide's small steps do not round away
     float g = 0.0f, d = 0.0f, lp = 0.0f, scale = 1.0f;
     bool first = true;
 };

@@ -245,6 +245,7 @@ private:
     void updatePatchLabel();                              // "Patch: name", "*" when changed since (S7.7)
     void showInstrumentMenu();                            // Spec S7.7: whole-instrument presets
     void saveInstrumentAs();
+    bool applyLesson(int number, juce::String& error);   // Spec S7.9
     static juce::File instrumentFolder();
     static juce::File patchFolder();
     // Spec S7.5: module presets.
@@ -270,7 +271,7 @@ private:
     LMWSynthProcessor& processor;
     LMWLookAndFeel lookAndFeel;
     Metrics m = normalMetrics;
-    std::array<Fader, 49> faders;
+    std::array<Fader, 54> faders;
     std::array<Choice, 15> choices;
     std::size_t usedFaders = 0, usedChoices = 0;
     std::vector<Group> groups;

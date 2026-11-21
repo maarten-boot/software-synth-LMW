@@ -111,3 +111,10 @@ CI run 44912586107 for 557e595 (Phase 17): green on all four.
 
 **User:** a, commit the draft
 Decision: lesson presets replace the notes with the lesson's steps (the one exception to S7.7). Committed the tutorial draft and the doc updates.
+
+**User:** pushed, wait for CI (run 44915153897, watching). **User:** global presets look good, VCF parallel/serial ok.
+T-S7.7-listen: pass (T-S5.17-listen was already pass).
+
+**User:** build the lesson presets; and add a delay effect, default sequence comb -> delay -> reverb
+Done (17c, S7.8): src/dsp/Delay.h (stereo, Time with ~50 ms tape-like glide, Feedback, Damping, Spread/ping-pong, Mix); ports delay.in/out, normalled COMB → DELAY → REVERB; Effects tab panel; Schematic block; 69 parameters, 2150 in a host. Found by the glide test: delay times in float stalled about a sample short at long times — Delay and Comb now keep them in double. Test T-S7.8-delay.
+Done (17b lesson presets, S7.9): lesson 9 text updated for the delay; cmake/TutorialText.cmake builds docs/tutorial/Tutorial.md into the program (split at the rulers); src/app/Tutorial.h: lesson sounds, titles and sections from the document, notes as plain text (first try showed raw Markdown); Presets ▸ Tutorial ▸ Lesson 1–11; Lesson 11 keeps the sound. Test T-S7.9-tutorial (30 ctests); Xvfb check. README links the tutorial.

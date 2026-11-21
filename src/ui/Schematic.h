@@ -68,9 +68,10 @@ inline const std::vector<Block>& blocks() {
         {"ENV 2",  Shape::Adsr,     {50, 45, 12, 8},  {In::Env2Gate}, {Out::Env2}},
         {"LFO 2",  Shape::Triangle, {110, 50, 10, 9}, {In::Lfo2Rate}, {Out::Lfo2}},
         // Spec S7.6: the effects rack; MAIN (what is heard) has the line-out symbol OUT had before.
-        {"COMB",   Shape::Triangle, {118, 40, 12, 10}, {In::CombIn}, {Out::CombOut}},
-        {"REVERB", Shape::Triangle, {134, 40, 12, 10}, {In::ReverbIn}, {Out::ReverbOut}},
-        {"MAIN",   Shape::Out,      {150, 41, 8, 8}, {In::MainIn}, {}},
+        {"COMB",   Shape::Triangle, {104, 40, 12, 10}, {In::CombIn}, {Out::CombOut}},
+        {"DELAY",  Shape::Triangle, {120, 40, 12, 10}, {In::DelayIn}, {Out::DelayOut}},   // S7.8
+        {"REVERB", Shape::Triangle, {136, 40, 12, 10}, {In::ReverbIn}, {Out::ReverbOut}},
+        {"MAIN",   Shape::Out,      {152, 41, 8, 8}, {In::MainIn}, {}},
     };
     return b;
 }
@@ -159,7 +160,7 @@ public:
             named[i] = true;
         }
         const auto later = [](std::string_view name) {   // blocks added after Phase 12c
-            return name == "FORMANT" || name == "COMB" || name == "REVERB" || name == "MAIN";
+            return name == "FORMANT" || name == "COMB" || name == "DELAY" || name == "REVERB" || name == "MAIN";
         };
         for (std::size_t i = 0; i < l.pos.size(); ++i) {           // the others: inside, not on each other
             if (!named[i] && later(blocks()[i].name)) continue;

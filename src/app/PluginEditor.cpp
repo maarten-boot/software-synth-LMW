@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "PluginEditor.h"
 #include "app/InstrumentPresets.h"
+#include "app/Tutorial.h"
 #include "ui/Theme.h"
 #include "ui/CableEdit.h"
 #include "LMWVersion.h"
@@ -265,6 +266,13 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
          }),
          addFader(P::combDamping, "Damping", [] { return juce::String("Softens the high resonances"); }),
          addFader(P::combMix, "Mix", [] { return juce::String("Dry/wet: 0 = off (the input passes unchanged), 100 % = only the comb"); })}, {}});
+    // Spec S7.8: DELAY between COMB and REVERB.
+    effectGroups.push_back({"DELAY", 0,
+        {addFader(P::delayTime, "Time", [] { return juce::String("Echo time; moving it while echoes ring bends their pitch (tape-like glide)"); }),
+         addFader(P::delayFeedback, "Feedback", [] { return juce::String("How much of each echo comes back: more = more repeats"); }),
+         addFader(P::delayDamping, "Damping", [] { return juce::String("Each repeat darker than the one before"); }),
+         addFader(P::delaySpread, "Spread", [] { return juce::String("0 = each side echoes itself; 100 % = ping-pong between left and right"); }),
+         addFader(P::delayMix, "Mix", [] { return juce::String("Dry/wet: 0 = off (the input passes unchanged), 100 % = only the echoes"); })}, {}});
     effectGroups.push_back({"REVERB", 0,
         {addFader(P::reverbMix, "Mix", [] { return juce::String("Dry/wet balance: 0 = off (no reverb at all), 100 % = only reverb"); }),
          addFader(P::reverbSize, "Size", [] { return juce::String("Room size: longer decay when larger"); }),
@@ -348,8 +356,9 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
         const std::vector<PortDef> effectPorts = {
             {0, 0, true, out(Out::OutOut), "Out"},
             {1, 4, false, in(In::CombIn), "In"}, {1, 4, true, out(Out::CombOut), "Out"},
-            {2, 0, false, in(In::ReverbIn), "In"}, {2, 0, true, out(Out::ReverbOut), "Out"},
-            {3, 0, false, in(In::MainIn), "In"},
+            {2, 4, false, in(In::DelayIn), "In"}, {2, 4, true, out(Out::DelayOut), "Out"},   // S7.8
+            {3, 0, false, in(In::ReverbIn), "In"}, {3, 0, true, out(Out::ReverbOut), "Out"},
+            {4, 0, false, in(In::MainIn), "In"},
         };
         effectGroupJacks.resize(effectGroups.size());
         for (const auto& d : effectPorts) {
@@ -1867,6 +1876,15 @@ void LMWSynthEditor::showInstrumentMenu() {
         menu.addSectionHeader("Your presets");
         for (int i = 0; i < own.size(); ++i) menu.addItem(1000 + i, own[i].getFileNameWithoutExtension());
     }
+    {   // Spec S7.9: tutorial lessons (their steps go into the notes)
+        juce::PopupMenu lessons;
+        lessons.setLookAndFeel(&lookAndFeel);
+        for (const auto& l : lmw::tutorial::lessons())
+            lessons.addItem(2000 + l.number, "Lesson " + juce::String(l.number) + " " + juce::String::fromUTF8("\xe2\x80\x94 ")
+                                                 + juce::String::fromUTF8(lmw::tutorial::title(l.number).c_str()));
+        menu.addSeparator();
+        menu.addSubMenu("Tutorial (steps in the Notes tab)", lessons);
+    }
     menu.addSeparator();
     menu.addItem(2, "Save as instrument preset...");
     if (folder.isDirectory()) menu.addItem(3, "Show presets folder");
@@ -1892,6 +1910,8 @@ void LMWSynthEditor::showInstrumentMenu() {
                 const auto file = own[result - 1000];
                 ok = safe->processor.loadPatchText(file.loadFileAsString(), error, true);
                 if (!ok) error = file.getFileName() + ": " + error;
+            } else if (result > 2000 && result <= 2000 + static_cast<int>(lmw::tutorial::lessons().size())) {
+                ok = safe->applyLesson(result - 2000, error);
             }
             if (!ok) safe->showError("Cannot use this preset", error);
             safe->refreshPatchInfo();
@@ -1931,4 +1951,29 @@ void LMWSynthEditor::saveInstrumentAs() {
                 [write](int answer) { if (answer == 1) write(); });
         }), true);
     if (auto* field = w->getTextEditor("name")) { field->grabKeyboardFocus(); field->selectAll(); }
+}
+
+// Spec S7.9: a tutorial lesson: its starting sound (base + changes + cables; Lesson 11 keeps the sound) and,
+// as the one exception to S7.7, its steps from docs/tutorial/Tutorial.md in the notes.
+bool LMWSynthEditor::applyLesson(int number, juce::String& error) {
+    const auto& lessons = lmw::tutorial::lessons();
+    const auto it = std::find_if(lessons.begin(), lessons.end(), [number](const auto& l) { return l.number == number; });
+    if (it == lessons.end()) return false;
+    const auto name = "Lesson " + juce::String(number) + " " + juce::String::fromUTF8("\xe2\x80\x94 ")
+                    + juce::String::fromUTF8(lmw::tutorial::title(number).c_str());
+    if (!it->base.empty()) {
+        std::map<std::string, std::string> values;
+        std::string cables = it->cables;
+        if (it->base != "Default") {
+            for (const auto& ins : lmw::instruments::builtIn())
+                if (ins.name == it->base) {
+                    for (const auto& [id, value] : ins.values) values[id] = value;
+                    if (cables.empty()) cables = ins.cables;
+                }
+        }
+        for (const auto& [id, value] : it->values) values[id] = value;   // the lesson's changes win
+        if (!processor.applySound(name, values, cables, error)) return false;
+    }
+    processor.setNotes(juce::String::fromUTF8(lmw::tutorial::notes(number).c_str()));
+    return true;
 }

@@ -372,7 +372,7 @@ int main(int argc, char* argv[]) {
         for (std::size_t at = 0; (at = info.find("{\"id\": ", at)) != std::string::npos; ++at) ++objects;
         std::printf("/info: %zu bytes, %d parameters\n", info.size(), objects);
         CHECK(info.rfind("[\n", 0) == 0 && info.size() > 2 && info.substr(info.size() - 2) == "]\n");
-        CHECK(objects == 64);   // 64 since S7.6 (comb.*), 59 with S5.20
+        CHECK(objects == 69);   // 69 since S7.8 (delay.*), 64 with S7.6, 59 with S5.20
         CHECK(info.find("{\"id\": \"vcf1.cutoff\", \"name\": \"VCF 1 Cutoff\", \"kind\": \"float\", \"min\": 20.0, "
                         "\"max\": 18000.0, \"default\": 18000.0, \"unit\": \"Hz\", \"centre\": 600.0}") != std::string::npos);
         CHECK(info.find("{\"id\": \"vco1.tune\", \"name\": \"VCO 1 Tune\", \"kind\": \"float\", \"min\": -7.0, \"max\": 7.0, "
@@ -486,7 +486,8 @@ int main(int argc, char* argv[]) {
         {
             const auto ports = read9P(sock, {"ports"});
             CHECK(ports.find("input  out.out -> comb.in\n") != std::string::npos
-                  && ports.find("input  comb.out -> reverb.in\n") != std::string::npos
+                  && ports.find("input  comb.out -> delay.in\n") != std::string::npos
+                  && ports.find("input  delay.out -> reverb.in\n") != std::string::npos
                   && ports.find("input  reverb.out -> main.in\n") != std::string::npos);
         }
         CHECK(write9P(sock, {"notes"}, "serial test").empty());

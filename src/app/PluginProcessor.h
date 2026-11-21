@@ -7,6 +7,7 @@
 #include <juce_audio_utils/juce_audio_utils.h>
 #include "dsp/Engine.h"
 #include "dsp/Comb.h"
+#include "dsp/Delay.h"
 #include "dsp/SpscQueue.h"
 #include "dsp/MidiParse.h"
 #include <array>
@@ -73,6 +74,12 @@ inline constexpr const char* combKey      = "comb.key";
 inline constexpr const char* combFeedback = "comb.feedback";
 inline constexpr const char* combDamping  = "comb.damping";
 inline constexpr const char* combMix      = "comb.mix";
+// Spec S7.8: DELAY on the Effects tab.
+inline constexpr const char* delayTime     = "delay.time";
+inline constexpr const char* delayFeedback = "delay.feedback";
+inline constexpr const char* delayDamping  = "delay.damping";
+inline constexpr const char* delaySpread   = "delay.spread";
+inline constexpr const char* delayMix      = "delay.mix";
 }
 
 class LMWSynthProcessor final : public juce::AudioProcessor,
@@ -99,7 +106,7 @@ public:
     // The reverb rings on after the last note (Spec S7.4); without it the sound stops with the notes.
     // Spec S7.6: the comb rings on too (high feedback).
     double getTailLengthSeconds() const override {
-        return raw.revMix->load() > 0.0f ? 10.0 : (raw.combMix->load() > 0.0f ? 2.0 : 0.0);
+        return raw.revMix->load() > 0.0f || raw.delayMix->load() > 0.0f ? 10.0 : (raw.combMix->load() > 0.0f ? 2.0 : 0.0);
     }
 
     int getNumPrograms() override { return 1; }
@@ -236,6 +243,7 @@ private:
     void processEffects(float* left, float* right, int n) noexcept;
     struct Stereo { float l = 0.0f, r = 0.0f; };
     Stereo combSample(Stereo in) noexcept;
+    Stereo delaySample(Stereo in) noexcept;           // Spec S7.8
     Stereo reverbSample(Stereo in, bool stereo) noexcept;
     juce::Reverb::Parameters reverbParameters() const noexcept;
 
@@ -286,7 +294,8 @@ private:
             *e1a{}, *e1d{}, *e1s{}, *e1r{}, *e2a{}, *e2d{}, *e2s{}, *e2r{}, *lfoRate{}, *lfoWave{}, *gain{},
             *lfo2Rate{}, *lfo2Wave{}, *tremolo{}, *revMix{}, *revSize{}, *revDamping{}, *revWidth{},
             *noiseColour{}, *noiseRate{}, *noiseSmooth{},
-            *combFreq{}, *combKey{}, *combFeedback{}, *combDamping{}, *combMix{}, *formantVowel{}, *formantVoice{}, *formantRes{}, *formantMix{}, *vcfRouting{};
+            *combFreq{}, *combKey{}, *combFeedback{}, *combDamping{}, *combMix{},
+            *delayTime{}, *delayFeedback{}, *delayDamping{}, *delaySpread{}, *delayMix{}, *formantVowel{}, *formantVoice{}, *formantRes{}, *formantMix{}, *vcfRouting{};
         std::array<std::atomic<float>*, 2> cutoff{}, resonance{}, vcfEnv{}, vcfKey{}, vcfSlope{}, vcfType{};
         std::array<std::atomic<float>*, 3> wave{}, fm{}, pm{}, octave{}, tune{}, mixVco{};
     } raw;
@@ -300,7 +309,11 @@ private:
     lmw::dsp::Comb combL, combR;
     juce::SmoothedValue<float> combMix;
     bool combRunning = false;
-    Stereo prevComb, prevReverb;                       // last sample's effect outputs (feedback order)
+    // Spec S7.8: DELAY (stereo); Mix 0 = not run.
+    lmw::dsp::Delay delayFx;
+    juce::SmoothedValue<float> delayMix;
+    bool delayRunning = false;
+    Stereo prevComb, prevDelay, prevReverb;            // last sample's effect outputs (feedback order)
 
     JUCE_DECLARE_WEAK_REFERENCEABLE(LMWSynthProcessor)
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(LMWSynthProcessor)

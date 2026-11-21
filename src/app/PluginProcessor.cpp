@@ -123,6 +123,12 @@ APVTS::ParameterLayout LMWSynthProcessor::createLayout(std::map<std::string, Flo
           f(P::combFeedback, "Comb Feedback",  Range(-0.95f, 0.95f), 0.5f, percent),
           f(P::combDamping,  "Comb Damping",   Range(0.0f, 1.0f), 0.2f, percent),
           f(P::combMix,      "Comb Mix",       Range(0.0f, 1.0f), 0.0f, percent));
+    // Spec S7.8: DELAY on the Effects tab. Mix 0 = off (bypassed exactly).
+    l.add(f(P::delayTime,     "Delay Time",     time(2.0f), 0.35f, seconds),
+          f(P::delayFeedback, "Delay Feedback", Range(0.0f, 0.95f), 0.35f, percent),
+          f(P::delayDamping,  "Delay Damping",  Range(0.0f, 1.0f), 0.3f, percent),
+          f(P::delaySpread,   "Delay Spread",   Range(0.0f, 1.0f), 0.5f, percent),
+          f(P::delayMix,      "Delay Mix",      Range(0.0f, 1.0f), 0.0f, percent));
     return l;
 }
 
@@ -144,6 +150,8 @@ LMWSynthProcessor::LMWSynthProcessor()
     raw.revDamping = get(P::reverbDamping); raw.revWidth = get(P::reverbWidth);
     raw.combFreq = get(P::combFreq); raw.combKey = get(P::combKey); raw.combFeedback = get(P::combFeedback);
     raw.combDamping = get(P::combDamping); raw.combMix = get(P::combMix);
+    raw.delayTime = get(P::delayTime); raw.delayFeedback = get(P::delayFeedback); raw.delayDamping = get(P::delayDamping);
+    raw.delaySpread = get(P::delaySpread); raw.delayMix = get(P::delayMix);
     raw.noiseColour = get(P::noiseColour); raw.noiseRate = get(P::noiseRate); raw.noiseSmooth = get(P::noiseSmooth);
     raw.formantVowel = get(P::formantVowel); raw.formantVoice = get(P::formantVoice);
     raw.formantRes = get(P::formantRes); raw.formantMix = get(P::formantMix);
@@ -210,7 +218,11 @@ void LMWSynthProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
     combMix.reset(sampleRate, 0.02);
     combMix.setCurrentAndTargetValue(raw.combMix->load());
     combRunning = false;
-    prevComb = {}; prevReverb = {};
+    delayFx.prepare(sampleRate);                   // allocates: Spec S7.8
+    delayMix.reset(sampleRate, 0.02);
+    delayMix.setCurrentAndTargetValue(raw.delayMix->load());
+    delayRunning = false;
+    prevComb = {}; prevDelay = {}; prevReverb = {};
 }
 
 juce::Reverb::Parameters LMWSynthProcessor::reverbParameters() const noexcept {
@@ -254,14 +266,31 @@ LMWSynthProcessor::Stereo LMWSynthProcessor::combSample(Stereo in) noexcept {
     return out;
 }
 
-// Spec S7.4, S7.6: the effects rack. Effect inputs read out.out (the synth after OUT), comb.out and
-// reverb.out: their normalled sources (out.out -> COMB -> REVERB -> main.in) or their cables. Per sample
-// in the order COMB, REVERB, main; a source later in that order is its previous sample's value.
+// Spec S7.8: DELAY, the same Mix rule.
+LMWSynthProcessor::Stereo LMWSynthProcessor::delaySample(Stereo in) noexcept {
+    if (!delayRunning && !delayMix.isSmoothing() && delayMix.getCurrentValue() <= 0.0f) return in;
+    delayRunning = true;
+    const float m = delayMix.getNextValue();
+    Stereo wet;
+    delayFx.process(in.l, in.r, wet.l, wet.r);
+    const Stereo out{in.l * (1.0f - m) + wet.l * m, in.r * (1.0f - m) + wet.r * m};
+    if (!delayMix.isSmoothing() && delayMix.getCurrentValue() <= 0.0f) {
+        delayFx.reset();
+        delayRunning = false;
+    }
+    return out;
+}
+
+// Spec S7.4, S7.6, S7.8: the effects rack. Effect inputs read out.out (the synth after OUT), comb.out,
+// delay.out and reverb.out: their normalled sources (out.out -> COMB -> DELAY -> REVERB -> main.in) or their
+// cables. Per sample in the order COMB, DELAY, REVERB, main; a source later in that order is its previous sample's value.
 void LMWSynthProcessor::processEffects(float* left, float* right, int n) noexcept {
     using lmw::dsp::In;
     using lmw::dsp::Out;
     reverbMix.setTargetValue(raw.revMix->load());
     combMix.setTargetValue(raw.combMix->load());
+    delayMix.setTargetValue(raw.delayMix->load());
+    delayFx.setParameters(raw.delayTime->load(), raw.delayFeedback->load(), raw.delayDamping->load(), raw.delaySpread->load());
     if (reverbRunning || reverbMix.isSmoothing() || reverbMix.getTargetValue() > 0.0f) reverb.setParameters(reverbParameters());
     {   // COMB frequency with key tracking (newest note), feedback, damping
         const double hz = static_cast<double>(raw.combFreq->load())
@@ -282,15 +311,17 @@ void LMWSynthProcessor::processEffects(float* left, float* right, int n) noexcep
         }
         return r;
     };
-    const Sources comb = sourcesOf(In::CombIn), rev = sourcesOf(In::ReverbIn), mainIn = sourcesOf(In::MainIn);
+    const Sources comb = sourcesOf(In::CombIn), dly = sourcesOf(In::DelayIn), rev = sourcesOf(In::ReverbIn),
+                  mainIn = sourcesOf(In::MainIn);
     const bool stereo = right != nullptr;
     for (int i = 0; i < n; ++i) {
         const Stereo synth{left[i], stereo ? right[i] : left[i]};
-        Stereo combOut = prevComb, revOut = prevReverb;   // until computed this sample
+        Stereo combOut = prevComb, delayOut = prevDelay, revOut = prevReverb;   // until computed this sample
         const auto value = [&](Out o) {
             switch (o) {
                 case Out::OutOut:    return synth;
                 case Out::CombOut:   return combOut;
+                case Out::DelayOut:  return delayOut;
                 case Out::ReverbOut: return revOut;
                 default:             return Stereo{};
             }
@@ -306,11 +337,13 @@ void LMWSynthProcessor::processEffects(float* left, float* right, int n) noexcep
             return t;
         };
         combOut = combSample(sum(comb));
+        delayOut = delaySample(sum(dly));
         revOut = reverbSample(sum(rev), stereo);
         const Stereo out = sum(mainIn);
         left[i] = out.l;
         if (stereo) right[i] = out.r;
         prevComb = combOut;
+        prevDelay = delayOut;
         prevReverb = revOut;
     }
 }

@@ -55,9 +55,9 @@ int main() {
         c.process(0.0f);
         c.setParameters(240.0, 0.5f, 0.0f);
         c.process(0.0f);
-        CHECK(c.delaySamples() < 101.0f);
+        CHECK(c.delaySamples() < 101.0);
         for (int i = 0; i < 4800; ++i) c.process(0.0f);
-        CHECK(std::fabs(c.delaySamples() - 200.0f) < 0.1f);
+        CHECK(std::fabs(c.delaySamples() - 200.0) < 0.01);
     }
     // Infinity in: the delay line stays finite.
     {
