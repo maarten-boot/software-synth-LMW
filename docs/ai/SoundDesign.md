@@ -59,7 +59,7 @@ out.out, main.in) connect only among themselves.
 ## Recipes
 
 - **Male "ooo"**: vco1.wave Pulse, vco1.octave -1, voice.count 1, formant.mix 1, formant.voice Baritone
-  (or Bass), formant.vowel 3-4 (O "oh" to U "ooo"), formant.res 0.6, env1.attack 0.15, env1.release 0.4,
+  (or Bass), formant.vowel 4 (U "ooo"; 3 is O "oh"), formant.res 0.6, env1.attack 0.15, env1.release 0.4,
   lfo1.rate 5.2, vco1.fm 0.12, reverb Chamber. The preset "Male voice (ooo)" is this.
 - **Female "aah" choir**: vco1.wave Pulse, VCO 2 Saw tuned 0.1 st mixed at 0.7, both FM 0.1, voice.count
   12, formant.voice Alto (or Soprano), vowel 0, res 0.6, mix 1, attack 0.35, release 0.9 (preset

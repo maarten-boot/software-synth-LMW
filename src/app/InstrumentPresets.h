@@ -107,7 +107,7 @@ inline const std::vector<Instrument>& builtIn() {
                                          reverb("Concert hall")), {}});
         v.push_back({"Male voice (ooo)", join({solo, {"vco1.wave", "Pulse"}, {"vco1.octave", "-1"}, {"vco1.fm", "0.12"}, {"lfo1.rate", "5.2"},
                                                {"env1.attack", "0.15"}, {"env1.decay", "0.2"}, {"env1.sustain", "0.9"}, {"env1.release", "0.4"},
-                                               {"formant.vowel", "3"}, {"formant.voice", "Baritone"}, {"formant.res", "0.6"},
+                                               {"formant.vowel", "4"}, {"formant.voice", "Baritone"}, {"formant.res", "0.6"},
                                                {"formant.mix", "1"}}, reverb("Chamber")), {}});
         v.push_back({"Violin (PM vibrato)", join({solo, {"vco1.wave", "Saw"}, {"vco1.pm", "0.6"}, {"vco2.wave", "Saw"},
                                                   {"vco2.tune", "0.05"}, {"vco2.pm", "0.6"}, {"mix.vco2", "0.5"}, {"lfo1.rate", "5.5"},

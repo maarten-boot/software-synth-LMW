@@ -42,3 +42,11 @@
 - User asked how to use the MCP later (answered: start the synth, claude mcp add --scope user lmw-synth -- <path>/lmw-mcp, Claude Desktop / Gemini mcpServers entry, ask in plain words; same machine and user, else ninep_tcp). User: commit; will push, wait for CI.
 - User: start the live MCP test. Done with a separate Claude Code session (`claude -p`, --mcp-config with lmw-mcp, --strict-mcp-config, only mcp__lmw-synth tools) against the standalone on Xvfb (HOME in the scratchpad): it read the guide, applied "Male voice (ooo)", changed the vowel from O (3) to U (4) on its own ("the preset leaves the vowel at O"), played, added delay Ping-pong, played, named and saved "Live MCP voice". Verified over 9P and in the header. T-S11-live pass. Finding: the "Male voice (ooo)" preset uses vowel O — asked the user whether it should be U.
 - CI run 45030968959 (f84630f): Ubuntu, Fedora, macOS green; Windows: T-S11-mcp and T-S9.2-host ended with 0xC0000409 (abort). Cause: both tests removed their temp folder while a file in it was still open (std::ifstream); Windows refuses, std::filesystem::remove_all threw, uncaught → abort. Fixed: files closed first, remove_all with error_code; test_mcp output unbuffered.
+
+## "Male voice (ooo)" gets vowel U
+
+User: "change the preset to vowel U". InstrumentPresets.h: formant.vowel 3 → 4; docs/ai/SoundDesign.md recipe now says vowel 4 (U). Native build: 32 of 32 tests pass.
+
+## Question: an assistant tab inside the synth
+
+User: "For musicians inexperienced with computers and setting up servers, would it be possible to add a tab to the synth where the user can configure and ask questions directly to the MCP ?" Answered with a proposed design (Phase 22, not yet in the Plan): an Assistant tab that calls an AI model directly with the MCP tools in-process; open questions on the provider, API key, cost and privacy.
