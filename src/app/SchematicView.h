@@ -46,6 +46,7 @@ public:
     void paint(juce::Graphics&) override;
     void mouseDown(const juce::MouseEvent&) override;
     void mouseMove(const juce::MouseEvent&) override;
+    void mouseExit(const juce::MouseEvent&) override;
     void mouseDrag(const juce::MouseEvent&) override;
     void mouseUp(const juce::MouseEvent&) override;
     bool keyPressed(const juce::KeyPress&) override;
@@ -77,6 +78,7 @@ private:
     std::optional<PortRef> pressed;                  // port the mouse went down on
     std::optional<lmw::ui::cables::Grab> grab;       // cable being dragged
     std::optional<PortRef> target;                   // compatible port under the mouse
+    std::optional<PortRef> hover;                    // port under the mouse: its cables black (user 2026-11-22)
     juce::Point<float> loose;                        // loose end, component coordinates
     std::size_t cursor = 0;                          // keyboard port cursor (index into portOrder())
 

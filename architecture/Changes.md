@@ -3,6 +3,8 @@
 Changes between releases.
 
 ## Unreleased
+- 2026-11-22: Cables are grey at rest and turn black (a little thicker) for the socket under the mouse or with keyboard focus, on the Synth and Schematic tabs, so the cables that matter stand out.
+- 2026-11-22: The effects have colours like the modules: COMB the filter yellow, DELAY and REVERB a lighter yellow (Effects tab, Matrix, Schematic). FORMANT shows Voice first, so its In socket is on the left; on the Effects tab every In socket is on the left and every Out on the right.
 
 ## 1.2.1 (2026-11-21)
 - 2026-11-21: The read-me, the tutorial and the third-party list come as web pages (docs/README.html, Tutorial.html, THIRD_PARTY.html with the screenshots) in every download; the Windows installer adds "LMW-Synth Tutorial" and "LMW-Synth Read me" to the Start menu (Windows often has no program for .md files).

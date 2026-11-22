@@ -157,8 +157,10 @@ private:
         void mouseDrag(const juce::MouseEvent&) override;
         void mouseUp(const juce::MouseEvent&) override;
         bool keyPressed(const juce::KeyPress&) override;
-        void focusGained(FocusChangeType) override { repaint(); }
-        void focusLost(FocusChangeType) override { repaint(); }
+        void focusGained(FocusChangeType) override;
+        void focusLost(FocusChangeType) override;
+        void mouseEnter(const juce::MouseEvent&) override;
+        void mouseExit(const juce::MouseEvent&) override;
         juce::String getTooltip() override;
         juce::Point<float> centreInEditor() const;    // where cables end
         juce::Rectangle<float> socket() const;        // the circle, local coordinates
@@ -170,7 +172,9 @@ private:
         juce::String name;
         bool dragging = false;
     };
-    // Draws all cables above the panels; lets every mouse event through to the controls below.
+    // Draws all cables above the panels; lets every mouse event through to the controls below. Cables are
+    // grey at rest, black (1 px thicker, on top) when an end is the socket under the mouse or with keyboard
+    // focus (user 2026-11-22).
     class CableLayer final : public juce::Component {
     public:
         explicit CableLayer(LMWSynthEditor& e) : editor(e) { setInterceptsMouseClicks(false, false); }
@@ -178,6 +182,7 @@ private:
     private:
         LMWSynthEditor& editor;
     };
+    const Jack* hoverJack = nullptr;    // the socket under the mouse (its cables are drawn black)
     struct CableDrag {                  // a cable being drawn or moved with the mouse
         Jack* fixed = nullptr;          // the end that stays where it is
         int detachedInput = -1;         // moving a cable that was plugged into this input...

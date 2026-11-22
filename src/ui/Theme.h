@@ -19,10 +19,14 @@ inline constexpr Rgb rackDesign{0xF7, 0xF7, 0xF7};
 // Spec S6.8 (user 2026-11-21): the Matrix band behind the row and column under the mouse or pinned;
 // 15.9:1 with black, raised towards white with the contrast preset (white at Max: the labels still invert).
 inline constexpr Rgb bandDesign{0xE0, 0xE0, 0xE0};
+// Spec S6.6, S6.7 (user 2026-11-22): cables at rest are grey, black only for the socket under the mouse or
+// with keyboard focus. Drawn on their own white edge: 5.3:1; darker with the contrast preset (black at Max).
+inline constexpr Rgb cableDesign{0x6B, 0x6B, 0x6B};
 
 // Spec S6.9: unit colours — light tints behind black title text, one per unit type. Units without a
-// colour (KEYS, OUT, effects) keep white.
-enum class Unit : std::uint8_t { None, Vco, Noise, Vcf, Vca, Env, Lfo, Mix, Count };
+// colour (KEYS, OUT, SYNTH, MAIN) keep white. Effects (user 2026-11-22): COMB is a filter (VCF yellow),
+// DELAY and REVERB change the sound like one — a lighter yellow.
+enum class Unit : std::uint8_t { None, Vco, Noise, Vcf, Vca, Env, Lfo, Mix, Effect, Count };
 inline constexpr std::array<Rgb, static_cast<std::size_t>(Unit::Count)> unitDesign{{
     {255, 255, 255},   // None: white
     {255, 179, 179},   // VCO: red
@@ -32,6 +36,7 @@ inline constexpr std::array<Rgb, static_cast<std::size_t>(Unit::Count)> unitDesi
     {179, 209, 255},   // ENV (ADSR): blue
     {217, 179, 255},   // LFO: purple
     {240, 240, 240},   // MIXER: very light grey (user 2026-11-14)
+    {255, 248, 208},   // DELAY, REVERB: very light yellow #FFF8D0 (user 2026-11-22)
 }};
 
 // Unit type of a panel title ("VCO 1", "ENV 2 → VCF") or a port's module name ("vcf1", "lfo2.out"):
@@ -46,7 +51,8 @@ inline constexpr Unit unitOf(std::string_view name) noexcept {
     const std::string_view k(c, 3);
     if (k == "vco") return Unit::Vco;
     if (k == "noi") return Unit::Noise;
-    if (k == "vcf" || k == "for") return Unit::Vcf;      // FORMANT is a filter too (S5.16)
+    if (k == "vcf" || k == "for" || k == "com") return Unit::Vcf;   // FORMANT (S5.16) and COMB (S7.6) are filters too
+    if (k == "del" || k == "rev") return Unit::Effect;   // DELAY (S7.8), REVERB
     if (k == "vca") return Unit::Vca;
     if (k == "env") return Unit::Env;
     if (k == "lfo") return Unit::Lfo;
@@ -65,13 +71,14 @@ struct Palette {
     Rgb blackKeyDown{keyDownDesign};   // pressed black key, against the black keys around it
     Rgb rack{rackDesign};              // behind the panels on the Synth and Effects tabs
     Rgb band{bandDesign};              // Matrix: highlighted row / column
+    Rgb cable{cableDesign};            // cables at rest (Synth and Schematic tabs)
     std::array<Rgb, static_cast<std::size_t>(Unit::Count)> unit{unitDesign};   // title bar fills (S6.9)
 
     Rgb unitColour(Unit u) const noexcept { return unit[static_cast<std::size_t>(u)]; }
 
     // (foreground, background) pairs actually drawn by the GUI.
-    std::array<std::pair<Rgb, Rgb>, 7 + static_cast<std::size_t>(Unit::Count)> pairs() const noexcept {
-        std::array<std::pair<Rgb, Rgb>, 7 + static_cast<std::size_t>(Unit::Count)> p{{
+    std::array<std::pair<Rgb, Rgb>, 8 + static_cast<std::size_t>(Unit::Count)> pairs() const noexcept {
+        std::array<std::pair<Rgb, Rgb>, 8 + static_cast<std::size_t>(Unit::Count)> p{{
             {foreground, background},             // text, faders, value boxes, outlines, cables, black keys
             {background, foreground},             // highlighted menu text, fader cap line, output sockets
             {whiteKeyDown, background},           // pressed white key
@@ -79,9 +86,10 @@ struct Palette {
             {textOn(whiteKeyDown), whiteKeyDown}, // note name (C4) on a pressed white key
             {foreground, rack},                   // panel frames and the drop marker on the rack grey
             {foreground, band},                   // Matrix: rings, strokes and grid on a highlighted band
+            {cable, background},                  // a cable at rest on its white edge
         }};
         for (std::size_t i = 0; i < unit.size(); ++i)
-            p[7 + i] = {foreground, unit[i]};     // black title text, line and focus ring on a unit colour
+            p[8 + i] = {foreground, unit[i]};     // black title text, line and focus ring on a unit colour
         return p;
     }
 };
@@ -93,6 +101,7 @@ inline Palette palette(double minRatio) noexcept {
     p.blackKeyDown = enforceContrast(keyDownDesign, foreground, minRatio);
     p.rack = enforceContrast(rackDesign, foreground, minRatio);
     p.band = enforceContrast(bandDesign, foreground, minRatio);
+    p.cable = enforceContrast(cableDesign, background, minRatio);
     // Unit colours are lightened (towards white) until black text on them meets the ratio; at Max (21:1)
     // that is white, so the bars are black and white like everything else.
     for (std::size_t i = 0; i < p.unit.size(); ++i) p.unit[i] = enforceContrast(unitDesign[i], foreground, minRatio);

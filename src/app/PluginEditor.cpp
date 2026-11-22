@@ -244,10 +244,11 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     // numbers (S6.5: a stored layout without it gets it at the end of its default row).
     const std::size_t formantPanel = groups.size();
     groups.push_back({"FORMANT", 1,
-        {addFader(P::formantVowel, "Vowel", inputTip(In::FormantVowel,
-             "Vowel A, E, I, O, U, gliding in between.\nA signal on the Vowel input adds to it: 1.0 = the whole A to U span.")),
-         addChoice(P::formantVoice, "Voice", {"Bass", "Bari", "Tenor", "Alto", "Sopr", "Child"},
+        // Voice first (user 2026-11-22): the In socket goes under it, on the left; Out stays right.
+        {addChoice(P::formantVoice, "Voice", {"Bass", "Bari", "Tenor", "Alto", "Sopr", "Child"},
                    "Voice type: Bass, Baritone, Tenor, Alto, Soprano or Child (formants from low to high)"),
+         addFader(P::formantVowel, "Vowel", inputTip(In::FormantVowel,
+             "Vowel A, E, I, O, U, gliding in between.\nA signal on the Vowel input adds to it: 1.0 = the whole A to U span.")),
          addFader(P::formantRes, "Reso", [] {
              return juce::String("Sharpness of the formants: 50 % = as sung, higher = narrower peaks");
          }),
@@ -339,7 +340,7 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
             {outPanel, 0, false, in(In::OutIn), "In"},
             {env1Panel, 0, false, in(In::Env1Gate), "Gate"},    {env1Panel, 3, true, out(Out::Env1), "Out"},
             {env2Panel, 0, false, in(In::Env2Gate), "Gate"},    {env2Panel, 3, true, out(Out::Env2), "Out"},
-            {formantPanel, 0, false, in(In::FormantVowel), "Vowel"}, {formantPanel, 3, false, in(In::FormantIn), "In"},
+            {formantPanel, 0, false, in(In::FormantIn), "In"}, {formantPanel, 1, false, in(In::FormantVowel), "Vowel"},
             {formantPanel, 3, true, out(Out::Formant), "Out"},
         };
         for (int n = 0; n < 3; ++n) {                         // FM under FM, Pitch under Tune, Out last
@@ -359,9 +360,10 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
         // Spec S7.6: sockets of the Effects tab (SYNTH, COMB, REVERB, MAIN); shown with that tab.
         const std::vector<PortDef> effectPorts = {
             {0, 0, true, out(Out::OutOut), "Out"},
-            {1, 4, false, in(In::CombIn), "In"}, {1, 4, true, out(Out::CombOut), "Out"},
-            {2, 4, false, in(In::DelayIn), "In"}, {2, 4, true, out(Out::DelayOut), "Out"},   // S7.8
-            {3, 0, false, in(In::ReverbIn), "In"}, {3, 0, true, out(Out::ReverbOut), "Out"},
+            // Inputs on the left, outputs on the right (user 2026-11-22).
+            {1, 0, false, in(In::CombIn), "In"}, {1, 4, true, out(Out::CombOut), "Out"},
+            {2, 0, false, in(In::DelayIn), "In"}, {2, 4, true, out(Out::DelayOut), "Out"},   // S7.8
+            {3, 0, false, in(In::ReverbIn), "In"}, {3, 3, true, out(Out::ReverbOut), "Out"},
             {4, 0, false, in(In::MainIn), "In"},
         };
         effectGroupJacks.resize(effectGroups.size());
@@ -858,6 +860,9 @@ void LMWSynthEditor::paint(juce::Graphics& g) {
         g.setFont(juce::FontOptions(m.titleFont, juce::Font::bold));
         for (const auto& grp : effectGroups) {
             const auto& b = grp.bounds;
+            g.setColour(toJuce(palette.unitColour(lmw::ui::theme::unitOf(grp.title.toStdString()))));   // S6.9
+            g.fillRect(b.withHeight(m.header - 3));
+            g.setColour(kFg);
             g.drawRect(b, 1);
             g.drawText(grp.title, b.getX(), b.getY(), b.getWidth(), m.header - 3, juce::Justification::centred);
             if (const auto label = presetLabel(presetModuleOf(grp.title)); label.isNotEmpty()) {   // Spec S7.5
@@ -1093,21 +1098,28 @@ bool LMWSynthEditor::Jack::keyPressed(const juce::KeyPress& key) {
 
 void LMWSynthEditor::CableLayer::paint(juce::Graphics& g) {
     using lmw::dsp::In;
-    // A cable hangs down a little between its ends; drawn black with a white edge so it stays
-    // visible where it crosses black faders (only black and white, Spec S6.2).
-    const auto draw = [&g](juce::Point<float> a, juce::Point<float> b) {
+    // A cable hangs down a little between its ends; drawn with a white edge so it stays visible where it
+    // crosses black faders (Spec S6.2). Grey at rest; black, 1 px thicker and on top when one of its ends
+    // is the socket under the mouse or with keyboard focus (user 2026-11-22), and while it is dragged.
+    const auto rest = toJuce(editor.palette.cable);
+    const auto draw = [&g](juce::Point<float> a, juce::Point<float> b, juce::Colour colour, bool hot) {
         const float sag = 15.0f + 0.2f * a.getDistanceFrom(b);   // the middle hangs lowest
         juce::Path path;
         path.startNewSubPath(a);
         path.quadraticTo((a + b) * 0.5f + juce::Point<float>(0.0f, sag), b);
-        const juce::PathStrokeType edge(7.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded);
-        const juce::PathStrokeType core(3.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded);
+        const float w = hot ? 4.0f : 3.0f;
+        const juce::PathStrokeType edge(w + 4.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded);
+        const juce::PathStrokeType core(w, juce::PathStrokeType::curved, juce::PathStrokeType::rounded);
         g.setColour(kBg);
         g.strokePath(path, edge);
-        g.setColour(kFg);
+        g.setColour(colour);
         g.strokePath(path, core);
-        for (auto p : {a, b}) g.fillEllipse(juce::Rectangle<float>(9.0f, 9.0f).withCentre(p));   // plugs
+        for (auto p : {a, b}) g.fillEllipse(juce::Rectangle<float>(w + 6.0f, w + 6.0f).withCentre(p));   // plugs
     };
+    const auto* focused = dynamic_cast<const Jack*>(juce::Component::getCurrentlyFocusedComponent());
+    const auto isHot = [&](const Jack* j) { return j != nullptr && (j == editor.hoverJack || j == focused); };
+    struct Line { juce::Point<float> a, b; };
+    std::vector<Line> hot;
     const auto& patch = editor.processor.currentPatch();
     for (int i = 0; i < lmw::dsp::numInputs; ++i) {                // one cable per pin (Spec S5.14)
         const auto in = static_cast<In>(i);
@@ -1116,12 +1128,26 @@ void LMWSynthEditor::CableLayer::paint(juce::Graphics& g) {
             if (editor.drag && editor.drag->detachedInput == i && editor.drag->detachedSource == src) continue;
             auto* from = editor.jackFor(true, src);
             auto* to = editor.jackFor(false, i);
-            if (from != nullptr && to != nullptr && from->isVisible() && to->isVisible())   // this tab's sockets
-                draw(from->centreInEditor(), to->centreInEditor());
+            if (from == nullptr || to == nullptr || !from->isVisible() || !to->isVisible()) continue;   // this tab's sockets
+            if (isHot(from) || isHot(to)) hot.push_back({from->centreInEditor(), to->centreInEditor()});
+            else draw(from->centreInEditor(), to->centreInEditor(), rest, false);
         }
     }
+    for (const auto& l : hot) draw(l.a, l.b, kFg, true);
     if (const auto& d = editor.drag)
-        draw(d->fixed->centreInEditor(), d->target != nullptr ? d->target->centreInEditor() : d->loose);
+        draw(d->fixed->centreInEditor(), d->target != nullptr ? d->target->centreInEditor() : d->loose, kFg, true);
+}
+
+// The cables of the socket under the mouse or with keyboard focus are drawn black (user 2026-11-22).
+void LMWSynthEditor::Jack::focusGained(FocusChangeType) { repaint(); if (editor.cables) editor.cables->repaint(); }
+void LMWSynthEditor::Jack::focusLost(FocusChangeType) { repaint(); if (editor.cables) editor.cables->repaint(); }
+void LMWSynthEditor::Jack::mouseEnter(const juce::MouseEvent&) {
+    editor.hoverJack = this;
+    if (editor.cables) editor.cables->repaint();
+}
+void LMWSynthEditor::Jack::mouseExit(const juce::MouseEvent&) {
+    if (editor.hoverJack == this) editor.hoverJack = nullptr;
+    if (editor.cables) editor.cables->repaint();
 }
 
 LMWSynthEditor::Jack* LMWSynthEditor::jackFor(bool output, int port) const {

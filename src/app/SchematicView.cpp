@@ -235,16 +235,31 @@ void SchematicView::paint(juce::Graphics& g) {
         g.fillPath(head);
     }
     for (std::size_t i = 0; i < sc::blocks().size(); ++i) drawBlock(g, i);
-    for (const auto& c : conns) {
-        if (c.normalled) continue;
-        if (grab && grab->moving() && static_cast<int>(c.to) == grab->detachedInput
-            && static_cast<int>(c.from) == grab->detachedSource) continue;          // being moved
-        const auto path = pathOf(c);
-        g.setColour(kBg);
-        g.strokePath(path, juce::PathStrokeType(lineW * 1.8f + 2.0f * std::max(1.0f, 0.12f * s)));
-        g.setColour(kFg);
-        g.strokePath(path, juce::PathStrokeType(lineW * 1.8f));
+    // Cables grey at rest; black, thicker and on top for the port under the mouse or the keyboard cursor
+    // (user 2026-11-22, as on the Synth tab).
+    std::optional<PortRef> cursorPort;
+    if (hasKeyboardFocus(false)) {
+        const auto order = sc::portOrder();
+        if (cursor < order.size()) cursorPort = PortRef{!order[cursor].input, order[cursor].index};
     }
+    auto hotEnd = [&](const sc::Connection& c) {
+        for (const auto& h : {hover, cursorPort})
+            if (h && ((h->output && h->index == static_cast<int>(c.from)) || (!h->output && h->index == static_cast<int>(c.to))))
+                return true;
+        return false;
+    };
+    for (int pass = 0; pass < 2; ++pass)
+        for (const auto& c : conns) {
+            if (c.normalled || hotEnd(c) != (pass == 1)) continue;
+            if (grab && grab->moving() && static_cast<int>(c.to) == grab->detachedInput
+                && static_cast<int>(c.from) == grab->detachedSource) continue;          // being moved
+            const auto path = pathOf(c);
+            const float w = lineW * (pass == 1 ? 2.4f : 1.8f);
+            g.setColour(kBg);
+            g.strokePath(path, juce::PathStrokeType(w + 2.0f * std::max(1.0f, 0.12f * s)));
+            g.setColour(pass == 1 ? kFg : colour(palette.cable));
+            g.strokePath(path, juce::PathStrokeType(w));
+        }
 
     // Internal link labels just below the arrowheads, on white.
     g.setFont(juce::FontOptions(1.5f * s, juce::Font::italic));
@@ -344,8 +359,10 @@ void SchematicView::paint(juce::Graphics& g) {
     juce::Path solid;
     solid.startNewSubPath(l0.x + 19 * s, l0.y);
     solid.lineTo(l0.x + 24 * s, l0.y);
+    g.setColour(colour(palette.cable));                    // grey at rest (user 2026-11-22)
     g.strokePath(solid, juce::PathStrokeType(lineW * 1.8f));
-    g.drawText("cable (level shown when below 100 %)", juce::Rectangle<float>(l0.x + 25 * s, l0.y - s, 40 * s, 2 * s),
+    g.setColour(kFg);
+    g.drawText("cable (black at the hovered port)", juce::Rectangle<float>(l0.x + 25 * s, l0.y - s, 40 * s, 2 * s),
                juce::Justification::centredLeft, false);
     juce::Path dottedSample, sample2;
     sample2.startNewSubPath(l0.x + 58 * s, l0.y);
@@ -537,8 +554,13 @@ void SchematicView::layoutChanged() {
     if (onLayoutChange) onLayoutChange(shownLayout);
 }
 
+void SchematicView::mouseExit(const juce::MouseEvent&) {
+    if (hover) { hover.reset(); repaint(); }
+}
+
 void SchematicView::mouseMove(const juce::MouseEvent& e) {
     const auto c = toCanvas(e.position);
+    if (const auto h = portUnder(e.position); h != hover) { hover = h; repaint(); }
     if (portUnder(e.position)) setMouseCursor(juce::MouseCursor::CrosshairCursor);
     else if (sc::blockAt(c, layout)) setMouseCursor(juce::MouseCursor::DraggingHandCursor);
     else setMouseCursor(juce::MouseCursor::NormalCursor);
