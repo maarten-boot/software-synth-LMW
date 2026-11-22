@@ -80,6 +80,7 @@ bool has(const std::string& s, const std::string& part) { return s.find(part) !=
 } // namespace
 
 int main() {
+    std::setvbuf(stdout, nullptr, _IONBF, 0);              // FAIL lines shown even if the test aborts
     // JSON: round trip, escapes and surrogate pairs, errors.
     {
         const auto v = json::parse(R"( {"a": [1, 2.5, -3e2, true, false, null], "s": "x\"\n\u00e9\ud83c\udfb9", "o": {}} )");
@@ -183,14 +184,18 @@ int main() {
         const auto t = call(s, "save_instrument_preset", R"({"name":"My bass/1"})", &err);
         const auto file = docs / "LMW-Synth Presets" / "INSTRUMENT" / "My bass_1.lmwpatch";
         CHECK(!err && std::filesystem::exists(file) && has(t, "Your presets"));
-        std::ifstream in(file);
-        const std::string saved((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+        std::string saved;
+        {   // closed before the folder is removed (Windows cannot delete an open file)
+            std::ifstream in(file);
+            saved.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+        }
         CHECK(has(saved, "name = My bass/1\n") && has(saved, "[notes]\nline 1"));
         call(s, "save_instrument_preset", R"({"name":"My bass/1"})", &err);
         CHECK(err);
         call(s, "save_instrument_preset", R"({"name":"My bass/1","overwrite":true})", &err);
         CHECK(!err);
-        std::filesystem::remove_all(docs);
+        std::error_code ec;
+        std::filesystem::remove_all(docs, ec);                 // no exception: a leftover is harmless
     }
     // A lost connection: connected again on the next use; no synth at all: a clear error.
     {

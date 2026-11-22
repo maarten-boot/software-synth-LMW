@@ -498,8 +498,11 @@ int main(int argc, char* argv[]) {
             std::thread mcpThread([&] { code = std::system(run.c_str()); mcpDone = true; });
             for (int i = 0; i < 4000 && !mcpDone; ++i) juce::MessageManager::getInstance()->runDispatchLoopUntil(5);
             mcpThread.join();
-            std::ifstream in(dir / "out.jsonl");
-            const std::string out((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+            std::string out;
+            {   // closed before the folder is removed (Windows cannot delete an open file)
+                std::ifstream in(dir / "out.jsonl");
+                out.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+            }
             const auto has = [&](const char* part) { return out.find(part) != std::string::npos; };
             CHECK(code == 0);
             CHECK(has(R"("serverInfo":{"name":"lmw-mcp")"));
@@ -514,7 +517,8 @@ int main(int argc, char* argv[]) {
                 std::printf("  cables [%s] notes [%s]\n", cablesNow.c_str(), notesNow.c_str());
             std::printf("lmw-mcp end to end: exit %d, %zu bytes of answers\n", code, out.size());
             if (failures > 0) std::printf("%s\n", out.c_str());
-            fs::remove_all(dir);
+            std::error_code ec;
+            fs::remove_all(dir, ec);                             // no exception: a leftover is harmless
             CHECK(write9P(sock, {"cables"}, "clear").empty());
         }
 #endif
