@@ -248,7 +248,9 @@ void SchematicView::paint(juce::Graphics& g) {
                 return true;
         return false;
     };
-    for (int pass = 0; pass < 2; ++pass)
+    const float alpha = palette.cableAlpha();                // Phase 21a: see-through at rest
+    for (int pass = 0; pass < 2; ++pass) {
+        if (pass == 0 && alpha < 1.0f) g.beginTransparencyLayer(alpha);
         for (const auto& c : conns) {
             if (c.normalled || hotEnd(c) != (pass == 1)) continue;
             if (grab && grab->moving() && static_cast<int>(c.to) == grab->detachedInput
@@ -257,9 +259,11 @@ void SchematicView::paint(juce::Graphics& g) {
             const float w = lineW * (pass == 1 ? 2.4f : 1.8f);
             g.setColour(kBg);
             g.strokePath(path, juce::PathStrokeType(w + 2.0f * std::max(1.0f, 0.12f * s)));
-            g.setColour(pass == 1 ? kFg : colour(palette.cable));
+            g.setColour(pass == 1 || alpha < 1.0f ? kFg : colour(palette.cable));
             g.strokePath(path, juce::PathStrokeType(w));
         }
+        if (pass == 0 && alpha < 1.0f) g.endTransparencyLayer();
+    }
 
     // Internal link labels just below the arrowheads, on white.
     g.setFont(juce::FontOptions(1.5f * s, juce::Font::italic));
@@ -359,7 +363,7 @@ void SchematicView::paint(juce::Graphics& g) {
     juce::Path solid;
     solid.startNewSubPath(l0.x + 19 * s, l0.y);
     solid.lineTo(l0.x + 24 * s, l0.y);
-    g.setColour(colour(palette.cable));                    // grey at rest (user 2026-11-22)
+    g.setColour(colour(palette.cable));                    // grey at rest (user 2026-11-22): as a cable looks on white
     g.strokePath(solid, juce::PathStrokeType(lineW * 1.8f));
     g.setColour(kFg);
     g.drawText("cable (black at the hovered port)", juce::Rectangle<float>(l0.x + 25 * s, l0.y - s, 40 * s, 2 * s),

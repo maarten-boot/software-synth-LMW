@@ -73,6 +73,16 @@ int main() {
         CHECK(mx.r == 255 && mx.g == 255 && mx.b == 255);
         std::printf("rack grey, black text: %.1f\n", contrastRatio({0, 0, 0}, lmw::ui::theme::rackDesign));
     }
+    {   // Spec S6.6 (Phase 21a): see-through cables at AA — black at cableAlpha() over white looks like the
+        // cable grey (>= 4.5:1); opaque from AAA up.
+        const auto aa = lmw::ui::theme::palette(4.5);
+        const float a = aa.cableAlpha();
+        const auto v = static_cast<std::uint8_t>(std::lround(255.0 * (1.0 - a)));
+        CHECK(a > 0.5f && a < 0.65f && std::abs(int(v) - int(aa.cable.r)) <= 1);
+        CHECK(contrastRatio({v, v, v}, {255, 255, 255}) >= 4.5);
+        CHECK(lmw::ui::theme::palette(7.0).cableAlpha() == 1.0f && lmw::ui::theme::palette(21.0).cableAlpha() == 1.0f);
+        std::printf("cable at rest: black at %.0f %% = #%02X%02X%02X on white\n", a * 100.0, v, v, v);
+    }
     const auto maxPal = lmw::ui::theme::palette(21.0);
     CHECK(maxPal.whiteKeyDown.r == 0 && maxPal.blackKeyDown.r == 255);
 

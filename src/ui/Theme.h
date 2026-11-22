@@ -75,6 +75,14 @@ struct Palette {
     std::array<Rgb, static_cast<std::size_t>(Unit::Count)> unit{unitDesign};   // title bar fills (S6.9)
 
     Rgb unitColour(Unit u) const noexcept { return unit[static_cast<std::size_t>(u)]; }
+    // Spec S6.6 (Phase 21a): cables at rest are drawn see-through — black (with a white edge) at this
+    // opacity, so on white they look exactly like `cable` and the panels show through; opaque (1) from
+    // AAA 7:1 up, where `cable` itself is drawn.
+    float cableAlpha() const noexcept {
+        if (minRatio >= 7.0) return 1.0f;
+        const float grey = (static_cast<float>(cable.r) + static_cast<float>(cable.g) + static_cast<float>(cable.b)) / (3.0f * 255.0f);
+        return 1.0f - grey;
+    }
 
     // (foreground, background) pairs actually drawn by the GUI.
     std::array<std::pair<Rgb, Rgb>, 8 + static_cast<std::size_t>(Unit::Count)> pairs() const noexcept {

@@ -3,6 +3,7 @@
 Changes between releases.
 
 ## Unreleased
+- 2026-11-22: Cables at rest are see-through, so the controls under them stay readable (fully solid at the AAA and Max contrast settings).
 - 2026-11-22: lmw-mcp: an AI assistant you are logged in to (Claude Code, Claude Desktop, Gemini CLI) can set up sounds for you — "make a male ooo voice" — by reading and setting parameters, cables and presets, playing notes to listen and saving the result as your own preset (README "AI assistant"). In every download; on Windows with "Command-line tools".
 - 2026-11-22: The 9P refusal for a cable between synth and effect sockets reads "is an effect input" (was "is a effect input").
 - 2026-11-22: Cables are grey at rest and turn black (a little thicker) for the socket under the mouse or with keyboard focus, on the Synth and Schematic tabs, so the cables that matter stand out.

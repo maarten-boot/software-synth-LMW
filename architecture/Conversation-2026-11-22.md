@@ -32,3 +32,6 @@
 
 - Chosen (user): a header Menu button (standalone and DAW) plus the same items in the standalone Options menu; cables at rest 55 % opaque; keyboard hidden/shown by menu item, a small button and Ctrl+K; themes as presets plus own colours.
 - Spec S6.11 (menu), S6.12 (keyboard), S6.13 (themes), S6.6 (see-through cables); Plan 21a–21d.
+- User: commit the docs (68c5670) and start 21a. Found: 55 % of the grey would look #AEAEAE on white (2.2:1); instead black at 58 % in one transparency layer looks exactly #6B6B6B (5.3:1) and lets the panels show through; opaque from AAA. Synth and Schematic tabs; test_contrast extended; native 32/32; Xvfb checked.
+- 21a: build-u24 rebuilt (32/32) for the preview.
+- User (future): no stereo/panning yet — an extra VCA? are the effects stereo? And a dynamic compact view: panels not being worked on narrow down (width only), the active one full width. Answered (effects already stereo, the voice chain mono; proposal a per-voice PAN module; dynamic view: expand on click, pinning, animation) and noted as Plan L8 and L9.

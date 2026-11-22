@@ -1101,7 +1101,10 @@ void LMWSynthEditor::CableLayer::paint(juce::Graphics& g) {
     // A cable hangs down a little between its ends; drawn with a white edge so it stays visible where it
     // crosses black faders (Spec S6.2). Grey at rest; black, 1 px thicker and on top when one of its ends
     // is the socket under the mouse or with keyboard focus (user 2026-11-22), and while it is dragged.
-    const auto rest = toJuce(editor.palette.cable);
+    // Phase 21a: at rest see-through — black in one transparency layer at cableAlpha() (looks like the
+    // cable grey on white); from AAA up the cable grey itself, opaque.
+    const float alpha = editor.palette.cableAlpha();
+    const auto rest = alpha < 1.0f ? kFg : toJuce(editor.palette.cable);
     const auto draw = [&g](juce::Point<float> a, juce::Point<float> b, juce::Colour colour, bool hot) {
         const float sag = 15.0f + 0.2f * a.getDistanceFrom(b);   // the middle hangs lowest
         juce::Path path;
@@ -1119,7 +1122,7 @@ void LMWSynthEditor::CableLayer::paint(juce::Graphics& g) {
     const auto* focused = dynamic_cast<const Jack*>(juce::Component::getCurrentlyFocusedComponent());
     const auto isHot = [&](const Jack* j) { return j != nullptr && (j == editor.hoverJack || j == focused); };
     struct Line { juce::Point<float> a, b; };
-    std::vector<Line> hot;
+    std::vector<Line> hot, calm;
     const auto& patch = editor.processor.currentPatch();
     for (int i = 0; i < lmw::dsp::numInputs; ++i) {                // one cable per pin (Spec S5.14)
         const auto in = static_cast<In>(i);
@@ -1130,8 +1133,13 @@ void LMWSynthEditor::CableLayer::paint(juce::Graphics& g) {
             auto* to = editor.jackFor(false, i);
             if (from == nullptr || to == nullptr || !from->isVisible() || !to->isVisible()) continue;   // this tab's sockets
             if (isHot(from) || isHot(to)) hot.push_back({from->centreInEditor(), to->centreInEditor()});
-            else draw(from->centreInEditor(), to->centreInEditor(), rest, false);
+            else calm.push_back({from->centreInEditor(), to->centreInEditor()});
         }
+    }
+    if (!calm.empty()) {
+        if (alpha < 1.0f) g.beginTransparencyLayer(alpha);
+        for (const auto& l : calm) draw(l.a, l.b, rest, false);
+        if (alpha < 1.0f) g.endTransparencyLayer();
     }
     for (const auto& l : hot) draw(l.a, l.b, kFg, true);
     if (const auto& d = editor.drag)
