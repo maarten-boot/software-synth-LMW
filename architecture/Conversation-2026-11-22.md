@@ -27,3 +27,8 @@
 - The Ubuntu 24 container build found T-S9.8-html failing on the README's new link to docs/ai/SoundDesign.md on GitHub: the test now allows .md links to GitHub (local links must still point to the HTML copies). Container 32/32; build-u24 has lmw-mcp.
 - User ideas during the work: cables transparent when grey; About and the contrast settings into the Options top-bar menu; hide/show the keyboard; a Theme menu in Options for personal colours. Noted as Plan Phase 21 (to discuss).
 - User: commit Phase 18; then work out Phase 21; expects C++ was chosen for speed — answered: mainly no install dependency and reuse of the C++ 9P and preset code (speed hardly matters for tool calls).
+
+## Phase 21 worked out
+
+- Chosen (user): a header Menu button (standalone and DAW) plus the same items in the standalone Options menu; cables at rest 55 % opaque; keyboard hidden/shown by menu item, a small button and Ctrl+K; themes as presets plus own colours.
+- Spec S6.11 (menu), S6.12 (keyboard), S6.13 (themes), S6.6 (see-through cables); Plan 21a–21d.
