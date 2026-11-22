@@ -98,3 +98,8 @@ User: "yes, commit and start 22d". 22c committed (631eab7).
 - Spending limit: at the limit the next question asks "Go on?"; Go on allows the same amount again.
 - Fixed while testing: "Settings...." (four dots) in the limit message.
 - User (mid-work): "all ai config worked and testest all soper for release" — read as: the AI settings worked and everything tested fine ("super"), ready for release. Recorded as T-S12-live pass.
+- Committed 22d (db8b58c).
+- User: "yes, commit and prepare release 1.3.0".
+- CI check: 3 releases (1.0.0, 1.1.0, 1.2.1) but no artifacts older than 14 days (231 artifacts, none before 2026-11-08): no cleanup warning.
+- Upgrade check (T-S9.6-upgrade-1.3): 1.2.1 download on Xvfb → sound, cables, notes over 9P, closed → the 1.3.0 build on the same settings: /patch identical, patch text round trip ok, window 1496 × 904. Download and test home removed from the scratchpad.
+- Prepared: CMakeLists 1.3.0, Changes "## 1.3.0 (2026-11-22)" (Assistant tab, Male voice vowel, upgrade note, the Phase 18/21 entries), Spec S6.10, Plan row 1.3.0, Tests.

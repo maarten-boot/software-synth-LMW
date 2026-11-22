@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(LMWSynth VERSION 1.2.1 LANGUAGES C CXX)   # Spec S6.10: raised with every release
+project(LMWSynth VERSION 1.3.0 LANGUAGES C CXX)   # Spec S6.10: raised with every release
 include(cmake/TutorialText.cmake)   # Spec S7.9: docs/tutorial/Tutorial.md -> generated/TutorialText.h
 include(cmake/GuideText.cmake)      # Spec S11.5: docs/ai/SoundDesign.md -> generated/GuideText.h
 

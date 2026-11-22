@@ -3,6 +3,11 @@
 Changes between releases.
 
 ## Unreleased
+
+## 1.3.0 (2026-11-22)
+- 2026-11-22: Patches and saved settings from 1.2.1 load unchanged (the same sound, cables, notes and panel layout); the window is 20 px taller for the keyboard button strip.
+- 2026-11-22: Assistant tab (stand-alone program): describe a sound or ask a question in your own words ("make it darker", "a soft flute with a slow attack"); Claude answers, changes the sound, plays notes to listen and says in plain lines what it changed. Undo last answer puts the sound back; saving a preset is always asked first. The running cost is shown, with a spending limit per session (default $2, asks before going on). Needs a Claude API key from the Claude Console: Settings... in the tab (Paste, Test connection, model, effort, kept in the system keychain or the settings file) and How to get a key... (tutorial Lesson 12). A privacy notice says once what is sent. Not in the VST3 plugin.
+- 2026-11-22: Instrument preset "Male voice (ooo)" uses vowel U instead of O.
 - 2026-11-22: Themes: Menu ▸ Theme offers Default, Soft, Vivid and Monochrome, and Edit colours... to choose your own colour for every unit, the greys, and the cables' colour and see-through amount (kept in config.ini; every colour still meets the contrast setting). Save theme as... keeps your colours by name; they appear under "Your themes" (files in Documents/LMW-Synth Presets/THEME).
 - 2026-11-22: The on-screen keyboard can be hidden (Menu ▸ Show keyboard, Ctrl+K, or the small keyboard button); the window gets shorter and the computer keys keep playing.
 - 2026-11-22: A Menu button in the header holds About and the contrast settings (the header has more room); the standalone window's Options menu has the same items.
