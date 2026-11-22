@@ -56,3 +56,9 @@ User: "For musicians inexperienced with computers and setting up servers, would 
 CI run 45041576652 for 7fbc969: Ubuntu, Fedora, macOS and Windows green (the Windows test fix works). Plan: Phase 18 and 21 marked done.
 
 User: "yes, commit and add phase 22 to the plan; for starters Claude first later also OPenAI compatible. Yes showing the running cost is a grand feedback. key store allow both options (harder configs tend to discourage musiscians) for now aonly in the standalone (we can save presets to work with later) Privacy: yes good idea." (Read as: OpenAI, musicians, only.) Committed the vowel change (e5be9b9); Plan Phase 22 with 22a core, 22b tab, 22c settings, 22d cost and privacy, 22e OpenAI-compatible later.
+
+## Spec S12 (Assistant tab) drafted
+
+User: "pushed, start the Spec for phase 22". Spec S12.1–S12.10 written (in-process tools from src/mcp/Server.h, raw HTTPS Messages API with anthropic-version 2026-10-21, tool loop, tab, settings with both key stores, cost from the usage fields, privacy notice, safety and error texts, OpenAI-compatible later); Tests T-S12-client, T-S12-key, T-S12-tab, T-S12-live planned; Plan 22a–22d point to their S12 items. Proposals for the user to confirm: default model Opus 5.5, spending limit $2 per session, not streamed at first, 20 steps per question, server-side fallback on.
+
+User: "all ok, commit the spec and start 22a; make the spending limit default 2$ but configurable by the users". S12.7: limit set in the settings dialog, kept in config.ini (assistant_limit). Spec committed; 22a started.
