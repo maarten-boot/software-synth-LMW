@@ -50,3 +50,9 @@ User: "change the preset to vowel U". InstrumentPresets.h: formant.vowel 3 → 4
 ## Question: an assistant tab inside the synth
 
 User: "For musicians inexperienced with computers and setting up servers, would it be possible to add a tab to the synth where the user can configure and ask questions directly to the MCP ?" Answered with a proposed design (Phase 22, not yet in the Plan): an Assistant tab that calls an AI model directly with the MCP tools in-process; open questions on the provider, API key, cost and privacy.
+
+## CI green; Phase 22 (Assistant tab) planned
+
+CI run 45041576652 for 7fbc969: Ubuntu, Fedora, macOS and Windows green (the Windows test fix works). Plan: Phase 18 and 21 marked done.
+
+User: "yes, commit and add phase 22 to the plan; for starters Claude first later also OPenAI compatible. Yes showing the running cost is a grand feedback. key store allow both options (harder configs tend to discourage musiscians) for now aonly in the standalone (we can save presets to work with later) Privacy: yes good idea." (Read as: OpenAI, musicians, only.) Committed the vowel change (e5be9b9); Plan Phase 22 with 22a core, 22b tab, 22c settings, 22d cost and privacy, 22e OpenAI-compatible later.
