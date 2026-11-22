@@ -4,6 +4,7 @@
 //   contrast_ratio = 4.5 .. 21          (used with Custom)
 //   compact        = true | false       (default view for a new window; a saved state overrides it)
 //   ninep_tcp      = [host:]port        (also serve 9P over TCP; empty = off; host default 127.0.0.1)
+//   keyboard       = shown | hidden     (on-screen keyboard for a new window, Spec S6.12; a saved state overrides it)
 // Unknown keys and unreadable values are ignored (the default is kept). Pure C++, no JUCE.
 #pragma once
 #include "ui/Contrast.h"
@@ -22,6 +23,7 @@ struct Settings {
     ContrastPreset contrast = ContrastPreset::AA;
     double customRatio = 7.0;
     std::optional<bool> compact;
+    std::optional<bool> keyboard;              // Spec S6.12: shown (true) / hidden
     std::string ninepTcp;                      // Spec S10.4: "" = no TCP
 
     // ninep_tcp as host and port; nothing when off or unreadable.
@@ -75,6 +77,10 @@ inline Settings parseConfig(std::string_view text) {
             const auto v = detail::lower(value);
             if (v == "true" || v == "yes" || v == "1") s.compact = true;
             else if (v == "false" || v == "no" || v == "0") s.compact = false;
+        } else if (key == "keyboard") {
+            const auto v = detail::lower(value);
+            if (v == "shown" || v == "show" || v == "true" || v == "yes" || v == "1") s.keyboard = true;
+            else if (v == "hidden" || v == "hide" || v == "false" || v == "no" || v == "0") s.keyboard = false;
         }
     }
     return s;
@@ -93,6 +99,8 @@ inline std::string writeConfig(const Settings& s) {
     out += "ninep_tcp = " + s.ninepTcp + "\n";
     if (s.compact) out += std::string("# compact: default view for a new window (a saved state overrides it)\ncompact = ")
                         + (*s.compact ? "true" : "false") + "\n";
+    if (s.keyboard) out += std::string("# keyboard: on-screen keyboard shown or hidden in a new window (a saved state overrides it)\nkeyboard = ")
+                         + (*s.keyboard ? "shown" : "hidden") + "\n";
     return out;
 }
 

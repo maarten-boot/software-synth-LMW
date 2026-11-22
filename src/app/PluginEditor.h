@@ -220,6 +220,8 @@ public:
     void handleMenuItem(int id);
 private:
     void showMainMenu();
+    void setKeyboardShown(bool shown);                    // Spec S6.12
+    int keyStripH() const { return m.colW >= 80 ? 20 : 17; }   // the strip with the keyboard button
     static juce::Component::SafePointer<juce::Component> focusNow();   // around popup menus (S3.2)
     void restoreFocus(juce::Component::SafePointer<juce::Component> c);
     void setCompact(bool compact);
@@ -345,6 +347,8 @@ private:
         const lmw::ui::theme::Palette& pal;
     };
     Keyboard keyboard;
+    bool keyboardShown = true;                            // Spec S6.12
+    juce::TextButton keyboardButton;                      // "▾ keyboard" / "▴ keyboard"
     juce::TooltipWindow tooltips{this, 2000};   // hover texts appear after 2 s
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(LMWSynthEditor)

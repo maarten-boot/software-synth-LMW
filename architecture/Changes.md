@@ -3,6 +3,7 @@
 Changes between releases.
 
 ## Unreleased
+- 2026-11-22: The on-screen keyboard can be hidden (Menu ▸ Show keyboard, Ctrl+K, or the small keyboard button); the window gets shorter and the computer keys keep playing.
 - 2026-11-22: A Menu button in the header holds About and the contrast settings (the header has more room); the standalone window's Options menu has the same items.
 - 2026-11-22: Cables at rest are see-through, so the controls under them stay readable (fully solid at the AAA and Max contrast settings).
 - 2026-11-22: lmw-mcp: an AI assistant you are logged in to (Claude Code, Claude Desktop, Gemini CLI) can set up sounds for you — "make a male ooo voice" — by reading and setting parameters, cables and presets, playing notes to listen and saving the result as your own preset (README "AI assistant"). In every download; on Windows with "Command-line tools".

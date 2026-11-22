@@ -101,6 +101,11 @@ int main() {
         Settings w; w.contrast = ContrastPreset::Max; w.compact = false;
         const auto r2 = parseConfig(writeConfig(w));
         CHECK(r2.contrast == ContrastPreset::Max && r2.compact == false);
+        // Spec S6.12: keyboard shown / hidden (unset by default; shown|hidden and yes/no forms).
+        CHECK(!parseConfig("").keyboard && parseConfig("keyboard = hidden").keyboard == false
+              && parseConfig("keyboard=Shown").keyboard == true && !parseConfig("keyboard = maybe").keyboard);
+        Settings k; k.keyboard = false;
+        CHECK(parseConfig(writeConfig(k)).keyboard == false && writeConfig(k).find("keyboard = hidden") != std::string::npos);
         // Spec S10.4: 9P over TCP, off by default.
         CHECK(!parseConfig("").tcpEndpoint());
         const auto tcp = parseConfig("ninep_tcp = 5640").tcpEndpoint();

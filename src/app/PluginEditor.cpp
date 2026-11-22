@@ -88,6 +88,7 @@ void LMWLookAndFeel::drawLinearSlider(juce::Graphics& g, int x, int y, int width
 
 namespace {
 const juce::Identifier kCompactProp{"uiCompact"};   // stored in the plugin/standalone state
+const juce::Identifier kKeyboardProp{"uiKeyboard"}; // Spec S6.12: on-screen keyboard shown
 const juce::Identifier kLayoutProp{"uiLayout"};     // rack layout (Spec S6.5), RackLayout::serialize()
 constexpr int kMaxRows = 4;
 
@@ -476,6 +477,11 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     keyboard.setKeyPressBaseOctave(5);
     keyboard.setAvailableRange(21, 108);
     addAndMakeVisible(keyboard);
+    // Spec S6.12: hide / show the keyboard (also Menu and Ctrl+K); computer keys and MIDI keep playing.
+    keyboardButton.setTooltip("Hide or show the on-screen keyboard (Ctrl+K). The computer keys keep playing.");
+    keyboardButton.onClick = [this] { setKeyboardShown(!keyboardShown); };
+    addAndMakeVisible(keyboardButton);
+    setWantsKeyboardFocus(true);                 // the computer keys when the keyboard is hidden
 
     // Child widgets (e.g. slider value boxes) take their colours when created, before they had this
     // look-and-feel; re-send it so every child uses the black-on-white theme (Spec S6.2).
@@ -484,6 +490,9 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     // A saved state's view wins; a new window starts with the config file's default.
     const bool compact = processor.state().state.getProperty(kCompactProp, settings.compact.value_or(false));
     compactButton.setToggleState(compact, juce::dontSendNotification);
+    keyboardShown = processor.state().state.getProperty(kKeyboardProp, settings.keyboard.value_or(true));
+    keyboard.setVisible(keyboardShown);
+    keyboardButton.setButtonText(juce::String::fromUTF8(keyboardShown ? "\xe2\x96\xbe keyboard" : "\xe2\x96\xb4 keyboard"));
     setCompact(compact);                         // sets the window size
 
     cables = std::make_unique<CableLayer>(*this);   // last child: drawn above the panels
@@ -539,7 +548,24 @@ bool LMWSynthEditor::isTypingText() {
 }
 
 bool LMWSynthEditor::keyPressed(const juce::KeyPress& key) {
+    if (key == juce::KeyPress('k', juce::ModifierKeys::commandModifier, 0)) {   // Spec S6.12: Ctrl+K (Cmd+K)
+        setKeyboardShown(!keyboardShown);
+        return true;
+    }
     return !isTypingText() && keyboard.keyPressed(key);
+}
+
+void LMWSynthEditor::setKeyboardShown(bool shown) {
+    const bool hadFocus = keyboard.hasKeyboardFocus(true);
+    keyboardShown = shown;
+    processor.state().state.setProperty(kKeyboardProp, shown, nullptr);
+    settings.keyboard = shown;                    // default for new windows (config file)
+    saveConfig();
+    keyboard.setVisible(shown);
+    keyboardButton.setButtonText(juce::String::fromUTF8(shown ? "\xe2\x96\xbe keyboard" : "\xe2\x96\xb4 keyboard"));
+    updateSize();
+    if (hadFocus || !shown) grabKeyboardFocus();  // the computer keys keep playing
+    if (shown && hadFocus) keyboard.grabKeyboardFocus();
 }
 
 bool LMWSynthEditor::keyStateChanged(bool isKeyDown) {
@@ -634,7 +660,8 @@ void LMWSynthEditor::updateSize() {
     const int rows = static_cast<int>(rack->rows().size());
     const int pad = m.gap + 2;
     // title, gap, rows with gaps between, gap, keyboard
-    setSize(pad + width + pad, pad + m.titleH + m.gap + rows * m.rowH + (rows - 1) * m.gap + m.gap + m.keysH + pad);
+    setSize(pad + width + pad, pad + m.titleH + m.gap + rows * m.rowH + (rows - 1) * m.gap + m.gap + keyStripH()
+                                   + (keyboardShown ? m.keysH : 0) + pad);
     resized();
     repaint();
 }
@@ -833,7 +860,7 @@ void LMWSynthEditor::paint(juce::Graphics& g) {
     if (currentTab == 0 || currentTab == 1) {                // Spec S6.2: light grey around the panels, panels white
         const int top = juce::roundToInt(lineY) + 1;
         g.setColour(toJuce(palette.rack));
-        g.fillRect(0, top, getWidth(), keyboard.getY() - top);
+        g.fillRect(0, top, getWidth(), keyboardButton.getY() - 1 - top);   // down to the keyboard strip (S6.12)
         g.setColour(kBg);
         if (currentTab == 0) for (const auto& grp : groups) g.fillRect(grp.bounds);
         else for (const auto& grp : effectGroups) g.fillRect(grp.bounds);
@@ -936,7 +963,11 @@ void LMWSynthEditor::resized() {
     title.removeFromLeft(m.gap);
     patchLabel.setBounds(title);
     area.removeFromTop(m.gap);
-    keyboard.setBounds(area.removeFromBottom(m.keysH));
+    if (keyboardShown) keyboard.setBounds(area.removeFromBottom(m.keysH));   // Spec S6.12
+    {
+        auto strip = area.removeFromBottom(keyStripH());
+        keyboardButton.setBounds(strip.removeFromRight(m.colW >= 80 ? 96 : 84).reduced(0, 1));
+    }
     // The 88 keys (52 white) fill the window; a window narrower than 52 x 16 px scrolls.
     keyboard.setKeyWidth(std::max(16.0f, static_cast<float>(keyboard.getWidth()) / 52.0f));
     area.removeFromBottom(m.gap);
@@ -1327,6 +1358,11 @@ void LMWSynthEditor::addMenuItems(juce::PopupMenu& m) const {
     else std::snprintf(text, sizeof text, "Custom...");
     contrast.addItem(menuFirstId + 14, text, true, c == lmw::ui::ContrastPreset::Custom);
     m.addSubMenu("Contrast", contrast);
+    juce::PopupMenu::Item keys("Show keyboard");          // Spec S6.12
+    keys.itemID = menuFirstId + 21;
+    keys.isTicked = keyboardShown;
+    keys.shortcutKeyDescription = juce::KeyPress('k', juce::ModifierKeys::commandModifier, 0).getTextDescriptionWithIcons();
+    m.addItem(keys);
 }
 
 void LMWSynthEditor::handleMenuItem(int id) {
@@ -1337,6 +1373,7 @@ void LMWSynthEditor::handleMenuItem(int id) {
             applyContrast();
             break;
         case 14: askCustomRatio(); break;
+        case 21: setKeyboardShown(!keyboardShown); break;
         default: break;
     }
 }
@@ -1524,7 +1561,7 @@ void LMWSynthEditor::showAbout() {
 void LMWSynthEditor::showTab(int tab) {
     currentTab = tab;
     const juce::Component* alwaysShown[] = {&titleButton, &instrumentButton, &panelTab, &effectsTab, &matrixTab, &schematicTab, &notesTab, &patchLabel, &loadButton,
-                                            &saveButton, &menuButton, &resetLayoutButton, &compactButton, &keyboard};
+                                            &saveButton, &menuButton, &resetLayoutButton, &compactButton, &keyboard, &keyboardButton};
     for (auto* child : getChildren()) {
         if (child == &notesEditor || child == matrix.get() || child == schematic.get()
             || std::find(std::begin(alwaysShown), std::end(alwaysShown), child) != std::end(alwaysShown))
