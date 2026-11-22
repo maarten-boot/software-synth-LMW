@@ -259,7 +259,7 @@ void SchematicView::paint(juce::Graphics& g) {
             const float w = lineW * (pass == 1 ? 2.4f : 1.8f);
             g.setColour(kBg);
             g.strokePath(path, juce::PathStrokeType(w + 2.0f * std::max(1.0f, 0.12f * s)));
-            g.setColour(pass == 1 || alpha < 1.0f ? kFg : colour(palette.cable));
+            g.setColour(pass == 1 ? kFg : colour(palette.cableDrawn()));
             g.strokePath(path, juce::PathStrokeType(w));
         }
         if (pass == 0 && alpha < 1.0f) g.endTransparencyLayer();

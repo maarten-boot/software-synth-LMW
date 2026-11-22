@@ -83,6 +83,57 @@ int main() {
         CHECK(lmw::ui::theme::palette(7.0).cableAlpha() == 1.0f && lmw::ui::theme::palette(21.0).cableAlpha() == 1.0f);
         std::printf("cable at rest: black at %.0f %% = #%02X%02X%02X on white\n", a * 100.0, v, v, v);
     }
+    {   // Spec S6.13 (Phase 21d): themes. Every preset at every ratio: all pairs meet it; Default = the
+        // designs; Soft paler, Vivid stronger, Monochrome without hue; Vivid black text >= 8:1 by design.
+        using namespace lmw::ui::theme;
+        for (int t = 0; t < 4; ++t)
+            for (double r : {4.5, 7.0, 12.0, 21.0}) {
+                const auto pal = palette(r, presetColours(static_cast<ThemePreset>(t)));
+                for (const auto& [fg, bg] : pal.pairs()) CHECK(contrastRatio(fg, bg) >= r - 1e-9);
+            }
+        const auto def = presetColours(ThemePreset::Default), soft = presetColours(ThemePreset::Soft),
+                   vivid = presetColours(ThemePreset::Vivid), mono = presetColours(ThemePreset::Monochrome);
+        CHECK(def.unit == unitDesign && def.cable.r == cableDesign.r);
+        for (std::size_t i = 1; i < unitDesign.size(); ++i) {
+            CHECK(relativeLuminance(soft.unit[i]) >= relativeLuminance(def.unit[i]));
+            CHECK(contrastRatio({0, 0, 0}, vivid.unit[i]) >= 8.0);
+            CHECK(mono.unit[i].r == mono.unit[i].g && mono.unit[i].g == mono.unit[i].b);
+        }
+        CHECK(parseTheme("vivid") == ThemePreset::Vivid && parseTheme("MONOCHROME") == ThemePreset::Monochrome && !parseTheme("pink"));
+        // A dark user colour is lightened until black text on it meets the ratio; a light cable is darkened.
+        Colours dark; itemColour(dark, 0) = {90, 0, 0}; itemColour(dark, 10) = {240, 240, 240};
+        const auto pd = palette(4.5, dark);
+        CHECK(contrastRatio({0, 0, 0}, pd.unit[static_cast<std::size_t>(Unit::Vco)]) >= 4.5 - 1e-9);
+        CHECK(contrastRatio(pd.cable, {255, 255, 255}) >= 4.5 - 1e-9);
+        // config.ini: theme and colour lines; Custom = Default with the user's colours.
+        CHECK(lmw::ui::parseHexColour("#ff8000").has_value() && lmw::ui::parseHexColour("FF8000")->g == 0x80
+              && !lmw::ui::parseHexColour("#ff80") && !lmw::ui::parseHexColour("#gg0000"));
+        const auto cs = lmw::ui::parseConfig("theme = custom\ncolor_vco = #102030\ncolour_cable=#404040\ncolor_nope = #000000\n");
+        CHECK(cs.theme == ThemePreset::Custom && cs.custom[0] && cs.custom[0]->g == 0x20 && cs.custom[10]->r == 0x40);
+        CHECK(cs.colours().unit[static_cast<std::size_t>(Unit::Vco)].r == 0x10 && cs.colours().unit[static_cast<std::size_t>(Unit::Env)].b == unitDesign[5].b);
+        const auto back = lmw::ui::parseConfig(lmw::ui::writeConfig(cs));
+        CHECK(back.theme == ThemePreset::Custom && back.colours().unit == cs.colours().unit && back.colours().cable.r == 0x40);
+        CHECK(lmw::ui::parseConfig(lmw::ui::writeConfig(lmw::ui::parseConfig("theme = Soft"))).theme == ThemePreset::Soft);
+        CHECK(lmw::ui::parseConfig("theme = Soft\ncolor_vco = #102030").colours().unit == soft.unit);   // colours only for Custom
+        // Cable colour and opacity (user 2026-11-22): a blue at 40 % is drawn so at AA when it meets 4.5:1 on
+        // white, else the opacity is raised just enough; from AAA up solid; too light an ink is darkened.
+        Colours cb; itemColour(cb, 10) = {0, 0, 200}; cb.cableOpacity = 0.4f;
+        const auto pb = palette(4.5, cb);
+        CHECK(pb.cableInk == (Rgb{0, 0, 200}) && pb.cableAlpha() >= 0.4f && pb.cableAlpha() < 1.0f);
+        CHECK(contrastRatio(pb.cable, {255, 255, 255}) >= 4.5 - 1e-9);
+        Colours faint; faint.cableOpacity = 0.2f;                 // black at 20 %: raised to about 58 %
+        CHECK(palette(4.5, faint).cableAlpha() > 0.5f && palette(7.0, faint).cableAlpha() == 1.0f);
+        CHECK(contrastRatio(palette(7.0, cb).cable, {255, 255, 255}) >= 7.0 - 1e-9);
+        // config: cable_opacity (percent or fraction), theme_name; saved theme files round trip.
+        const auto co = lmw::ui::parseConfig("theme = Custom\ncable_opacity = 75\ntheme_name = My dark\n");
+        CHECK(co.customOpacity && std::fabs(*co.customOpacity - 0.75f) < 1e-6 && co.themeName == "My dark" && std::fabs(co.colours().cableOpacity - 0.75f) < 1e-6);
+        CHECK(std::fabs(*lmw::ui::parseConfig("cable_opacity = 0.3").customOpacity - 0.3f) < 1e-6 && *lmw::ui::parseConfig("cable_opacity = 5").customOpacity >= 0.2f);
+        CHECK(lmw::ui::parseConfig(lmw::ui::writeConfig(co)).themeName == "My dark");
+        const auto file = lmw::ui::writeTheme("My dark", cb);
+        const auto rt = lmw::ui::readTheme(file);
+        CHECK(file.find("name = My dark") != std::string::npos && rt.unit == cb.unit && itemColour(rt, 10) == (Rgb{0, 0, 200})
+              && std::fabs(rt.cableOpacity - 0.4f) < 1e-6);
+    }
     const auto maxPal = lmw::ui::theme::palette(21.0);
     CHECK(maxPal.whiteKeyDown.r == 0 && maxPal.blackKeyDown.r == 255);
 

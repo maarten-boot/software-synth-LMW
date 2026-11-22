@@ -221,6 +221,13 @@ public:
 private:
     void showMainMenu();
     void setKeyboardShown(bool shown);                    // Spec S6.12
+    void editColours();                                   // Spec S6.13
+    void makeThemeCustom();
+    void saveThemeAs();
+    void applySavedTheme(const juce::File&);
+    static juce::File themeFolder();
+    static juce::Array<juce::File> themeFiles();
+    juce::Component::SafePointer<juce::DialogWindow> colourWindow;
     int keyStripH() const { return m.colW >= 80 ? 20 : 17; }   // the strip with the keyboard button
     static juce::Component::SafePointer<juce::Component> focusNow();   // around popup menus (S3.2)
     void restoreFocus(juce::Component::SafePointer<juce::Component> c);

@@ -3,6 +3,7 @@
 Changes between releases.
 
 ## Unreleased
+- 2026-11-22: Themes: Menu ▸ Theme offers Default, Soft, Vivid and Monochrome, and Edit colours... to choose your own colour for every unit, the greys, and the cables' colour and see-through amount (kept in config.ini; every colour still meets the contrast setting). Save theme as... keeps your colours by name; they appear under "Your themes" (files in Documents/LMW-Synth Presets/THEME).
 - 2026-11-22: The on-screen keyboard can be hidden (Menu ▸ Show keyboard, Ctrl+K, or the small keyboard button); the window gets shorter and the computer keys keep playing.
 - 2026-11-22: A Menu button in the header holds About and the contrast settings (the header has more room); the standalone window's Options menu has the same items.
 - 2026-11-22: Cables at rest are see-through, so the controls under them stay readable (fully solid at the AAA and Max contrast settings).

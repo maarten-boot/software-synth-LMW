@@ -7,7 +7,7 @@
 
 namespace lmw::ui {
 
-struct Rgb { std::uint8_t r{}, g{}, b{}; };
+struct Rgb { std::uint8_t r{}, g{}, b{}; bool operator==(const Rgb&) const = default; };
 
 // WCAG relative luminance, 0.0 (black) .. 1.0 (white).
 double relativeLuminance(Rgb c) noexcept;

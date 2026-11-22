@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "PluginEditor.h"
+#include "ThemeDialog.h"
 #include "app/InstrumentPresets.h"
 #include "app/Tutorial.h"
 #include "ui/Theme.h"
@@ -120,7 +121,7 @@ void LMWLookAndFeel::positionComboBoxText(juce::ComboBox& box, juce::Label& labe
 LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     : AudioProcessorEditor(&p), processor(p),
       settings(lmw::ui::parseConfig(configFile().loadFileAsString().toStdString())),
-      palette(lmw::ui::theme::palette(settings.minRatio())),
+      palette(lmw::ui::theme::palette(settings.minRatio(), settings.colours())),
       keyboard(p.keyboardState(), palette) {
     setLookAndFeel(&lookAndFeel);
     namespace P = lmw::param;
@@ -511,6 +512,7 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
 
 LMWSynthEditor::~LMWSynthEditor() {
     stopTimer();
+    if (auto* w = colourWindow.getComponent()) { w->setLookAndFeel(nullptr); delete w; }   // uses our look-and-feel
     chooser.reset();
     setLookAndFeel(nullptr);
     if (--openEditors == 0 && &juce::LookAndFeel::getDefaultLookAndFeel() == &defaultLook.get())
@@ -1114,7 +1116,7 @@ void LMWSynthEditor::CableLayer::paint(juce::Graphics& g) {
     // Phase 21a: at rest see-through — black in one transparency layer at cableAlpha() (looks like the
     // cable grey on white); from AAA up the cable grey itself, opaque.
     const float alpha = editor.palette.cableAlpha();
-    const auto rest = alpha < 1.0f ? kFg : toJuce(editor.palette.cable);
+    const auto rest = toJuce(editor.palette.cableDrawn());   // S6.13: the theme's cable colour
     const auto draw = [&g](juce::Point<float> a, juce::Point<float> b, juce::Colour colour, bool hot) {
         const float sag = 15.0f + 0.2f * a.getDistanceFrom(b);   // the middle hangs lowest
         juce::Path path;
@@ -1358,6 +1360,33 @@ void LMWSynthEditor::addMenuItems(juce::PopupMenu& m) const {
     else std::snprintf(text, sizeof text, "Custom...");
     contrast.addItem(menuFirstId + 14, text, true, c == lmw::ui::ContrastPreset::Custom);
     m.addSubMenu("Contrast", contrast);
+    juce::PopupMenu theme;                                 // Spec S6.13
+    using lmw::ui::theme::ThemePreset;
+    for (int t = 0; t < 4; ++t) {
+        const auto n = lmw::ui::theme::themeNames[static_cast<std::size_t>(t)];
+        theme.addItem(menuFirstId + 31 + t, juce::String(n.data(), n.size()), true, static_cast<int>(settings.theme) == t);
+    }
+    if (settings.theme == ThemePreset::Custom && settings.themeName.empty()) theme.addItem(menuFirstId + 35, "Custom", true, true);
+    const auto saved = themeFiles();                       // Spec S6.13: the user's named themes
+    if (!saved.isEmpty()) {
+        theme.addSectionHeader("Your themes");
+        for (int i = 0; i < saved.size() && i < 100; ++i) {
+            const auto n = saved[i].getFileNameWithoutExtension();
+            theme.addItem(menuFirstId + 100 + i, n, true,
+                          settings.theme == ThemePreset::Custom && juce::String(settings.themeName) == n);
+        }
+    }
+    theme.addSeparator();
+    theme.addItem(menuFirstId + 36, "Edit colours...");
+    theme.addItem(menuFirstId + 38, "Save theme as...");
+    if (!saved.isEmpty()) {
+        juce::PopupMenu del;
+        for (int i = 0; i < saved.size() && i < 100; ++i) del.addItem(menuFirstId + 200 + i, saved[i].getFileNameWithoutExtension());
+        theme.addSubMenu("Delete theme", del);
+    }
+    if (themeFolder().isDirectory()) theme.addItem(menuFirstId + 39, "Show themes folder");
+    if (settings.theme != ThemePreset::Default) theme.addItem(menuFirstId + 37, "Reset to default");
+    m.addSubMenu("Theme", theme);
     juce::PopupMenu::Item keys("Show keyboard");          // Spec S6.12
     keys.itemID = menuFirstId + 21;
     keys.isTicked = keyboardShown;
@@ -1374,8 +1403,137 @@ void LMWSynthEditor::handleMenuItem(int id) {
             break;
         case 14: askCustomRatio(); break;
         case 21: setKeyboardShown(!keyboardShown); break;
-        default: break;
+        case 31: case 32: case 33: case 34:                // Spec S6.13: a theme preset
+            settings.theme = static_cast<lmw::ui::theme::ThemePreset>(id - menuFirstId - 31);
+            settings.themeName.clear();
+            applyContrast();
+            break;
+        case 36: editColours(); break;
+        case 37:
+            settings.theme = lmw::ui::theme::ThemePreset::Default;
+            settings.custom = {};
+            settings.customOpacity.reset();
+            settings.themeName.clear();
+            applyContrast();
+            break;
+        case 38: saveThemeAs(); break;
+        case 39: themeFolder().revealToUser(); break;
+        default:
+            if (id >= menuFirstId + 100 && id < menuFirstId + 300) {        // a saved theme: use / delete
+                const auto saved = themeFiles();
+                const int i = (id - menuFirstId) % 100;
+                if (i >= saved.size()) break;
+                const auto f = saved[i];
+                if (id < menuFirstId + 200) { applySavedTheme(f); break; }
+                juce::AlertWindow::showAsync(juce::MessageBoxOptions().withIconType(juce::MessageBoxIconType::NoIcon)
+                    .withTitle("Delete theme").withMessage("Delete the theme \"" + f.getFileNameWithoutExtension() + "\"?")
+                    .withButton("Delete", 1).withButton("Cancel", 0).withAssociatedComponent(this),
+                    [safe = juce::Component::SafePointer<LMWSynthEditor>(this), f](int r) {
+                        if (r != 1 || safe == nullptr) return;
+                        f.deleteFile();
+                        if (juce::String(safe->settings.themeName) == f.getFileNameWithoutExtension()) {
+                            safe->settings.themeName.clear();   // the colours stay, as Custom
+                            safe->applyContrast();
+                        }
+                    });
+            }
+            break;
     }
+}
+
+// Spec S6.13: an edit makes the theme Custom, starting from the colours shown; it is no longer a saved theme.
+void LMWSynthEditor::makeThemeCustom() {
+    auto& s = settings;
+    if (s.theme != lmw::ui::theme::ThemePreset::Custom) {
+        const auto now = s.colours();
+        for (std::size_t i = 0; i < s.custom.size(); ++i) s.custom[i] = lmw::ui::theme::itemColour(now, i);
+        s.customOpacity = now.cableOpacity;
+        s.theme = lmw::ui::theme::ThemePreset::Custom;
+    }
+    s.themeName.clear();
+}
+
+// Spec S6.13: saved themes, Documents/LMW-Synth Presets/THEME/<name>.lmwtheme, by name.
+juce::File LMWSynthEditor::themeFolder() {
+    return juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("LMW-Synth Presets").getChildFile("THEME");
+}
+juce::Array<juce::File> LMWSynthEditor::themeFiles() {
+    auto files = themeFolder().findChildFiles(juce::File::findFiles, false, "*.lmwtheme");
+    std::sort(files.begin(), files.end(), [](const juce::File& a, const juce::File& b) {
+        return a.getFileNameWithoutExtension().compareNatural(b.getFileNameWithoutExtension()) < 0;
+    });
+    return files;
+}
+void LMWSynthEditor::applySavedTheme(const juce::File& f) {
+    const auto c = lmw::ui::readTheme(f.loadFileAsString().toStdString());
+    settings.theme = lmw::ui::theme::ThemePreset::Custom;
+    for (std::size_t i = 0; i < settings.custom.size(); ++i) settings.custom[i] = lmw::ui::theme::itemColour(c, i);
+    settings.customOpacity = c.cableOpacity;
+    settings.themeName = f.getFileNameWithoutExtension().toStdString();
+    applyContrast();
+}
+void LMWSynthEditor::saveThemeAs() {
+    auto* w = new juce::AlertWindow("Save theme", "Name for the current colours (Theme > Your themes):",
+                                    juce::MessageBoxIconType::NoIcon, this);
+    w->setLookAndFeel(&lookAndFeel);
+    w->addTextEditor("name", juce::String(settings.themeName), "Name");
+    w->addButton("Save", 1, juce::KeyPress(juce::KeyPress::returnKey));
+    w->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
+    w->enterModalState(true, juce::ModalCallbackFunction::create(
+        [safe = juce::Component::SafePointer<LMWSynthEditor>(this), w](int result) {
+            if (safe == nullptr || result != 1) return;
+            const auto name = w->getTextEditorContents("name").trim();
+            if (name.isEmpty()) return;
+            const auto file = themeFolder().getChildFile(juce::String::fromUTF8(lmw::presets::fileName(name.toStdString()).c_str())
+                                                         + ".lmwtheme");
+            auto write = [safe, file, name] {
+                if (safe == nullptr) return;
+                file.getParentDirectory().createDirectory();
+                if (!file.replaceWithText(juce::String::fromUTF8(lmw::ui::writeTheme(name.toStdString(), safe->settings.colours()).c_str()))) {
+                    juce::AlertWindow::showAsync(juce::MessageBoxOptions().withIconType(juce::MessageBoxIconType::NoIcon)
+                        .withTitle("Save theme").withMessage("Cannot write " + file.getFullPathName()).withButton("OK", 1), nullptr);
+                    return;
+                }
+                safe->makeThemeCustom();
+                safe->settings.themeName = file.getFileNameWithoutExtension().toStdString();
+                safe->applyContrast();
+            };
+            if (!file.existsAsFile()) { write(); return; }
+            juce::AlertWindow::showAsync(juce::MessageBoxOptions().withIconType(juce::MessageBoxIconType::NoIcon)
+                .withTitle("Save theme").withMessage("A theme \"" + file.getFileNameWithoutExtension() + "\" exists. Replace it?")
+                .withButton("Replace", 1).withButton("Cancel", 0).withAssociatedComponent(safe.getComponent()),
+                [write](int r) { if (r == 1) write(); });
+        }), true);
+    if (auto* field = w->getTextEditor("name")) { field->grabKeyboardFocus(); field->selectAll(); }   // type at once
+}
+
+// Spec S6.13: Edit colours... — a change makes the theme Custom (starting from the colours shown) and
+// applies at once.
+void LMWSynthEditor::editColours() {
+    if (colourWindow != nullptr) { colourWindow->toFront(true); return; }
+    auto dialog = std::make_unique<ThemeDialog>(settings.colours(), settings.minRatio());
+    dialog->onChange = [safe = juce::Component::SafePointer<LMWSynthEditor>(this)](std::size_t item, std::optional<lmw::ui::Rgb> c) {
+        if (safe == nullptr) return;
+        safe->makeThemeCustom();
+        safe->settings.custom[item] = c ? *c : lmw::ui::theme::itemColour(lmw::ui::theme::Colours{}, item);
+        safe->applyContrast();
+    };
+    dialog->onOpacity = [safe = juce::Component::SafePointer<LMWSynthEditor>(this)](float o) {
+        if (safe == nullptr) return;
+        safe->makeThemeCustom();
+        safe->settings.customOpacity = o;
+        safe->applyContrast();
+    };
+    juce::DialogWindow::LaunchOptions o;
+    o.dialogTitle = "Theme colours";
+    o.dialogBackgroundColour = juce::Colours::white;
+    o.content.setOwned(dialog.release());
+    o.componentToCentreAround = this;
+    o.escapeKeyTriggersCloseButton = true;
+    o.useNativeTitleBar = false;
+    o.resizable = false;
+    colourWindow = o.launchAsync();
+    if (colourWindow != nullptr) colourWindow->setLookAndFeel(&lookAndFeel);
 }
 
 void LMWSynthEditor::showMainMenu() {
@@ -1391,7 +1549,7 @@ void LMWSynthEditor::showMainMenu() {
 }
 
 void LMWSynthEditor::applyContrast() {
-    palette = lmw::ui::theme::palette(settings.minRatio());
+    palette = lmw::ui::theme::palette(settings.minRatio(), settings.colours());   // S6.3, S6.13
     saveConfig();
     keyboard.repaint();
     if (matrix) matrix->setPalette(palette);
@@ -1418,8 +1576,9 @@ void LMWSynthEditor::askCustomRatio() {
                     safe->settings.customRatio = lmw::ui::minimumRatio(lmw::ui::ContrastPreset::Custom, r);
                 }
             }
-            safe->applyContrast();                      // also restores the box after Cancel
+            safe->applyContrast();
         }), true);
+    if (auto* field = w->getTextEditor("ratio")) { field->grabKeyboardFocus(); field->selectAll(); }   // type at once
 }
 
 void LMWSynthEditor::Keyboard::drawWhiteNote(int note, juce::Graphics& g, juce::Rectangle<float> area, bool isDown,

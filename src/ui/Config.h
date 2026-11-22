@@ -1,13 +1,20 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// User config file (Spec S6.3, S6.4): plain "key = value" lines, '#' starts a comment.
+// User config file (Spec S6.3, S6.4): plain "key = value" lines; '#' starts a comment at a line's start or
+// before a space ("# note"), so a colour "#RRGGBB" is a value.
 //   contrast       = AA | AAA | Max | Custom
 //   contrast_ratio = 4.5 .. 21          (used with Custom)
 //   compact        = true | false       (default view for a new window; a saved state overrides it)
 //   ninep_tcp      = [host:]port        (also serve 9P over TCP; empty = off; host default 127.0.0.1)
 //   keyboard       = shown | hidden     (on-screen keyboard for a new window, Spec S6.12; a saved state overrides it)
+//   theme          = Default | Soft | Vivid | Monochrome | Custom   (Spec S6.13)
+//   color_<item>   = #RRGGBB            (Custom: vco, noise, vcf, vca, env, lfo, mixer, effects, background, band, cable)
+//   cable_opacity  = 20 .. 100          (Custom: cables at rest, %)
+//   theme_name     = <name>             (Custom taken from a saved theme, Documents/LMW-Synth Presets/THEME)
 // Unknown keys and unreadable values are ignored (the default is kept). Pure C++, no JUCE.
 #pragma once
 #include "ui/Contrast.h"
+#include "ui/Theme.h"
+#include <array>
 #include <algorithm>
 #include <cctype>
 #include <charconv>
@@ -25,6 +32,21 @@ struct Settings {
     std::optional<bool> compact;
     std::optional<bool> keyboard;              // Spec S6.12: shown (true) / hidden
     std::string ninepTcp;                      // Spec S10.4: "" = no TCP
+    theme::ThemePreset theme = theme::ThemePreset::Default;   // Spec S6.13
+    std::array<std::optional<Rgb>, theme::themeItems.size()> custom{};   // Custom: the user's colours
+    std::optional<float> customOpacity;        // Custom: cables at rest, 0.2 .. 1
+    std::string themeName;                     // Custom came from this saved theme (unchanged since)
+
+    // The theme's colours (before the contrast is applied): a preset, or Custom = Default with the
+    // user's colours on top.
+    theme::Colours colours() const noexcept {
+        auto c = theme::presetColours(theme);
+        if (theme == theme::ThemePreset::Custom)
+            for (std::size_t i = 0; i < custom.size(); ++i)
+                if (custom[i]) theme::itemColour(c, i) = *custom[i];
+        if (theme == theme::ThemePreset::Custom && customOpacity) c.cableOpacity = std::clamp(*customOpacity, 0.2f, 1.0f);
+        return c;
+    }
 
     // ninep_tcp as host and port; nothing when off or unreadable.
     std::optional<std::pair<std::string, int>> tcpEndpoint() const {
@@ -54,13 +76,44 @@ inline std::string lower(std::string_view s) {
 }
 } // namespace detail
 
+// "#RRGGBB" (or "RRGGBB") -> colour; anything else nothing.
+inline std::optional<Rgb> parseHexColour(std::string_view v) noexcept {
+    if (!v.empty() && v.front() == '#') v.remove_prefix(1);
+    if (v.size() != 6) return std::nullopt;
+    std::uint8_t out[3]{};
+    for (int i = 0; i < 3; ++i) {
+        int x = 0;
+        for (int k = 0; k < 2; ++k) {
+            const char c = v[static_cast<std::size_t>(2 * i + k)];
+            x *= 16;
+            if (c >= '0' && c <= '9') x += c - '0';
+            else if (c >= 'a' && c <= 'f') x += c - 'a' + 10;
+            else if (c >= 'A' && c <= 'F') x += c - 'A' + 10;
+            else return std::nullopt;
+        }
+        out[i] = static_cast<std::uint8_t>(x);
+    }
+    return Rgb{out[0], out[1], out[2]};
+}
+inline std::string hexColour(Rgb c) {
+    char b[8];
+    std::snprintf(b, sizeof b, "#%02X%02X%02X", c.r, c.g, c.b);
+    return b;
+}
+
 inline Settings parseConfig(std::string_view text) {
     Settings s;
     while (!text.empty()) {
         const auto nl = text.find('\n');
         std::string_view line = text.substr(0, nl);
         text = nl == std::string_view::npos ? std::string_view{} : text.substr(nl + 1);
-        if (const auto hash = line.find('#'); hash != std::string_view::npos) line = line.substr(0, hash);
+        // '#' starts a comment at the line's start or before a space / the end ("x = 9  # note"), not in a
+        // value such as a colour "#FFB3B3" (Spec S6.13).
+        for (std::size_t h = line.find('#'); h != std::string_view::npos; h = line.find('#', h + 1)) {
+            const bool atStart = detail::trim(line.substr(0, h)).empty();
+            const bool spaceAfter = h + 1 >= line.size() || line[h + 1] == ' ' || line[h + 1] == '\t' || line[h + 1] == '\r';
+            if (atStart || spaceAfter) { line = line.substr(0, h); break; }
+        }
         const auto eq = line.find('=');
         if (eq == std::string_view::npos) continue;
         const auto key = detail::lower(detail::trim(line.substr(0, eq)));
@@ -77,6 +130,19 @@ inline Settings parseConfig(std::string_view text) {
             const auto v = detail::lower(value);
             if (v == "true" || v == "yes" || v == "1") s.compact = true;
             else if (v == "false" || v == "no" || v == "0") s.compact = false;
+        } else if (key == "theme") {
+            if (auto t = theme::parseTheme(value)) s.theme = *t;
+        } else if (key.rfind("color_", 0) == 0 || key.rfind("colour_", 0) == 0) {
+            const auto item = key.substr(key.find('_') + 1);
+            for (std::size_t i = 0; i < theme::themeItems.size(); ++i)
+                if (theme::themeItems[i].key == item)
+                    if (auto c = parseHexColour(value)) s.custom[i] = *c;
+        } else if (key == "cable_opacity") {
+            double o = 0;
+            const std::string v(value);
+            if (std::sscanf(v.c_str(), "%lf", &o) == 1 && o > 0) s.customOpacity = static_cast<float>(std::clamp(o > 1.0 ? o / 100.0 : o, 0.2, 1.0));
+        } else if (key == "theme_name") {
+            s.themeName = std::string(value);
         } else if (key == "keyboard") {
             const auto v = detail::lower(value);
             if (v == "shown" || v == "show" || v == "true" || v == "yes" || v == "1") s.keyboard = true;
@@ -101,7 +167,36 @@ inline std::string writeConfig(const Settings& s) {
                         + (*s.compact ? "true" : "false") + "\n";
     if (s.keyboard) out += std::string("# keyboard: on-screen keyboard shown or hidden in a new window (a saved state overrides it)\nkeyboard = ")
                          + (*s.keyboard ? "shown" : "hidden") + "\n";
+    out += "# theme: Default, Soft, Vivid, Monochrome or Custom (Custom uses the color_ lines below; every colour\n"
+           "# is still raised to the contrast above)\n";
+    out += "theme = " + std::string(theme::themeNames[static_cast<std::size_t>(s.theme)]) + "\n";
+    if (s.theme == theme::ThemePreset::Custom) {
+        const auto c = s.colours();
+        for (std::size_t i = 0; i < theme::themeItems.size(); ++i)
+            out += "color_" + std::string(theme::themeItems[i].key) + " = " + hexColour(theme::itemColour(c, i)) + "\n";
+        char o[16];
+        std::snprintf(o, sizeof o, "%.0f", static_cast<double>(c.cableOpacity) * 100.0);
+        out += "cable_opacity = " + std::string(o) + "\n";
+        if (!s.themeName.empty()) out += "theme_name = " + s.themeName + "\n";
+    }
     return out;
+}
+
+// Spec S6.13: a saved theme, Documents/LMW-Synth Presets/THEME/<name>.lmwtheme — the Custom lines of
+// config.ini (read with parseConfig, which ignores everything else).
+inline std::string writeTheme(const std::string& name, const theme::Colours& c) {
+    std::string out = "# LMW-Synth theme (hand-editable; as the Custom lines of config.ini)\nformat = 1\nname = " + name + "\n";
+    for (std::size_t i = 0; i < theme::themeItems.size(); ++i)
+        out += "color_" + std::string(theme::themeItems[i].key) + " = " + hexColour(theme::itemColour(c, i)) + "\n";
+    char o[16];
+    std::snprintf(o, sizeof o, "%.0f", static_cast<double>(c.cableOpacity) * 100.0);
+    return out + "cable_opacity = " + o + "\n";
+}
+// The colours of a saved theme (Default's for anything the file leaves out).
+inline theme::Colours readTheme(std::string_view text) {
+    auto s = parseConfig(text);
+    s.theme = theme::ThemePreset::Custom;
+    return s.colours();
 }
 
 } // namespace lmw::ui
