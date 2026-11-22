@@ -100,6 +100,7 @@ inline const std::vector<Lesson>& lessons() {
         {9, "Flute", {{"comb.mix", "0"}, {"reverb.mix", "0"}, {"delay.mix", "0"}}, {}},
         {10, "Clarinet", {}, {}},
         {11, "", {}, {}},
+        {12, "", {}, {}},
     };
     return list;
 }

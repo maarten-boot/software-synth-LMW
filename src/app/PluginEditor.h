@@ -228,6 +228,12 @@ private:
     static juce::File themeFolder();
     static juce::Array<juce::File> themeFiles();
     juce::Component::SafePointer<juce::DialogWindow> colourWindow;
+    // Spec S12.6: the Assistant settings and the "How to get a key" lesson; the key, once read.
+    juce::Component::SafePointer<juce::DialogWindow> assistantWindow, lessonWindow;
+    std::optional<std::string> keyCache;
+    std::string assistantKey();
+    void showAssistantSettings();
+    void showLesson(int number);
     int keyStripH() const { return m.colW >= 80 ? 20 : 17; }   // the strip with the keyboard button
     static juce::Component::SafePointer<juce::Component> focusNow();   // around popup menus (S3.2)
     void restoreFocus(juce::Component::SafePointer<juce::Component> c);

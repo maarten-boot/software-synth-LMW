@@ -85,6 +85,7 @@ if(LMW_BUILD_PLUGIN)
         src/app/NinePService.cpp
         src/app/AssistantSession.cpp
         src/app/AssistantView.cpp
+        src/app/KeyStore.cpp
         src/ninep/Transport.cpp)
 
     target_compile_definitions(LMWSynth PUBLIC
@@ -103,8 +104,12 @@ if(LMW_BUILD_PLUGIN)
             juce::juce_recommended_config_flags
             juce::juce_recommended_lto_flags
             juce::juce_recommended_warning_flags)
+    if(APPLE)
+        target_link_libraries(LMWSynth PRIVATE "-framework Security")   # Spec S12.6: the key in the Keychain
+    endif()
+    target_link_libraries(LMWSynth PRIVATE ${CMAKE_DL_LIBS})           # Spec S12.6: libsecret loaded at run time
     if(WIN32)
-        target_link_libraries(LMWSynth PRIVATE ws2_32)   # 9P sockets
+        target_link_libraries(LMWSynth PRIVATE ws2_32 advapi32)   # 9P sockets; the key in the Credential Manager (S12.6)
         # Spec S9.5: Windows installer, `cmake --build <build> --config Release --target installer` when
         # NSIS 3 is found. makensis gets native paths (backslashes; see installer/LMW-Synth.nsi).
         find_program(LMW_MAKENSIS makensis PATHS "C:/Program Files (x86)/NSIS" "C:/Program Files/NSIS")
@@ -243,6 +248,15 @@ if(LMW_BUILD_TESTS)
     add_executable(test_assistant tests/test_assistant.cpp)  # Spec S12: the Assistant tab's Claude client, fake service
     target_include_directories(test_assistant PRIVATE src)
     add_test(NAME T-S12-client COMMAND test_assistant)
+    add_executable(test_keystore tests/test_keystore.cpp src/app/KeyStore.cpp)   # Spec S12.6: the system keychain
+    target_include_directories(test_keystore PRIVATE src)
+    target_link_libraries(test_keystore PRIVATE ${CMAKE_DL_LIBS})
+    if(WIN32)
+        target_link_libraries(test_keystore PRIVATE advapi32)
+    elseif(APPLE)
+        target_link_libraries(test_keystore PRIVATE "-framework Security" "-framework CoreFoundation")
+    endif()
+    add_test(NAME T-S12-key COMMAND test_keystore)
     add_executable(test_patchfile tests/test_patchfile.cpp)
     target_include_directories(test_patchfile PRIVATE src)
     add_test(NAME T-S7.1-patchfile COMMAND test_patchfile)

@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "PluginEditor.h"
 #include "AssistantView.h"
+#include "AssistantSettings.h"
+#include "KeyStore.h"
+#if JUCE_LINUX || JUCE_MAC || JUCE_BSD
+ #include <sys/stat.h>
+#endif
 #include "ThemeDialog.h"
 #include "app/InstrumentPresets.h"
 #include "app/Tutorial.h"
@@ -405,6 +410,14 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
         assistantTab.setClickingTogglesState(true);
         assistantTab.setTooltip("Ask an AI assistant about the synth, or describe a sound and let it make it");
         assistantTab.onClick = [this] { if (assistantTab.getToggleState()) showTab(5); };
+        assistant->configure = [this](lmw::assistant::Settings& a) {           // Spec S12.6, S12.7
+            a.key = assistantKey();
+            a.model = settings.assistantModel.empty() ? "claude-opus-5-5" : settings.assistantModel;
+            a.effort = settings.assistantEffort.empty() ? "medium" : settings.assistantEffort;
+            a.limit = settings.assistantLimit.value_or(2.0);
+        };
+        assistant->openSettings = [this] { showAssistantSettings(); };
+        assistant->ready();
         addAndMakeVisible(assistantTab);
     }
     patchLabel.setTooltip("Patch name (the file name when saved or loaded)");
@@ -523,6 +536,8 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
 LMWSynthEditor::~LMWSynthEditor() {
     stopTimer();
     if (auto* w = colourWindow.getComponent()) { w->setLookAndFeel(nullptr); delete w; }   // uses our look-and-feel
+    for (auto* w : {assistantWindow.getComponent(), lessonWindow.getComponent()})
+        if (w != nullptr) { w->setLookAndFeel(nullptr); delete w; }
     chooser.reset();
     setLookAndFeel(nullptr);
     if (--openEditors == 0 && &juce::LookAndFeel::getDefaultLookAndFeel() == &defaultLook.get())
@@ -1357,6 +1372,105 @@ void LMWSynthEditor::saveConfig() const {
     const auto file = configFile();
     file.getParentDirectory().createDirectory();
     file.replaceWithText(juce::String(lmw::ui::writeConfig(settings)));
+#if JUCE_LINUX || JUCE_MAC || JUCE_BSD
+    // Spec S12.6: with the API key in it, the file is the user's only.
+    if (!settings.assistantKey.empty()) ::chmod(file.getFullPathName().toRawUTF8(), 0600);
+#endif
+}
+
+// ---- Spec S12.6: the Assistant settings ----
+
+std::string LMWSynthEditor::assistantKey() {
+    const bool keychain = settings.assistantStore == "keychain"
+                          || (settings.assistantStore.empty() && lmw::keystore::available());
+    if (!keychain) return settings.assistantKey;
+    if (!keyCache) {
+        std::string error;
+        keyCache = lmw::keystore::load(error).value_or(std::string());
+    }
+    return *keyCache;
+}
+
+void LMWSynthEditor::showAssistantSettings() {
+    if (assistantWindow != nullptr) { assistantWindow->toFront(true); return; }
+    AssistantSettings::Values v;
+    const bool hasKeychain = lmw::keystore::available();
+    v.store = settings.assistantStore.empty() ? (hasKeychain ? "keychain" : "file") : settings.assistantStore;
+    v.key = assistantKey();
+    if (!settings.assistantModel.empty()) v.model = settings.assistantModel;
+    if (!settings.assistantEffort.empty()) v.effort = settings.assistantEffort;
+    v.limit = settings.assistantLimit.value_or(2.0);
+    auto dialog = std::make_unique<AssistantSettings>(v, hasKeychain);
+    juce::Component::SafePointer<LMWSynthEditor> safe(this);
+    const auto close = [safe] {
+        if (safe != nullptr && safe->assistantWindow != nullptr) safe->assistantWindow->exitModalState(0);
+    };
+    dialog->onCancel = close;
+    dialog->onHowTo = [safe] { if (safe != nullptr) safe->showLesson(12); };
+    dialog->onOk = [safe, close](const AssistantSettings::Values& n) {
+        if (safe == nullptr) return;
+        auto& s = safe->settings;
+        std::string error;
+        if (n.store == "keychain") {
+            const bool ok = n.key.empty() ? lmw::keystore::clear(error) : lmw::keystore::save(n.key, error);
+            if (!ok) {                                     // keep the dialog open: the musician can choose the file
+                juce::AlertWindow::showAsync(juce::MessageBoxOptions().withIconType(juce::MessageBoxIconType::NoIcon)
+                                                 .withTitle("Key not saved").withMessage(juce::String::fromUTF8(error.c_str())
+                                                     + "\n\nChoose \"the settings file\" to keep the key there instead.")
+                                                 .withButton("OK", 1).withAssociatedComponent(safe->assistantWindow.getComponent()),
+                                             nullptr);
+                return;
+            }
+            s.assistantKey.clear();
+        } else {
+            s.assistantKey = n.key;
+            if (lmw::keystore::available()) lmw::keystore::clear(error);   // not in two places
+        }
+        s.assistantStore = n.store;
+        s.assistantModel = n.model;
+        s.assistantEffort = n.effort;
+        s.assistantLimit = n.limit;
+        safe->keyCache = n.key;
+        safe->saveConfig();
+        if (safe->assistant) safe->assistant->ready();
+        close();
+    };
+    juce::DialogWindow::LaunchOptions o;
+    o.dialogTitle = "Assistant settings";
+    o.dialogBackgroundColour = juce::Colours::white;
+    o.content.setOwned(dialog.release());
+    o.componentToCentreAround = this;
+    o.escapeKeyTriggersCloseButton = true;
+    o.useNativeTitleBar = false;
+    o.resizable = false;
+    assistantWindow = o.launchAsync();
+    if (assistantWindow != nullptr) assistantWindow->setLookAndFeel(&lookAndFeel);
+}
+
+// A tutorial lesson as text in its own window (Spec S12.6: "How to get a key"); the notes stay as they are.
+void LMWSynthEditor::showLesson(int number) {
+    if (lessonWindow != nullptr) { lessonWindow->toFront(true); return; }
+    auto text = std::make_unique<juce::TextEditor>();
+    text->setMultiLine(true, true);
+    text->setReadOnly(true);
+    text->setCaretVisible(false);
+    text->setScrollbarsShown(true);
+    text->setFont(juce::FontOptions(16.0f));
+    text->setColour(juce::TextEditor::backgroundColourId, juce::Colours::white);
+    text->setColour(juce::TextEditor::textColourId, juce::Colours::black);
+    text->setText(juce::String::fromUTF8(lmw::tutorial::plain(lmw::tutorial::section(number)).c_str()), false);
+    text->setTitle("Tutorial lesson " + juce::String(number));
+    text->setSize(760, 560);
+    juce::DialogWindow::LaunchOptions o;
+    o.dialogTitle = juce::String::fromUTF8(lmw::tutorial::title(number).c_str());
+    o.dialogBackgroundColour = juce::Colours::white;
+    o.content.setOwned(text.release());
+    o.componentToCentreAround = this;
+    o.escapeKeyTriggersCloseButton = true;
+    o.useNativeTitleBar = false;
+    o.resizable = true;
+    lessonWindow = o.launchAsync();
+    if (lessonWindow != nullptr) lessonWindow->setLookAndFeel(&lookAndFeel);
 }
 
 // Spec S6.11: the menu (header button; the same items in the standalone window's Options menu).
@@ -1404,6 +1518,7 @@ void LMWSynthEditor::addMenuItems(juce::PopupMenu& m) const {
     keys.isTicked = keyboardShown;
     keys.shortcutKeyDescription = juce::KeyPress('k', juce::ModifierKeys::commandModifier, 0).getTextDescriptionWithIcons();
     m.addItem(keys);
+    if (assistant) m.addItem(menuFirstId + 41, "Assistant settings...");   // Spec S12.6 (standalone)
 }
 
 void LMWSynthEditor::handleMenuItem(int id) {
@@ -1415,6 +1530,7 @@ void LMWSynthEditor::handleMenuItem(int id) {
             break;
         case 14: askCustomRatio(); break;
         case 21: setKeyboardShown(!keyboardShown); break;
+        case 41: showAssistantSettings(); break;
         case 31: case 32: case 33: case 34:                // Spec S6.13: a theme preset
             settings.theme = static_cast<lmw::ui::theme::ThemePreset>(id - menuFirstId - 31);
             settings.themeName.clear();

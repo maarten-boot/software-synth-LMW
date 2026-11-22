@@ -63,8 +63,13 @@ AssistantView::AssistantView(LMWSynthProcessor& p) : session(std::make_unique<As
         addAndMakeVisible(*l);
     }
     costLabel.setJustificationType(juce::Justification::centredRight);
-    showHelp();
     updateButtons();
+}
+
+void AssistantView::ready() {
+    if (empty) { log.clear(); showHelp(); }
+    updateButtons();
+    resized();
 }
 
 AssistantView::~AssistantView() {
@@ -115,6 +120,12 @@ void AssistantView::add(const juce::String& text, juce::Colour colour, bool bold
 }
 
 void AssistantView::showHelp() {
+    lmw::assistant::Settings probe;                        // S12.6: say first what is needed before the first question
+    if (configure) configure(probe);
+    if (probe.key.empty() && juce::SystemStats::getEnvironmentVariable("ANTHROPIC_API_KEY", {}).isEmpty())
+        add("Before the first question: the assistant needs a Claude API key (a paid account at Anthropic, a few cents "
+            "per question). Press Settings... below to enter it; \"How to get a key...\" there explains where to get one.\n\n",
+            ink, true);
     add("Ask about the synth or describe the sound you want, in your own words. For example:\n"
         "  - Make a soft flute with a slow vibrato.\n"
         "  - Why does my sound click at the start of a note?\n"
@@ -142,10 +153,14 @@ void AssistantView::send() {
     const auto question = input.getText().trim();
     if (question.isEmpty() || session->busy()) return;
     auto& s = session->settings();
-    s.key = key ? key() : std::string();
-    if (s.key.empty()) s.key = juce::SystemStats::getEnvironmentVariable("ANTHROPIC_API_KEY", {}).toStdString();
+    s.key.clear();
+    if (configure) configure(s);
+    if (s.key.empty()) s.key = juce::SystemStats::getEnvironmentVariable("ANTHROPIC_API_KEY", {}).toStdString();   // S12.6
     if (s.key.empty()) {
-        add("No key yet: the assistant needs a Claude API key (Settings...).\n\n", ink, true);
+        add("The assistant needs a Claude API key first (a paid account at Anthropic). The window \"Assistant settings\" "
+            "opens now: paste your key there and press OK. Its button \"How to get a key...\" explains where to get one. "
+            "Later you find the same window with the Settings... button below or under Menu > Assistant settings....\n\n", ink, true);
+        if (openSettings) openSettings();
         return;
     }
     if (empty) { log.clear(); empty = false; }

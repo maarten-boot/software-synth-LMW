@@ -18,7 +18,7 @@ Every CI run (Actions tab → a green "build" run → Artifacts) offers LMW-Synt
 Windows: the -windows download also holds LMW-Synth-<version>-setup.exe. It installs the app (Start menu, with the tutorial and this read-me as web pages; Apps & features) and the VST3 plugin, either just for you (no administrator rights; the plugin goes to %LOCALAPPDATA%\Programs\Common\VST3, which some DAWs must be told to scan) or for all users (administrator rights; the plugin goes to C:\Program Files\Common Files\VST3, where every DAW looks). Running a newer setup updates LMW-Synth in place; uninstall in Settings → Apps. Patches and presets in Documents stay. The setup is not signed: SmartScreen asks first (More info → Run anyway). Silent: `LMW-Synth-<version>-setup.exe /S [/CURRENTUSER|/ALLUSERS]`.
 
 ## Tutorial
-New to LMW-Synth? [docs/tutorial/Tutorial.md](docs/tutorial/Tutorial.md): eleven short lessons; in the app, Presets ▸ Tutorial sets each lesson's sound and puts its steps in the Notes tab.
+New to LMW-Synth? [docs/tutorial/Tutorial.md](docs/tutorial/Tutorial.md): twelve short lessons (the last one: the Assistant tab); in the app, Presets ▸ Tutorial sets each lesson's sound and puts its steps in the Notes tab.
 
 ## AI assistant
 

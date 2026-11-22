@@ -180,7 +180,10 @@ void AssistantSession::newConversation() {
     if (!running) impl->assistant.newConversation();
 }
 
-std::string AssistantSession::testConnection(const lmw::assistant::Settings& s) {
+std::string AssistantSession::testConnection(const lmw::assistant::Settings& settings) {
     JuceHttp http;
+    auto s = settings;
+    if (const auto url = juce::SystemStats::getEnvironmentVariable("LMW_ASSISTANT_URL", {}); url.isNotEmpty())
+        s.baseUrl = url.toStdString();                     // tests (T-S12-tab): the fake service
     return lmw::assistant::testConnection(http, s);
 }

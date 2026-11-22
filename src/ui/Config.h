@@ -36,6 +36,12 @@ struct Settings {
     std::array<std::optional<Rgb>, theme::themeItems.size()> custom{};   // Custom: the user's colours
     std::optional<float> customOpacity;        // Custom: cables at rest, 0.2 .. 1
     std::string themeName;                     // Custom came from this saved theme (unchanged since)
+    // Spec S12.6, S12.7: the Assistant tab (standalone). Empty / unset = the defaults.
+    std::string assistantStore;                // "keychain" or "file" (where the API key is kept)
+    std::string assistantKey;                  // only with "file": plain text (the file is then the user's only)
+    std::string assistantModel;                // e.g. claude-opus-5-5
+    std::string assistantEffort;               // low, medium, high
+    std::optional<double> assistantLimit;      // dollars per session, 0 = none (default 2)
 
     // The theme's colours (before the contrast is applied): a preset, or Custom = Default with the
     // user's colours on top.
@@ -143,6 +149,21 @@ inline Settings parseConfig(std::string_view text) {
             if (std::sscanf(v.c_str(), "%lf", &o) == 1 && o > 0) s.customOpacity = static_cast<float>(std::clamp(o > 1.0 ? o / 100.0 : o, 0.2, 1.0));
         } else if (key == "theme_name") {
             s.themeName = std::string(value);
+        } else if (key == "assistant_key_store") {
+            const auto v = detail::lower(value);
+            if (v == "keychain" || v == "file") s.assistantStore = v;
+        } else if (key == "assistant_key") {
+            s.assistantKey = std::string(value);
+        } else if (key == "assistant_model") {
+            s.assistantModel = std::string(value);
+        } else if (key == "assistant_effort") {
+            const auto v = detail::lower(value);
+            if (v == "low" || v == "medium" || v == "high") s.assistantEffort = v;
+        } else if (key == "assistant_limit") {
+            double d = -1;
+            std::string v(value);
+            if (!v.empty() && v[0] == '$') v.erase(0, 1);
+            if (std::sscanf(v.c_str(), "%lf", &d) == 1 && d >= 0) s.assistantLimit = d;
         } else if (key == "keyboard") {
             const auto v = detail::lower(value);
             if (v == "shown" || v == "show" || v == "true" || v == "yes" || v == "1") s.keyboard = true;
@@ -178,6 +199,20 @@ inline std::string writeConfig(const Settings& s) {
         std::snprintf(o, sizeof o, "%.0f", static_cast<double>(c.cableOpacity) * 100.0);
         out += "cable_opacity = " + std::string(o) + "\n";
         if (!s.themeName.empty()) out += "theme_name = " + s.themeName + "\n";
+    }
+    if (!s.assistantStore.empty() || !s.assistantModel.empty() || !s.assistantEffort.empty() || s.assistantLimit) {
+        out += "# Assistant tab (standalone): assistant_key_store keychain (the system keychain) or file (assistant_key\n"
+               "# below, plain text); assistant_model; assistant_effort low, medium or high; assistant_limit: dollars\n"
+               "# per session before it asks to go on (0 = no limit)\n";
+        if (!s.assistantStore.empty()) out += "assistant_key_store = " + s.assistantStore + "\n";
+        if (s.assistantStore == "file" && !s.assistantKey.empty()) out += "assistant_key = " + s.assistantKey + "\n";
+        if (!s.assistantModel.empty()) out += "assistant_model = " + s.assistantModel + "\n";
+        if (!s.assistantEffort.empty()) out += "assistant_effort = " + s.assistantEffort + "\n";
+        if (s.assistantLimit) {
+            char l[32];
+            std::snprintf(l, sizeof l, "%.2f", *s.assistantLimit);
+            out += "assistant_limit = " + std::string(l) + "\n";
+        }
     }
     return out;
 }

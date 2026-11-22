@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // T-S7.9-tutorial: the lesson presets. The document text is built in (TutorialText.h) and starts as the
-// file does; lessons 1-11 each have a title and a section that starts at its heading, ends before the
+// file does; lessons 1-12 each have a title and a section that starts at its heading, ends before the
 // next ruler and holds its steps; every lesson sound names a known base and parseable cables.
 #include "app/Tutorial.h"
 #include "app/InstrumentPresets.h"
@@ -15,7 +15,7 @@ int main() {
     const auto& doc = tutorial::text();
     CHECK(doc.rfind("# LMW-Synth tutorial", 0) == 0);
     CHECK(doc.find("## Lesson sounds") != std::string::npos);            // the last part arrived too
-    CHECK(tutorial::lessons().size() == 11);
+    CHECK(tutorial::lessons().size() == 12);
     for (const auto& l : tutorial::lessons()) {
         const auto t = tutorial::title(l.number), s = tutorial::section(l.number);
         CHECK(!t.empty() && t.find("\xe2\x80\x94") == std::string::npos);
@@ -28,7 +28,8 @@ int main() {
         if (!l.cables.empty()) CHECK(dsp::patchFromText(l.cables).has_value());
     }
     CHECK(tutorial::title(1) == "First sound" && tutorial::title(9) == "Effects: comb, delay and reverb");
-    CHECK(tutorial::section(12).empty() && tutorial::title(12).empty());
+    CHECK(tutorial::section(13).empty() && tutorial::title(13).empty());
+    CHECK(tutorial::title(12) == "The assistant: describe a sound in words" && tutorial::notes(12).find("Test connection") != std::string::npos);
     // Notes are plain text: no emphasis marks, headings without "##", code fences dropped, "\*" a star.
     CHECK(tutorial::plain("## Lesson 1 — X\n**bold** and *it*, `code`, a \\* star\n```sh\nls\n```") ==
           "Lesson 1 — X\nbold and it, code, a * star\nls\n");

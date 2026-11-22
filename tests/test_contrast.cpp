@@ -168,6 +168,27 @@ int main() {
         CHECK(parseConfig(writeConfig(withTcp)).ninepTcp == "5641");
     }
 
+    // T-S12-key (S12.6, S12.7): the Assistant lines of config.ini.
+    {
+        using lmw::ui::parseConfig;
+        using lmw::ui::writeConfig;
+        const auto none = parseConfig("contrast = AA\n");
+        CHECK(none.assistantStore.empty() && !none.assistantLimit && writeConfig(none).find("assistant") == std::string::npos);
+        const auto f = parseConfig("assistant_key_store = File\nassistant_key = sk-ant-x#y\nassistant_model = claude-haiku-5-5\n"
+                                   "assistant_effort = LOW\nassistant_limit = $3.5\n");
+        CHECK(f.assistantStore == "file" && f.assistantKey == "sk-ant-x#y" && f.assistantModel == "claude-haiku-5-5");
+        CHECK(f.assistantEffort == "low" && f.assistantLimit && *f.assistantLimit == 3.5);
+        const auto back = parseConfig(writeConfig(f));
+        CHECK(back.assistantStore == "file" && back.assistantKey == "sk-ant-x#y" && back.assistantModel == "claude-haiku-5-5"
+              && back.assistantEffort == "low" && back.assistantLimit && *back.assistantLimit == 3.5);
+        auto k = f;
+        k.assistantStore = "keychain";                  // the key is not written with the keychain
+        CHECK(writeConfig(k).find("sk-ant") == std::string::npos && writeConfig(k).find("assistant_key_store = keychain") != std::string::npos);
+        CHECK(parseConfig("assistant_limit = 0").assistantLimit == 0.0);
+        CHECK(!parseConfig("assistant_limit = -1").assistantLimit && parseConfig("assistant_effort = huge").assistantEffort.empty()
+              && parseConfig("assistant_key_store = cloud").assistantStore.empty());
+    }
+
     std::printf(failures ? "%d failure(s)\n" : "all contrast tests passed\n", failures);
     return failures ? 1 : 0;
 }

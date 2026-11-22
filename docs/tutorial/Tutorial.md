@@ -1,6 +1,6 @@
 # LMW-Synth tutorial
 
-Eleven short lessons, from the first note to remote control. Each lesson starts from a **lesson sound**
+Twelve short lessons, from the first note to remote control and the AI assistant. Each lesson starts from a **lesson sound**
 (Presets ▸ Tutorial ▸ *Lesson n*), gives a few steps — *do this, listen for that* — and ends with
 something to try on your own. A lesson takes 5 to 10 minutes. Lessons 1–4 are the basics; take the
 others in any order.
@@ -265,6 +265,37 @@ use it to control the synth.
 
 ---
 
+## Lesson 12 — The assistant: describe a sound in words
+
+**Lesson sound:** any. The *Assistant* tab is in the stand-alone program (not in the plug-in).
+
+In the *Assistant* tab you ask questions about the synth or describe the sound you want, in your own
+words; an AI model (Claude, by Anthropic) answers, changes the sound and plays a note so you hear it.
+It needs a **Claude API key**: a paid account at Anthropic. A question costs a few cents; the tab shows
+what each answer and the whole session cost.
+
+1. Get a key (once): open the Claude Console at https://platform.claude.com in your browser, sign
+   up (or log in), add a little credit under *Billing* (for example $5), then under *API keys* choose
+   *Create key*, give it a name such as *LMW-Synth* and copy the key (it starts with `sk-ant-`). The
+   Console shows it only once: keep it somewhere safe, it works like a password.
+2. In LMW-Synth: the *Assistant* tab › *Settings...* (also *Menu* › *Assistant settings...*). Press
+   *Paste*, then *Test connection*: it should say *the key works*.
+3. Choose where the key is kept: *the system keychain* (safest) or *the settings file* (simplest,
+   plain text). Leave *Model* at Claude Opus 5.5 for the best results, or choose Sonnet or Haiku to pay
+   less. The *Spending limit* (default $2 per session) makes it ask before going on. Press *OK*.
+4. Type a wish, e.g. *a soft flute with a slow vibrato*, and press Enter. Grey lines show each change
+   (*set vcf1.cutoff 800*, *played C4 for 2 s*).
+5. Not what you wanted? Say so (*less vibrato, a bit brighter*), or press *Undo last answer* to put the
+   sound back. *Stop* ends an answer that runs too long.
+6. Like it? Ask *save it as My flute*: the synth asks you first, then it appears under *Presets* ›
+   *Your presets*, also in the plug-in.
+
+**Good to know:** your questions, the answers and the current sound (parameters, cables, name and
+notes) are sent to Anthropic to be answered; no audio, no other files.
+**Try yourself:** ask *why does my sound click at the start of a note?* with a sound that clicks.
+
+---
+
 ## Lesson sounds (for the implementation)
 
 | Preset | Based on | Changes |
@@ -278,7 +309,7 @@ use it to control the synth.
 | Lesson 8 | Default | vco1.wave Sine, vco2.wave Sine, mix.vco2 0, env1.sustain 1, vco1.pm 0; cable vco1.pm = vco2.out |
 | Lesson 9 | Flute | comb.mix 0, reverb.mix 0 (delay.mix is 0 already) |
 
-Lessons 1, 10 and 11 use existing presets (Default, Clarinet, any). Each lesson preset carries its
+Lessons 1, 10, 11 and 12 use existing presets (Default, Clarinet, any, any). Each lesson preset carries its
 lesson's steps in the Notes text. Choosing a preset normally keeps your notes (S7.7); the lesson
 presets are the one exception (user 2026-11-21): they replace the notes with the lesson's steps,
 headed "Tutorial lesson n — from docs/tutorial/Tutorial.md".

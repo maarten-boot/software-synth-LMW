@@ -20,9 +20,10 @@ public:
     void paint(juce::Graphics&) override;
     void setFontSize(float size);
     void focusInput();
+    void ready();                                       // after configure/openSettings are set: help text, buttons
 
     // Hooks for 22c/22d: where the key and settings come from, and the questions before sending.
-    std::function<std::string()> key;                   // the API key (empty: none)
+    std::function<void(lmw::assistant::Settings&)> configure;   // key, model, effort, limit (S12.6, S12.7)
     std::function<void()> openSettings;                 // Settings... (none: button hidden)
 
 private:

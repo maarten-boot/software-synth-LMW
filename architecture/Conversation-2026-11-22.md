@@ -81,3 +81,11 @@ User: "yes, commit and start 22b; libcurl installed". 22a committed (671229d); n
 - A host-test check that the VST3 has no tab was tried and dropped: the host only sees its wrapper, not the plugin's components.
 - Fixed an old warning in src/mcp/Json.h (missing initializer).
 - The key comes from ANTHROPIC_API_KEY until the settings (22c).
+
+## 22c (Assistant settings) and two user notes
+
+User: "yes, commit and start 22c". 22b committed (a7dd407).
+- User (mid-work): "in the default reset layout view place lfo1 before all vco's and place adsk for the vcf before the adsr of the vca for the next version is ok" — read as: default layout LFO 1 before VCO 1–3, ENV 2 (ADSR of the VCF; "adsk" = ADSR) before ENV 1 (ADSR of the VCA); for the next version. Plan L10. Asked to confirm.
+- User (testing build-u24, 22b): "on the first question the key question comes up and suggests by its working there there is a Settings.. menu in the app ... we have to make that clearer for the first time user". Done: the empty tab says first that a key is needed and where; a question without a key keeps the text, explains and opens the settings window; Settings... button and Menu › Assistant settings....
+- 22c: src/app/AssistantSettings.h (provider, key with Paste/Clear/Test connection, model with prices, effort, keychain or file, limit, How to get a key, OK/Cancel); src/app/KeyStore (Credential Manager, Keychain, libsecret at run time); config.ini assistant_* keys, mode 600 with a key; tutorial Lesson 12 (the assistant, how to get a key; 12 lessons now, tests and README updated).
+- Tests: T-S12-key (config + keychain error path; the VM keyring is locked), T-S12-tab 22c part on Xvfb; 34 of 34.
