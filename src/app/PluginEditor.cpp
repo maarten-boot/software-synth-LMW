@@ -406,9 +406,9 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     titleButton.onClick = [this] { showAbout(); };
     addAndMakeVisible(titleButton);
     addAndMakeVisible(patchLabel);
-    aboutButton.setTooltip("Version, licence and source of LMW-Synth");
-    aboutButton.onClick = [this] { showAbout(); };
-    addAndMakeVisible(aboutButton);
+    menuButton.setTooltip("About LMW-Synth, contrast, and more (Spec S6.11)");
+    menuButton.onClick = [this] { showMainMenu(); };
+    addAndMakeVisible(menuButton);
     loadButton.setTooltip("Load a patch file (parameters, cables, notes)");
     saveButton.setTooltip("Save parameters, cables and notes as a patch file");
     loadButton.onClick = [this] { loadPatch(); };
@@ -467,22 +467,6 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     };
     addAndMakeVisible(compactButton);
 
-    // Spec S6.3: contrast preset; Custom asks for a minimum ratio (4.5 .. 21).
-    contrastBox.addItemList({"AA 4.5:1", "AAA 7:1", "Max 21:1", "Custom"}, 1);
-    contrastBox.setTooltip("Minimum contrast of every colour pair (WCAG). Black and white are 21:1 at\n"
-                           "every setting; stricter settings darken or invert the pressed keys.\n"
-                           "Also in the config file: " + configFile().getFullPathName());
-    contrastBox.setTitle("Contrast");
-    updateContrastBox();
-    contrastBox.onChange = [this] {
-        const int id = contrastBox.getSelectedId();
-        if (id == 4) { askCustomRatio(); return; }
-        if (id >= 1 && id <= 3) {
-            settings.contrast = static_cast<lmw::ui::ContrastPreset>(id - 1);
-            applyContrast();
-        }
-    };
-    addAndMakeVisible(contrastBox);
 
     keyboard.setWantsKeyboardFocus(true);       // QWERTY keys play notes (Spec S3.2)
     // Spec S3.2, S6.1 (user 2026-11-13): scientific pitch names (MIDI 60 = C4, JUCE's default is C3),
@@ -933,18 +917,13 @@ void LMWSynthEditor::resized() {
     resetLayoutButton.setButtonText(wide ? "Reset layout" : "Reset");
     resetLayoutButton.setBounds(title.removeFromRight(wide ? 110 : 56).reduced(0, 2));
     title.removeFromRight(m.gap);
-    contrastBox.setBounds(title.removeFromRight(m.colW >= 80 ? 130 : 116).reduced(0, 3));
-    title.removeFromRight(m.gap);
     saveButton.setBounds(title.removeFromRight(m.colW >= 80 ? 76 : 64).reduced(0, 2));
     title.removeFromRight(m.gap / 2);
     loadButton.setBounds(title.removeFromRight(m.colW >= 80 ? 76 : 64).reduced(0, 2));
     title.removeFromRight(m.gap / 2);
     instrumentButton.setBounds(title.removeFromRight(m.colW >= 80 ? 76 : 64).reduced(0, 2));   // Spec S7.7
-    aboutButton.setVisible(wide);                            // compact: the title opens About
-    if (wide) {
-        title.removeFromRight(m.gap / 2);
-        aboutButton.setBounds(title.removeFromRight(76).reduced(0, 2));
-    }
+    title.removeFromRight(m.gap / 2);
+    menuButton.setBounds(title.removeFromRight(m.colW >= 80 ? 70 : 60).reduced(0, 2));       // Spec S6.11
     titleButton.fontHeight = m.titleH * 0.6f;
     titleButton.setBounds(title.removeFromLeft(titleTextWidth()).reduced(0, 2));
     title.removeFromLeft(m.gap);
@@ -1335,16 +1314,47 @@ void LMWSynthEditor::saveConfig() const {
     file.replaceWithText(juce::String(lmw::ui::writeConfig(settings)));
 }
 
-void LMWSynthEditor::updateContrastBox() {
-    char text[32];
-    std::snprintf(text, sizeof text, "Custom %.1f:1", settings.customRatio);
-    contrastBox.changeItemText(4, text);
-    contrastBox.setSelectedId(static_cast<int>(settings.contrast) + 1, juce::dontSendNotification);
+// Spec S6.11: the menu (header button; the same items in the standalone window's Options menu).
+void LMWSynthEditor::addMenuItems(juce::PopupMenu& m) const {
+    m.addItem(menuFirstId + 1, "About LMW-Synth...");
+    juce::PopupMenu contrast;                              // Spec S6.3, ticked: the current one
+    const auto c = settings.contrast;
+    contrast.addItem(menuFirstId + 11, "AA 4.5:1", true, c == lmw::ui::ContrastPreset::AA);
+    contrast.addItem(menuFirstId + 12, "AAA 7:1", true, c == lmw::ui::ContrastPreset::AAA);
+    contrast.addItem(menuFirstId + 13, "Max 21:1", true, c == lmw::ui::ContrastPreset::Max);
+    char text[48];
+    if (c == lmw::ui::ContrastPreset::Custom) std::snprintf(text, sizeof text, "Custom %.1f:1...", settings.customRatio);
+    else std::snprintf(text, sizeof text, "Custom...");
+    contrast.addItem(menuFirstId + 14, text, true, c == lmw::ui::ContrastPreset::Custom);
+    m.addSubMenu("Contrast", contrast);
+}
+
+void LMWSynthEditor::handleMenuItem(int id) {
+    switch (id - menuFirstId) {
+        case 1: showAbout(); break;
+        case 11: case 12: case 13:
+            settings.contrast = static_cast<lmw::ui::ContrastPreset>(id - menuFirstId - 11);
+            applyContrast();
+            break;
+        case 14: askCustomRatio(); break;
+        default: break;
+    }
+}
+
+void LMWSynthEditor::showMainMenu() {
+    juce::PopupMenu m;
+    addMenuItems(m);
+    const auto back = focusNow();
+    m.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&menuButton),
+                    [safe = juce::Component::SafePointer<LMWSynthEditor>(this), back](int result) {
+                        if (safe == nullptr) return;
+                        safe->restoreFocus(back);          // computer keys keep playing (S3.2)
+                        if (result > 0) safe->handleMenuItem(result);
+                    });
 }
 
 void LMWSynthEditor::applyContrast() {
     palette = lmw::ui::theme::palette(settings.minRatio());
-    updateContrastBox();
     saveConfig();
     keyboard.repaint();
     if (matrix) matrix->setPalette(palette);
@@ -1514,7 +1524,7 @@ void LMWSynthEditor::showAbout() {
 void LMWSynthEditor::showTab(int tab) {
     currentTab = tab;
     const juce::Component* alwaysShown[] = {&titleButton, &instrumentButton, &panelTab, &effectsTab, &matrixTab, &schematicTab, &notesTab, &patchLabel, &loadButton,
-                                            &saveButton, &aboutButton, &contrastBox, &resetLayoutButton, &compactButton, &keyboard};
+                                            &saveButton, &menuButton, &resetLayoutButton, &compactButton, &keyboard};
     for (auto* child : getChildren()) {
         if (child == &notesEditor || child == matrix.get() || child == schematic.get()
             || std::find(std::begin(alwaysShown), std::end(alwaysShown), child) != std::end(alwaysShown))

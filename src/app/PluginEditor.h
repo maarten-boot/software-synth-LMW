@@ -212,6 +212,14 @@ private:
                    const juce::String& tip = {});
     void layoutItem(const Item&, juce::Rectangle<int> column) const;
     void layoutJacks(const std::vector<Jack*>& js, int columns, juce::Rectangle<int> jackRow) const;
+public:
+    // Spec S6.11: the menu's items (About, Contrast, ...), also appended to the standalone window's Options
+    // menu (StandaloneApp.cpp). Ids from menuFirstId up; handleMenuItem() acts on one.
+    static constexpr int menuFirstId = 6000;
+    void addMenuItems(juce::PopupMenu& m) const;
+    void handleMenuItem(int id);
+private:
+    void showMainMenu();
     static juce::Component::SafePointer<juce::Component> focusNow();   // around popup menus (S3.2)
     void restoreFocus(juce::Component::SafePointer<juce::Component> c);
     void setCompact(bool compact);
@@ -240,7 +248,6 @@ private:
     void saveConfig() const;
     void applyContrast();                                 // palette from settings, redraw
     void askCustomRatio();
-    void updateContrastBox();
     // Spec S7: tabs (Synth, Effects, Matrix, Notes) and patch files.
     void showTab(int tab);                                // 0 = synth, 1 = effects, 2 = matrix, 3 = notes
     void savePatch();
@@ -298,11 +305,10 @@ private:
     // Spec S6.3: contrast preset (AA / AAA / Max / Custom), kept in the user config file.
     lmw::ui::Settings settings;
     lmw::ui::theme::Palette palette;
-    juce::ComboBox contrastBox;
     // Spec S7: tabs, patch name, notes and patch files.
     juce::TextButton instrumentButton{"Presets"};          // Spec S7.7, in the header left of Load...
     juce::TextButton panelTab{"Synth"}, effectsTab{"Effects"}, matrixTab{"Matrix"}, schematicTab{"Schematic"}, notesTab{"Notes"}, loadButton{"Load..."},
-        saveButton{"Save..."}, aboutButton{"About..."};   // Spec S6.10: version, licence, source
+        saveButton{"Save..."}, menuButton{"Menu"};   // Spec S6.11: About, Contrast, Theme, Show keyboard
     std::unique_ptr<MatrixView> matrix;                   // Spec S6.8: the Matrix tab
     std::unique_ptr<SchematicView> schematic;             // Spec S6.7: the Schematic tab
     // Spec S7.4: the Effects tab — fixed panels (not part of the rack), one so far: REVERB.

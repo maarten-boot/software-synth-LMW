@@ -33,6 +33,37 @@ extern "C" void onQuitSignal(int sig) {
 }
 #endif
 
+// Spec S6.11: JUCE's standalone window, whose Options menu (top bar) also holds the editor's menu items
+// (About, Contrast, ...) after JUCE's own four.
+class LMWStandaloneWindow final : public juce::StandaloneFilterWindow {
+public:
+    using juce::StandaloneFilterWindow::StandaloneFilterWindow;
+
+    void buttonClicked(juce::Button* button) override {
+        juce::PopupMenu m;
+        m.addItem(1, TRANS("Audio/MIDI Settings..."));
+        m.addSeparator();
+        m.addItem(2, TRANS("Save current state..."));
+        m.addItem(3, TRANS("Load a saved state..."));
+        m.addSeparator();
+        m.addItem(4, TRANS("Reset to default state"));
+        if (auto* e = editor()) { m.addSeparator(); e->addMenuItems(m); }
+        m.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(button),
+                        [safe = juce::Component::SafePointer<LMWStandaloneWindow>(this)](int result) {
+                            if (safe == nullptr || result <= 0) return;
+                            if (result < LMWSynthEditor::menuFirstId) safe->handleMenuResult(result);
+                            else if (auto* e = safe->editor()) e->handleMenuItem(result);
+                        });
+    }
+
+private:
+    LMWSynthEditor* editor() {
+        auto* holder = getPluginHolder();
+        return holder != nullptr && holder->processor != nullptr
+                   ? dynamic_cast<LMWSynthEditor*>(holder->processor->getActiveEditor()) : nullptr;
+    }
+};
+
 class LMWStandaloneApp final : public juce::JUCEApplication {
 public:
     LMWStandaloneApp() {
@@ -63,7 +94,7 @@ public:
             pluginHolder = createPluginHolder();                // no display: run headless
             return;
         }
-        mainWindow = std::make_unique<juce::StandaloneFilterWindow>(
+        mainWindow = std::make_unique<LMWStandaloneWindow>(
             getApplicationName(), lookAndFeel.findColour(juce::ResizableWindow::backgroundColourId),
             createPluginHolder());
         mainWindow->setVisible(true);
