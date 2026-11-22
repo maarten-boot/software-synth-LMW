@@ -103,3 +103,6 @@ User: "yes, commit and start 22d". 22c committed (631eab7).
 - CI check: 3 releases (1.0.0, 1.1.0, 1.2.1) but no artifacts older than 14 days (231 artifacts, none before 2026-11-08): no cleanup warning.
 - Upgrade check (T-S9.6-upgrade-1.3): 1.2.1 download on Xvfb → sound, cables, notes over 9P, closed → the 1.3.0 build on the same settings: /patch identical, patch text round trip ok, window 1496 × 904. Download and test home removed from the scratchpad.
 - Prepared: CMakeLists 1.3.0, Changes "## 1.3.0 (2026-11-22)" (Assistant tab, Male voice vowel, upgrade note, the Phase 18/21 entries), Spec S6.10, Plan row 1.3.0, Tests.
+- Committed the release preparation (9538d6d); user pushed and tagged v1.3.0. The first tag (on 22d, version 1.2.1) was stopped by the tag check (run 45067897416); the re-tag on 9538d6d released: run 45068222041 green (four builds, T-S12-key passed on Windows, macOS and Linux), six assets. build-u24 refreshed (34 of 34).
+- After the release: 4 releases (1.0.0, 1.1.0, 1.2.1, 1.3.0), no CI artifacts older than 14 days: no cleanup warning.
+- User: "yes commit, L10 interpretation is correct; and then stop, time for backup and sleep". L10 confirmed in the Plan. Session ends; open: Lesson 12 Console menu names to be checked by the user with the next key.
