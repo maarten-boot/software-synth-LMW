@@ -17,3 +17,13 @@
 - Proposed Phase 18 (MCP server): a program between the AI assistant (MCP, stdio) and the synth (9P), tools for finding synths, reading parameters/patch, setting parameters and cables, presets, playing notes, saving; a sound-design guide as background; C++ (ships in every download, recommended) or Python. Waiting for the user's choice after the preview.
 - User: cables grey at rest, black only when the mouse is over a socket, so the focus is on the relevant cables. Asked: grey #6B6B6B; black for mouse-over socket and keyboard focus, Schematic too.
 - Done: theme cable grey (5.3:1 on its white edge, raised with the preset, black at Max, in pairs()); Synth tab: hot cables (hover or focused socket) black, 4 px, drawn last; Schematic: same for the hovered port and the keyboard cursor, legend sample grey. Native ctest 31/31; Xvfb checked. build-u24 rebuilt for the preview (no GitHub CI for these small items, user).
+
+## Phase 18 — MCP server
+
+- User: C++, commit the docs (2fb7eb5, with the small items) and start Phase 18.
+- Spec S11 written (program lmw-mcp, protocol, tools, resources, setup, safety); Plan 18 split into 18a core, 18b presets and guide, 18c delivery.
+- Phase 18 built: src/mcp/Json.h, src/mcp/Server.h (12 tools, 2 resources, instructions), src/ninep/Session.h (ClientSession), tools/lmw-mcp.cpp (Documents folder as JUCE finds it), docs/ai/SoundDesign.md (+ cmake/GuideText.cmake). tests/test_mcp.cpp (fake synth) and host test 4i (real lmw-mcp against the plugin); by hand on Xvfb against the standalone. Fixed on the way: raw string ending at ")\"", the class name Session (server side) → ClientSession, a blank line before the new name in apply_instrument_preset, the 9P text "a effect" → "an effect". Delivery: CI Package, installer "Command-line tools", build-u24, README "AI assistant". Native ctest 32/32.
+- User (during the work): what about making the cables also transparent when grey? — answered with a proposal (below in the reply).
+- The Ubuntu 24 container build found T-S9.8-html failing on the README's new link to docs/ai/SoundDesign.md on GitHub: the test now allows .md links to GitHub (local links must still point to the HTML copies). Container 32/32; build-u24 has lmw-mcp.
+- User ideas during the work: cables transparent when grey; About and the contrast settings into the Options top-bar menu; hide/show the keyboard; a Theme menu in Options for personal colours. Noted as Plan Phase 21 (to discuss).
+- User: commit Phase 18; then work out Phase 21; expects C++ was chosen for speed — answered: mainly no install dependency and reuse of the C++ 9P and preset code (speed hardly matters for tool calls).

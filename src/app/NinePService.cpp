@@ -161,8 +161,8 @@ void NinePService::build() {
                 if (!pins) return "bad cables (unknown output, bad level, output twice or more than 4): " + pinText;
                 for (const auto& pin : *pins)                           // Spec S7.6: two domains
                     if (!lmw::dsp::canConnect(*in, static_cast<lmw::dsp::Out>(pin.source)))
-                        return "not possible: " + trimmed(line.substr(0, eq)) + " is a "
-                             + (lmw::dsp::isEffectIn(*in) ? "effect" : "synth") + " input, "
+                        return "not possible: " + trimmed(line.substr(0, eq)) + " is "
+                             + (lmw::dsp::isEffectIn(*in) ? "an effect" : "a synth") + " input, "
                              + name(lmw::dsp::outputNames[static_cast<std::size_t>(pin.source)]) + " is not";
                 changes.push_back({false, *in, *pins});
             }

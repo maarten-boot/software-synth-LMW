@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.22)
 project(LMWSynth VERSION 1.2.1 LANGUAGES C CXX)   # Spec S6.10: raised with every release
 include(cmake/TutorialText.cmake)   # Spec S7.9: docs/tutorial/Tutorial.md -> generated/TutorialText.h
+include(cmake/GuideText.cmake)      # Spec S11.5: docs/ai/SoundDesign.md -> generated/GuideText.h
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -16,6 +17,12 @@ target_include_directories(lmw9p PRIVATE src)
 target_compile_features(lmw9p PRIVATE cxx_std_20)
 find_package(Threads REQUIRED)
 target_link_libraries(lmw9p PRIVATE Threads::Threads $<$<PLATFORM_ID:Windows>:ws2_32>)
+# lmw-mcp: the MCP server for AI assistants (Spec S11), tools/lmw-mcp.cpp
+add_executable(lmw-mcp tools/lmw-mcp.cpp src/ninep/Transport.cpp)
+target_include_directories(lmw-mcp PRIVATE src ${CMAKE_BINARY_DIR}/generated)
+target_compile_features(lmw-mcp PRIVATE cxx_std_20)
+target_compile_definitions(lmw-mcp PRIVATE LMW_MCP_VERSION="${PROJECT_VERSION}")
+target_link_libraries(lmw-mcp PRIVATE Threads::Threads $<$<PLATFORM_ID:Windows>:ws2_32 shell32 ole32>)
 
 add_library(lmw_ui_core STATIC src/ui/Contrast.cpp)
 target_include_directories(lmw_ui_core PUBLIC src)
@@ -107,7 +114,7 @@ if(LMW_BUILD_PLUGIN)
             add_custom_target(installer
                 COMMAND ${CMAKE_COMMAND} -E rm -rf ${lmw_stage}
                 COMMAND ${CMAKE_COMMAND} -E make_directory ${lmw_stage}
-                COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:LMWSynth_Standalone> $<TARGET_FILE:lmw9p> ${lmw_stage}/
+                COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:LMWSynth_Standalone> $<TARGET_FILE:lmw9p> $<TARGET_FILE:lmw-mcp> ${lmw_stage}/
                 COMMAND ${CMAKE_COMMAND} -E copy_directory
                         "$<TARGET_GENEX_EVAL:LMWSynth_VST3,$<TARGET_PROPERTY:LMWSynth_VST3,JUCE_PLUGIN_ARTEFACT_FILE>>"
                         ${lmw_stage}/LMW-Synth.vst3
@@ -115,7 +122,7 @@ if(LMW_BUILD_PLUGIN)
                 COMMAND ${Python3_EXECUTABLE} -I ${CMAKE_SOURCE_DIR}/scripts/md2html.py ${lmw_stage}/docs
                 COMMAND ${LMW_MAKENSIS} -V2 -DVERSION=${PROJECT_VERSION} -DSTAGE=${lmw_stage_native}
                         -DOUTFILE=${lmw_setup_native} ${CMAKE_SOURCE_DIR}/installer/LMW-Synth.nsi
-                DEPENDS LMWSynth_Standalone LMWSynth_VST3 lmw9p
+                DEPENDS LMWSynth_Standalone LMWSynth_VST3 lmw9p lmw-mcp
                 COMMENT "Building ${lmw_setup}"
                 VERBATIM)
         endif()
@@ -127,7 +134,9 @@ if(LMW_BUILD_PLUGIN)
     target_include_directories(LMWHostTest PRIVATE src)
     # JUCE_MODAL_LOOPS_PERMITTED: the test runs the message loop for a while (runDispatchLoopUntil, T-S10.12).
     target_compile_definitions(LMWHostTest PRIVATE
-        JUCE_PLUGINHOST_VST3=1 JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_MODAL_LOOPS_PERMITTED=1)
+        JUCE_PLUGINHOST_VST3=1 JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_MODAL_LOOPS_PERMITTED=1
+        LMW_MCP_PATH="$<TARGET_FILE:lmw-mcp>")              # Spec S11: lmw-mcp end to end
+    add_dependencies(LMWHostTest lmw-mcp)
     target_link_libraries(LMWHostTest PRIVATE $<$<PLATFORM_ID:Windows>:ws2_32>
         juce::juce_audio_processors juce::juce_audio_utils
         juce::juce_recommended_config_flags juce::juce_recommended_warning_flags)
@@ -225,6 +234,9 @@ if(LMW_BUILD_TESTS)
     add_executable(test_tutorial tests/test_tutorial.cpp)
     target_include_directories(test_tutorial PRIVATE src ${CMAKE_BINARY_DIR}/generated)
     add_test(NAME T-S7.9-tutorial COMMAND test_tutorial)
+    add_executable(test_mcp tests/test_mcp.cpp)          # Spec S11: lmw-mcp against a fake synth
+    target_include_directories(test_mcp PRIVATE src)
+    add_test(NAME T-S11-mcp COMMAND test_mcp)
     add_executable(test_patchfile tests/test_patchfile.cpp)
     target_include_directories(test_patchfile PRIVATE src)
     add_test(NAME T-S7.1-patchfile COMMAND test_patchfile)

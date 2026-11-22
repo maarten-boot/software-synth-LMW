@@ -2,7 +2,7 @@
 ; LMW-Synth Windows installer (Spec S9.5, Plan Phase 13b). NSIS 3, Unicode.
 ; Built by `cmake --build <build> --config Release --target installer`, which passes:
 ;   VERSION   e.g. 0.13.1
-;   STAGE     folder with LMW-Synth.exe, LMW-Synth.vst3 (bundle folder), lmw9p.exe, LICENSE.txt and
+;   STAGE     folder with LMW-Synth.exe, LMW-Synth.vst3 (bundle folder), lmw9p.exe, lmw-mcp.exe, LICENSE.txt and
 ;             docs (README, Tutorial, THIRD_PARTY as HTML with their images, scripts/md2html.py, S9.8)
 ;   OUTFILE   the installer to write
 ;
@@ -340,9 +340,10 @@ Section "${PRODUCT} (required)" SecMain
   WriteRegDWORD SHCTX "${UNINSTALL_KEY}" "EstimatedSize" 30000
 SectionEnd
 
-Section /o "lmw9p (command-line 9P client)" SecTool
+Section /o "Command-line tools (lmw9p, lmw-mcp)" SecTool
   SetOutPath "$INSTDIR"
   File "${STAGE}${SEP}lmw9p.exe"
+  File "${STAGE}${SEP}lmw-mcp.exe"
 SectionEnd
 
 Section /o "Desktop shortcut" SecDesktop
@@ -351,7 +352,7 @@ SectionEnd
 
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
   !insertmacro MUI_DESCRIPTION_TEXT ${SecMain} "The standalone synthesizer, the VST3 plugin, the tutorial and read-me pages (HTML) and Start menu entries."
-  !insertmacro MUI_DESCRIPTION_TEXT ${SecTool} "lmw9p.exe, a small program to read and set the synthesizer over 9P from a terminal."
+  !insertmacro MUI_DESCRIPTION_TEXT ${SecTool} "lmw9p.exe (read and set the synthesizer over 9P from a terminal) and lmw-mcp.exe (lets an AI assistant such as Claude or Gemini set up sounds; see the read-me)."
   !insertmacro MUI_DESCRIPTION_TEXT ${SecDesktop} "An ${PRODUCT} shortcut on the desktop."
 !insertmacro MUI_FUNCTION_DESCRIPTION_END
 
@@ -393,6 +394,7 @@ Section "Uninstall"
   ; Only what the installer put there: patches, presets (Documents) and settings stay.
   Delete "$INSTDIR\LMW-Synth.exe"
   Delete "$INSTDIR\lmw9p.exe"
+  Delete "$INSTDIR\lmw-mcp.exe"
   Delete "$INSTDIR\LICENSE.txt"
   Delete "$INSTDIR\README.md"
   Delete "$INSTDIR\THIRD_PARTY.md"

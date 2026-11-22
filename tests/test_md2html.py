@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # T-S9.8-html: scripts/md2html.py writes README.html, Tutorial.html, THIRD_PARTY.html and the images;
 # every page is well-formed (tags close in order), black on white, has no Markdown marks left (**, ```,
-# "## "), its images exist, links between the pages point to the HTML copies, and the tutorial keeps its
+# "## "), its images exist, local links between the pages point to the HTML copies (links to GitHub may name .md pages), and the tutorial keeps its
 # 11 lessons as numbered lists that continue across images and code blocks (Lesson 6 has 6 steps).
 # Usage: test_md2html.py <scratch folder>
 import os
@@ -62,7 +62,7 @@ for name in ("README.html", "Tutorial.html", "THIRD_PARTY.html"):
     for src in p.images:
         check(os.path.isfile(os.path.join(out, src)), name + ": image " + src)
     for href in p.links:
-        check(not href.endswith(".md"), name + ": link to the HTML copy, not " + href)
+        check(href.startswith("https://") or not href.endswith(".md"), name + ": local link to the HTML copy, not " + href)
 readme = open(os.path.join(out, "README.html"), encoding="utf-8").read()
 check('href="Tutorial.html"' in readme and 'src="images/synth.png"' in readme, "README links the tutorial and shows the Synth tab")
 tutorial = open(os.path.join(out, "Tutorial.html"), encoding="utf-8").read()

@@ -107,6 +107,7 @@ jobs:
           cp -R "$a/VST3/LMW-Synth.vst3" "dist/$d/"
           cp -R "$a"/Standalone/LMW-Synth* "dist/$d/"
           if [ -f build/Release/lmw9p.exe ]; then cp build/Release/lmw9p.exe "dist/$d/"; else cp build/lmw9p "dist/$d/"; fi
+          if [ -f build/Release/lmw-mcp.exe ]; then cp build/Release/lmw-mcp.exe "dist/$d/"; else cp build/lmw-mcp "dist/$d/"; fi   # Spec S11
           cp LICENSE "dist/$d/"
           # Spec S9.8: README, Tutorial, THIRD_PARTY as HTML with their images (a browser opens them).
           py=$(command -v python3 || command -v python)

@@ -25,6 +25,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
 #include <initializer_list>
 #include <map>
 #include <string>
@@ -467,6 +468,56 @@ int main(int argc, char* argv[]) {
             }
         std::printf("instrument presets: %d of %d values accepted and read back\n", instrumentExact, instrumentValues);
         CHECK(instrumentValues > 300 && instrumentExact == instrumentValues);
+
+#ifdef LMW_MCP_PATH
+        // 4i. lmw-mcp end to end (Spec S11, T-S11-mcp-host): the real program against this instance, in a
+        //     thread while this (message) thread runs the loop; its answers and the synth's state checked.
+        {
+            namespace fs = std::filesystem;
+            const auto dir = fs::temp_directory_path() / ("lmw-host-mcp-" + std::to_string(juce::Time::currentTimeMillis()));
+            fs::create_directories(dir);
+            {
+                std::ofstream req(dir / "req.jsonl");
+                req << R"({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"host","version":"1"}}})" "\n"
+                    << R"({"jsonrpc":"2.0","method":"notifications/initialized"})" "\n"
+                    << R"({"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"set_parameters","arguments":{"values":{"vcf1.cutoff":777,"formant.voice":"Bass","bad.x":1}}}})" "\n"
+                    << R"({"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"set_cables","arguments":{"clear_first":true,"cables":["vcf2.cutoff=lfo1.out@0.25"]}}})" "\n"
+                    << R"({"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"apply_module_preset","arguments":{"module":"delay","name":"Slapback"}}})" "\n"
+                    << R"({"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"play","arguments":{"notes":[62],"seconds":0.2}}})" "\n"
+                    << R"({"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"name_sound","arguments":{"name":"Host MCP","notes":"from lmw-mcp"}}})" "\n";
+            }
+            const std::string cmd = std::string("\"") + LMW_MCP_PATH + "\" \"" + sock + "\" < \"" + (dir / "req.jsonl").string()
+                                  + "\" > \"" + (dir / "out.jsonl").string() + "\" 2> \"" + (dir / "err.txt").string() + "\"";
+#ifdef _WIN32
+            const std::string run = "\"" + cmd + "\"";            // cmd /c strips one pair of outer quotes
+#else
+            const std::string& run = cmd;
+#endif
+            std::atomic<bool> mcpDone{false};
+            int code = -1;
+            std::thread mcpThread([&] { code = std::system(run.c_str()); mcpDone = true; });
+            for (int i = 0; i < 4000 && !mcpDone; ++i) juce::MessageManager::getInstance()->runDispatchLoopUntil(5);
+            mcpThread.join();
+            std::ifstream in(dir / "out.jsonl");
+            const std::string out((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+            const auto has = [&](const char* part) { return out.find(part) != std::string::npos; };
+            CHECK(code == 0);
+            CHECK(has(R"("serverInfo":{"name":"lmw-mcp")"));
+            CHECK(has("vcf1.cutoff = 777") && has("formant.voice = Bass") && has("bad.x"));
+            CHECK(has("vcf2.cutoff=lfo1.out@0.25") && has("delay.time = 0.09") && has("Played 62"));
+            CHECK(has(R"(\"Host MCP\")") && !has(R"("isError":true)"));
+            CHECK(read9P(sock, {"params", "vcf1", "cutoff"}) == "777\n" && read9P(sock, {"params", "delay", "time"}) == "0.09\n");
+            const auto cablesNow = read9P(sock, {"cables"}), notesNow = read9P(sock, {"notes"});
+            CHECK(cablesNow == "vcf2.cutoff=lfo1.out@0.25\n");
+            CHECK(notesNow.rfind("from lmw-mcp", 0) == 0);
+            if (cablesNow != "vcf2.cutoff=lfo1.out@0.25\n" || notesNow.rfind("from lmw-mcp", 0) != 0)
+                std::printf("  cables [%s] notes [%s]\n", cablesNow.c_str(), notesNow.c_str());
+            std::printf("lmw-mcp end to end: exit %d, %zu bytes of answers\n", code, out.size());
+            if (failures > 0) std::printf("%s\n", out.c_str());
+            fs::remove_all(dir);
+            CHECK(write9P(sock, {"cables"}, "clear").empty());
+        }
+#endif
 
         // 4e. /serial goes up with every change (parameters, cables, notes); /keys plays notes (Spec S10.10).
         auto serial = [&] { return std::strtoull(read9P(sock, {"serial"}).c_str(), nullptr, 10); };

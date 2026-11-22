@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Spec S11.5: docs/ai/SoundDesign.md as C++ text for lmw-mcp (the resource lmw://guide/sound-design), so
+# the document stays the one source. Written at configure time like cmake/TutorialText.cmake; split at
+# its "## " headings (never inside a UTF-8 character) into raw string literals below MSVC's 16 KB limit.
+set(_lmw_guide_src "${CMAKE_SOURCE_DIR}/docs/ai/SoundDesign.md")
+set(_lmw_guide_out "${CMAKE_BINARY_DIR}/generated/GuideText.h")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_lmw_guide_src}")
+file(READ "${_lmw_guide_src}" _lmw_rest)
+set(_lmw_out "// Generated from docs/ai/SoundDesign.md by cmake/GuideText.cmake - do not edit.\n#pragma once\nnamespace lmw::guide {\ninline constexpr const char* textParts[] = {\n")
+while(TRUE)
+    string(FIND "${_lmw_rest}" "\n## " _lmw_at)
+    if(_lmw_at EQUAL -1)
+        string(APPEND _lmw_out "R\"lmwguide(${_lmw_rest})lmwguide\",\n")
+        break()
+    endif()
+    math(EXPR _lmw_cut "${_lmw_at} + 1")
+    string(SUBSTRING "${_lmw_rest}" 0 ${_lmw_cut} _lmw_part)
+    string(SUBSTRING "${_lmw_rest}" ${_lmw_cut} -1 _lmw_rest)
+    string(APPEND _lmw_out "R\"lmwguide(${_lmw_part})lmwguide\",\n")
+endwhile()
+string(APPEND _lmw_out "};\n} // namespace lmw::guide\n")
+if(EXISTS "${_lmw_guide_out}")
+    file(READ "${_lmw_guide_out}" _lmw_old)
+endif()
+if(NOT "${_lmw_old}" STREQUAL "${_lmw_out}")
+    file(WRITE "${_lmw_guide_out}" "${_lmw_out}")
+endif()

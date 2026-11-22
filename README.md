@@ -20,6 +20,19 @@ Windows: the -windows download also holds LMW-Synth-<version>-setup.exe. It inst
 ## Tutorial
 New to LMW-Synth? [docs/tutorial/Tutorial.md](docs/tutorial/Tutorial.md): eleven short lessons; in the app, Presets ▸ Tutorial sets each lesson's sound and puts its steps in the Notes tab.
 
+## AI assistant
+
+`lmw-mcp` (in every download; on Windows tick "Command-line tools" in the installer) lets an AI assistant you are already logged in to set up sounds for you: "make a male ooo voice", "a breathy flute with a slow vibrato", "add a ping-pong echo". It is a Model Context Protocol server: the assistant starts it and it changes the running LMW-Synth over 9P. No API key, no network of its own; start LMW-Synth first.
+
+- Claude Code: `claude mcp add lmw-synth -- /path/to/lmw-mcp`
+- Claude Desktop (Settings → Developer → Edit config) or Gemini CLI (`~/.gemini/settings.json`):
+  ```json
+  { "mcpServers": { "lmw-synth": { "command": "/path/to/lmw-mcp" } } }
+  ```
+  On Windows the path is e.g. `C:\\Users\\you\\AppData\\Local\\Programs\\LMW-Synth\\lmw-mcp.exe` (backslashes doubled in JSON).
+
+The assistant gets tools to read and set parameters and cables, apply presets, play notes to listen, name the sound and save it as your own instrument preset, and a sound-design guide ([docs/ai/SoundDesign.md](docs/ai/SoundDesign.md)). With several synths running it uses the newest, or the one you ask for.
+
 ## Prepare
 ```sh
 scripts/prepare.sh            # lists the build dependencies and which are missing

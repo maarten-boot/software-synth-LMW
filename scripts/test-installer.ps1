@@ -43,7 +43,7 @@ foreach ($mode in @('CURRENTUSER', 'ALLUSERS')) {
     Check ((Run $Setup @('/S', "/$mode")) -eq 0) "$mode install exit code 0"
     Check (Test-Path "$app\LMW-Synth.exe") "$mode app in $app"
     Check (Test-Path "$app\uninstall.exe") "$mode uninstaller"
-    Check (-not (Test-Path "$app\lmw9p.exe")) "$mode lmw9p not installed by default"
+    Check (-not (Test-Path "$app\lmw9p.exe") -and -not (Test-Path "$app\lmw-mcp.exe")) "$mode command-line tools not installed by default"
     Check (Test-Path "$vst\$vstBinary") "$mode VST3 plugin in $vst"
     Check (Test-Path $menu) "$mode Start menu entry"
     $menuDir = Split-Path $menu
