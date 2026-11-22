@@ -62,3 +62,11 @@ User: "yes, commit and add phase 22 to the plan; for starters Claude first later
 User: "pushed, start the Spec for phase 22". Spec S12.1–S12.10 written (in-process tools from src/mcp/Server.h, raw HTTPS Messages API with anthropic-version 2026-10-21, tool loop, tab, settings with both key stores, cost from the usage fields, privacy notice, safety and error texts, OpenAI-compatible later); Tests T-S12-client, T-S12-key, T-S12-tab, T-S12-live planned; Plan 22a–22d point to their S12 items. Proposals for the user to confirm: default model Opus 5.5, spending limit $2 per session, not streamed at first, 20 steps per question, server-side fallback on.
 
 User: "all ok, commit the spec and start 22a; make the spending limit default 2$ but configurable by the users". S12.7: limit set in the settings dialog, kept in config.ini (assistant_limit). Spec committed; 22a started.
+
+## 22a done (Assistant core)
+
+- src/assistant/Claude.h: the Claude client — request (x-api-key, anthropic-version 2026-10-21, server-side fallback beta, model, max_tokens 16000, cached system prompt with the guide, tools from mcp::Server without list_synths/select_synth plus read_tutorial, effort), tool loop (results in one message, refusal/max_tokens/pause_turn/Stop/step limit keep the conversation valid), retries (429/529/5xx, retry-after, 2 retries), error texts, cost per answer and session, spending limit, Undo stack, Test connection.
+- mcp::Server gained toolList() and call() (no JSON-RPC); ninep::Tree::find(); NinePService::readFile/writeFile (background threads only); processor ninepService().
+- src/app/AssistantSession: in-process Link, HTTPS via juce::WebInputStream (cancel on Stop), one worker thread, callbacks on the message thread, save confirmation waits for the musician; LMW_ASSISTANT_URL for tests.
+- Build: NEEDS_CURL + JUCE_LOAD_CURL_SYMBOLS_LAZILY on Linux (no hard libcurl dependency in ldd); scripts/prepare.sh needs libcurl4-openssl-dev / libcurl-devel. The VM lacks the curl headers (no sudo): asked the user to install libcurl4-openssl-dev; built in the container instead.
+- Tests: T-S12-client pass (native test target needs no curl); build-u24 33 of 33.

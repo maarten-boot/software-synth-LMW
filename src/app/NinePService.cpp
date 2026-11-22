@@ -53,6 +53,24 @@ std::optional<std::string> NinePService::onMessageThread(std::function<std::stri
     return pending->result;
 }
 
+std::optional<std::string> NinePService::readFile(const std::string& path, std::string& error) const {
+    if (juce::MessageManager::getInstanceWithoutCreating() != nullptr
+        && juce::MessageManager::getInstance()->isThisTheMessageThread()) { error = "not from the message thread"; return std::nullopt; }
+    const int id = tree.find(path);
+    if (id <= 0 || tree.node(id).dir || !tree.node(id).read) { error = path + ": no such file"; return std::nullopt; }
+    return tree.node(id).read();
+}
+
+bool NinePService::writeFile(const std::string& path, const std::string& text, std::string& error) const {
+    if (juce::MessageManager::getInstanceWithoutCreating() != nullptr
+        && juce::MessageManager::getInstance()->isThisTheMessageThread()) { error = "not from the message thread"; return false; }
+    const int id = tree.find(path);
+    if (id <= 0 || tree.node(id).dir) { error = path + ": no such file"; return false; }
+    if (!tree.node(id).write) { error = path + ": permission denied"; return false; }
+    error = tree.node(id).write(text);
+    return error.empty();
+}
+
 void NinePService::build() {
     using lmw::dsp::In;
     using lmw::dsp::Out;

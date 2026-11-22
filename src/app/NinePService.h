@@ -27,6 +27,12 @@ public:
     // Returns the endpoints, e.g. "unix!/run/user/1000/lmw-synth/1234-1.sock tcp!127.0.0.1!5640".
     std::string start(std::optional<std::pair<std::string, int>> tcp);
 
+    // The same files without a socket, for the Assistant tab (Spec S12.2): read a whole file, or write a whole
+    // file (applied at once, like a 9P write followed by close). From a background thread only: the files
+    // wait for the message thread, as they do for a 9P connection. Empty error = done.
+    std::optional<std::string> readFile(const std::string& path, std::string& error) const;
+    bool writeFile(const std::string& path, const std::string& text, std::string& error) const;
+
 private:
     // Runs fn on the message thread and returns its result; nothing if stopping or no message loop.
     std::optional<std::string> onMessageThread(std::function<std::string(LMWSynthProcessor&)> fn);

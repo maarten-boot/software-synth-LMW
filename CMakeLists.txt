@@ -59,6 +59,7 @@ if(LMW_BUILD_PLUGIN)
         IS_SYNTH                 TRUE
         NEEDS_MIDI_INPUT         TRUE
         NEEDS_MIDI_OUTPUT        FALSE
+        NEEDS_CURL               TRUE       # Spec S12.2: HTTPS for the Assistant tab on Linux
         IS_MIDI_EFFECT           FALSE
         EDITOR_WANTS_KEYBOARD_FOCUS TRUE
         PLUGIN_MANUFACTURER_CODE Lmwb
@@ -82,11 +83,12 @@ if(LMW_BUILD_PLUGIN)
         src/app/SchematicView.cpp
         src/app/StandaloneApp.cpp
         src/app/NinePService.cpp
+        src/app/AssistantSession.cpp
         src/ninep/Transport.cpp)
 
     target_compile_definitions(LMWSynth PUBLIC
         JUCE_WEB_BROWSER=0
-        JUCE_USE_CURL=0
+        JUCE_LOAD_CURL_SYMBOLS_LAZILY=1      # Spec S12.2: libcurl (NEEDS_CURL) loaded when the Assistant first uses HTTPS
         JUCE_VST3_CAN_REPLACE_VST2=0
         JUCE_USE_CUSTOM_PLUGIN_STANDALONE_APP=1)   # src/app/StandaloneApp.cpp: themed window (Spec S6.2)
 
@@ -237,6 +239,9 @@ if(LMW_BUILD_TESTS)
     add_executable(test_mcp tests/test_mcp.cpp)          # Spec S11: lmw-mcp against a fake synth
     target_include_directories(test_mcp PRIVATE src)
     add_test(NAME T-S11-mcp COMMAND test_mcp)
+    add_executable(test_assistant tests/test_assistant.cpp)  # Spec S12: the Assistant tab's Claude client, fake service
+    target_include_directories(test_assistant PRIVATE src)
+    add_test(NAME T-S12-client COMMAND test_assistant)
     add_executable(test_patchfile tests/test_patchfile.cpp)
     target_include_directories(test_patchfile PRIVATE src)
     add_test(NAME T-S7.1-patchfile COMMAND test_patchfile)

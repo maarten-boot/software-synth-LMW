@@ -67,6 +67,17 @@ public:
         return -1;
     }
     const Node& node(int id) const { return nodes[static_cast<std::size_t>(id)]; }
+    // The node at a '/'-separated path ("params/vcf1/cutoff"), or -1.
+    int find(std::string_view path) const {
+        int at = 0;
+        while (!path.empty() && at >= 0) {
+            const auto slash = path.find('/');
+            const auto part = path.substr(0, slash);
+            path = slash == std::string_view::npos ? std::string_view{} : path.substr(slash + 1);
+            if (!part.empty()) at = child(at, part);
+        }
+        return at;
+    }
 
     Qid qid(int id) const {
         return {node(id).dir ? qtDir : qtFile, 0, static_cast<std::uint64_t>(id) + 1};

@@ -76,6 +76,13 @@ public:
         return error(*id, -32601, "method not found: " + m);
     }
 
+    // The same tools without JSON-RPC, for the Assistant tab inside the synth (Spec S12.2):
+    // {"tools": [{name, description, inputSchema}]} and a tools/call result {content, isError}.
+    json::Value toolList() const { return toolsList(); }
+    json::Value call(const std::string& name, const json::Value& arguments) {
+        return callTool(json::Value::object().set("name", json::Value::string(name)).set("arguments", arguments));
+    }
+
 private:
     using V = json::Value;
 

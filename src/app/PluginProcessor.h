@@ -166,6 +166,7 @@ public:
     // default; floats with unit, centre and step where they have one). Built from createLayout().
     std::string parameterInfo() const;
     const std::string& ninepEndpoints() const noexcept { return ninepAddress; }  // "unix!<path> tcp!..."
+    const class NinePService* ninepService() const noexcept { return ninep.get(); }   // Spec S12.2: in-process files
     // soundOnly (Spec S7.7, instrument presets): parameters, cables and name only; notes and the schematic stay.
     bool loadPatchText(const juce::String& text, juce::String& error, bool soundOnly = false);
     // Spec S7.7: sets the whole sound — every parameter (`values` by id; missing: default) and the cables —
