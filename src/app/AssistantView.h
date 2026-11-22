@@ -25,6 +25,11 @@ public:
     // Hooks for 22c/22d: where the key and settings come from, and the questions before sending.
     std::function<void(lmw::assistant::Settings&)> configure;   // key, model, effort, limit (S12.6, S12.7)
     std::function<void()> openSettings;                 // Settings... (none: button hidden)
+    std::function<bool()> needsNotice;                  // S12.8: the privacy notice not yet accepted
+    std::function<void()> noticeAccepted;               // remember it (config.ini)
+
+    // S12.8: the notice, also shown by the settings dialog.
+    static juce::String privacyText();
 
 private:
     struct Input final : juce::TextEditor {
@@ -39,6 +44,7 @@ private:
     };
 
     void send();
+    void sendNow(const juce::String& question);         // after the notice and the limit question
     void add(const juce::String& text, juce::Colour colour, bool bold = false, bool italic = false);
     void finish(const lmw::assistant::Outcome&);
     void updateButtons();
@@ -53,5 +59,6 @@ private:
     juce::Label costLabel, statusLabel;
     float fontSize = 15.0f;
     bool empty = true;
+    double raisedLimit = 0;                             // S12.7: "go on" raised the session limit to this
     std::shared_ptr<bool> alive = std::make_shared<bool>(true);
 };

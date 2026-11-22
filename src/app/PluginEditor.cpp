@@ -415,8 +415,14 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
             a.model = settings.assistantModel.empty() ? "claude-opus-5-5" : settings.assistantModel;
             a.effort = settings.assistantEffort.empty() ? "medium" : settings.assistantEffort;
             a.limit = settings.assistantLimit.value_or(2.0);
+            std::vector<lmw::assistant::Price> changed;                     // S12.7: price_<model> lines
+            for (const auto& [model, text] : settings.assistantPrices)
+                if (auto p = lmw::assistant::parsePrice(model, text)) changed.push_back(*p);
+            a.prices = lmw::assistant::withPrices(changed);
         };
         assistant->openSettings = [this] { showAssistantSettings(); };
+        assistant->needsNotice = [this] { return !settings.assistantNoticeSeen; };   // S12.8
+        assistant->noticeAccepted = [this] { settings.assistantNoticeSeen = true; saveConfig(); };
         assistant->ready();
         addAndMakeVisible(assistantTab);
     }
@@ -1400,7 +1406,7 @@ void LMWSynthEditor::showAssistantSettings() {
     if (!settings.assistantModel.empty()) v.model = settings.assistantModel;
     if (!settings.assistantEffort.empty()) v.effort = settings.assistantEffort;
     v.limit = settings.assistantLimit.value_or(2.0);
-    auto dialog = std::make_unique<AssistantSettings>(v, hasKeychain);
+    auto dialog = std::make_unique<AssistantSettings>(v, hasKeychain, AssistantView::privacyText());
     juce::Component::SafePointer<LMWSynthEditor> safe(this);
     const auto close = [safe] {
         if (safe != nullptr && safe->assistantWindow != nullptr) safe->assistantWindow->exitModalState(0);

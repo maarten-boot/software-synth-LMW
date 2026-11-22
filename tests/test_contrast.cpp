@@ -185,6 +185,13 @@ int main() {
         k.assistantStore = "keychain";                  // the key is not written with the keychain
         CHECK(writeConfig(k).find("sk-ant") == std::string::npos && writeConfig(k).find("assistant_key_store = keychain") != std::string::npos);
         CHECK(parseConfig("assistant_limit = 0").assistantLimit == 0.0);
+        // S12.8 notice remembered; S12.7 price lines kept as written
+        const auto n = parseConfig("assistant_notice_seen = true\nprice_claude-opus-5-5 = 3 15 0.3\n");
+        CHECK(n.assistantNoticeSeen && n.assistantPrices.size() == 1 && n.assistantPrices[0].first == "claude-opus-5-5"
+              && n.assistantPrices[0].second == "3 15 0.3");
+        const auto nb = parseConfig(writeConfig(n));
+        CHECK(nb.assistantNoticeSeen && nb.assistantPrices == n.assistantPrices);
+        CHECK(!parseConfig("assistant_notice_seen = no").assistantNoticeSeen);
         CHECK(!parseConfig("assistant_limit = -1").assistantLimit && parseConfig("assistant_effort = huge").assistantEffort.empty()
               && parseConfig("assistant_key_store = cloud").assistantStore.empty());
     }

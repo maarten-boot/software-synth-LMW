@@ -21,6 +21,8 @@
 #include <cstdio>
 #include <optional>
 #include <string>
+#include <utility>
+#include <vector>
 #include <string_view>
 #include <utility>
 
@@ -42,6 +44,8 @@ struct Settings {
     std::string assistantModel;                // e.g. claude-opus-5-5
     std::string assistantEffort;               // low, medium, high
     std::optional<double> assistantLimit;      // dollars per session, 0 = none (default 2)
+    bool assistantNoticeSeen = false;          // S12.8: the privacy notice was accepted once
+    std::vector<std::pair<std::string, std::string>> assistantPrices;   // S12.7: price_<model> = in out cache-read [cache-write]
 
     // The theme's colours (before the contrast is applied): a preset, or Custom = Default with the
     // user's colours on top.
@@ -164,6 +168,11 @@ inline Settings parseConfig(std::string_view text) {
             std::string v(value);
             if (!v.empty() && v[0] == '$') v.erase(0, 1);
             if (std::sscanf(v.c_str(), "%lf", &d) == 1 && d >= 0) s.assistantLimit = d;
+        } else if (key == "assistant_notice_seen") {
+            const auto v = detail::lower(value);
+            s.assistantNoticeSeen = v == "true" || v == "yes" || v == "1";
+        } else if (key.rfind("price_", 0) == 0 && key.size() > 6 && !value.empty()) {
+            s.assistantPrices.emplace_back(key.substr(6), std::string(value));
         } else if (key == "keyboard") {
             const auto v = detail::lower(value);
             if (v == "shown" || v == "show" || v == "true" || v == "yes" || v == "1") s.keyboard = true;
@@ -200,7 +209,8 @@ inline std::string writeConfig(const Settings& s) {
         out += "cable_opacity = " + std::string(o) + "\n";
         if (!s.themeName.empty()) out += "theme_name = " + s.themeName + "\n";
     }
-    if (!s.assistantStore.empty() || !s.assistantModel.empty() || !s.assistantEffort.empty() || s.assistantLimit) {
+    if (!s.assistantStore.empty() || !s.assistantModel.empty() || !s.assistantEffort.empty() || s.assistantLimit
+        || s.assistantNoticeSeen || !s.assistantPrices.empty()) {
         out += "# Assistant tab (standalone): assistant_key_store keychain (the system keychain) or file (assistant_key\n"
                "# below, plain text); assistant_model; assistant_effort low, medium or high; assistant_limit: dollars\n"
                "# per session before it asks to go on (0 = no limit)\n";
@@ -213,6 +223,11 @@ inline std::string writeConfig(const Settings& s) {
             std::snprintf(l, sizeof l, "%.2f", *s.assistantLimit);
             out += "assistant_limit = " + std::string(l) + "\n";
         }
+        if (s.assistantNoticeSeen) out += "assistant_notice_seen = true\n";
+        if (!s.assistantPrices.empty())
+            out += "# price_<model>: dollars per million tokens: input output cache-read [cache-write], e.g.\n"
+                   "# price_claude-opus-5-5 = 4 20 0.2 5 (replaces the built-in price when prices change)\n";
+        for (const auto& [model, text] : s.assistantPrices) out += "price_" + model + " = " + text + "\n";
     }
     return out;
 }

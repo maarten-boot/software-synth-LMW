@@ -20,7 +20,8 @@ public:
     std::function<void(const Values&)> onOk;
     std::function<void()> onCancel, onHowTo;
 
-    AssistantSettings(Values v, bool keychainAvailable) : values(std::move(v)) {
+    AssistantSettings(Values v, bool keychainAvailable, juce::String privacyNotice = {})
+        : values(std::move(v)), privacyText(std::move(privacyNotice)) {
         const auto label = [this](juce::Label& l, const juce::String& t) {
             l.setText(t, juce::dontSendNotification);
             l.setColour(juce::Label::textColourId, juce::Colours::black);
@@ -95,12 +96,17 @@ public:
         addAndMakeVisible(limit);
         label(limitNote, "dollars per session, then it asks before going on (0 = no limit)");
 
+        privacy.setText("Privacy: " + privacyText, juce::dontSendNotification);   // S12.8, repeated here
+        privacy.setColour(juce::Label::textColourId, juce::Colours::black);
+        privacy.setJustificationType(juce::Justification::topLeft);
+        addAndMakeVisible(privacy);
+
         ok.setButtonText("OK");
         cancel.setButtonText("Cancel");
         ok.onClick = [this] { if (onOk) onOk(current()); };
         cancel.onClick = [this] { if (onCancel) onCancel(); };
         for (auto* b : {&ok, &cancel}) addAndMakeVisible(*b);
-        setSize(720, 400);
+        setSize(720, 470);
     }
 
     Values current() const {
@@ -153,6 +159,8 @@ public:
         r.removeFromLeft(8);
         limitNote.setBounds(r);
         auto buttons = area.removeFromBottom(32);
+        area.removeFromBottom(6);
+        privacy.setBounds(area);
         cancel.setBounds(buttons.removeFromRight(90));
         buttons.removeFromRight(8);
         ok.setBounds(buttons.removeFromRight(90));
@@ -177,6 +185,8 @@ private:
     }
 
     Values values;
+    juce::String privacyText;
+    juce::Label privacy;
     juce::Label providerName, keyName, testResult, modelName, effortName, storeName, limitName, limitNote;
     juce::ComboBox provider, model, effort;
     juce::TextEditor key, limit;

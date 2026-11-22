@@ -22,6 +22,10 @@ New to LMW-Synth? [docs/tutorial/Tutorial.md](docs/tutorial/Tutorial.md): twelve
 
 ## AI assistant
 
+**Assistant tab** (stand-alone program): ask questions or describe a sound in your own words, right inside the synth; Claude answers, changes the sound and plays a note so you hear it, with Undo last answer, Stop, the cost per answer and per session, and a spending limit (default $2 per session). It needs a Claude API key (a paid Anthropic account, a few cents per question): *Settings...* in the tab, with *How to get a key...* (tutorial Lesson 12). The key stays in the system keychain or, if you prefer, the settings file. Your questions and the current sound are sent to Anthropic; no audio, no other files.
+
+**lmw-mcp** (for an assistant you already use, such as Claude Code or Claude Desktop):
+
 `lmw-mcp` (in every download; on Windows tick "Command-line tools" in the installer) lets an AI assistant you are already logged in to set up sounds for you: "make a male ooo voice", "a breathy flute with a slow vibrato", "add a ping-pong echo". It is a Model Context Protocol server: the assistant starts it and it changes the running LMW-Synth over 9P. No API key, no network of its own; start LMW-Synth first.
 
 - Claude Code: `claude mcp add lmw-synth -- /path/to/lmw-mcp`

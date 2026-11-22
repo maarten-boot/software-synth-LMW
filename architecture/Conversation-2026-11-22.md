@@ -89,3 +89,12 @@ User: "yes, commit and start 22c". 22b committed (a7dd407).
 - User (testing build-u24, 22b): "on the first question the key question comes up and suggests by its working there there is a Settings.. menu in the app ... we have to make that clearer for the first time user". Done: the empty tab says first that a key is needed and where; a question without a key keeps the text, explains and opens the settings window; Settings... button and Menu › Assistant settings....
 - 22c: src/app/AssistantSettings.h (provider, key with Paste/Clear/Test connection, model with prices, effort, keychain or file, limit, How to get a key, OK/Cancel); src/app/KeyStore (Credential Manager, Keychain, libsecret at run time); config.ini assistant_* keys, mode 600 with a key; tutorial Lesson 12 (the assistant, how to get a key; 12 lessons now, tests and README updated).
 - Tests: T-S12-key (config + keychain error path; the VM keyring is locked), T-S12-tab 22c part on Xvfb; 34 of 34.
+
+## 22d (privacy notice, spending limit) — Phase 22 done
+
+User: "yes, commit and start 22d". 22c committed (631eab7).
+- Prices moved into assistant::Settings; config.ini price_<model> = in out cache-read [cache-write] (parsePrice, withPrices).
+- Privacy notice before the first question ever (Continue / Cancel), assistant_notice_seen = true; repeated in the settings dialog.
+- Spending limit: at the limit the next question asks "Go on?"; Go on allows the same amount again.
+- Fixed while testing: "Settings...." (four dots) in the limit message.
+- User (mid-work): "all ai config worked and testest all soper for release" — read as: the AI settings worked and everything tested fine ("super"), ready for release. Recorded as T-S12-live pass.

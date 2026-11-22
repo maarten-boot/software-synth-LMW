@@ -267,6 +267,22 @@ int main() {
         CHECK(assistant::defaultPrices().size() == 3 && a.price() != nullptr && a.price()->in == 4.0);
     }
 
+    // S12.7: prices from config.ini replace or add to the built-in ones, and the cost follows them.
+    {
+        const auto p = assistant::parsePrice("claude-opus-5-5", "3 15 0.3");
+        CHECK(p && p->in == 3 && p->out == 15 && p->cacheRead == 0.3 && p->cacheWrite == 3.75 && p->label.rfind("Claude Opus 5.5", 0) == 0);
+        CHECK(!assistant::parsePrice("x", "3 15") && !assistant::parsePrice("x", "a b c") && !assistant::parsePrice("x", "1 -2 3"));
+        const auto all = assistant::withPrices({*p, *assistant::parsePrice("my-model", "1 2 0.1 1.5")});
+        CHECK(all.size() == 4 && all[0].in == 3 && all[3].model == "my-model" && all[3].cacheWrite == 1.5);
+        Synth synth; Service svc;
+        mcp::Server server(synth, {"1.2.1 test", "/nonexistent", "G", "T"});
+        assistant::Assistant a(server, synth, svc, "G", "T");
+        a.settings.key = key;
+        a.settings.prices = all;
+        svc.replies.push_back(ok("end_turn", R"([{"type":"text","text":"hi"}])", 1000000, 0));
+        CHECK(near(a.ask("hi", stop).cost, 3.0));
+    }
+
     // S12.5: the tab's line per tool call.
     {
         using assistant::toolLine;

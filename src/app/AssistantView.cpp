@@ -149,6 +149,12 @@ void AssistantView::updateCost(double answer) {
                       juce::dontSendNotification);
 }
 
+juce::String AssistantView::privacyText() {
+    return "To answer, the assistant sends your questions, its answers and the current sound (all parameter values, "
+           "the cables, the patch name and its notes) to Anthropic, which runs the Claude model. No audio and no other "
+           "files are sent. Anthropic's privacy policy: https://www.anthropic.com/legal/privacy";
+}
+
 void AssistantView::send() {
     const auto question = input.getText().trim();
     if (question.isEmpty() || session->busy()) return;
@@ -163,6 +169,40 @@ void AssistantView::send() {
         if (openSettings) openSettings();
         return;
     }
+    const auto a = std::weak_ptr<bool>(alive);
+    if (needsNotice && needsNotice()) {                   // S12.8: once, before the first question ever
+        auto opts = juce::MessageBoxOptions().withIconType(juce::MessageBoxIconType::NoIcon)
+                        .withTitle("Before your first question")
+                        .withMessage(privacyText() + "\n\nContinue?")
+                        .withButton("Continue", 1).withButton("Cancel", 0).withAssociatedComponent(this);
+        juce::AlertWindow::showAsync(opts, [this, a](int r) {
+            if (a.expired() || r != 1) return;
+            if (noticeAccepted) noticeAccepted();
+            send();
+        });
+        return;
+    }
+    // S12.7: at the spending limit, ask before going on; "Go on" allows the same amount again.
+    const double limit = s.limit;
+    if (raisedLimit > s.limit && s.limit > 0) s.limit = raisedLimit;
+    if (s.limit > 0 && session->sessionCost() >= s.limit) {
+        auto opts = juce::MessageBoxOptions().withIconType(juce::MessageBoxIconType::NoIcon)
+                        .withTitle("Spending limit reached")
+                        .withMessage("This session has cost about " + dollars(session->sessionCost()) + " (limit " + dollars(s.limit)
+                                     + "). Go on? The limit is set under Settings... in this tab.")
+                        .withButton("Go on", 1).withButton("Cancel", 0).withAssociatedComponent(this);
+        juce::AlertWindow::showAsync(opts, [this, a, limit, question](int r) {
+            if (a.expired() || r != 1) return;
+            raisedLimit = session->sessionCost() + limit;
+            sendNow(question);
+        });
+        return;
+    }
+    sendNow(question);
+}
+
+void AssistantView::sendNow(const juce::String& question) {
+    if (session->busy()) return;
     if (empty) { log.clear(); empty = false; }
     add("You: ", ink, true);
     add(question + "\n", ink);
@@ -170,6 +210,7 @@ void AssistantView::send() {
 
     AssistantSession::Callbacks cb;
     const auto a = std::weak_ptr<bool>(alive);
+    if (raisedLimit > session->settings().limit && session->settings().limit > 0) session->settings().limit = raisedLimit;
     cb.text = [this, a](const std::string& t) {
         if (a.expired()) return;
         add("Assistant: ", ink, true);

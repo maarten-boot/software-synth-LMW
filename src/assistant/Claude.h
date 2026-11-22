@@ -13,6 +13,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <functional>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -64,7 +65,29 @@ struct Settings {
     int maxSteps = 20;                           // requests per question (S12.4)
     double limit = 2.0;                          // dollars per session, 0 = none (S12.7)
     std::string baseUrl = "https://api.anthropic.com";
+    std::vector<Price> prices = defaultPrices();     // S12.7: config.ini price_<model> lines replace these
 };
+
+// "4 20 0.2 5": input, output, cache read, cache write in dollars per million tokens (S12.7); the cache
+// write may be left out (1.25 x input). Nothing when unreadable.
+inline std::optional<Price> parsePrice(const std::string& model, const std::string& text) {
+    double v[4] = {-1, -1, -1, -1};
+    const int n = std::sscanf(text.c_str(), "%lf %lf %lf %lf", &v[0], &v[1], &v[2], &v[3]);
+    if (n < 3 || v[0] < 0 || v[1] < 0 || v[2] < 0 || (n == 4 && v[3] < 0)) return std::nullopt;
+    Price p{model, model, v[0], v[1], v[2], n == 4 ? v[3] : v[0] * 1.25};
+    for (const auto& d : defaultPrices()) if (d.model == model) p.label = d.label;
+    return p;
+}
+// The built-in table with these replaced or added.
+inline std::vector<Price> withPrices(const std::vector<Price>& changes) {
+    auto all = defaultPrices();
+    for (const auto& c : changes) {
+        bool found = false;
+        for (auto& p : all) if (p.model == c.model) { p = c; found = true; }
+        if (!found) all.push_back(c);
+    }
+    return all;
+}
 
 inline constexpr const char* apiVersion = "2026-10-21";
 inline constexpr const char* fallbackBeta = "server-side-fallback-2026-07-01";
@@ -114,7 +137,6 @@ inline std::string testConnection(Http& http, const Settings& s) {
 class Assistant {
 public:
     Settings settings;
-    std::vector<Price> prices = defaultPrices();
 
     Assistant(mcp::Server& srv, mcp::Link& l, Http& h, std::string guide, std::string tutorial)
         : server(srv), link(l), http(h), guideText(std::move(guide)), tutorialText(std::move(tutorial)) {
@@ -266,7 +288,7 @@ private:
     }
 
     const Price* priceOf(const std::string& model) const {
-        for (const auto& p : prices) if (p.model == model) return &p;
+        for (const auto& p : settings.prices) if (p.model == model) return &p;
         return nullptr;
     }
     void count(const V& reply, Outcome& o) {
