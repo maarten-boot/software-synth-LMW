@@ -5,6 +5,7 @@
 // limit, Stop), retries, error texts, the cost and the session total, Undo, and that the key shows up only
 // in the x-api-key header.
 #include "assistant/Claude.h"
+#include "assistant/ToolLine.h"
 #include <cstdio>
 #include <deque>
 #include <map>
@@ -202,6 +203,13 @@ int main() {
         CHECK(s.end == assistant::End::Stopped && synth.files["params/vcf1/cutoff"] != "500\n");
         CHECK(has(a.conversation().a.back().get("content")->a[0].get("content")->s, "Stop"));
 
+        // Stop while a request runs: the request fails (cancelled), the answer ends as stopped
+        svc.replies.push_back({0, "", "", "stopped"});
+        stop = true;
+        const auto sc = a.ask("cancel me", stop);
+        stop = false;
+        CHECK(sc.end == assistant::End::Stopped && sc.message == "stopped");
+
         // step limit
         a.settings.maxSteps = 3;
         for (int i = 0; i < 5; ++i)
@@ -257,6 +265,27 @@ int main() {
         CHECK(assistant::testConnection(svc, none) == "no key entered");
         // prices: the three models, Opus the default
         CHECK(assistant::defaultPrices().size() == 3 && a.price() != nullptr && a.price()->in == 4.0);
+    }
+
+    // S12.5: the tab's line per tool call.
+    {
+        using assistant::toolLine;
+        const auto in = [](const char* t) { return *json::parse(t); };
+        CHECK(toolLine("set_parameters", in(R"({"values":{"vcf1.cutoff":800,"vco1.wave":"Pulse"}})"), "Set:\n", false)
+              == "set vcf1.cutoff 800, vco1.wave Pulse");
+        CHECK(toolLine("set_parameters", in(R"({"values":{"bad.x":1}})"), "Nothing was set.\nRefused:\n  bad.x = 1: params/bad/x: no such file\n", true)
+              == "set bad.x 1 (refused: bad.x = 1: params/bad/x: no such file)");
+        CHECK(toolLine("play", in(R"({"notes":[48,52,55],"seconds":2})"), "", false) == "played C3 E3 G3 for 2 s");
+        CHECK(toolLine("play", in(R"({"notes":[60]})"), "", false) == "played C4 for 1 s");
+        CHECK(toolLine("apply_instrument_preset", in(R"j({"name":"Male voice (ooo)"})j"), "", false) == "applied preset Male voice (ooo)");
+        CHECK(toolLine("apply_module_preset", in(R"({"module":"delay","name":"Ping-pong"})"), "", false) == "applied delay preset Ping-pong");
+        CHECK(toolLine("set_cables", in(R"({"cables":["vcf1.cutoff=lfo2.out@0.3"],"clear_first":true})"), "", false)
+              == "removed all cables; cables: vcf1.cutoff=lfo2.out@0.3");
+        CHECK(toolLine("save_instrument_preset", in(R"({"name":"Mine"})"), "Not saved: the musician chose Cancel.", false) == "did not save Mine");
+        CHECK(toolLine("save_instrument_preset", in(R"({"name":"Mine"})"), "Saved.", false) == "saved preset Mine");
+        CHECK(toolLine("get_sound", in("{}"), "", false) == "looked at the sound");
+        CHECK(toolLine("apply_instrument_preset", in(R"({"name":"Nope"})"), "unknown preset: Nope\nmore", true)
+              == "applied preset Nope (refused: unknown preset: Nope)");
     }
 
     std::printf(failures ? "%d FAILED\n" : "T-S12-client: all passed\n", failures);

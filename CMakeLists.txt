@@ -84,6 +84,7 @@ if(LMW_BUILD_PLUGIN)
         src/app/StandaloneApp.cpp
         src/app/NinePService.cpp
         src/app/AssistantSession.cpp
+        src/app/AssistantView.cpp
         src/ninep/Transport.cpp)
 
     target_compile_definitions(LMWSynth PUBLIC

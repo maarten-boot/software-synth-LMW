@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "PluginEditor.h"
+#include "AssistantView.h"
 #include "ThemeDialog.h"
 #include "app/InstrumentPresets.h"
 #include "app/Tutorial.h"
@@ -397,6 +398,15 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     notesTab.onClick = [this] { if (notesTab.getToggleState()) showTab(3); };
     schematicTab.setTooltip("The instrument as a schematic, with every connection");
     schematicTab.onClick = [this] { if (schematicTab.getToggleState()) showTab(4); };
+    if (processor.wrapperType == juce::AudioProcessor::wrapperType_Standalone) {   // Spec S12.1: standalone only
+        assistant = std::make_unique<AssistantView>(processor);
+        addChildComponent(*assistant);
+        assistantTab.setRadioGroupId(1);
+        assistantTab.setClickingTogglesState(true);
+        assistantTab.setTooltip("Ask an AI assistant about the synth, or describe a sound and let it make it");
+        assistantTab.onClick = [this] { if (assistantTab.getToggleState()) showTab(5); };
+        addAndMakeVisible(assistantTab);
+    }
     patchLabel.setTooltip("Patch name (the file name when saved or loaded)");
     // Spec S10.5: where the 9P server of this instance listens.
     titleButton.setTooltip("About LMW-Synth (click): version, licence, source.\n" + (processor.ninepEndpoints().empty()
@@ -962,6 +972,7 @@ void LMWSynthEditor::resized() {
     matrixTab.setBounds(title.removeFromLeft(tabW).reduced(0, 2));
     schematicTab.setBounds(title.removeFromLeft(tabW + (m.colW >= 80 ? 22 : 18)).reduced(0, 2));
     notesTab.setBounds(title.removeFromLeft(tabW).reduced(0, 2));
+    if (assistant) assistantTab.setBounds(title.removeFromLeft(tabW + (m.colW >= 80 ? 22 : 18)).reduced(0, 2));   // Spec S12
     title.removeFromLeft(m.gap);
     patchLabel.setBounds(title);
     area.removeFromTop(m.gap);
@@ -976,6 +987,7 @@ void LMWSynthEditor::resized() {
     notesEditor.setBounds(area);                             // Notes tab: the area of the panels
     if (matrix) { matrix->setBounds(area); matrix->setFontSize(m.labelFont - 2.0f); }   // Matrix tab
     if (schematic) schematic->setBounds(area);              // Schematic tab
+    if (assistant) { assistant->setBounds(area); assistant->setFontSize(m.labelFont + 3.0f); }   // Assistant tab
     {                                                        // Effects tab: panels side by side, first row
         auto row = area.withHeight(m.rowH);
         for (auto& grp : effectGroups) {
@@ -1720,9 +1732,9 @@ void LMWSynthEditor::showAbout() {
 void LMWSynthEditor::showTab(int tab) {
     currentTab = tab;
     const juce::Component* alwaysShown[] = {&titleButton, &instrumentButton, &panelTab, &effectsTab, &matrixTab, &schematicTab, &notesTab, &patchLabel, &loadButton,
-                                            &saveButton, &menuButton, &resetLayoutButton, &compactButton, &keyboard, &keyboardButton};
+                                            &saveButton, &menuButton, &resetLayoutButton, &compactButton, &keyboard, &keyboardButton, &assistantTab};
     for (auto* child : getChildren()) {
-        if (child == &notesEditor || child == matrix.get() || child == schematic.get()
+        if (child == &notesEditor || child == matrix.get() || child == schematic.get() || child == assistant.get()
             || std::find(std::begin(alwaysShown), std::end(alwaysShown), child) != std::end(alwaysShown))
             continue;
         const bool effect = std::find(effectComponents.begin(), effectComponents.end(), child) != effectComponents.end();
@@ -1732,10 +1744,12 @@ void LMWSynthEditor::showTab(int tab) {
     matrix->setVisible(tab == 2);
     schematic->setVisible(tab == 4);
     notesEditor.setVisible(tab == 3);
+    if (assistant) assistant->setVisible(tab == 5);
     resetLayoutButton.setEnabled(true);
     if (tab == 2) matrix->grabKeyboardFocus();
     if (tab == 3) notesEditor.grabKeyboardFocus();
     if (tab == 4) schematic->grabKeyboardFocus();
+    if (tab == 5 && assistant) assistant->focusInput();
     repaint();
 }
 

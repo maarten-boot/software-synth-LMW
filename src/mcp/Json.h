@@ -250,7 +250,7 @@ struct Parser {
 
 // The whole text must be one JSON value (surrounding white space allowed).
 inline std::optional<Value> parse(std::string_view text, std::string* error = nullptr) {
-    detail::Parser p{text};
+    detail::Parser p{text, 0, {}, 0};
     Value v;
     if (p.value(v)) {
         p.ws();

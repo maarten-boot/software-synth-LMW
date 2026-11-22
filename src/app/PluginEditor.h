@@ -258,7 +258,7 @@ private:
     void applyContrast();                                 // palette from settings, redraw
     void askCustomRatio();
     // Spec S7: tabs (Synth, Effects, Matrix, Notes) and patch files.
-    void showTab(int tab);                                // 0 = synth, 1 = effects, 2 = matrix, 3 = notes
+    void showTab(int tab);                                // 0 = synth, 1 = effects, 2 = matrix, 3 = notes, 4 = schematic, 5 = assistant
     void savePatch();
     void loadPatch();
     void showError(const juce::String& title, const juce::String& message);
@@ -320,6 +320,8 @@ private:
         saveButton{"Save..."}, menuButton{"Menu"};   // Spec S6.11: About, Contrast, Theme, Show keyboard
     std::unique_ptr<MatrixView> matrix;                   // Spec S6.8: the Matrix tab
     std::unique_ptr<SchematicView> schematic;             // Spec S6.7: the Schematic tab
+    std::unique_ptr<class AssistantView> assistant;       // Spec S12: the Assistant tab (standalone only)
+    juce::TextButton assistantTab{"Assistant"};
     // Spec S7.4: the Effects tab — fixed panels (not part of the rack), one so far: REVERB.
     std::vector<Group> effectGroups;
     std::vector<juce::Component*> effectComponents;        // shown only on the Effects tab

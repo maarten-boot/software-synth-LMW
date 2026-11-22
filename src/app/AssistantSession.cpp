@@ -55,7 +55,7 @@ struct JuceHttp final : lmw::assistant::Http {
             current = &in;
         }
         const bool ok = in.connect(nullptr);
-        r.status = in.getStatusCode();
+        r.status = std::max(0, in.getStatusCode());       // -1 when cancelled or not connected
         if (ok || r.status > 0) {
             r.body = in.readEntireStreamAsString().toStdString();
             r.retryAfter = in.getResponseHeaders().getValue("retry-after", {}).trim().toStdString();

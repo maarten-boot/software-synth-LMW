@@ -86,7 +86,7 @@ struct Events {
 
 // The service's error message from an error body, or the status.
 inline std::string errorText(const HttpResponse& r) {
-    if (r.status == 0) return "no internet connection (or blocked by a proxy)" + (r.error.empty() ? std::string() : ": " + r.error);
+    if (r.status <= 0) return "no internet connection (or blocked by a proxy)" + (r.error.empty() ? std::string() : ": " + r.error);
     std::string msg;
     if (auto b = json::parse(r.body))
         if (const auto* e = b->get("error"))
@@ -148,6 +148,11 @@ public:
                 const int secs = std::clamp(r.retryAfter.empty() ? 2 : std::atoi(r.retryAfter.c_str()), 1, 30);
                 http.sleepMs(secs * 1000);
                 if (stop) break;
+            }
+            if (r.status != 200 && stop) {           // Stop cancelled the request (S12.4)
+                o.end = End::Stopped;
+                o.message = "stopped";
+                return o;
             }
             if (r.status != 200) {
                 o.end = End::Failed;

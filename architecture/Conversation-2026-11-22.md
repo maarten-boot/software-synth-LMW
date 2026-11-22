@@ -70,3 +70,14 @@ User: "all ok, commit the spec and start 22a; make the spending limit default 2$
 - src/app/AssistantSession: in-process Link, HTTPS via juce::WebInputStream (cancel on Stop), one worker thread, callbacks on the message thread, save confirmation waits for the musician; LMW_ASSISTANT_URL for tests.
 - Build: NEEDS_CURL + JUCE_LOAD_CURL_SYMBOLS_LAZILY on Linux (no hard libcurl dependency in ldd); scripts/prepare.sh needs libcurl4-openssl-dev / libcurl-devel. The VM lacks the curl headers (no sudo): asked the user to install libcurl4-openssl-dev; built in the container instead.
 - Tests: T-S12-client pass (native test target needs no curl); build-u24 33 of 33.
+
+## 22b done (the Assistant tab)
+
+User: "yes, commit and start 22b; libcurl installed". 22a committed (671229d); native build with libcurl, 33 of 33.
+- src/app/AssistantView: conversation (black; tool lines grey italic), input (Enter sends, Shift+Enter new line), Send / Stop / New conversation / Undo last answer, cost line, help text; save asks (Save / Cancel, no icon like the other dialogs). Tab "Assistant" after Notes, standalone only.
+- src/assistant/ToolLine.h: the line per tool call (unit-tested).
+- tests/fake_claude.py: fake Messages API for T-S12-tab (darker, save, busy, slow).
+- Found and fixed while testing: Stop gave "the service answered -1" → now "(stopped)"; the question icon (light cyan) replaced by no icon.
+- A host-test check that the VST3 has no tab was tried and dropped: the host only sees its wrapper, not the plugin's components.
+- Fixed an old warning in src/mcp/Json.h (missing initializer).
+- The key comes from ANTHROPIC_API_KEY until the settings (22c).
