@@ -577,6 +577,45 @@ int main(int argc, char* argv[]) {
         const double released = level(20);
         std::printf("/keys: rms %.6f before, %.4f with on 60 100 + on 64, %.6f after off\n", silent, playing, released);
         CHECK(silent < 1e-6 && playing > 0.01 && released < 1e-4);
+
+        // 4j. Undo / redo over 9P (Spec S6.14, T-S6.14-9p): every write is a step; undo puts back only what
+        // that step changed, so a value moved in between by the host (automation) stays.
+        {
+            auto* tune = findParameter(*a, "VCO 1 Tune");
+            CHECK(tune != nullptr);
+            const auto cutoffBefore = read9P(sock, {"params", "vcf1", "cutoff"});
+            CHECK(write9P(sock, {"params", "vcf1", "cutoff"}, "800").empty());
+            CHECK(write9P(sock, {"cables"}, "vcf1.cutoff=lfo2.out@0.5").empty());
+            if (tune != nullptr) tune->setValueNotifyingHost(0.75f);         // automation: not a step
+            const auto tuneMoved = read9P(sock, {"params", "vco1", "tune"});
+            const auto endsWith = [](const std::string& s, const std::string& end) {
+                return s.size() >= end.size() && s.compare(s.size() - end.size(), end.size(), end) == 0;
+            };
+            CHECK(endsWith(read9P(sock, {"history"}), "  VCF 1 Cutoff\n> cables\n"));
+            CHECK(write9P(sock, {"undo"}, "").empty());
+            CHECK(read9P(sock, {"cables"}).find("vcf1.cutoff=") == std::string::npos);
+            CHECK(read9P(sock, {"params", "vcf1", "cutoff"}) == "800\n");
+            CHECK(write9P(sock, {"undo"}, "").empty());
+            CHECK(read9P(sock, {"params", "vcf1", "cutoff"}) == cutoffBefore);
+            CHECK(read9P(sock, {"params", "vco1", "tune"}) == tuneMoved);   // automation left alone
+            const auto history = read9P(sock, {"history"});                // "> " now on the step before
+            CHECK(endsWith(history, "  VCF 1 Cutoff\n  cables\n") && history.find("> ") != std::string::npos);
+            CHECK(write9P(sock, {"redo"}, "x").empty());
+            CHECK(read9P(sock, {"params", "vcf1", "cutoff"}) == "800\n" && read9P(sock, {"cables"}).find("vcf1.cutoff=") == std::string::npos);
+            CHECK(read9P(sock, {"history"}).find("> VCF 1 Cutoff\n  cables\n") != std::string::npos);
+            // a new step drops the redo step
+            CHECK(write9P(sock, {"params", "vcf1", "res"}, "0.5").empty());
+            CHECK(write9P(sock, {"redo"}, "").find("nothing to redo") != std::string::npos);
+            CHECK(write9P(sock, {"undo"}, "").empty());
+            CHECK(write9P(sock, {"redo"}, "").empty());
+            // a whole patch is one step
+            CHECK(write9P(sock, {"patch"}, "format = 1\n[parameters]\nvcf1.cutoff = 300\n[cables]\nvcf1.res = lfo1.out\n").empty());
+            CHECK(read9P(sock, {"history"}).find("> patch\n") != std::string::npos);
+            CHECK(write9P(sock, {"undo"}, "").empty());
+            CHECK(read9P(sock, {"params", "vcf1", "cutoff"}) == "800\n" && read9P(sock, {"params", "vcf1", "res"}) == "0.5\n"
+                  && read9P(sock, {"cables"}).find("vcf1.res=") == std::string::npos);
+            std::printf("undo/redo over 9P: %zu steps\n", static_cast<std::size_t>(std::count(history.begin(), history.end(), '\n')));
+        }
     }
 
     // 5. Editor, only with a display (CI runners on Linux have none).

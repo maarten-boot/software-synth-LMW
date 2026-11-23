@@ -747,3 +747,70 @@ std::string LMWSynthProcessor::soundSignature() const {
     }
     return s + "|" + lmw::dsp::patchToText(guiPatch);
 }
+
+// Spec S6.14: the sound as keys and texts for the undo history.
+lmw::ui::History::State LMWSynthProcessor::soundState() const {
+    lmw::ui::History::State s;
+    char buf[24];
+    for (auto* param : getParameters()) {
+        auto* r = dynamic_cast<const juce::RangedAudioParameter*>(param);
+        if (r == nullptr) continue;
+        std::snprintf(buf, sizeof buf, "%.9g", static_cast<double>(r->getValue()));
+        s["p:" + r->paramID.toStdString()] = buf;
+    }
+    for (int i = 0; i < lmw::dsp::numInputs; ++i) {
+        const auto in = static_cast<lmw::dsp::In>(i);
+        if (guiPatch.isPatched(in)) s["c:" + std::string(lmw::dsp::inputNames[static_cast<std::size_t>(i)])] = lmw::dsp::pinsToText(guiPatch, in);
+    }
+    s["schematic"] = schematicLayout().toStdString();
+    s["name"] = patchName().toStdString();
+    s["notes"] = notes().toStdString();
+    for (int i = 0; i < apvts.state.getNumProperties(); ++i) {
+        const auto id = apvts.state.getPropertyName(i).toString();
+        if (id.startsWith("preset_") || id.startsWith("presetValues_") || id == soundProp.toString())
+            s["s:" + id.toStdString()] = apvts.state.getProperty(id).toString().toStdString();
+    }
+    return s;
+}
+
+namespace {
+// Puts back the texts of `changes` (keys from soundState()).
+void applyState(LMWSynthProcessor& p, const lmw::ui::History::State& changes) {
+    for (const auto& [key, text] : changes) {
+        if (key.rfind("p:", 0) == 0) {
+            if (auto* r = dynamic_cast<juce::RangedAudioParameter*>(p.state().getParameter(juce::String(key.substr(2)))))
+                LMWSynthProcessor::setNormalised(*r, static_cast<float>(std::strtod(text.c_str(), nullptr)));
+        } else if (key.rfind("c:", 0) == 0) {
+            const auto in = lmw::dsp::inputByName(key.substr(2));
+            if (!in) continue;
+            p.requestPatch(*in, lmw::dsp::Patch::none);
+            if (const auto pins = text.empty() ? std::optional<std::vector<lmw::dsp::Patch::Pin>>() : lmw::dsp::pinsFromText(text))
+                for (const auto& pin : *pins) p.requestPatch(*in, pin.source, pin.level);
+        } else if (key == "schematic") {
+            p.setSchematicLayout(juce::String::fromUTF8(text.c_str()));
+        } else if (key == "name") {
+            p.setPatchName(juce::String::fromUTF8(text.c_str()));
+        } else if (key == "notes") {
+            p.setNotes(juce::String::fromUTF8(text.c_str()));
+        } else if (key.rfind("s:", 0) == 0) {
+            const juce::Identifier id(juce::String(key.substr(2)));
+            if (text.empty()) p.state().state.removeProperty(id, nullptr);
+            else p.state().state.setProperty(id, juce::String::fromUTF8(text.c_str()), nullptr);
+        }
+    }
+}
+} // namespace
+
+bool LMWSynthProcessor::undo() {
+    const auto step = history.undo();
+    if (!step) return false;
+    applyState(*this, step->before);
+    return true;
+}
+
+bool LMWSynthProcessor::redo() {
+    const auto step = history.redo();
+    if (!step) return false;
+    applyState(*this, step->after);
+    return true;
+}

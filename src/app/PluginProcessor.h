@@ -5,6 +5,7 @@
 #pragma once
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_audio_utils/juce_audio_utils.h>
+#include "ui/History.h"
 #include "dsp/Engine.h"
 #include "dsp/Comb.h"
 #include "dsp/Delay.h"
@@ -181,6 +182,16 @@ public:
         return recorded.isNotEmpty() && recorded != juce::String(soundSignature());
     }
     std::string soundSignature() const;
+    // Spec S6.14 undo / redo (message thread). The sound as keys and texts: "p:<id>" a parameter (its exact
+    // normalised value), "c:<input>" its cables, "schematic", "name", "notes", "s:<property>" the preset
+    // labels and the recorded sound (S7.5, S7.7). beginStep/endStep around an action make one step (they
+    // nest); undo/redo put back what one step changed and nothing else.
+    lmw::ui::History::State soundState() const;
+    void beginStep(const std::string& name) { history.begin(name, soundState()); }
+    bool endStep() { return history.end(soundState()); }
+    bool undo();
+    bool redo();
+    const lmw::ui::History& steps() const noexcept { return history; }
     // Free-text notes and the patch name, kept in the saved state and in patch files.
     juce::String notes() const { return apvts.state.getProperty(notesProp).toString(); }
     void setNotes(const juce::String& text) { apvts.state.setProperty(notesProp, text, nullptr); }
@@ -284,6 +295,7 @@ private:
     std::uint32_t loadedPatches = 0;                  // message thread only
     std::unique_ptr<class NinePService> ninep;        // Spec S10: 9P server (started in the constructor)
     std::string ninepAddress;
+    lmw::ui::History history;                         // Spec S6.14, message thread
     mutable lmw::dsp::Patch guiPatch;                 // message thread only (routing refreshed by currentPatch())
     std::uint32_t patchSerial = 0;                    // message thread only
     std::atomic<float> modWheelValue{0.0f};           // written by the audio thread

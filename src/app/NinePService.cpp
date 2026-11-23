@@ -138,8 +138,10 @@ void NinePService::build() {
                 if (!value) return "bad value";
                 const float v = *value;
                 return onMessageThread([r, v, written = std::string(text)](LMWSynthProcessor& p) {
+                    p.beginStep(r->name.toStdString());                    // Spec S6.14: one step per write
                     p.rememberText(*r, written);                            // reads back as written (S10.10)
                     LMWSynthProcessor::setNormalised(*r, v);
+                    p.endStep();
                     return std::string();
                 }).value_or("busy");
             });
@@ -185,11 +187,13 @@ void NinePService::build() {
                 changes.push_back({false, *in, *pins});
             }
             return onMessageThread([changes](LMWSynthProcessor& p) {
+                p.beginStep("cables");                                      // Spec S6.14
                 for (const auto& c : changes) {
                     if (c.clear) { p.setPatch(lmw::dsp::Patch{}); continue; }
                     p.requestPatch(c.in, lmw::dsp::Patch::none);
                     for (const auto& pin : c.pins) p.requestPatch(c.in, pin.source, pin.level);
                 }
+                p.endStep();
                 return std::string();
             }).value_or("busy");
         });
@@ -201,12 +205,26 @@ void NinePService::build() {
             const std::string copy(text);
             return onMessageThread([copy](LMWSynthProcessor& p) {
                 juce::String error;
-                return p.loadPatchText(juce::String::fromUTF8(copy.c_str()), error) ? std::string() : error.toStdString();
+                p.beginStep("patch");                                       // Spec S6.14
+                const bool ok = p.loadPatchText(juce::String::fromUTF8(copy.c_str()), error);
+                p.endStep();
+                return ok ? std::string() : error.toStdString();
             }).value_or("busy");
         },
         true);
 
     // /notes: the Notes text (Spec S7.2).
+    // Spec S6.14: writing anything to /undo or /redo takes back or redoes one step; /history lists them.
+    tree.file("undo", [] { return std::string(); }, [this](std::string_view) -> std::string {
+        return onMessageThread([](LMWSynthProcessor& p) { return p.undo() ? std::string() : std::string("nothing to undo"); }).value_or("busy");
+    });
+    tree.file("redo", [] { return std::string(); }, [this](std::string_view) -> std::string {
+        return onMessageThread([](LMWSynthProcessor& p) { return p.redo() ? std::string() : std::string("nothing to redo"); }).value_or("busy");
+    });
+    tree.file("history", [this] {
+        return onMessageThread([](LMWSynthProcessor& p) { return p.steps().lines(); }).value_or("");
+    });
+
     tree.file("notes",
         [this] { return onMessageThread([](LMWSynthProcessor& p) { return p.notes().toStdString(); }).value_or(""); },
         [this](std::string_view text) -> std::string {
