@@ -3,7 +3,7 @@
 Changes between releases.
 
 ## Unreleased
-- 2026-11-23: Undo and redo: Ctrl+Z takes back the last change to the sound (a fader drag, a choice, a cable, its level, a preset, a loaded patch, a Schematic move), Ctrl+Shift+Z or Ctrl+Y does it again (Cmd on macOS); also Menu ▸ Undo / Redo with what it will undo. The last 100 changes of this session. Text boxes keep their own Ctrl+Z. Over 9P: /undo, /redo, /history.
+- 2026-11-23: Undo and redo: Ctrl+Z takes back the last change to the sound (a fader drag, a choice, a cable, its level, a preset, a loaded patch, a Schematic move), Ctrl+Shift+Z or Ctrl+Y does it again (Cmd on macOS); also Menu ▸ Undo / Redo with what it will undo. The last 100 changes of this session. Text boxes keep their own Ctrl+Z. Over 9P: /undo, /redo, /history; lmw-mcp has an undo tool. An Assistant answer is one step, and "Undo last answer" in the tab uses the same history.
 - 2026-11-23: Default panel order (a first start and Reset layout): LFO 1 comes before the VCOs, and ENV 2 → VCF before ENV 1 → VCA. A layout you arranged yourself stays as it is.
 - 2026-11-23: Assistant: Claude Haiku 5.5 works (in 1.3.0 every question failed when Haiku was chosen) and is now the default model, the cheapest (well under a cent per question); Sonnet and Opus stay in Settings... for more careful sound design. Your choice in Settings... is kept. The cost shown follows Haiku's higher price for very long conversations (over 100K tokens per request).
 

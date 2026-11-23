@@ -26,6 +26,7 @@ struct Fake final : mcp::Link {
     std::map<std::string, std::string> files;
     std::vector<std::pair<std::string, std::string>> writes;
     int slept = 0;
+    int undoable = 2;
     Fake() {
         files["version"] = "1.2.1 abc1234\n";
         files["patch"] = "# LMW-Synth patch\nformat = 1\nstate_version = 4\nname = Old\n\n[parameters]\nvcf1.cutoff = 18000\n\n[cables]\n\n[notes]\nmy notes\n";
@@ -56,6 +57,10 @@ struct Fake final : mcp::Link {
         if (!live) { e = "not connected"; return false; }
         if (p.rfind("params/", 0) == 0 && files.find(p) == files.end()
             && p.find("delay") == std::string::npos && p.find("vcf1") == std::string::npos) { e = p + ": no such file"; return false; }
+        if (p == "undo") {                                     // Spec S6.14: two steps to take back
+            if (undoable == 0) { e = "nothing to undo"; return false; }
+            files["history"] = --undoable == 1 ? "> VCF 1 Cutoff\n  cables\n" : "  VCF 1 Cutoff\n  cables\n";
+        }
         writes.emplace_back(p, t);
         if (p.rfind("params/", 0) == 0) files[p] = p == "params/vcf1/cutoff" && t == "99999\n" ? "18000\n" : t;
         if (p == "patch") files["patch"] = t;
@@ -111,7 +116,7 @@ int main() {
         CHECK(json::parse(*s.handle(R"({"jsonrpc":"2.0","id":3,"method":"ping"})"))->get("result")->isObject());
         const auto tl = json::parse(*s.handle(R"({"jsonrpc":"2.0","id":4,"method":"tools/list"})"));
         const auto& list = tl->get("result")->get("tools")->a;
-        CHECK(list.size() == 12);
+        CHECK(list.size() == 13);
         for (const auto& t : list) CHECK(t.get("inputSchema") && t.get("inputSchema")->get("type")->s == "object" && !t.get("description")->s.empty());
         const auto rl = json::parse(*s.handle(R"({"jsonrpc":"2.0","id":5,"method":"resources/list"})"));
         CHECK(rl->get("result")->get("resources")->a.size() == 2);
@@ -196,6 +201,17 @@ int main() {
         CHECK(!err);
         std::error_code ec;
         std::filesystem::remove_all(docs, ec);                 // no exception: a leftover is harmless
+    }
+    // undo (S6.14): one step, then more than there are, then nothing left.
+    {
+        auto t = call(s, "undo", "{}", &err);
+        CHECK(!err && has(t, "Took back 1 step.") && has(t, "> VCF 1 Cutoff"));
+        t = call(s, "undo", R"({"steps":5})", &err);
+        CHECK(!err && has(t, "Took back 1 step (no more to undo).") && has(t, "  VCF 1 Cutoff\n  cables"));
+        t = call(s, "undo", "{}", &err);
+        CHECK(err && has(t, "nothing to undo"));
+        call(s, "undo", R"({"steps":0})", &err);
+        CHECK(err);
     }
     // A lost connection: connected again on the next use; no synth at all: a clear error.
     {

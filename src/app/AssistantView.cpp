@@ -53,7 +53,9 @@ AssistantView::AssistantView(LMWSynthProcessor& p) : session(std::make_unique<As
             add(ok ? "(the sound from before the last answer is back)\n\n" : "(undo failed: " + juce::String(error) + ")\n\n", quiet, false, true);
             updateButtons();
         };
-        if (session->undo(cb)) updateButtons();
+        if (session->undo(cb)) { updateButtons(); return; }
+        add("(the last change was not the Assistant's: use Menu > Undo)\n\n", quiet, false, true);
+        updateButtons();
     };
     settingsButton.setTooltip("Key, model and costs");
     settingsButton.onClick = [this] { if (openSettings) openSettings(); };
@@ -140,6 +142,8 @@ void AssistantView::updateButtons() {
     stopButton.setEnabled(busy);
     newButton.setEnabled(!busy);
     undoButton.setEnabled(!busy && session->canUndo());
+    undoButton.setTooltip(undoButton.isEnabled() ? "Put back the sound from before the last answer; press again for the one before"
+                                                 : "The last change was not the Assistant's: use Menu > Undo");
     settingsButton.setVisible(static_cast<bool>(openSettings));
     settingsButton.setEnabled(!busy);
 }

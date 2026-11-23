@@ -147,6 +147,10 @@ private:
              R"({"type":"object","properties":{"notes":{"type":"array","items":{"type":"integer"}},"velocity":{"type":"integer"},"seconds":{"type":"number"}},"required":["notes"]})"},
             {"name_sound", "Set the patch name, and the notes when given.",
              R"({"type":"object","properties":{"name":{"type":"string"},"notes":{"type":"string"}},"required":["name"]})"},
+            {"undo", "Take back the last change(s) to the sound, as the synth's Undo does (Spec S6.14). Every "
+                     "parameter set, cable change, preset or patch is one step (set_parameters with three values "
+                     "is three steps). steps: how many (default 1). Answers what is left in the history.",
+             R"({"type":"object","properties":{"steps":{"type":"integer"}}})"},
             {"save_instrument_preset", "Save the current sound as the user's own instrument preset (Presets menu, "
                                        "Your presets). Refuses an existing name unless overwrite is true.",
              R"({"type":"object","properties":{"name":{"type":"string"},"overwrite":{"type":"boolean"}},"required":["name"]})"},
@@ -440,6 +444,19 @@ private:
             if (const auto* n = args->get("notes"); n != nullptr && n->isString()) notes = n->s;
             if (!wr("patch", withName(*current, newName, notes), why)) return text(why, true);
             return text("The sound is now called \"" + newName + "\"" + (notes ? " (notes set)." : "."));
+        }
+        if (name == "undo") {
+            int steps = 1;
+            if (const auto* s = args->get("steps"); s != nullptr && s->isNumber()) steps = static_cast<int>(s->n);
+            if (steps < 1 || steps > 100) return text("steps: 1 to 100", true);
+            int done = 0;
+            for (; done < steps; ++done)
+                if (!wr("undo", "1\n", why)) break;
+            if (done == 0) return text(why.empty() ? "nothing to undo" : why, true);
+            const auto h = rd("history", why);
+            return text("Took back " + std::to_string(done) + (done == 1 ? " step" : " steps")
+                        + (done < steps ? " (no more to undo)" : "") + ".\nHistory (\"> \" = the next one Undo takes back):\n"
+                        + (h ? *h : std::string()));
         }
         if (name == "save_instrument_preset") {
             const auto presetName = oneLine(str("name"));

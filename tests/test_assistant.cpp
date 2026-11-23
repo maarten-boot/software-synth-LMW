@@ -2,7 +2,7 @@
 // T-S12-client: the Assistant tab's Claude client (Spec S12.2–S12.4, S12.7, S12.9) against a fake service
 // and a fake synth: the request (headers, model, version, cached guide, tools, effort, fallbacks), the
 // tool loop (tool_use -> results in one message, errors, end_turn, max_tokens, refusal, pause_turn, step
-// limit, Stop), retries, error texts, the cost and the session total, Undo, and that the key shows up only
+// limit, Stop), retries, error texts, the cost and the session total, and that the key shows up only
 // in the x-api-key header.
 #include "assistant/Claude.h"
 #include "assistant/ToolLine.h"
@@ -136,11 +136,6 @@ int main() {
         // the key only in the header
         for (const auto& b : svc.bodies) CHECK(!has(b, key));
         for (const auto& t : texts) CHECK(!has(t, key));
-        // Undo (S12.5): back to the sound before the answer
-        CHECK(a.canUndo());
-        std::string e;
-        CHECK(a.undo(e) && has(synth.files["patch"], "vcf1.cutoff = 18000") && !a.canUndo());
-        CHECK(!a.undo(e) && e == "nothing to undo");
 
         // a second question continues the conversation; model and effort from the settings
         a.settings.model = "claude-haiku-5-5";
@@ -152,7 +147,7 @@ int main() {
         CHECK(b3->get("messages")->a.size() == 5 && b3->get("messages")->a[4].get("role")->s == "user");
         CHECK(near(o2.cost, (100 * 0.10 + 10 * 0.50) / 1e6));
         a.newConversation();
-        CHECK(json::parse(a.requestBody().dump())->get("messages")->a.empty() && !a.canUndo());
+        CHECK(json::parse(a.requestBody().dump())->get("messages")->a.empty());
     }
 
     // Tool errors, the save confirmation, refusal, max_tokens, pause_turn, Stop, step limit (S12.4, S12.5).

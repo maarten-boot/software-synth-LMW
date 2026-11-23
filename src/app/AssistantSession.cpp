@@ -92,13 +92,17 @@ void post(const std::shared_ptr<Alive>& alive, std::function<void()> fn) {
 
 struct AssistantSession::Impl {
     InProcessLink link;
+    LMWSynthProcessor& proc;
+    bool stepOpen = false;                             // S6.14: the answer's undo step (message thread)
+    void endStep() { if (stepOpen) { stepOpen = false; proc.endStep(); } }
+
     JuceHttp http;
     lmw::mcp::Server server;
     lmw::assistant::Assistant assistant;
     std::shared_ptr<Alive> alive = std::make_shared<Alive>();
 
     explicit Impl(LMWSynthProcessor& p)
-        : server(link, {LMW_VERSION " " LMW_COMMIT,
+        : proc(p), server(link, {LMW_VERSION " " LMW_COMMIT,
                         juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getFullPathName().toStdString(),
                         joined(lmw::guide::textParts), joined(lmw::tutorial::textParts)}),
           assistant(server, link, http, joined(lmw::guide::textParts), joined(lmw::tutorial::textParts)) {
@@ -115,6 +119,7 @@ AssistantSession::~AssistantSession() {
     impl->alive->yes = false;
     stop();
     join();
+    impl->endStep();                                   // closed mid-answer: the changes so far are one step
 }
 
 void AssistantSession::join() {
@@ -124,7 +129,11 @@ void AssistantSession::join() {
 lmw::assistant::Settings& AssistantSession::settings() { return impl->assistant.settings; }
 double AssistantSession::sessionCost() const { return impl->assistant.sessionCost(); }
 bool AssistantSession::overLimit() const { return impl->assistant.overLimit(); }
-bool AssistantSession::canUndo() const { return !running && impl->assistant.canUndo(); }
+// S12.5, S6.14: the tab's Undo takes back the latest step while that is an Assistant answer.
+bool AssistantSession::canUndo() const {
+    const auto& h = impl->proc.steps();
+    return !running && h.canUndo() && h.undoName().rfind(answerPrefix, 0) == 0;
+}
 
 bool AssistantSession::ask(const std::string& question, Callbacks cb) {
     if (running || impl->link.service == nullptr) return false;
@@ -132,6 +141,10 @@ bool AssistantSession::ask(const std::string& question, Callbacks cb) {
     running = true;
     stopFlag = false;
     impl->http.cancelled = false;
+    auto shown = question.substr(0, 40);               // S6.14: one step for the whole answer
+    for (auto& c : shown) if (c == '\n' || c == '\r') c = ' ';
+    impl->proc.beginStep(answerPrefix + shown + (question.size() > 40 ? "..." : ""));
+    impl->stepOpen = true;
     worker = std::thread([this, question, cb] {
         const auto alive = impl->alive;
         lmw::assistant::Events ev;
@@ -153,7 +166,10 @@ bool AssistantSession::ask(const std::string& question, Callbacks cb) {
             };
         const auto outcome = impl->assistant.ask(question, stopFlag, ev);
         running = false;
-        post(alive, [cb, outcome] { if (cb.done) cb.done(outcome); });
+        post(alive, [this, cb, outcome] {
+            impl->endStep();
+            if (cb.done) cb.done(outcome);
+        });
     });
     return true;
 }
@@ -164,15 +180,9 @@ void AssistantSession::stop() {
 }
 
 bool AssistantSession::undo(Callbacks cb) {
-    if (running || !impl->assistant.canUndo()) return false;
-    join();
-    running = true;
-    worker = std::thread([this, cb] {
-        std::string error;
-        const bool ok = impl->assistant.undo(error);
-        running = false;
-        post(impl->alive, [cb, ok, error] { if (cb.undone) cb.undone(ok, error); });
-    });
+    if (!canUndo()) return false;
+    const bool ok = impl->proc.undo();
+    if (cb.undone) cb.undone(ok, ok ? std::string() : std::string("nothing to undo"));
     return true;
 }
 

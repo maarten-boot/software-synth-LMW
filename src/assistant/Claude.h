@@ -158,10 +158,6 @@ public:
     // One question, the whole tool loop (S12.4). Blocks; `stop` is checked after every request.
     Outcome ask(const std::string& question, const std::atomic<bool>& stop, const Events& ev = {}) {
         Outcome o;
-        {   // S12.5: the sound before this answer, for Undo
-            std::string e;
-            if (auto p = link.read("patch", e)) undoStack.push_back(*p);
-        }
         // A user message: merged into the last one when that is a user message (after Stop or a failure,
         // the conversation ends with the question or tool results; the API needs alternating turns).
         const V textBlock = V::object().set("type", V::string("text")).set("text", V::string(question));
@@ -251,16 +247,7 @@ public:
         }
     }
 
-    void newConversation() { messages = V::array(); undoStack.clear(); }
-
-    // S12.5: puts back the sound from before the last answer; again for the one before.
-    bool canUndo() const { return !undoStack.empty(); }
-    bool undo(std::string& error) {
-        if (undoStack.empty()) { error = "nothing to undo"; return false; }
-        if (!link.write("patch", undoStack.back(), error)) return false;
-        undoStack.pop_back();
-        return true;
-    }
+    void newConversation() { messages = V::array(); }   // S12.5: Undo is the synth's history (S6.14)
 
     double sessionCost() const { return session; }
     bool overLimit() const { return settings.limit > 0 && session >= settings.limit; }   // S12.7
@@ -338,7 +325,7 @@ private:
         if (const V* t = list.get("tools"); t != nullptr && t->isArray())
             for (const auto& tool : t->a) {
                 const auto name = str(tool.get("name"));
-                if (name == "list_synths" || name == "select_synth") continue;
+                if (name == "list_synths" || name == "select_synth" || name == "undo") continue;   // undo: the tab's button
                 tools.push(V::object().set("name", V::string(name)).set("description", *tool.get("description"))
                                .set("input_schema", *tool.get("inputSchema")));
             }
@@ -366,7 +353,6 @@ private:
     std::string guideText, tutorialText;
     V tools = V::array();
     V messages = V::array();
-    std::vector<std::string> undoStack;
     double session = 0;
 };
 

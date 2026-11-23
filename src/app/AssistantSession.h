@@ -32,12 +32,13 @@ public:
     double sessionCost() const;
     bool overLimit() const;
     bool busy() const noexcept { return running; }
-    bool canUndo() const;
+    bool canUndo() const;                              // the latest undo step is an answer (S6.14)
+    static constexpr const char* answerPrefix = "Assistant: ";
 
     // Starts a question on the background thread; false when one is running or there is no 9P service.
     bool ask(const std::string& question, Callbacks callbacks);
     void stop();                                       // ends after the running request (S12.4)
-    bool undo(Callbacks callbacks);                    // S12.5, on the background thread
+    bool undo(Callbacks callbacks);                    // S12.5: the synth's Undo of that step (S6.14)
     void newConversation();                            // when not busy
 
     // S12.6 Test connection (blocks: call from a background thread); empty = the key works.

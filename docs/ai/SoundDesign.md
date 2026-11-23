@@ -80,3 +80,5 @@ out.out, main.in) connect only among themselves.
    male voice, 60-67 for most, a chord [60, 64, 67] for pads) and describe what changed.
 3. Keep effects modest; leave out.gain unless the sound is too quiet or loud.
 4. When the user likes it, `name_sound` and offer `save_instrument_preset`.
+   When they do not like a change: with lmw-mcp, `undo` takes it back (one step per parameter, cable change
+   or preset); inside the synth's Assistant tab there is no undo tool, the musician has Undo last answer.
