@@ -19,3 +19,9 @@
 - Crosscheck Spec / Plan / Tests / code after Phase 23 (and 22f, L10): S6.14 matches the code except three wordings, fixed in the Spec: the level-drag step is named "cable level" (cable steps "cable <in> ← <out>" / "remove cable <in>"); the tab's Undo hover text says "Menu > Undo" and is checked when an answer ends and on each click; S6.11 now lists Undo / Redo at the top of the Menu. Checked and fine: 9P /undo /redo /history and /notes not a step (S10.10); lmw-mcp undo (S11.4); history not in the saved state; the standalone Options menu is built per click (names current); no MIDI-CC path makes gestures; S12.3/S12.6/S12.7 (Haiku), S6.5 (L10). Tests.md: no T-S6.14 or T-S12 rows left planned; T-S12-tab's Undo still holds (re-run in T-S6.14-assistant). Open: 22f live check with a real key and Haiku (user); CI on the pushed commits.
 - User: "yes, commit; I'll push and wait for CI". build-u24 35 of 35 with Phase 23.
 - User pushed. CI run 45174594905 (7ab04c1) green on Ubuntu, Fedora, Windows, macOS: 35 tests (Windows 34), T-S9.2-host with the undo checks and T-S6.14-history everywhere, validators 47 of 47.
+
+## Release 1.4.0
+
+- User: commit and prepare release 1.4.0. Plan / log of the CI result committed (2173968).
+- Upgrade check (T-S9.6-upgrade-1.4): 1.3.0 download on Xvfb → sound, cables, notes over 9P, closed → the 1.4.0 build on the same settings: /patch identical, round trip ok, new default panel order; a layout arranged in 1.3.0 (OUT moved) stays. Download and test homes removed from the scratchpad.
+- Prepared: CMakeLists 1.4.0, Changes "## 1.4.0 (2026-11-23)" (upgrade note above the three Unreleased entries), Spec S6.10, Plan row 1.4.0, Tests.
