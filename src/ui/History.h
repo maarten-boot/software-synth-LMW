@@ -52,6 +52,7 @@ public:
         return true;
     }
     bool recording() const { return open_ > 0; }
+    void rename(const std::string& name) { if (open_ > 0) name_ = name; }   // the open step's name
 
     bool canUndo() const { return open_ == 0 && current_ > 0; }
     bool canRedo() const { return open_ == 0 && current_ < steps_.size(); }

@@ -189,6 +189,14 @@ public:
     lmw::ui::History::State soundState() const;
     void beginStep(const std::string& name) { history.begin(name, soundState()); }
     bool endStep() { return history.end(soundState()); }
+    void renameStep(const std::string& name) { history.rename(name); }
+    struct ScopedStep {                               // one step for everything in a block
+        ScopedStep(LMWSynthProcessor& p, const juce::String& name) : proc(p) { proc.beginStep(name.toStdString()); }
+        ~ScopedStep() { proc.endStep(); }
+        ScopedStep(const ScopedStep&) = delete;
+        ScopedStep& operator=(const ScopedStep&) = delete;
+        LMWSynthProcessor& proc;
+    };
     bool undo();
     bool redo();
     const lmw::ui::History& steps() const noexcept { return history; }
@@ -267,7 +275,9 @@ private:
     // the state tree (notes, name, schematic, restored state; message thread).
     void noteChange() noexcept { changeSerial.fetch_add(1, std::memory_order_relaxed); }
     void parameterValueChanged(int, float) override { noteChange(); }
-    void parameterGestureChanged(int, bool) override {}
+    // Spec S6.14: a gesture (a fader drag from press to release, a typed value, a choice; setNormalised)
+    // is one step; inside a larger step it joins that one. Not while an undo or redo is applied.
+    void parameterGestureChanged(int index, bool starting) override;
     // JUCE copies parameter values into the state tree on a timer (PARAM "value"): already counted by
     // parameterValueChanged, and later, so /serial would tick again on its own after a write.
     void valueTreePropertyChanged(juce::ValueTree& t, const juce::Identifier& id) override {
@@ -296,6 +306,7 @@ private:
     std::unique_ptr<class NinePService> ninep;        // Spec S10: 9P server (started in the constructor)
     std::string ninepAddress;
     lmw::ui::History history;                         // Spec S6.14, message thread
+    bool applyingHistory = false;
     mutable lmw::dsp::Patch guiPatch;                 // message thread only (routing refreshed by currentPatch())
     std::uint32_t patchSerial = 0;                    // message thread only
     std::atomic<float> modWheelValue{0.0f};           // written by the audio thread

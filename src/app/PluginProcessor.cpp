@@ -804,6 +804,7 @@ void applyState(LMWSynthProcessor& p, const lmw::ui::History::State& changes) {
 bool LMWSynthProcessor::undo() {
     const auto step = history.undo();
     if (!step) return false;
+    const juce::ScopedValueSetter<bool> applying(applyingHistory, true);
     applyState(*this, step->before);
     return true;
 }
@@ -811,6 +812,16 @@ bool LMWSynthProcessor::undo() {
 bool LMWSynthProcessor::redo() {
     const auto step = history.redo();
     if (!step) return false;
+    const juce::ScopedValueSetter<bool> applying(applyingHistory, true);
     applyState(*this, step->after);
     return true;
+}
+
+void LMWSynthProcessor::parameterGestureChanged(int index, bool starting) {
+    if (applyingHistory) return;
+    auto* mm = juce::MessageManager::getInstanceWithoutCreating();
+    if (mm == nullptr || !mm->isThisTheMessageThread()) return;     // the message thread only (S6.14)
+    if (!starting) { endStep(); return; }
+    const auto& params = getParameters();
+    beginStep(index >= 0 && index < params.size() ? params[index]->getName(100).toStdString() : std::string("change"));
 }

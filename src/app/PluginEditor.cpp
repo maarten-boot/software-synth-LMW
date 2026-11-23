@@ -480,6 +480,10 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     matrix = std::make_unique<MatrixView>([this]() -> const lmw::dsp::Patch& { return processor.currentPatch(); },
                                           [this](int in, int out, float level) { return connect(in, out, level); });
     matrix->setPalette(palette);                            // unit colours in the headers (S6.9)
+    matrix->onLevelDrag = [this](bool started) {            // Spec S6.14: a level drag is one step
+        if (started) processor.beginStep("cable level");
+        else processor.endStep();
+    };
     addChildComponent(*matrix);
     schematic = std::make_unique<SchematicView>([this]() -> const lmw::dsp::Patch& { return processor.currentPatch(); },
         [this] {                                           // VCF Key faders, for the key-tracking links
@@ -491,7 +495,10 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
         [this](bool output, int port, juce::Rectangle<int> area) { showPortMenu(output, port, area); });
     schematic->setPalette(palette);
     schematic->setLayout(processor.schematicLayout());     // Phase 12c: moved symbols, saved with the state
-    schematic->onLayoutChange = [this](const juce::String& text) { processor.setSchematicLayout(text); };
+    schematic->onLayoutChange = [this](const juce::String& text) {
+        const LMWSynthProcessor::ScopedStep step(processor, "Schematic layout");   // Spec S6.14
+        processor.setSchematicLayout(text);
+    };
     addChildComponent(*schematic);
     for (auto* c : effectComponents) c->setVisible(false);  // Effects tab not shown at start
 
@@ -598,6 +605,16 @@ bool LMWSynthEditor::isTypingText() {
 }
 
 bool LMWSynthEditor::keyPressed(const juce::KeyPress& key) {
+    if (!isTypingText()) {                                    // Spec S6.14; text boxes keep their own undo
+        const auto mods = key.getModifiers();
+        const int code = key.getKeyCode();
+        const bool command = mods.isCommandDown() && !mods.isAltDown();
+        if (command && (code == 'z' || code == 'Z') && !mods.isShiftDown()) { undoStep(); return true; }
+        if (command && (((code == 'z' || code == 'Z') && mods.isShiftDown()) || ((code == 'y' || code == 'Y') && !mods.isShiftDown()))) {
+            redoStep();
+            return true;
+        }
+    }
     if (key == juce::KeyPress('k', juce::ModifierKeys::commandModifier, 0)) {   // Spec S6.12: Ctrl+K (Cmd+K)
         setKeyboardShown(!keyboardShown);
         return true;
@@ -1282,6 +1299,11 @@ bool LMWSynthEditor::connect(int input, int output, float level) {
         showError("Not possible", "Effect sockets (Effects tab) connect only to effect sockets, synth sockets only to synth sockets.");
         return false;
     }
+    const bool adding = output != lmw::dsp::Patch::none && level > 0.0f;
+    const juce::String inName(lmw::dsp::inputNames[static_cast<std::size_t>(input)].data());
+    cableStep(adding ? "cable " + inName + juce::String::fromUTF8(" \xe2\x86\x90 ")
+                           + juce::String(lmw::dsp::outputNames[static_cast<std::size_t>(output)].data())
+                     : "remove cable " + inName, adding);
     const bool ok = processor.requestPatch(static_cast<lmw::dsp::In>(input), static_cast<std::int8_t>(output), level);
     if (!ok && output != lmw::dsp::Patch::none && level > 0.0f)
         showError("Input full", portName(false, input) + " already has " + juce::String(lmw::dsp::Patch::maxPins)
@@ -1292,7 +1314,39 @@ bool LMWSynthEditor::connect(int input, int output, float level) {
     return ok;
 }
 
+void LMWSynthEditor::cableStep(const juce::String& name, bool adding) {
+    if (cableStepOpen) {                                     // the same event: one step, named for the new cable
+        if (adding) processor.renameStep(name.toStdString());
+        return;
+    }
+    processor.beginStep(name.toStdString());
+    cableStepOpen = true;
+    juce::MessageManager::callAsync([safe = juce::Component::SafePointer<LMWSynthEditor>(this)] {
+        if (safe == nullptr || !safe->cableStepOpen) return;
+        safe->cableStepOpen = false;
+        safe->processor.endStep();
+    });
+}
+
+// Spec S6.14: undo / redo one step; the panels, labels and cables follow.
+void LMWSynthEditor::undoStep() {
+    if (!processor.undo()) return;
+    refreshPatchInfo();
+    updatePresetLabels();
+    if (matrix) matrix->refresh();
+    repaint();
+}
+
+void LMWSynthEditor::redoStep() {
+    if (!processor.redo()) return;
+    refreshPatchInfo();
+    updatePresetLabels();
+    if (matrix) matrix->refresh();
+    repaint();
+}
+
 void LMWSynthEditor::removeAllCables() {
+    const LMWSynthProcessor::ScopedStep step(processor, "remove all cables");
     for (int i = 0; i < lmw::dsp::numInputs; ++i)
         if (processor.currentPatch().isPatched(static_cast<lmw::dsp::In>(i))) connect(i, lmw::dsp::Patch::none);
 }
@@ -1498,6 +1552,21 @@ void LMWSynthEditor::showLesson(int number) {
 
 // Spec S6.11: the menu (header button; the same items in the standalone window's Options menu).
 void LMWSynthEditor::addMenuItems(juce::PopupMenu& m) const {
+    {                                                      // Spec S6.14: named, greyed when there is nothing
+        const auto& h = processor.steps();
+        juce::PopupMenu::Item undo(h.canUndo() ? "Undo " + juce::String::fromUTF8(h.undoName().c_str()) : juce::String("Undo"));
+        undo.itemID = menuFirstId + 51;
+        undo.isEnabled = h.canUndo();
+        undo.shortcutKeyDescription = juce::KeyPress('z', juce::ModifierKeys::commandModifier, 0).getTextDescriptionWithIcons();
+        m.addItem(undo);
+        juce::PopupMenu::Item redo(h.canRedo() ? "Redo " + juce::String::fromUTF8(h.redoName().c_str()) : juce::String("Redo"));
+        redo.itemID = menuFirstId + 52;
+        redo.isEnabled = h.canRedo();
+        redo.shortcutKeyDescription = juce::KeyPress('z', juce::ModifierKeys::commandModifier | juce::ModifierKeys::shiftModifier, 0)
+                                          .getTextDescriptionWithIcons();
+        m.addItem(redo);
+        m.addSeparator();
+    }
     m.addItem(menuFirstId + 1, "About LMW-Synth...");
     juce::PopupMenu contrast;                              // Spec S6.3, ticked: the current one
     const auto c = settings.contrast;
@@ -1553,6 +1622,8 @@ void LMWSynthEditor::handleMenuItem(int id) {
             break;
         case 14: askCustomRatio(); break;
         case 21: setKeyboardShown(!keyboardShown); break;
+        case 51: undoStep(); break;
+        case 52: redoStep(); break;
         case 41: showAssistantSettings(); break;
         case 31: case 32: case 33: case 34:                // Spec S6.13: a theme preset
             settings.theme = static_cast<lmw::ui::theme::ThemePreset>(id - menuFirstId - 31);
@@ -1994,6 +2065,7 @@ void LMWSynthEditor::showPresetMenu(PresetButton& button) {
                 safe->applyPreset(module, list[static_cast<std::size_t>(result - 100)]);
             } else if (result >= 1000 && result < 1000 + own.size()) {
                 const auto file = own[result - 1000];
+                safe->processor.renameStep("preset " + file.getFileNameWithoutExtension().toStdString());
                 std::string error;
                 auto preset = lmw::presets::parse(kind, file.loadFileAsString().toStdString(), &error);
                 if (!preset) { safe->showError("Cannot use this preset", file.getFileName() + ": " + juce::String(error)); return; }
@@ -2002,9 +2074,20 @@ void LMWSynthEditor::showPresetMenu(PresetButton& button) {
         });
 }
 
+namespace {
+// "vcf1" -> "VCF 1", "delay" -> "DELAY": the panel title, for undo step names (S6.14).
+juce::String moduleTitle(const juce::String& module) {
+    auto t = module.toUpperCase();
+    if (t.length() > 1 && juce::CharacterFunctions::isDigit(t.getLastCharacter()))
+        t = t.dropLastCharacters(1) + " " + juce::String::charToString(t.getLastCharacter());
+    return t;
+}
+} // namespace
+
 // Sets the module's parameters from the preset's texts, as a patch file would (S7.1): numbers in the
 // parameter's unit, clipped to its range; choices by name. Keys the preset lacks stay as they are.
 void LMWSynthEditor::applyPreset(const juce::String& module, const lmw::presets::Preset& preset) {
+    const LMWSynthProcessor::ScopedStep step(processor, moduleTitle(module) + " preset " + juce::String::fromUTF8(preset.name.c_str()));
     juce::StringArray bad;
     for (const auto& [key, value] : preset.values) {
         auto* r = dynamic_cast<juce::RangedAudioParameter*>(processor.state().getParameter(module + "." + juce::String(key)));
@@ -2025,6 +2108,7 @@ void LMWSynthEditor::applyPreset(const juce::String& module, const lmw::presets:
 void LMWSynthEditor::applyDefaults(const juce::String& module) {
     const auto kind = lmw::presets::kindOf(module.toStdString());
     if (!kind) return;
+    const LMWSynthProcessor::ScopedStep step(processor, moduleTitle(module) + " Default");
     for (auto key : lmw::presets::keys(*kind))
         if (auto* r = dynamic_cast<juce::RangedAudioParameter*>(processor.state().getParameter(module + "." + juce::String(key.data(), key.size()))))
             LMWSynthProcessor::setNormalised(*r, r->getDefaultValue());
@@ -2185,11 +2269,14 @@ void LMWSynthEditor::loadPatch() {
             const auto file = fc.getResult();
             if (file == juce::File()) return;
             juce::String error;
-            if (!safe->processor.loadPatchText(file.loadFileAsString(), error)) {
-                safe->showError("Load patch", file.getFileName() + ": " + error);
-                return;
+            {
+                const LMWSynthProcessor::ScopedStep step(safe->processor, "load " + file.getFileName());   // S6.14
+                if (!safe->processor.loadPatchText(file.loadFileAsString(), error)) {
+                    safe->showError("Load patch", file.getFileName() + ": " + error);
+                    return;
+                }
+                if (safe->processor.patchName().isEmpty()) safe->processor.setPatchName(file.getFileNameWithoutExtension());
             }
-            if (safe->processor.patchName().isEmpty()) safe->processor.setPatchName(file.getFileNameWithoutExtension());
             safe->refreshPatchInfo();
             safe->repaint();
         });
@@ -2303,7 +2390,9 @@ void LMWSynthEditor::showInstrumentMenu() {
             juce::String error;
             const auto& list = lmw::instruments::builtIn();
             bool ok = true;
+            const LMWSynthProcessor::ScopedStep step(safe->processor, "instrument preset");   // Spec S6.14
             if (result == 1) {
+                safe->processor.renameStep("preset Default");
                 ok = safe->processor.applySound("Default", {}, {}, error);
             } else if (result == 2) {
                 safe->saveInstrumentAs();
@@ -2311,6 +2400,7 @@ void LMWSynthEditor::showInstrumentMenu() {
                 folder.revealToUser();
             } else if (result >= 100 && result < 100 + static_cast<int>(list.size())) {
                 const auto& ins = list[static_cast<std::size_t>(result - 100)];
+                safe->processor.renameStep("preset " + ins.name);
                 std::map<std::string, std::string> values;
                 for (const auto& [id, value] : ins.values) values[id] = value;   // later entries win
                 ok = safe->processor.applySound(juce::String::fromUTF8(ins.name.c_str()), values, ins.cables, error);
@@ -2319,6 +2409,7 @@ void LMWSynthEditor::showInstrumentMenu() {
                 ok = safe->processor.loadPatchText(file.loadFileAsString(), error, true);
                 if (!ok) error = file.getFileName() + ": " + error;
             } else if (result > 2000 && result <= 2000 + static_cast<int>(lmw::tutorial::lessons().size())) {
+                safe->processor.renameStep("Lesson " + std::to_string(result - 2000));
                 ok = safe->applyLesson(result - 2000, error);
             }
             if (!ok) safe->showError("Cannot use this preset", error);

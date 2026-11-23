@@ -28,6 +28,7 @@ public:
     // setPin(input, output, level): level 0 removes; returns false when it does not fit (the caller
     // tells the user). patch(): the current patch mirror (message thread).
     MatrixView(std::function<const lmw::dsp::Patch&()> patch, std::function<bool(int, int, float)> setPin);
+    std::function<void(bool started)> onLevelDrag;   // Spec S6.14: a level drag is one undo step
 
     void setFontSize(float size) { fontSize = size; resized(); syncSlider(); repaint(); }
     void setPalette(const lmw::ui::theme::Palette& p) { palette = p; repaint(); }

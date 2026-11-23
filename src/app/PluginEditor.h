@@ -255,6 +255,11 @@ private:
     // Spec S5.14: adds a cable (pin) at `level`, or sets its level; level 0 removes that cable;
     // output = Patch::none removes all cables of the input. False (and a message) when it does not fit.
     bool connect(int input, int output, float level = 1.0f);
+    // Spec S6.14: cable changes made in one event (a drop that moves a cable: remove + add) are one step.
+    void cableStep(const juce::String& name, bool adding);
+    bool cableStepOpen = false;
+    void undoStep();
+    void redoStep();
     void removeAllCables();
     // Spec S6.6, S6.7: the cable menu of a socket (Synth tab) or a port (Schematic tab), shown at `screenArea`.
     void showPortMenu(bool output, int port, juce::Rectangle<int> screenArea);

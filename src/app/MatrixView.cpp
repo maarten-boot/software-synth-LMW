@@ -29,6 +29,8 @@ MatrixView::MatrixView(std::function<const lmw::dsp::Patch&()> p, std::function<
     levelSlider.setTitle("Cable level");
     levelSlider.setTooltip("Level of the cable in the selected cell, 0-100 %; 0 removes it.\nScale: linear");   // S6.8
     levelSlider.setWantsKeyboardFocus(true);              // Tab from the matrix; Up/Down change the level
+    levelSlider.onDragStart = [this] { if (onLevelDrag) onLevelDrag(true); };
+    levelSlider.onDragEnd = [this] { if (onLevelDrag) onLevelDrag(false); };
     levelSlider.onValueChange = [this] {
         if (!syncing) this->set(cursor, static_cast<float>(levelSlider.getValue()) / 100.0f);   // not the ctor argument
     };
