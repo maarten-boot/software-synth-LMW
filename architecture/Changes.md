@@ -3,6 +3,8 @@
 Changes between releases.
 
 ## Unreleased
+- 2026-11-23: Default panel order (a first start and Reset layout): LFO 1 comes before the VCOs, and ENV 2 → VCF before ENV 1 → VCA. A layout you arranged yourself stays as it is.
+- 2026-11-23: Assistant: Claude Haiku 5.5 works (in 1.3.0 every question failed when Haiku was chosen) and is now the default model, the cheapest (well under a cent per question); Sonnet and Opus stay in Settings... for more careful sound design. Your choice in Settings... is kept. The cost shown follows Haiku's higher price for very long conversations (over 100K tokens per request).
 
 ## 1.3.0 (2026-11-22)
 - 2026-11-22: Patches and saved settings from 1.2.1 load unchanged (the same sound, cables, notes and panel layout); the window is 20 px taller for the keyboard button strip.

@@ -86,7 +86,9 @@ int main() {
         Synth synth; Service svc;
         mcp::Server server(synth, {"1.2.1 test", "/nonexistent", "GUIDE-TEXT", "TUTORIAL-TEXT"});
         assistant::Assistant a(server, synth, svc, "GUIDE-TEXT", "TUTORIAL-TEXT");
+        CHECK(a.settings.model == "claude-haiku-5-5");          // the cheapest is the default (S12.3)
         a.settings.key = key;
+        a.settings.model = "claude-opus-5-5";
         svc.replies.push_back(ok("tool_use", R"([{"type":"text","text":"Making it darker."},)"
                                              R"({"type":"tool_use","id":"tu_1","name":"set_parameters","input":{"values":{"vcf1.cutoff":800}}},)"
                                              R"({"type":"tool_use","id":"tu_2","name":"read_tutorial","input":{}}])",
@@ -263,8 +265,37 @@ int main() {
         CHECK(has(assistant::testConnection(svc, a.settings), "not accepted"));
         assistant::Settings none;
         CHECK(assistant::testConnection(svc, none) == "no key entered");
-        // prices: the three models, Opus the default
-        CHECK(assistant::defaultPrices().size() == 3 && a.price() != nullptr && a.price()->in == 4.0);
+        // prices: the three models, Haiku (the default) at $0.10 input
+        CHECK(assistant::defaultPrices().size() == 3 && a.price() != nullptr && a.price()->in == 0.10);
+    }
+
+    // S12.3, S12.7: Haiku 5.5 (the default) — no server-side fallback (the API answers "fallbacks" with 400),
+    // and a prompt over 100K tokens costs five times as much.
+    {
+        Synth synth; Service svc;
+        mcp::Server server(synth, {"1.2.1 test", "/nonexistent", "G", "T"});
+        assistant::Assistant a(server, synth, svc, "G", "T");
+        a.settings.key = key;
+        svc.replies.push_back(ok("end_turn", R"([{"type":"text","text":"hi"}])", 1000, 100, 2000, 7000, "claude-haiku-5-5"));
+        // (1000*0.10 + 100*0.50 + 2000*0.125 + 7000*0.01)/1e6
+        CHECK(near(a.ask("hi", stop).cost, 0.00047));
+        const auto body = json::parse(svc.bodies[0]);
+        CHECK(body && body->get("model")->s == "claude-haiku-5-5" && body->get("fallbacks") == nullptr);
+        CHECK(body->get("output_config")->get("effort")->s == "medium");
+        CHECK(headerOf(svc.headers[0], "anthropic-beta").empty() && headerOf(svc.headers[0], "content-type") == "application/json");
+        // 90K input + 20K cache read = 110K prompt: the higher rate card, 5x
+        svc.replies.push_back(ok("end_turn", R"([{"type":"text","text":"hi"}])", 90000, 1000, 0, 20000, "claude-haiku-5-5"));
+        CHECK(near(a.ask("again", stop).cost, 5 * (90000 * 0.10 + 1000 * 0.50 + 20000 * 0.01) / 1e6));
+        // exactly 100K: still the lower one
+        svc.replies.push_back(ok("end_turn", R"([{"type":"text","text":"hi"}])", 100000, 0, 0, 0, "claude-haiku-5-5"));
+        CHECK(near(a.ask("once more", stop).cost, 0.01));
+        // a config.ini price for Haiku keeps the long-prompt rule
+        const auto p = assistant::parsePrice("claude-haiku-5-5", "0.2 1 0.02");
+        CHECK(p && p->longAbove == 100000 && p->longFactor == 5);
+        // Sonnet keeps the fallback
+        a.settings.model = "claude-sonnet-5-5";
+        CHECK(headerOf(assistant::headers(a.settings), "anthropic-beta") == "server-side-fallback-2026-07-01");
+        CHECK(json::parse(a.requestBody().dump())->get("fallbacks")->s == "default");
     }
 
     // S12.7: prices from config.ini replace or add to the built-in ones, and the cost follows them.

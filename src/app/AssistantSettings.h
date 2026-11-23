@@ -14,7 +14,7 @@ class AssistantSettings final : public juce::Component {
 public:
     struct Values {
         std::string store = "file";              // "keychain" or "file"
-        std::string key, model = "claude-opus-5-5", effort = "medium";
+        std::string key, model = lmw::assistant::defaultModel, effort = "medium";
         double limit = 2.0;
     };
     std::function<void(const Values&)> onOk;

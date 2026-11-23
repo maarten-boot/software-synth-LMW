@@ -313,6 +313,23 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
             headers.push_back(std::make_unique<PanelHeader>(*this, static_cast<int>(i)));
             addAndMakeVisible(*headers.back());
         }
+        // Plan L10 (user 2026-11-22): LFO 1 before the VCOs, and ENV 2 → VCF before ENV 1 → VCA. Only the
+        // default order changes (Reset layout, a first start); panel numbers, and so saved layouts, stay.
+        const auto moveBefore = [&](const juce::String& panel, const juce::String& before) {
+            for (auto& row : defaultRows) {
+                const auto at = [&](const juce::String& t) {
+                    return std::find_if(row.begin(), row.end(),
+                                        [&](int g) { return groups[static_cast<std::size_t>(g)].title.startsWith(t); });
+                };
+                const auto it = at(panel);
+                if (it == row.end() || at(before) == row.end()) continue;
+                const int g = *it;
+                row.erase(it);
+                row.insert(at(before), g);
+            }
+        };
+        moveBefore("LFO 1", "VCO 1");
+        moveBefore("ENV 2", "ENV 1");
         int maxColumns = 0;
         for (const auto& row : defaultRows) {
             int c = 0;
@@ -412,7 +429,7 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
         assistantTab.onClick = [this] { if (assistantTab.getToggleState()) showTab(5); };
         assistant->configure = [this](lmw::assistant::Settings& a) {           // Spec S12.6, S12.7
             a.key = assistantKey();
-            a.model = settings.assistantModel.empty() ? "claude-opus-5-5" : settings.assistantModel;
+            a.model = settings.assistantModel.empty() ? lmw::assistant::defaultModel : settings.assistantModel;
             a.effort = settings.assistantEffort.empty() ? "medium" : settings.assistantEffort;
             a.limit = settings.assistantLimit.value_or(2.0);
             std::vector<lmw::assistant::Price> changed;                     // S12.7: price_<model> lines

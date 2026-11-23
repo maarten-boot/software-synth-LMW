@@ -41,7 +41,7 @@ struct Settings {
     // Spec S12.6, S12.7: the Assistant tab (standalone). Empty / unset = the defaults.
     std::string assistantStore;                // "keychain" or "file" (where the API key is kept)
     std::string assistantKey;                  // only with "file": plain text (the file is then the user's only)
-    std::string assistantModel;                // e.g. claude-opus-5-5
+    std::string assistantModel;                // e.g. claude-haiku-5-5 (empty: the default, S12.3)
     std::string assistantEffort;               // low, medium, high
     std::optional<double> assistantLimit;      // dollars per session, 0 = none (default 2)
     bool assistantNoticeSeen = false;          // S12.8: the privacy notice was accepted once

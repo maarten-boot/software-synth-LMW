@@ -271,8 +271,8 @@ use it to control the synth.
 
 In the *Assistant* tab you ask questions about the synth or describe the sound you want, in your own
 words; an AI model (Claude, by Anthropic) answers, changes the sound and plays a note so you hear it.
-It needs a **Claude API key**: a paid account at Anthropic. A question costs a few cents; the tab shows
-what each answer and the whole session cost.
+It needs a **Claude API key**: a paid account at Anthropic. A question costs well under a cent with the
+default model (a few cents with the bigger ones); the tab shows what each answer and the whole session cost.
 
 1. Get a key (once): open the Claude Console at https://platform.claude.com in your browser, sign
    up (or log in), add a little credit under *Billing* (for example $5), then under *API keys* choose
@@ -281,8 +281,8 @@ what each answer and the whole session cost.
 2. In LMW-Synth: the *Assistant* tab › *Settings...* (also *Menu* › *Assistant settings...*). Press
    *Paste*, then *Test connection*: it should say *the key works*.
 3. Choose where the key is kept: *the system keychain* (safest) or *the settings file* (simplest,
-   plain text). Leave *Model* at Claude Opus 5.5 for the best results, or choose Sonnet or Haiku to pay
-   less. The *Spending limit* (default $2 per session) makes it ask before going on. Press *OK*.
+   plain text). *Model* starts at Claude Haiku 5.5, the cheapest; choose Sonnet or Opus for more
+   careful sound design at a higher price. The *Spending limit* (default $2 per session) makes it ask before going on. Press *OK*.
 4. Type a wish, e.g. *a soft flute with a slow vibrato*, and press Enter. Grey lines show each change
    (*set vcf1.cutoff 800*, *played C4 for 2 s*).
 5. Not what you wanted? Say so (*less vibrato, a bit brighter*), or press *Undo last answer* to put the

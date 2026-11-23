@@ -37,16 +37,19 @@ struct Http {
     virtual void sleepMs(int ms) = 0;
 };
 
-// Dollars per million tokens (S12.7); editable in config.ini later (S12.6).
+// Dollars per million tokens (S12.7); config.ini price_<model> lines replace them (S12.6). A request whose
+// prompt (input + cache read + cache write) is longer than longAbove tokens costs longFactor times as much
+// (Haiku 5.5: $0.10/$0.50 up to 100K, $0.50/$2.50 above); 0 = one price at any length.
 struct Price {
     std::string model, label;
     double in = 0, out = 0, cacheRead = 0, cacheWrite = 0;
+    double longAbove = 0, longFactor = 1;
 };
 inline const std::vector<Price>& defaultPrices() {
     static const std::vector<Price> p{
         {"claude-opus-5-5", "Claude Opus 5.5 (best results)", 4.0, 20.0, 0.20, 5.0},
         {"claude-sonnet-5-5", "Claude Sonnet 5.5 (about half the price)", 2.0, 10.0, 0.10, 2.5},
-        {"claude-haiku-5-5", "Claude Haiku 5.5 (cheapest, weaker at longer tasks)", 0.10, 0.50, 0.01, 0.125},
+        {"claude-haiku-5-5", "Claude Haiku 5.5 (cheapest, weaker at longer tasks)", 0.10, 0.50, 0.01, 0.125, 100000, 5},
     };
     return p;
 }
@@ -54,13 +57,20 @@ inline const std::vector<Price>& defaultPrices() {
 struct Usage {
     double in = 0, out = 0, cacheWrite = 0, cacheRead = 0;     // tokens
     double cost(const Price& p) const {
-        return (in * p.in + out * p.out + cacheWrite * p.cacheWrite + cacheRead * p.cacheRead) / 1e6;
+        const double f = p.longAbove > 0 && in + cacheRead + cacheWrite > p.longAbove ? p.longFactor : 1.0;
+        return f * (in * p.in + out * p.out + cacheWrite * p.cacheWrite + cacheRead * p.cacheRead) / 1e6;
     }
 };
 
+// S12.3: the model a new user starts with — the cheapest (user 2026-11-23); Settings offers the others.
+inline constexpr const char* defaultModel = "claude-haiku-5-5";
+// Server-side fallback (another model answers a refused request) exists for Opus and Sonnet, not Haiku:
+// Haiku 5.5 answers a request with "fallbacks" with 400.
+inline bool hasFallback(const std::string& model) { return model.rfind("claude-haiku", 0) != 0; }
+
 struct Settings {
     std::string key;
-    std::string model = "claude-opus-5-5";
+    std::string model = defaultModel;
     std::string effort = "medium";               // low, medium, high
     int maxSteps = 20;                           // requests per question (S12.4)
     double limit = 2.0;                          // dollars per session, 0 = none (S12.7)
@@ -75,7 +85,8 @@ inline std::optional<Price> parsePrice(const std::string& model, const std::stri
     const int n = std::sscanf(text.c_str(), "%lf %lf %lf %lf", &v[0], &v[1], &v[2], &v[3]);
     if (n < 3 || v[0] < 0 || v[1] < 0 || v[2] < 0 || (n == 4 && v[3] < 0)) return std::nullopt;
     Price p{model, model, v[0], v[1], v[2], n == 4 ? v[3] : v[0] * 1.25};
-    for (const auto& d : defaultPrices()) if (d.model == model) p.label = d.label;
+    for (const auto& d : defaultPrices())
+        if (d.model == model) { p.label = d.label; p.longAbove = d.longAbove; p.longFactor = d.longFactor; }
     return p;
 }
 // The built-in table with these replaced or added.
@@ -120,17 +131,18 @@ inline std::string errorText(const HttpResponse& r) {
 }
 inline bool retryable(int status) { return status == 429 || status == 529 || (status >= 500 && status < 600); }
 
-inline Headers headers(const Settings& s) {
-    return {{"x-api-key", s.key}, {"anthropic-version", apiVersion}, {"content-type", "application/json"},
-            {"anthropic-beta", fallbackBeta}};
+inline Headers headers(const Settings& s, bool withBody = true) {
+    Headers h{{"x-api-key", s.key}, {"anthropic-version", apiVersion}};
+    if (!withBody) return h;
+    h.push_back({"content-type", "application/json"});
+    if (hasFallback(s.model)) h.push_back({"anthropic-beta", fallbackBeta});
+    return h;
 }
 
 // S12.6 Test connection: empty when the key works, else the reason.
 inline std::string testConnection(Http& http, const Settings& s) {
     if (s.key.empty()) return "no key entered";
-    auto h = headers(s);
-    h.erase(h.end() - 2, h.end());                    // GET: no body, no beta
-    const auto r = http.get(s.baseUrl + "/v1/models", h);
+    const auto r = http.get(s.baseUrl + "/v1/models", headers(s, false));   // GET: no body, no beta
     return r.status == 200 ? std::string() : errorText(r);
 }
 
@@ -257,14 +269,14 @@ public:
     V requestBody() const {
         V system = V::array().push(V::object().set("type", V::string("text")).set("text", V::string(systemPrompt()))
                                        .set("cache_control", V::object().set("type", V::string("ephemeral"))));
-        return V::object()
+        V body = V::object()
             .set("model", V::string(settings.model))
             .set("max_tokens", V::number(16000))
             .set("system", std::move(system))
             .set("tools", tools)
-            .set("output_config", V::object().set("effort", V::string(settings.effort)))
-            .set("fallbacks", V::string("default"))
-            .set("messages", messages);
+            .set("output_config", V::object().set("effort", V::string(settings.effort)));
+        if (hasFallback(settings.model)) body.set("fallbacks", V::string("default"));
+        return body.set("messages", messages);
     }
     const V& conversation() const { return messages; }
 
