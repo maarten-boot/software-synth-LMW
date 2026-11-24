@@ -97,3 +97,10 @@
 - Spec S6.7 "the view scales with the window (also compact)" pointed to the new 75 % rule; S7.1 and S6.7 carry the new text; Tests T-S6.7-compact and T-S7.1-savename; Plan row 1.5.x lists both. Code matches (SchematicView::setCompact from LMWSynthEditor::setCompact; savePatch). Other save paths (instrument and module presets, themes) ask a name only and add the extension with getChildFile(name + ext), so a dotted name is kept there already. 36 of 36.
 - User pushed (16f5f1c). CI run 45477000332 green on all four. User asked whether a saved preset keeps the Schematic layout → answered (patch file yes, choosing an own instrument preset no by design; offered to restore it when the file has [schematic]).
 - User: yes, restore it and commit → loadPatchText(soundOnly) restores the layout when the file has [schematic]; Xvfb checked (Moved / Plain presets). S7.7, Changes, Tests.
+- User: delayed vibrato, best way (an AR module with a delay, DAR)? → explained (inputs add; an envelope cannot scale the LFO): A an LFO Delay fader (recommended), B DAR + a modulation VCA.
+
+## Terms page (Phase 27)
+
+- User: mini-daw has a terminology page (typo: mini-dew); make one part of the documentation and the tutorial, reachable via Menu. Read mini-daw SPEC-UI-17 (Terms tab: topics, Where, See also, Find).
+- User: yes Find and See also; note L23; start the spec. → Spec S7.10 drafted; Plan 27, 27a–b; L23 noted (A and B); test T-S7.10-terms planned. To confirm.
+- User: is adding a chorus now a good idea? → yes (biggest sound gain for the effort, a shared stereo effect, cheap, bypassed by default; the Effects tab would need to wrap). User: commit the terms spec, then start the ensemble spec.
