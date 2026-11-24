@@ -68,3 +68,4 @@
 - User: commit (5b50d99) and do the crosscheck.
 - Spec written before Phase 26 that it changed, marked "since Phase 26" / S5.22: S5.3 normalled list (keys.vel → vca.vel), S5.5 VCA gain (velocity factor), S5a.1 parameter count 70, S6.6 VCA sockets, S6.7 Schematic internal links, S6.8 Matrix rows 34, S9.2 host parameters 70 (the VST3 total 2150 → 2151 too; the host test checks /info, not that total).
 - Code vs S5.22: as built (noted there). Plan 26, 26a–b, L15 → Phase 26, L18–L20 match; T-S5.22-velocity passes; 36 of 36. lmw-mcp: no tool lists parameters by hand (it reads /info), the AI guide names vca.velocity and vca.vel.
+- User pushed (75f308f). CI run 45427355833 green on Ubuntu, Fedora, Windows, macOS (Phase 26).
