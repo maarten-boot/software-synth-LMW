@@ -317,6 +317,14 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
          }),
          addFader(P::combDamping, "Damping", [] { return juce::String("Softens the high resonances"); }),
          addFader(P::combMix, "Mix", [] { return juce::String("Dry/wet: 0 = off (the input passes unchanged), 100 % = only the comb"); })}, {}});
+    // Spec S7.11: ENSEMBLE between COMB and DELAY.
+    effectGroups.push_back({"ENSEMBLE", 0,
+        {addFader(P::ensembleDepth, "Depth", [] { return juce::String("How far the three chorus lines sweep: more = wider and more moving"); }),
+         addFader(P::ensembleRate, "Rate", [] { return juce::String("Speed of the slow sweep; the fast shimmer runs 10 times faster"); }),
+         addFader(P::ensembleShimmer, "Shimmer", [] {
+             return juce::String("The fast sweep's share: 0 = a slow chorus, 100 % = the full string-machine shimmer");
+         }),
+         addFader(P::ensembleMix, "Mix", [] { return juce::String("Dry/wet: 0 = off (the input passes unchanged), 100 % = only the ensemble"); })}, {}});
     // Spec S7.8: DELAY between COMB and REVERB.
     effectGroups.push_back({"DELAY", 0,
         {addFader(P::delayTime, "Time", [] { return juce::String("Echo time; moving it while echoes ring bends their pitch (tape-like glide)"); }),
@@ -433,9 +441,10 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
             {0, 0, true, out(Out::OutOut), "Out"},
             // Inputs on the left, outputs on the right (user 2026-11-22).
             {1, 0, false, in(In::CombIn), "In"}, {1, 4, true, out(Out::CombOut), "Out"},
-            {2, 0, false, in(In::DelayIn), "In"}, {2, 4, true, out(Out::DelayOut), "Out"},   // S7.8
-            {3, 0, false, in(In::ReverbIn), "In"}, {3, 3, true, out(Out::ReverbOut), "Out"},
-            {4, 0, false, in(In::MainIn), "In"},
+            {2, 0, false, in(In::EnsembleIn), "In"}, {2, 3, true, out(Out::EnsembleOut), "Out"},   // S7.11
+            {3, 0, false, in(In::DelayIn), "In"}, {3, 4, true, out(Out::DelayOut), "Out"},   // S7.8
+            {4, 0, false, in(In::ReverbIn), "In"}, {4, 3, true, out(Out::ReverbOut), "Out"},
+            {5, 0, false, in(In::MainIn), "In"},
         };
         effectGroupJacks.resize(effectGroups.size());
         for (const auto& d : effectPorts) {
@@ -1189,10 +1198,13 @@ void LMWSynthEditor::resized() {
     if (matrix) { matrix->setBounds(area); matrix->setFontSize(m.labelFont - 2.0f); }   // Matrix tab
     if (schematic) schematic->setBounds(area);              // Schematic tab
     if (assistant) { assistant->setBounds(area); assistant->setFontSize(m.labelFont + 3.0f); }   // Assistant tab
-    {                                                        // Effects tab: panels side by side, first row
+    {   // Effects tab: panels side by side; one that does not fit the width starts a second row (S7.11)
         auto row = area.withHeight(m.rowH);
         for (auto& grp : effectGroups) {
-            grp.bounds = row.removeFromLeft(grp.columns() * m.colW);
+            const int w = grp.columns() * m.colW;
+            if (w > row.getWidth() && row.getX() > area.getX())
+                row = area.withHeight(m.rowH).withY(row.getY() + m.rowH + m.gap);
+            grp.bounds = row.removeFromLeft(w);
             row.removeFromLeft(m.gap);
             if (const auto it = effectPresets.find(presetModuleOf(grp.title)); it != effectPresets.end())   // Spec S7.5
                 it->second->setBounds(grp.bounds.withHeight(m.header - 3).reduced(1)

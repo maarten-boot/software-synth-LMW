@@ -3,6 +3,8 @@
 Changes between releases.
 
 ## Unreleased
+- 2026-11-24: ENSEMBLE: a string-machine chorus (as in the Solina) on the Effects tab between COMB and DELAY — Depth, Rate, Shimmer, Mix, presets Solina, Subtle chorus, Wide, Vibrato strings. String section and Pad (slow) use it. In a narrow window the Effects tab wraps to a second row. Patches from 1.5.0 sound the same (Mix 0).
+- 2026-11-24: The Matrix shows the input and output names on all four sides.
 - 2026-11-24: Choosing one of your own instrument presets also restores its Schematic layout when the preset was saved with moved symbols (the notes stay as they are).
 - 2026-11-24: Save... offers the patch name without ".lmwpatch" (it is added for you); a name with a dot keeps it ("Pad v1.2"); replacing an existing patch is asked first. Compact also makes the Schematic smaller.
 - 2026-11-24: Undo and Redo buttons in the header (left of Menu), greyed when there is nothing; the hover text names what they take back.

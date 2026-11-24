@@ -9,14 +9,14 @@ parameter's own unit (seconds, Hz, octaves, semitones; 0-1 for percentages), cho
 
 ## Signal flow (normalled: connected without cables)
 
-KEYS (pitch, gate, velocity) → VCO 1-3 → MIXER → VCF 1 → VCF 2 → FORMANT → VCA → OUT → COMB → DELAY →
+KEYS (pitch, gate, velocity) → VCO 1-3 → MIXER → VCF 1 → VCF 2 → FORMANT → VCA → OUT → COMB → ENSEMBLE → DELAY →
 REVERB → MAIN (what is heard). ENV 1 opens the VCA (loudness over time), ENV 2 moves the VCF 1 and VCF 2
 cutoff, LFO 1 → the VCOs' FM inputs (vibrato, depth = each VCO's FM fader), LFO 2 → the VCA's Mod input
 (tremolo, depth = VCA Tremolo). Every module is per voice up to the VCA; OUT and the effects are shared.
 
 A cable replaces an input's normal connection; up to 4 cables per input add up, each with a level
 (`input=output@0.5`). To keep the normal source and add another, cable both (e.g.
-`vcf1.in=mix.out+vcf1.out@0.4` keeps the mixer and adds feedback). Effect sockets (comb, delay, reverb,
+`vcf1.in=mix.out+vcf1.out@0.4` keeps the mixer and adds feedback). Effect sockets (comb, ensemble, delay, reverb,
 out.out, main.in) connect only among themselves.
 
 Modulation inputs (`vcoN.pitch`, `vcoN.fm`, `vcoN.pm`, `vcfN.cutoff`, `vcfN.res`, `formant.vowel`, `vca.cv`,
@@ -59,6 +59,10 @@ envelope is up. Audio and gate inputs take 0 to 1 only. A level of 0 keeps a cab
 - **COMB** (`comb.freq` 20-5000 Hz, `comb.key` 0-1, `comb.feedback` -0.95..0.95, `comb.damping` 0-1,
   `comb.mix` 0-1, 0 = off): a resonant tube or body. Key 1 with Freq 261.6 (C4) follows the notes;
   positive feedback = hollow, all harmonics; negative = odd harmonics, clarinet-like.
+- **ENSEMBLE** (`ensemble.depth` 0-1 how far the three chorus lines sweep, `ensemble.rate` 0.15-2.4 Hz the slow
+  sweep (the fast shimmer is 10 x), `ensemble.shimmer` 0-1 the fast sweep's share, `ensemble.mix` 0-1, 0 = off): the
+  string-machine (Solina) chorus between COMB and DELAY; module preset "Solina" (depth 0.7, mix 0.7) turns saw
+  pads into a string ensemble; "Subtle chorus", "Wide", "Vibrato strings".
 - **DELAY** (`delay.time` 0.001-2 s, `delay.feedback` 0-0.95, `delay.damping` 0-1, `delay.spread` 0-1
   where 1 = ping-pong, `delay.mix` 0-1, 0 = off): echoes; 0.03 s doubling, 0.09 s slapback, 0.3-0.5 s echo.
 - **REVERB** (`reverb.mix` 0-1, 0 = off; `reverb.size`, `reverb.damping`, `reverb.width` 0-1): the room.

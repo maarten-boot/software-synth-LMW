@@ -193,26 +193,30 @@ that you hear new overtones instead of vibrato.
 
 ---
 
-## Lesson 9 — Effects: comb, delay and reverb
+## Lesson 9 — Effects: comb, ensemble, delay and reverb
 
 **Lesson sound:** *Lesson 9* — *Flute* without its comb and reverb (all effect Mix faders at 0).
 
-The **Effects** tab: SYNTH (the instrument) → COMB → DELAY → REVERB → MAIN (what you hear), connected
-by default; Mix 0 means an effect is off.
+The **Effects** tab: SYNTH (the instrument) → COMB → ENSEMBLE → DELAY → REVERB → MAIN (what you
+hear), connected by default; Mix 0 means an effect is off. In a narrow window REVERB and MAIN wrap to
+a second row.
 
 ![The Effects tab: SYNTH, COMB, DELAY, REVERB and MAIN](../images/effects.png)
 
 1. *REVERB › Mix* 25 %, *Size* 80 %: a hall. *Damping* darker, *Width* narrower or wider.
 2. *COMB › Mix* 30 %, *Key* 100 %, *Freq* 262 Hz (C4), *Feedback* 40 %: a resonant body that
    follows the notes — the breathy flute gets a tube.
-3. *COMB › Feedback* −50 %: odd harmonics, clarinet-like. *Damping* softens it.
-4. *DELAY › Mix* 30 %, *Time* 350 ms, *Feedback* 40 %: echoes. *Spread* 100 %: they bounce between
+3. *COMB › Feedback* −50 %: odd harmonics, clarinet-like. *Damping* softens it. Back to *COMB › Mix* 0.
+4. *Presets › String section*, then *ENSEMBLE › Mix* 0 and back to 70 %: the string-machine chorus
+   (as in the Solina) that makes the saws wide and moving. *Depth*: how far it sweeps; *Shimmer*: the
+   fast trembling; *Rate*: both sweeps faster or slower. *ENSEMBLE › Presets › Wide* or *Subtle chorus*.
+5. *DELAY › Mix* 30 %, *Time* 350 ms, *Feedback* 40 %: echoes. *Spread* 100 %: they bounce between
    left and right (ping-pong). *Damping*: each echo darker.
-5. Hold a note and move *DELAY › Time* while the echoes ring: their pitch bends, like a tape
+6. Hold a note and move *DELAY › Time* while the echoes ring: their pitch bends, like a tape
    machine slowing down — the "dynamic" delay.
-6. Order with cables: on the Effects tab, *SYNTH › Out* → *REVERB › In*, *REVERB › Out* →
-   *COMB › In*, *COMB › Out* → *MAIN › In*: now the comb colours the reverb too (the delay is out of
-   the chain until you patch it back).
+7. Order with cables: on the Effects tab, *SYNTH › Out* → *REVERB › In*, *REVERB › Out* →
+   *COMB › In*, *COMB › Out* → *MAIN › In*: now the comb colours the reverb too (ensemble and delay are
+   out of the chain until you patch them back).
 
 Each effect has its own **Presets** in its title bar, e.g. *DELAY › Presets › Ping-pong* or
 *COMB › Presets › Hollow tube*.

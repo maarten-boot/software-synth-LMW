@@ -338,7 +338,7 @@ private:
             using presets::Kind;
             const std::pair<Kind, const char*> kinds[] = {
                 {Kind::Env, "env1, env2"}, {Kind::Vcf, "vcf1, vcf2"}, {Kind::Vco, "vco1, vco2, vco3"},
-                {Kind::Formant, "formant"}, {Kind::Comb, "comb"}, {Kind::Delay, "delay"}, {Kind::Reverb, "reverb"}};
+                {Kind::Formant, "formant"}, {Kind::Comb, "comb"}, {Kind::Ensemble, "ensemble"}, {Kind::Delay, "delay"}, {Kind::Reverb, "reverb"}};
             out += "Module presets (apply_module_preset; every module also has Default):\n";
             for (const auto& [k, modules] : kinds) {
                 out += "  " + std::string(modules) + ":";

@@ -27,7 +27,7 @@ int main() {
         CHECK(baseKnown);
         if (!l.cables.empty()) CHECK(dsp::patchFromText(l.cables).has_value());
     }
-    CHECK(tutorial::title(1) == "First sound" && tutorial::title(9) == "Effects: comb, delay and reverb");
+    CHECK(tutorial::title(1) == "First sound" && tutorial::title(9) == "Effects: comb, ensemble, delay and reverb");
     CHECK(tutorial::section(13).empty() && tutorial::title(13).empty());
     CHECK(tutorial::title(12) == "The assistant: describe a sound in words" && tutorial::notes(12).find("Test connection") != std::string::npos);
     // Notes are plain text: no emphasis marks, headings without "##", code fences dropped, "\*" a star.

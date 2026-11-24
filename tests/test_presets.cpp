@@ -14,12 +14,13 @@ int main() {
     CHECK(kindOf("vcf2") == Kind::Vcf && kindOf("vco3") == Kind::Vco && kindOf("reverb") == Kind::Reverb);
     CHECK(kindOf("formant") == Kind::Formant && kindName(Kind::Formant) == "formant" && folderName(Kind::Formant) == "FORMANT");
     CHECK(kindOf("comb") == Kind::Comb && kindOf("delay") == Kind::Delay && folderName(Kind::Delay) == "DELAY");
+    CHECK(kindOf("ensemble") == Kind::Ensemble && kindName(Kind::Ensemble) == "ensemble" && folderName(Kind::Ensemble) == "ENSEMBLE");
     CHECK(!kindOf("lfo1") && !kindOf("vco4") && !kindOf("env") && !kindOf(""));
 
     // Every built-in preset sets every parameter of its module, in panel order; names are unique; the
     // instruments the user asked for are there (flute, recorder, oboe, clarinet).
     int count = 0;
-    for (Kind k : {Kind::Env, Kind::Vcf, Kind::Vco, Kind::Reverb, Kind::Formant, Kind::Comb, Kind::Delay}) {
+    for (Kind k : {Kind::Env, Kind::Vcf, Kind::Vco, Kind::Reverb, Kind::Formant, Kind::Comb, Kind::Delay, Kind::Ensemble}) {
         std::set<std::string> names;
         for (const auto& p : builtIn(k)) {
             ++count;
@@ -35,12 +36,12 @@ int main() {
         }
         if (k == Kind::Comb)
             for (const char* n : {"Flute", "Oboe", "Clarinet", "Bassoon", "Guitar (plucked)"}) CHECK(names.count(n) == 1);
-        if (k != Kind::Reverb && k != Kind::Formant && k != Kind::Delay && k != Kind::Comb)
+        if (k != Kind::Reverb && k != Kind::Formant && k != Kind::Delay && k != Kind::Comb && k != Kind::Ensemble)
             for (const char* n : {"Flute", "Recorder", "Oboe", "Clarinet"}) CHECK(names.count(n) == 1);
-        CHECK(names.size() >= 6);
+        CHECK(names.size() >= (k == Kind::Ensemble ? 4u : 6u));
     }
     std::printf("%d built-in presets\n", count);
-    CHECK(count == 99);                                        // 53 + 30 FORMANT (S5.16) + 9 COMB + 7 DELAY
+    CHECK(count == 103);                                       // 53 + 30 FORMANT (S5.16) + 9 COMB + 7 DELAY + 4 ENSEMBLE
     CHECK(builtIn(Kind::Formant).size() == 30 && builtIn(Kind::Formant).front().name == "Bass A"
           && builtIn(Kind::Formant).back().name == "Child U");
 

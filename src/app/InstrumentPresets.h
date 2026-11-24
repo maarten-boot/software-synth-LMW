@@ -43,6 +43,12 @@ inline std::vector<std::pair<std::string, std::string>> comb(std::string_view pr
     addModule(i, "comb", presets::Kind::Comb, preset);
     return i.values;
 }
+// The ensemble preset of that name (S7.11): the string-machine chorus.
+inline std::vector<std::pair<std::string, std::string>> ensemble(std::string_view preset) {
+    Instrument i;
+    addModule(i, "ensemble", presets::Kind::Ensemble, preset);
+    return i.values;
+}
 // The reverb preset of that name (S7.5).
 inline std::vector<std::pair<std::string, std::string>> reverb(std::string_view preset) {
     Instrument i;
@@ -61,6 +67,7 @@ inline const std::vector<Instrument>& builtIn() {
     using detail::fromModules;
     using detail::join;
     using detail::reverb;
+    using detail::ensemble;
     using detail::comb;
     static const std::vector<Instrument> list = [] {
         const auto solo = std::pair<std::string, std::string>{"voice.count", "1"};
@@ -84,7 +91,7 @@ inline const std::vector<Instrument>& builtIn() {
         v.push_back(fromModules("String section", join({{"voice.count", "12"}, {"lfo1.rate", "5"}, {"vco1.fm", "0.12"},
                                                         {"vco2.wave", "Saw"}, {"vco2.tune", "0.1"}, {"vco2.fm", "0.12"}, {"mix.vco2", "0.8"},
                                                         {"vco3.wave", "Saw"}, {"vco3.tune", "-0.08"}, {"vco3.fm", "0.12"}, {"mix.vco3", "0.6"}},
-                                                       reverb("Concert hall"))));
+                                                       join(ensemble("Solina"), reverb("Concert hall")))));   // S7.11
         // Keyboards and plucked.
         v.push_back(fromModules("Organ", join({{"voice.count", "16"}, {"vco2.wave", "Sine"}, {"vco2.octave", "+1"}, {"mix.vco2", "0.5"},
                                                {"vco3.wave", "Sine"}, {"vco3.octave", "-1"}, {"mix.vco3", "0.5"},
@@ -97,7 +104,8 @@ inline const std::vector<Instrument>& builtIn() {
         v.push_back(fromModules("Marimba", join({{"voice.count", "8"}}, reverb("Small room"))));
         v.push_back(fromModules("Pad (slow)", join({{"voice.count", "12"}, {"lfo1.rate", "0.3"}, {"vco1.fm", "0.1"},
                                                     {"vco2.wave", "Saw"}, {"vco2.tune", "0.12"}, {"mix.vco2", "0.8"},
-                                                    {"lfo2.rate", "0.2"}, {"vca.tremolo", "0.1"}}, reverb("Concert hall"))));
+                                                    {"lfo2.rate", "0.2"}, {"vca.tremolo", "0.1"}},
+                                                   join(ensemble("Solina"), reverb("Concert hall")))));   // S7.11
         // Beyond the module-preset names (user 2026-11-20/21): voices (FORMANT, S5.16) and FM (PM, S5.20).
         v.push_back({"Choir (aah)", join({{"voice.count", "12"},
                                           {"vco1.wave", "Pulse"}, {"vco1.fm", "0.1"}, {"vco2.wave", "Saw"}, {"vco2.tune", "0.1"},

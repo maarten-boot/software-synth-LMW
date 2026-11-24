@@ -24,7 +24,7 @@
 
 namespace lmw::presets {
 
-enum class Kind { Env, Vcf, Vco, Reverb, Formant, Comb, Delay };
+enum class Kind { Env, Vcf, Vco, Reverb, Formant, Comb, Delay, Ensemble };
 
 struct Preset {
     std::string name;
@@ -40,6 +40,7 @@ inline std::optional<Kind> kindOf(std::string_view module) {
     if (module == "formant") return Kind::Formant;
     if (module == "comb") return Kind::Comb;          // S7.6
     if (module == "delay") return Kind::Delay;        // S7.8
+    if (module == "ensemble") return Kind::Ensemble;  // S7.11
     return std::nullopt;
 }
 
@@ -52,6 +53,7 @@ inline std::string_view kindName(Kind k) {          // "module = ..." in the fil
         case Kind::Reverb: return "reverb";
         case Kind::Comb: return "comb";
         case Kind::Delay: return "delay";
+        case Kind::Ensemble: return "ensemble";
     }
     return "reverb";
 }
@@ -65,6 +67,7 @@ inline std::string_view folderName(Kind k) {        // Documents/LMW-Synth Prese
         case Kind::Reverb: return "REVERB";
         case Kind::Comb: return "COMB";
         case Kind::Delay: return "DELAY";
+        case Kind::Ensemble: return "ENSEMBLE";
     }
     return "REVERB";
 }
@@ -78,6 +81,7 @@ inline const std::vector<std::string_view>& keys(Kind k) {
     static const std::vector<std::string_view> formant{"vowel", "voice", "res", "mix"};
     static const std::vector<std::string_view> comb{"freq", "key", "feedback", "damping", "mix"};
     static const std::vector<std::string_view> delay{"time", "feedback", "damping", "spread", "mix"};
+    static const std::vector<std::string_view> ensemble{"depth", "rate", "shimmer", "mix"};   // S7.11
     switch (k) {
         case Kind::Env: return env;
         case Kind::Vcf: return vcf;
@@ -86,6 +90,7 @@ inline const std::vector<std::string_view>& keys(Kind k) {
         case Kind::Reverb: return reverb;
         case Kind::Comb: return comb;
         case Kind::Delay: return delay;
+        case Kind::Ensemble: return ensemble;
     }
     return reverb;
 }
@@ -192,6 +197,13 @@ inline const std::vector<Preset>& builtIn(Kind k) {
         make("Dub", Kind::Delay, {"0.5", "0.75", "0.7", "0.6", "0.35"}),
         make("Long ambient", Kind::Delay, {"0.8", "0.65", "0.5", "0.8", "0.3"}),
     };
+    // ENSEMBLE (S7.11): depth 0-1, rate Hz (slow LFO; fast = 10 x), shimmer 0-1, mix 0-1.
+    static const std::vector<Preset> ensemble{
+        make("Solina", Kind::Ensemble, {"0.7", "0.6", "0.5", "0.7"}),
+        make("Subtle chorus", Kind::Ensemble, {"0.35", "0.48", "0", "0.4"}),
+        make("Wide", Kind::Ensemble, {"0.9", "0.36", "0.2", "0.6"}),
+        make("Vibrato strings", Kind::Ensemble, {"0.5", "0.78", "0.9", "1"}),
+    };
     // Spec S5.16: every voice type with every vowel ("Bass A" .. "Child U"): vowel 0-4, voice, resonance, mix 1.
     static const std::vector<Preset> formant = [] {
         std::vector<Preset> list;
@@ -209,6 +221,7 @@ inline const std::vector<Preset>& builtIn(Kind k) {
         case Kind::Reverb: return reverb;
         case Kind::Comb: return comb;
         case Kind::Delay: return delay;
+        case Kind::Ensemble: return ensemble;
     }
     return reverb;
 }

@@ -65,6 +65,15 @@ private:
     int labelWidth() const { return juce::roundToInt(fontSize * 7.5f); }
     int headerHeight() const { return juce::roundToInt(fontSize * 2.8f); }
     int sliderWidth() const { return juce::roundToInt(fontSize * 8.0f); }
+    // The label zones (user 2026-11-24: on all four sides): input names left and right, output names top and bottom.
+    bool inRowLabel(juce::Point<int> p) const {
+        const int right = labelWidth() + lmw::dsp::numOutputs * cellWidth();
+        return p.x < labelWidth() || (p.x >= right && p.x < right + labelWidth());
+    }
+    bool inColumnLabel(juce::Point<int> p) const {
+        const int bottom = headerHeight() + lmw::dsp::numInputs * cellHeight();
+        return p.y < headerHeight() || (p.y >= bottom && p.y < bottom + headerHeight());
+    }
     void syncSlider();
     int cellWidth() const;
     int cellHeight() const;

@@ -59,7 +59,7 @@ inline constexpr Unit unitOf(std::string_view name) noexcept {
     if (k == "vco") return Unit::Vco;
     if (k == "noi") return Unit::Noise;
     if (k == "vcf" || k == "for" || k == "com") return Unit::Vcf;   // FORMANT (S5.16) and COMB (S7.6) are filters too
-    if (k == "del" || k == "rev") return Unit::Effect;   // DELAY (S7.8), REVERB
+    if (k == "del" || k == "rev" || k == "ens") return Unit::Effect;   // DELAY (S7.8), REVERB, ENSEMBLE (S7.11)
     if (k == "vca") return Unit::Vca;
     if (k == "env") return Unit::Env;
     if (k == "lfo") return Unit::Lfo;
@@ -141,7 +141,7 @@ inline std::optional<ThemePreset> parseTheme(std::string_view name) noexcept {
 struct ThemeItem { std::string_view key, label; bool textOnIt; };   // textOnIt: black text on it (else a line on white)
 inline constexpr std::array<ThemeItem, 12> themeItems{{
     {"vco", "VCO", true}, {"noise", "NOISE", true}, {"vcf", "VCF, FORMANT, COMB", true}, {"vca", "VCA", true},
-    {"env", "ENV", true}, {"lfo", "LFO", true}, {"mixer", "MIXER", true}, {"effects", "DELAY, REVERB", true},
+    {"env", "ENV", true}, {"lfo", "LFO", true}, {"mixer", "MIXER", true}, {"effects", "ENSEMBLE, DELAY, REVERB", true},
     {"background", "Background around the panels", true}, {"band", "Matrix highlight band", true},
     {"cable", "Cables at rest (colour)", false},
     {"highlight", "Selected socket (highlight)", true},

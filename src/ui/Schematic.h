@@ -161,7 +161,7 @@ public:
             named[i] = true;
         }
         const auto later = [](std::string_view name) {   // blocks added after Phase 12c
-            return name == "FORMANT" || name == "COMB" || name == "DELAY" || name == "REVERB" || name == "MAIN";
+            return name == "FORMANT" || name == "COMB" || name == "ENSEMBLE" || name == "DELAY" || name == "REVERB" || name == "MAIN";
         };
         for (std::size_t i = 0; i < l.pos.size(); ++i) {           // the others: inside, not on each other
             if (!named[i] && later(blocks()[i].name)) continue;
