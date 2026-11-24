@@ -1108,6 +1108,17 @@ juce::Point<float> LMWSynthEditor::Jack::centreInEditor() const {
 void LMWSynthEditor::Jack::paint(juce::Graphics& g) {
     const auto c = socket();
     const auto& patch = editor.processor.currentPatch();
+    // Spec S6.15: the selected socket (keyboard focus, under the mouse, drop target) and its label on a box in
+    // the highlight colour with a 2 px black edge; at Max 21:1 the fill is white and the edge 3 px.
+    if (hasKeyboardFocus(false) || editor.hoverJack == this || (editor.drag && editor.drag->target == this)) {
+        const auto& h = editor.palette.highlight;
+        const bool edgeOnly = h == lmw::ui::Rgb{255, 255, 255};
+        const auto box = getLocalBounds().toFloat();
+        g.setColour(toJuce(h));
+        g.fillRect(box);
+        g.setColour(kFg);
+        g.drawRect(box, edgeOnly ? 3.0f : 2.0f);
+    }
     if (output) {                                     // black socket, white ring
         g.setColour(kFg);
         g.fillEllipse(c);
@@ -1121,8 +1132,6 @@ void LMWSynthEditor::Jack::paint(juce::Graphics& g) {
         if (patch.isPatched(static_cast<lmw::dsp::In>(port))) g.fillEllipse(c.reduced(4.5f));
     }
     g.setColour(kFg);
-    if (editor.drag && editor.drag->target == this) g.drawEllipse(c.expanded(1.5f), 2.0f);   // drop target
-    if (hasKeyboardFocus(false)) g.drawRect(getLocalBounds(), 1);                           // focus ring
     // Label shrinks to fit a narrow slot (several sockets under one fader column).
     float size = editor.m.colW >= 80 ? 12.0f : 11.0f;
     juce::Font font{juce::FontOptions(size)};
@@ -1230,10 +1239,12 @@ void LMWSynthEditor::Jack::focusGained(FocusChangeType) { repaint(); if (editor.
 void LMWSynthEditor::Jack::focusLost(FocusChangeType) { repaint(); if (editor.cables) editor.cables->repaint(); }
 void LMWSynthEditor::Jack::mouseEnter(const juce::MouseEvent&) {
     editor.hoverJack = this;
+    repaint();                                                    // S6.15 highlight
     if (editor.cables) editor.cables->repaint();
 }
 void LMWSynthEditor::Jack::mouseExit(const juce::MouseEvent&) {
     if (editor.hoverJack == this) editor.hoverJack = nullptr;
+    repaint();
     if (editor.cables) editor.cables->repaint();
 }
 

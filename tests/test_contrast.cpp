@@ -133,6 +133,24 @@ int main() {
         const auto rt = lmw::ui::readTheme(file);
         CHECK(file.find("name = My dark") != std::string::npos && rt.unit == cb.unit && itemColour(rt, 10) == (Rgb{0, 0, 200})
               && std::fabs(rt.cableOpacity - 0.4f) < 1e-6);
+        // T-S6.15-highlight: the socket highlight is theme item 11 "highlight", golden yellow by default,
+        // preset colours, black on it meets every setting, white at Max (edge only); config and theme files.
+        CHECK(themeItems.size() == 12 && themeItems[11].key == "highlight" && themeItems[11].textOnIt);
+        CHECK(def.highlight == (Rgb{0xFF, 0xC0, 0x00}) && itemColour(def, 11) == def.highlight && soft.highlight == (Rgb{0xFF, 0xE0, 0x8A})
+              && vivid.highlight == (Rgb{0xFF, 0xB0, 0x00}) && mono.highlight == (Rgb{0xD0, 0xD0, 0xD0}));
+        CHECK(palette(4.5).highlight == highlightDesign && contrastRatio({0, 0, 0}, highlightDesign) > 12.0);
+        CHECK(palette(21.0).highlight == (Rgb{255, 255, 255}));
+        for (const double r : {4.5, 7.0, 15.0, 21.0})
+            for (const auto pr : {ThemePreset::Default, ThemePreset::Soft, ThemePreset::Vivid, ThemePreset::Monochrome})
+                CHECK(contrastRatio({0, 0, 0}, palette(r, presetColours(pr)).highlight) >= r - 1e-9);
+        Colours dh; itemColour(dh, 11) = {120, 60, 0};             // too dark: lightened for the black edge / text
+        CHECK(contrastRatio({0, 0, 0}, palette(4.5, dh).highlight) >= 4.5 - 1e-9);
+        const auto ch = lmw::ui::parseConfig("theme = Custom\ncolor_highlight = #80FF80\n");
+        CHECK(ch.custom[11] && ch.colours().highlight == (Rgb{0x80, 0xFF, 0x80}) && ch.colours().cable.r == cableDesign.r);
+        CHECK(lmw::ui::writeConfig(ch).find("color_highlight = #80FF80") != std::string::npos);
+        CHECK(lmw::ui::parseConfig("theme = Custom\ncolor_vco = #102030\n").colours().highlight == highlightDesign);   // left out: Default's
+        CHECK(lmw::ui::readTheme(lmw::ui::writeTheme("Hi", dh)).highlight == (Rgb{120, 60, 0}));
+        CHECK(lmw::ui::readTheme("name = Old\ncolor_vco = #FF0000\n").highlight == highlightDesign);         // a 1.4.0 theme file
     }
     const auto maxPal = lmw::ui::theme::palette(21.0);
     CHECK(maxPal.whiteKeyDown.r == 0 && maxPal.blackKeyDown.r == 255);

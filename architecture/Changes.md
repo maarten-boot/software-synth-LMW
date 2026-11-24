@@ -3,6 +3,7 @@
 Changes between releases.
 
 ## Unreleased
+- 2026-11-24: The socket under the mouse, with keyboard focus or under a dragged cable sits on a golden-yellow box with a black edge (Synth, Effects and Schematic tabs). Its colour is in Menu ▸ Theme ▸ Edit colours ("Selected socket"), and in saved themes.
 
 ## 1.4.0 (2026-11-23)
 - 2026-11-23: Patches and saved settings from 1.3.0 load unchanged (the same sound, cables, notes; a panel layout you arranged stays, otherwise the new default order).

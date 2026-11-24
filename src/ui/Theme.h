@@ -26,6 +26,9 @@ inline constexpr Rgb bandDesign{0xE0, 0xE0, 0xE0};
 // opacity are theme settings (S6.13, user 2026-11-22).
 inline constexpr Rgb cableDesign{0x00, 0x00, 0x00};
 inline constexpr float cableOpacityDesign = 0.58f;
+// Spec S6.15 (Phase 24a, user 2026-11-24): the selected socket (keyboard focus, under the mouse, drop target)
+// sits on a golden-yellow box with a black edge; black on it 12.8:1. A theme item, raised like the unit colours.
+inline constexpr Rgb highlightDesign{0xFF, 0xC0, 0x00};
 
 // Spec S6.9: unit colours — light tints behind black title text, one per unit type. Units without a
 // colour (KEYS, OUT, SYNTH, MAIN) keep white. Effects (user 2026-11-22): COMB is a filter (VCF yellow),
@@ -75,6 +78,7 @@ struct Palette {
     Rgb blackKeyDown{keyDownDesign};   // pressed black key, against the black keys around it
     Rgb rack{rackDesign};              // behind the panels on the Synth and Effects tabs
     Rgb band{bandDesign};              // Matrix: highlighted row / column
+    Rgb highlight{highlightDesign};    // S6.15: box behind the selected socket (white at Max: edge only)
     Rgb cable{0x6B, 0x6B, 0x6B};       // cables at rest as they look on white (opaque; drawn so from AAA up)
     Rgb cableInk{cableDesign};         // the colour drawn at cableOpacity (below AAA)
     float cableOpacity = 1.0f;
@@ -88,8 +92,8 @@ struct Palette {
     Rgb cableDrawn() const noexcept { return cableOpacity < 1.0f ? cableInk : cable; }
 
     // (foreground, background) pairs actually drawn by the GUI.
-    std::array<std::pair<Rgb, Rgb>, 8 + static_cast<std::size_t>(Unit::Count)> pairs() const noexcept {
-        std::array<std::pair<Rgb, Rgb>, 8 + static_cast<std::size_t>(Unit::Count)> p{{
+    std::array<std::pair<Rgb, Rgb>, 9 + static_cast<std::size_t>(Unit::Count)> pairs() const noexcept {
+        std::array<std::pair<Rgb, Rgb>, 9 + static_cast<std::size_t>(Unit::Count)> p{{
             {foreground, background},             // text, faders, value boxes, outlines, cables, black keys
             {background, foreground},             // highlighted menu text, fader cap line, output sockets
             {whiteKeyDown, background},           // pressed white key
@@ -98,9 +102,10 @@ struct Palette {
             {foreground, rack},                   // panel frames and the drop marker on the rack grey
             {foreground, band},                   // Matrix: rings, strokes and grid on a highlighted band
             {cable, background},                  // a cable at rest on its white edge
+            {foreground, highlight},              // S6.15: socket, label and edge on the highlight box
         }};
         for (std::size_t i = 0; i < unit.size(); ++i)
-            p[8 + i] = {foreground, unit[i]};     // black title text, line and focus ring on a unit colour
+            p[9 + i] = {foreground, unit[i]};     // black title text, line and focus ring on a unit colour
         return p;
     }
 };
@@ -112,6 +117,7 @@ struct Colours {
     Rgb band{bandDesign};
     Rgb cable{cableDesign};
     float cableOpacity = cableOpacityDesign;   // 0.2 .. 1
+    Rgb highlight{highlightDesign};            // S6.15
 };
 enum class ThemePreset { Default, Soft, Vivid, Monochrome, Custom };
 inline constexpr std::array<std::string_view, 5> themeNames{"Default", "Soft", "Vivid", "Monochrome", "Custom"};
@@ -130,18 +136,21 @@ inline std::optional<ThemePreset> parseTheme(std::string_view name) noexcept {
     return std::nullopt;
 }
 
-// The editable items: the unit colours (not None) and the three greys. key: config.ini "color_<key>".
+// The editable items: the unit colours (not None), the three greys and the socket highlight (S6.15).
+// key: config.ini "color_<key>". New items go at the end (indices are kept).
 struct ThemeItem { std::string_view key, label; bool textOnIt; };   // textOnIt: black text on it (else a line on white)
-inline constexpr std::array<ThemeItem, 11> themeItems{{
+inline constexpr std::array<ThemeItem, 12> themeItems{{
     {"vco", "VCO", true}, {"noise", "NOISE", true}, {"vcf", "VCF, FORMANT, COMB", true}, {"vca", "VCA", true},
     {"env", "ENV", true}, {"lfo", "LFO", true}, {"mixer", "MIXER", true}, {"effects", "DELAY, REVERB", true},
     {"background", "Background around the panels", true}, {"band", "Matrix highlight band", true},
     {"cable", "Cables at rest (colour)", false},
+    {"highlight", "Selected socket (highlight)", true},
 }};
 inline Rgb& itemColour(Colours& c, std::size_t item) noexcept {
     if (item < 8) return c.unit[item + 1];                     // Vco .. Effect
     if (item == 8) return c.rack;
     if (item == 9) return c.band;
+    if (item == 11) return c.highlight;
     return c.cable;
 }
 inline Rgb itemColour(const Colours& c, std::size_t item) noexcept { return itemColour(const_cast<Colours&>(c), item); }
@@ -155,15 +164,18 @@ inline Colours presetColours(ThemePreset t) noexcept {
     switch (t) {
         case ThemePreset::Soft:                              // paler tints, half way to white
             for (std::size_t i = 1; i < c.unit.size(); ++i) c.unit[i] = blend(unitDesign[i], background, 0.5);
+            c.highlight = Rgb{0xFF, 0xE0, 0x8A};
             break;
         case ThemePreset::Vivid:                             // stronger tints (black text still >= 8:1)
             c.unit = {{{255, 255, 255}, {255, 140, 140}, {255, 176, 102}, {255, 226, 92}, {140, 220, 140},
                        {140, 182, 255}, {196, 140, 255}, {224, 224, 224}, {255, 236, 150}}};
+            c.highlight = Rgb{0xFF, 0xB0, 0x00};
             break;
         case ThemePreset::Monochrome:                        // no hues: light greys only
             for (std::size_t i = 1; i < c.unit.size(); ++i) c.unit[i] = Rgb{232, 232, 232};
             c.unit[static_cast<std::size_t>(Unit::Mix)] = Rgb{244, 244, 244};
             c.unit[static_cast<std::size_t>(Unit::Effect)] = Rgb{244, 244, 244};
+            c.highlight = Rgb{0xD0, 0xD0, 0xD0};
             break;
         case ThemePreset::Default:
         case ThemePreset::Custom:
@@ -198,6 +210,7 @@ inline Palette palette(double minRatio, const Colours& c = Colours{}) noexcept {
     // Unit colours are lightened (towards white) until black text on them meets the ratio; at Max (21:1)
     // that is white, so the bars are black and white like everything else.
     for (std::size_t i = 0; i < p.unit.size(); ++i) p.unit[i] = enforceContrast(c.unit[i], foreground, minRatio);
+    p.highlight = enforceContrast(c.highlight, foreground, minRatio);
     return p;
 }
 } // namespace lmw::ui::theme

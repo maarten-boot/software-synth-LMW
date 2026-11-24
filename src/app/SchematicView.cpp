@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "SchematicView.h"
+#include <algorithm>
 #include <cmath>
+#include <vector>
 
 namespace sc = lmw::ui::schematic;
 
@@ -282,6 +284,21 @@ void SchematicView::paint(juce::Graphics& g) {
 
     // Ports: inputs white with a black ring, outputs black (as on the Synth tab, S6.6).
     const float pr = 0.55f * s;
+    // Spec S6.15: the selected port (under the mouse, the keyboard cursor, the drop target) on a box in the
+    // highlight colour with a black edge (at Max 21:1 the fill is white and the edge 3 px).
+    {
+        std::vector<PortRef> lit;
+        for (const auto& h : {hover, cursorPort, target})
+            if (h && std::find(lit.begin(), lit.end(), *h) == lit.end()) lit.push_back(*h);
+        const bool edgeOnly = palette.highlight == lmw::ui::Rgb{255, 255, 255};
+        for (const auto& h : lit) {
+            const auto box = juce::Rectangle<float>(pr * 4.0f, pr * 4.0f).withCentre(toScreen(portPoint(h)));
+            g.setColour(juce::Colour(palette.highlight.r, palette.highlight.g, palette.highlight.b));
+            g.fillRect(box);
+            g.setColour(kFg);
+            g.drawRect(box, std::max(edgeOnly ? 3.0f : 2.0f, 0.25f * s));
+        }
+    }
     for (int i = 0; i < lmw::dsp::numInputs; ++i) {
         const auto in = static_cast<lmw::dsp::In>(i);
         const auto c = toScreen(sc::inputPoint(in, layout));
@@ -296,8 +313,8 @@ void SchematicView::paint(juce::Graphics& g) {
         g.fillEllipse(c.x - pr, c.y - pr, 2 * pr, 2 * pr);
     }
 
-    // Editing: the cable being dragged (from its fixed end to the target port or the mouse), a ring around
-    // the drop target, and the keyboard port cursor (a square) while the view has focus.
+    // Editing: the cable being dragged (from its fixed end to the target port or the mouse); the drop target
+    // and the keyboard port cursor are on the highlight box (S6.15, drawn with the ports).
     if (grab) {
         const auto fixed = toScreen(portPoint(grab->fixed));
         const auto end = target ? toScreen(portPoint(*target)) : loose;
@@ -309,10 +326,6 @@ void SchematicView::paint(juce::Graphics& g) {
         g.strokePath(path, juce::PathStrokeType(lineW * 1.8f + 2.0f * std::max(1.0f, 0.12f * s)));
         g.setColour(kFg);
         g.strokePath(path, juce::PathStrokeType(lineW * 1.8f));
-        if (target) {
-            const auto t = toScreen(portPoint(*target));
-            g.drawEllipse(t.x - pr * 1.9f, t.y - pr * 1.9f, pr * 3.8f, pr * 3.8f, std::max(1.5f, 0.2f * s));
-        }
     }
     if (moving && moved) {                                 // Phase 12c: where the dragged block would land
         const auto& b = sc::blocks()[moving->block];
@@ -326,14 +339,6 @@ void SchematicView::paint(juce::Graphics& g) {
             const float d[] = {0.6f * s, 0.5f * s};
             juce::PathStrokeType(std::max(2.0f, 0.25f * s)).createDashedStroke(dashedOutline, outline, d, 2);
             g.fillPath(dashedOutline);
-        }
-    }
-    if (hasKeyboardFocus(false)) {
-        const auto order = sc::portOrder();
-        if (cursor < order.size()) {
-            const auto c = toScreen(portPoint({!order[cursor].input, order[cursor].index}));
-            g.setColour(kFg);
-            g.drawRect(juce::Rectangle<float>(pr * 4.0f, pr * 4.0f).withCentre(c), std::max(2.0f, 0.25f * s));
         }
     }
 
