@@ -112,3 +112,9 @@
 - 28a done: src/dsp/Ensemble.h (one line, three taps, slow + 10 × fast LFO, Hermite), 4 parameters (rate in Hz), ports after COMB normalled COMB → ENSEMBLE → DELAY, processor chain with the Mix bypass, Schematic block (effects row from x 88). tests/test_ensemble.cpp (T-S7.11-ensemble): depth 0 = input 10 ms later, full depth L/R correlation 0.36 and level −0.5 dB (output scale 0.8 after 2/3 measured −2.1 dB), the sweep repeats at the Rate period, silence, NaN, CPU 0.6 %. Count tests updated (inputs 35, outputs 22, blocks 20, /info 74, /ports). 9P checked. 37 of 37.
 - 28b done: ENSEMBLE panel (Effects tab), effects row wraps, presets kind ensemble (4), String section and Pad (slow) with Solina, theme colour, tutorial Lesson 9 step, AI guide, lmw-mcp list; Matrix labels on all four sides (user request during 28b). Found: ENSEMBLE was white (unitOf did not know "ens") → light yellow. Upgrade check from 1.5.0: identical but the four ensemble lines. 37 of 37.
 - User (for later): the tutorial pictures must show each lesson's settings → Plan L24.
+
+## Crosscheck after Phase 28
+
+- User: commit (5890f1e) and do the crosscheck.
+- Spec written before Phase 28 that it changed, marked with S7.11: S5a.1 parameter list and count 74, S6.7 Schematic effects row, S6.8 Matrix rows 35 / columns 22, S7.6 Effects panels (wrap), normalled chain and processing order, S9.2 host parameters 74 / 2155, S7.10 Terms (ENSEMBLE and chorus in the Effects topic). (The first crosscheck commit 697986f stopped at the S9.2 line; finished in the next commit.)
+- Code vs S7.11: as built (noted there: one line with three taps, output 0.8, Rate in Hz, Lesson 9). Plan 28, 28a–b, L19 → Phase 28, L24 match; T-S7.11-ensemble, T-S6.8-labels pass; 37 of 37. Open: the ENSEMBLE preset values by ear (no audio on the VM); CI after the push.
