@@ -3,6 +3,7 @@
 Changes between releases.
 
 ## Unreleased
+- 2026-11-24: Every fader shows its scale: small ticks beside the track at round values (their spacing shows the curve), the values at the main ticks, and a tag under the name: lin, ± (around 0), log (frequencies and rates) or curve (times and depths: more travel at small values). The hover text says the same, with the value at half way. /info and lmw-mcp report it as "scale".
 - 2026-11-24: The window fills the screen and can be resized; the panels keep their size, so there is room to move them (rows can be as wide as the screen). Compact makes the panels smaller and keeps the window. The on-screen keyboard keeps its size, at the right. Lines between the rows show the rack. In a DAW the plugin window can be resized too.
 - 2026-11-24: The socket under the mouse, with keyboard focus or under a dragged cable sits on a golden-yellow box with a black edge (Synth, Effects and Schematic tabs). Its colour is in Menu ▸ Theme ▸ Edit colours ("Selected socket"), and in saved themes.
 

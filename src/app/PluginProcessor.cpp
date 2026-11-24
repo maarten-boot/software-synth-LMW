@@ -611,11 +611,23 @@ std::string LMWSynthProcessor::parameterInfo() const {
                + ", \"default\": " + jsonFloat(fi.def) + ", \"unit\": " + jsonText(fi.unit);
             if (fi.centre) o += ", \"centre\": " + jsonFloat(*fi.centre);
             if (range.interval > 0.0f) o += ", \"step\": " + jsonFloat(range.interval);
+            o += ", \"scale\": " + jsonText(std::string(lmw::ui::scale::word(            // Spec S6.17
+                     lmw::ui::scale::kindOf(fi.unit, range.start, range.end, fi.centre))));
         }
         out += (first ? " " : ",\n ") + o + "}";
         first = false;
     }
     return out + "\n]\n";
+}
+
+std::optional<LMWSynthProcessor::Scale> LMWSynthProcessor::scaleOf(const std::string& id) const {
+    const auto it = floatInfo.find(id);
+    auto* f = dynamic_cast<juce::AudioParameterFloat*>(apvts.getParameter(id));
+    if (it == floatInfo.end() || f == nullptr) return std::nullopt;
+    const auto& r = f->range;
+    std::optional<double> c;
+    if (it->second.centre) c = *it->second.centre;
+    return Scale{lmw::ui::scale::kindOf(it->second.unit, r.start, r.end, c), it->second.unit, r.start, r.end, it->second.centre};
 }
 
 std::optional<float> LMWSynthProcessor::parseValue(const juce::RangedAudioParameter& r, const juce::String& text) {

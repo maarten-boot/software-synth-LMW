@@ -5,6 +5,7 @@
 #pragma once
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_audio_utils/juce_audio_utils.h>
+#include "ui/FaderScale.h"
 #include "ui/History.h"
 #include "dsp/Engine.h"
 #include "dsp/Comb.h"
@@ -166,6 +167,9 @@ public:
     // Spec S10.10 /info: every parameter as one JSON array, in the synth's order (id, name, kind, range,
     // default; floats with unit, centre and step where they have one). Built from createLayout().
     std::string parameterInfo() const;
+    // Spec S6.17: a float parameter's fader scale (nothing for choices and whole numbers).
+    struct Scale { lmw::ui::scale::Kind kind; std::string unit; float lo, hi; std::optional<float> centre; };
+    std::optional<Scale> scaleOf(const std::string& id) const;
     const std::string& ninepEndpoints() const noexcept { return ninepAddress; }  // "unix!<path> tcp!..."
     const class NinePService* ninepService() const noexcept { return ninep.get(); }   // Spec S12.2: in-process files
     // soundOnly (Spec S7.7, instrument presets): parameters, cables and name only; notes and the schematic stay.

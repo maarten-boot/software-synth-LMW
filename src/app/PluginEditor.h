@@ -15,6 +15,14 @@
 #include "ui/RackLayout.h"
 #include "ui/Config.h"
 #include "ui/Theme.h"
+#include "ui/FaderScale.h"
+
+// Spec S6.17: a vertical fader with scale ticks beside its track (drawn by LMWLookAndFeel).
+struct ScaleSlider : juce::Slider {
+    ScaleSlider() : juce::Slider(juce::Slider::LinearVertical, juce::Slider::TextBoxBelow) {}
+    std::vector<lmw::ui::scale::Tick> ticks;
+    bool tickLabels = true;              // value texts at the major ticks (normal view)
+};
 
 // Spec S6.2: black-on-white look; every colour pair is 21:1.
 class LMWLookAndFeel final : public juce::LookAndFeel_V4 {
@@ -72,14 +80,14 @@ private:
 
     // A fader whose hover text (Spec S6.1, shown after 2 s) is computed when shown, so it always
     // reflects the current patch and mod wheel.
-    struct TipSlider : juce::Slider {
-        TipSlider() : juce::Slider(juce::Slider::LinearVertical, juce::Slider::TextBoxBelow) {}
+    struct TipSlider : ScaleSlider {
         std::function<juce::String()> tip;
         juce::String getTooltip() override { return tip ? tip() : juce::String(); }
     };
     struct Fader {
         TipSlider slider;
         juce::Label label;
+        juce::Label tag;                    // Spec S6.17: lin / ± / log / curve under the name
         std::unique_ptr<SliderAttachment> attachment;
     };
     struct Choice {
@@ -211,6 +219,7 @@ private:
     Item addChoice(const char* paramId, const juce::String& text, const juce::StringArray& options,
                    const juce::String& tip = {});
     void layoutItem(const Item&, juce::Rectangle<int> column) const;
+    int tagH() const { return m.colW >= 80 ? 11 : 9; }    // Spec S6.17: the scale tag under a fader's name
     void layoutJacks(const std::vector<Jack*>& js, int columns, juce::Rectangle<int> jackRow) const;
 public:
     // Spec S6.11: the menu's items (About, Contrast, ...), also appended to the standalone window's Options

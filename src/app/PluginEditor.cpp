@@ -82,6 +82,20 @@ void LMWLookAndFeel::drawLinearSlider(juce::Graphics& g, int x, int y, int width
     g.setColour(kFg);
     g.fillRect(juce::Rectangle<float>(cx - 1.0f, top, 2.0f, bottom - top));
     g.fillRect(juce::Rectangle<float>(cx - 3.0f, sliderPos, 6.0f, bottom - sliderPos));
+    // Spec S6.17: scale ticks left of the track (majors longer), value texts at the majors right of it (normal
+    // view); their spacing shows the curve. Black on white, under the thumb.
+    if (const auto* scaled = dynamic_cast<const ScaleSlider*>(&s)) {
+        g.setFont(juce::FontOptions(9.0f));
+        const float textX = cx + 17.0f, textW = static_cast<float>(x + width) - textX + 2.0f;
+        for (const auto& t : scaled->ticks) {
+            const float ty = static_cast<float>(s.getPositionOfValue(t.value));
+            const float len = t.major ? 6.0f : 3.0f;
+            g.fillRect(juce::Rectangle<float>(cx - 17.0f - len, ty - 0.5f, len, 1.0f));
+            if (t.major && scaled->tickLabels && textW > 8.0f)
+                g.drawText(juce::String(t.text), juce::Rectangle<float>(textX, ty - 5.0f, textW, 10.0f),
+                           juce::Justification::centredLeft, false);
+        }
+    }
 
     const auto thumb = juce::Rectangle<float>(30.0f, 14.0f).withCentre({cx, sliderPos});
     g.fillRect(thumb);
@@ -297,7 +311,8 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
         }
     for (const auto& grp : effectGroups)
         for (const auto& item : grp.items)
-            if (item.fader != nullptr) { effectComponents.push_back(&item.fader->slider); effectComponents.push_back(&item.fader->label); }
+            if (item.fader != nullptr) { effectComponents.push_back(&item.fader->slider); effectComponents.push_back(&item.fader->label);
+                                         effectComponents.push_back(&item.fader->tag); }
     jassert(usedFaders == faders.size() && usedChoices == choices.size());
 
     // Spec S6.5, S6.16: rack. A row holds as many columns as fit on the widest screen (at least the widest
@@ -670,22 +685,31 @@ LMWSynthEditor::Item LMWSynthEditor::addFader(const char* paramId, const juce::S
                                               std::function<juce::String()> tip) {
     Fader& k = faders[usedFaders++];
     k.slider.setSliderSnapsToMousePosition(false);   // drag moves relative; a click does not jump the value
-    // Spec S6.1 (user 2026-11-21): every fader's hover text ends with its scale — linear, or skewed with
-    // the value at half way (more travel for small values).
-    juce::String scale = "Scale: linear";
-    if (auto* f = dynamic_cast<juce::AudioParameterFloat*>(processor.state().getParameter(paramId));
-        f != nullptr && std::abs(f->range.skew - 1.0f) > 1e-6f)
-        scale = "Scale: skewed, half way = " + static_cast<juce::AudioProcessorParameter*>(f)->getText(0.5f, 32)
-              + " (more travel for small values)";
+    // Spec S6.1, S6.17: every fader's hover text ends with its scale (linear, linear around 0, logarithmic or
+    // curved, with the value at half way); ticks beside the track and a tag under the name show it too.
+    juce::String scale;
+    if (const auto s = processor.scaleOf(paramId)) {
+        namespace fs = lmw::ui::scale;
+        std::optional<double> centre;
+        if (s->centre) centre = *s->centre;
+        const auto* p = processor.state().getParameter(paramId);
+        scale = juce::String(fs::describe(s->kind, p->getText(0.5f, 32).toStdString()));
+        k.slider.ticks = fs::ticks(s->kind, s->unit, s->lo, s->hi, centre);
+        k.tag.setText(juce::String::fromUTF8(fs::tag(s->kind).data(), static_cast<int>(fs::tag(s->kind).size())),
+                      juce::dontSendNotification);
+    }
     k.slider.tip = [inner = std::move(tip), scale] {
         const auto t = inner ? inner() : juce::String();
-        return t.isEmpty() ? scale : t + "\n" + scale;
+        return t.isEmpty() ? scale : scale.isEmpty() ? t : t + "\n" + scale;
     };
     k.attachment = std::make_unique<SliderAttachment>(processor.state(), paramId, k.slider);
     k.label.setText(text, juce::dontSendNotification);
     k.label.setJustificationType(juce::Justification::centred);
+    k.tag.setJustificationType(juce::Justification::centred);
+    k.tag.setInterceptsMouseClicks(false, false);
     addAndMakeVisible(k.slider);
     addAndMakeVisible(k.label);
+    addAndMakeVisible(k.tag);
     return {&k, nullptr};
 }
 
@@ -715,6 +739,9 @@ void LMWSynthEditor::setCompact(bool compact) {
     for (std::size_t i = 0; i < usedFaders; ++i) {
         faders[i].slider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, m.boxW, m.boxH);
         faders[i].label.setFont(juce::FontOptions(m.labelFont));
+        faders[i].tag.setFont(juce::FontOptions(static_cast<float>(tagH()) - 1.0f));   // Spec S6.17
+        faders[i].tag.setBorderSize({});
+        faders[i].slider.tickLabels = m.colW >= 80;              // value texts only in normal view
     }
     for (std::size_t i = 0; i < usedChoices; ++i) choices[i].label.setFont(juce::FontOptions(m.labelFont));
     notesEditor.applyFontToAllText(juce::FontOptions(m.labelFont + 3.0f));   // Spec S7: notes, readable size
@@ -1026,6 +1053,7 @@ void LMWSynthEditor::layoutItem(const Item& item, juce::Rectangle<int> column) c
     column.reduce(m.colW >= 80 ? 4 : 2, 0);
     if (item.fader != nullptr) {
         item.fader->label.setBounds(column.removeFromTop(m.labelH));
+        item.fader->tag.setBounds(column.removeFromTop(tagH()));   // Spec S6.17 (also kept free without a tag)
         item.fader->slider.setBounds(column);
     } else if (item.choice != nullptr) {
         column.reduce(2, 0);

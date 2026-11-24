@@ -375,13 +375,13 @@ int main(int argc, char* argv[]) {
         CHECK(info.rfind("[\n", 0) == 0 && info.size() > 2 && info.substr(info.size() - 2) == "]\n");
         CHECK(objects == 69);   // 69 since S7.8 (delay.*), 64 with S7.6, 59 with S5.20
         CHECK(info.find("{\"id\": \"vcf1.cutoff\", \"name\": \"VCF 1 Cutoff\", \"kind\": \"float\", \"min\": 20.0, "
-                        "\"max\": 18000.0, \"default\": 18000.0, \"unit\": \"Hz\", \"centre\": 600.0}") != std::string::npos);
+                        "\"max\": 18000.0, \"default\": 18000.0, \"unit\": \"Hz\", \"centre\": 600.0, \"scale\": \"log\"}") != std::string::npos);
         CHECK(info.find("{\"id\": \"vco1.tune\", \"name\": \"VCO 1 Tune\", \"kind\": \"float\", \"min\": -7.0, \"max\": 7.0, "
-                        "\"default\": 0.0, \"unit\": \"st\", \"step\": 0.01}") != std::string::npos);
+                        "\"default\": 0.0, \"unit\": \"st\", \"step\": 0.01, \"scale\": \"pm\"}") != std::string::npos);
         CHECK(info.find("{\"id\": \"voice.count\", \"name\": \"Voices\", \"kind\": \"int\", \"min\": 1, \"max\": 32, \"default\": 8}") != std::string::npos);
         CHECK(info.find("\"choices\": [\"24 dB\", \"12 dB\", \"6 dB\"], \"default\": \"24 dB\"}") != std::string::npos);
         CHECK(info.find("{\"id\": \"out.gain\", \"name\": \"Volume\", \"kind\": \"float\", \"min\": 0.0, \"max\": 1.0, "
-                        "\"default\": 0.8, \"unit\": \"dB\"}") != std::string::npos);
+                        "\"default\": 0.8, \"unit\": \"dB\", \"scale\": \"lin\"}") != std::string::npos);
 
         // 4d. Exact round trip (Kukel request 2026-11-17): a value written within the range (on the step)
         //     reads back as written, for every float parameter: its ends, its default, round values and values
