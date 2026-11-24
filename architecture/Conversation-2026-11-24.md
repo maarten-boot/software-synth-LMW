@@ -16,3 +16,10 @@
 - User: keep the keys at a normal size, the free space later for a mod wheel or glissando / portamento (typos confirmed: kees, glisando); commit and start 24c. Keys at the default-layout width (28 px, compact 21), keyboard at the right, free space left (Plan L11). Xvfb checked.
 - User: commit 24b (fa51f07), start 24c.
 - 24c done: src/ui/FaderScale.h (kinds, ticks, labels, hover words; JUCE-free), tests/test_scale.cpp (T-S6.17-scale); processor scaleOf() and /info "scale"; ScaleSlider ticks in LMWLookAndFeel::drawLinearSlider (ticks left, values right in normal view), a tag label under each name (kept free on every fader), hover line replaced (was "Scale: skewed, half way = ..."). Found on Xvfb: the Effects faders' tags showed on the Synth tab (not in the tab list) → fixed. Host test /info expectations updated. 36 of 36.
+
+## Crosscheck after Phase 24
+
+- User: commit 24c (d087ebe) and do the crosscheck.
+- Spec items written before Phase 24 that it changed, marked with "since Phase 24x": S3.2 keyboard keys (normal width at the right), S6.1 hover scale words (S6.17), S6.4 sizes now the minimum, S6.5 row width / window size, S6.6 and S6.7 drop ring and port cursor (highlight box), S6.12 hidden keyboard (standalone keeps its size), S6.13 theme items and color_ keys (highlight); S6.16 sizes as measured.
+- Code vs Spec S6.15–S6.17: all as built (Synth, Effects and Schematic sockets; Matrix has no sockets; tags and ticks on Synth and Effects; /info scale). Plan rows 24, 24a–c, L11 match. Tests T-S6.15/16/17 pass.
+- Open: the tutorial screenshots (synth.png, matrix.png, ...) show the 1.4.0 look (no tags, ticks, rails); not regenerated.
