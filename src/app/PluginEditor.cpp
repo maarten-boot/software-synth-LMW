@@ -804,6 +804,7 @@ void LMWSynthEditor::setCompact(bool compact) {
     notesEditor.applyFontToAllText(juce::FontOptions(m.labelFont + 3.0f));   // Spec S7: notes, readable size
     notesEditor.setFont(juce::FontOptions(m.labelFont + 3.0f));
     if (rack) rack->setMaxColumns(std::max(defaultMaxColumns, screenColumns(m)));
+    if (schematic) schematic->setCompact(compact);         // Spec S6.7: smaller in Compact too
     updateSize(!standalone());                   // S6.16: the standalone keeps its size, a plugin fits the view
 }
 
@@ -2606,8 +2607,9 @@ void LMWSynthEditor::showError(const juce::String& title, const juce::String& me
 void LMWSynthEditor::savePatch() {
     patchFolder().createDirectory();
     const auto name = processor.patchName().isEmpty() ? juce::String("Untitled") : processor.patchName();
-    // JUCE's own dialog (not the system one), so it is black on white like the rest (Spec S6.2).
-    chooser = std::make_unique<juce::FileChooser>("Save patch", patchFolder().getChildFile(name + ".lmwpatch"),
+    // JUCE's own dialog (not the system one), so it is black on white like the rest (Spec S6.2). The name is
+    // offered without ".lmwpatch" (user 2026-11-24: why show the extension); it is added when saving.
+    chooser = std::make_unique<juce::FileChooser>("Save patch", patchFolder().getChildFile(name),
                                                   "*.lmwpatch", false, false, this);
     chooser->launchAsync(juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles
                              | juce::FileBrowserComponent::warnAboutOverwriting,
@@ -2615,14 +2617,23 @@ void LMWSynthEditor::savePatch() {
             if (safe == nullptr) return;
             auto file = fc.getResult();
             if (file == juce::File()) return;
-            if (!file.hasFileExtension("lmwpatch")) file = file.withFileExtension("lmwpatch");
-            const auto patchName = file.getFileNameWithoutExtension();
-            safe->processor.setPatchName(patchName);
-            if (!file.replaceWithText(safe->processor.patchText(patchName)))
-                safe->showError("Save patch", "Could not write " + file.getFullPathName());
-            else
-                safe->processor.recordSound();             // Spec S7.7: saved, so not "changed since"
-            safe->refreshPatchInfo();
+            bool added = false;                                // "Pad v1.2" -> "Pad v1.2.lmwpatch" (the dot kept)
+            if (!file.hasFileExtension("lmwpatch")) { file = file.getSiblingFile(file.getFileName() + ".lmwpatch"); added = true; }
+            const auto write = [safe, file] {
+                if (safe == nullptr) return;
+                const auto patchName = file.getFileNameWithoutExtension();
+                safe->processor.setPatchName(patchName);
+                if (!file.replaceWithText(safe->processor.patchText(patchName)))
+                    safe->showError("Save patch", "Could not write " + file.getFullPathName());
+                else
+                    safe->processor.recordSound();             // Spec S7.7: saved, so not "changed since"
+                safe->refreshPatchInfo();
+            };
+            if (!added || !file.existsAsFile()) { write(); return; }
+            // The dialog checked the name as typed (without the extension): ask before replacing the file.
+            juce::AlertWindow::showOkCancelBox(juce::MessageBoxIconType::NoIcon, "Save patch",
+                "\"" + file.getFileNameWithoutExtension() + "\" already exists. Replace it?", "Replace", "Cancel", safe.getComponent(),
+                juce::ModalCallbackFunction::create([write](int ok) { if (ok == 1) write(); }));
         });
 }
 

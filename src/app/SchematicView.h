@@ -57,6 +57,10 @@ public:
 private:
     using PortRef = lmw::ui::cables::PortRef;
     float scale() const noexcept;
+public:
+    void setCompact(bool compact) { zoom = compact ? 0.75f : 1.0f; repaint(); }   // Spec S6.7, S6.4
+private:
+    float zoom = 1.0f;
     juce::Point<float> toScreen(lmw::ui::schematic::Point p) const noexcept;
     lmw::ui::schematic::Point toCanvas(juce::Point<float> p) const noexcept;
     juce::Rectangle<float> toScreen(const lmw::ui::schematic::Rect& r) const noexcept;

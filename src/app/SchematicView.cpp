@@ -31,8 +31,9 @@ void SchematicView::poll() {
     }
 }
 
+// Fits the tab; Compact (user 2026-11-24) draws it at 75 % of that, centred, as the panels shrink 80 -> 60 px.
 float SchematicView::scale() const noexcept {
-    return std::min(static_cast<float>(getWidth()) / sc::canvasWidth, static_cast<float>(getHeight()) / sc::canvasHeight);
+    return zoom * std::min(static_cast<float>(getWidth()) / sc::canvasWidth, static_cast<float>(getHeight()) / sc::canvasHeight);
 }
 
 juce::Point<float> SchematicView::toScreen(sc::Point p) const noexcept {

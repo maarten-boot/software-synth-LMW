@@ -87,3 +87,6 @@
 
 - User: commit (5b102a1) and do the crosscheck.
 - Spec S6.11 notes the Undo / Redo buttons left of Menu; S6.14, S6.16 and S6.11 (Change history) were written with the changes. Tests: T-S6.11-changes, T-S6.14-buttons, T-S6.16-reset added (they had been checked on Xvfb but had no rows). Plan: a row 1.5.x for the three follow-ups. Code matches; 36 of 36. CI: Changes.md is now built into the program but stays in the workflow's paths-ignore, so a Changes-only commit is not built (acceptable: releases always carry code).
+- User pushed (1558d8f). CI run 45471334761 green on all four.
+- User: Compact leaves the Schematic as it is, compact that too? → asked; 75 % of the fit, centred → built.
+- User: is the preset extension the default, why must the user see it? (typo: extenstion) → only Save... (patch) showed it: the dialog now offers the name only, the extension is added; found: a name with a dot lost its last part (withFileExtension) → kept; an existing file is asked about (the dialog checked the name without the extension). Xvfb checked.
