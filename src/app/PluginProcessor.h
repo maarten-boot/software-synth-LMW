@@ -128,8 +128,8 @@ public:
     // Message thread: drop queued display events and clear the keyboard display (editor opened).
     void resetKeyboardDisplay();
     // Message thread (GUI, 9P): change one pin (Spec S5.4, S5.14). Lock-free. `from` = Patch::none
-    // removes all pins of the input; level <= 0 removes the pin from `from`; else it is added (a
-    // cable at `level`) or its level set. False if the input has no room (maxPins) or the queue is full.
+    // removes all pins of the input; lmw::dsp::removePin removes the pin from `from`; else it is added (a
+    // cable at `level`, -1..1 on modulation inputs, S5.21) or its level set. False if the input has no room (maxPins) or the queue is full.
     bool requestPatch(lmw::dsp::In input, std::int8_t from, float level = 1.0f) noexcept {
         auto next = guiPatch;
         if (from == lmw::dsp::Patch::none) next.disconnect(input);

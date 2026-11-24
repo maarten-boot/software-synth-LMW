@@ -119,12 +119,40 @@ int main() {
         CHECK(patchFromText("vco1.fm=lfo1.out").has_value());                       // older one-cable text
         CHECK(!patchFromText("vco1.fm=lfo1.out+lfo1.out").has_value());             // output twice
         CHECK(!patchFromText("vco1.fm=lfo1.out+lfo2.out+noise.out+env1.out+env2.out").has_value());   // 5 pins
-        CHECK(!patchFromText("vco1.fm=lfo1.out@0").has_value());                    // level 0
         CHECK(!patchFromText("vco1.fm=lfo1.out@1.5").has_value());                  // above 1
         CHECK(!patchFromText("vco1.fm=lfo1.out@x").has_value());
         CHECK(!patchFromText("vco1.fm=").has_value());
         CHECK(!patchFromText("vco1.fm=lfo1.out;vco1.fm=lfo2.out").has_value());     // input twice
         CHECK(pinsFromText("")->empty());
+    }
+    // T-S5.21-bipolar: modulation inputs take -1..1, audio and gate inputs 0..1; 0 keeps the pin; removePin
+    // removes it; text "@-0.5", "@0", "-50%".
+    {
+        CHECK(bipolar(In::Vcf1Cutoff) && bipolar(In::Vco2Pm) && bipolar(In::VcaCv) && bipolar(In::Lfo2Rate) && bipolar(In::FormantVowel));
+        CHECK(!bipolar(In::VcaIn) && !bipolar(In::MixIn1) && !bipolar(In::Env1Gate) && !bipolar(In::OutIn) && !bipolar(In::CombIn));
+        Patch p;
+        CHECK(p.connect(In::Vcf1Cutoff, Out::Env2, -0.5f) && p.level(In::Vcf1Cutoff, Out::Env2) == -0.5f);
+        CHECK(p.connect(In::Vcf1Cutoff, Out::Env2, 0.0f) && p.hasPin(In::Vcf1Cutoff, Out::Env2) && p.pinCount(In::Vcf1Cutoff) == 1);
+        CHECK(p.connect(In::Vcf1Cutoff, Out::Env2, -3.0f) && !p.hasPin(In::Vcf1Cutoff, Out::Env2));   // below -1: removed
+        CHECK(!p.connect(In::VcaIn, Out::Vcf2, -0.5f) && !p.isPatched(In::VcaIn));                      // audio: refused
+        CHECK(!p.connect(In::Env1Gate, Out::KeysGate, -1.0f));                                          // gate: refused
+        CHECK(p.connect(In::VcaIn, Out::Vcf2, 0.0f) && p.hasPin(In::VcaIn, Out::Vcf2));                 // 0 allowed
+        p.disconnect(In::VcaIn, Out::Vcf2);
+        CHECK(!p.isPatched(In::VcaIn));
+        const auto t = patchFromText("vcf1.cutoff=env2.out@-0.5+lfo1.out@0;vca.mod=keys.pitch@-50%");
+        CHECK(t.has_value() && t->level(In::Vcf1Cutoff, Out::Env2) == -0.5f && t->hasPin(In::Vcf1Cutoff, Out::Lfo1)
+              && t->level(In::VcaMod, Out::KeysPitch) == -0.5f);
+        if (t) CHECK(patchToText(*t) == "vcf1.cutoff=env2.out@-0.5+lfo1.out@0;vca.mod=keys.pitch@-0.5");
+        CHECK(!patchFromText("vca.in=vcf2.out@-0.5").has_value());          // audio input: invalid text
+        CHECK(!patchFromText("vcf1.cutoff=env2.out@-1.5").has_value());
+        CHECK(pinsFromText("env2.out@-1")->front().level == -1.0f);
+        // Engine: keys.pitch at -100 % on vco1.pitch plays C5 (one octave above C4) an octave below C4.
+        Engine up = makeEngine(), inv = makeEngine();
+        inv.addPin(In::Vco1Pitch, Out::KeysPitch, -1.0f);
+        for (Engine* e : {&up, &inv}) e->noteOn(72, 0.8f);
+        const double fUp = frequency(render(up, 48000)), fInv = frequency(render(inv, 48000));
+        std::printf("keys.pitch +100 %%: %.1f Hz, -100 %%: %.1f Hz\n", fUp, fInv);
+        CHECK(std::fabs(fUp - 523.25) < 3.0 && std::fabs(fInv - 130.81) < 3.0);
     }
     if (failures == 0) std::printf("T-S5.14-pins: all passed\n");
     return failures == 0 ? 0 : 1;

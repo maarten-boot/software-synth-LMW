@@ -132,7 +132,9 @@ private:
              R"({"type":"object","properties":{"values":{"type":"object","additionalProperties":{"type":["string","number"]}}},"required":["values"]})"},
             {"set_cables", "Patch cables. Each entry is input=output[@level][+output[@level]...], e.g. "
                            "vcf1.cutoff=lfo2.out@0.3; input= removes that input's cables. A cable replaces the "
-                           "input's normal connection. clear_first removes all cables before.",
+                           "input's normal connection. Levels 0 to 1; modulation inputs (vcoN.pitch/fm/pm, vcfN.cutoff/res, "
+                           "formant.vowel, vca.cv, vca.mod, lfoN.rate) also -1 to 0 = inverted, e.g. "
+                           "vcf1.cutoff=env2.out@-0.5. clear_first removes all cables before.",
              R"({"type":"object","properties":{"cables":{"type":"array","items":{"type":"string"}},"clear_first":{"type":"boolean"}}})"},
             {"list_presets", "The built-in instrument presets and the module presets per module kind.",
              R"({"type":"object","properties":{}})"},

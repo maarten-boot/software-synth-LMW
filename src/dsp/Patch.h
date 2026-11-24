@@ -90,36 +90,58 @@ inline constexpr bool isEffectOut(Out o) noexcept { return o >= Out::OutOut && o
 inline constexpr bool isEffectIn(In i) noexcept { return i >= In::CombIn && i < In::Count; }
 inline constexpr bool canConnect(In i, Out o) noexcept { return isEffectIn(i) == isEffectOut(o); }
 
+// Spec S5.21 (Phase 25a): modulation inputs take a cable level from -1 to +1 (a negative level subtracts:
+// the inverted source); audio and gate inputs 0 to 1.
+inline constexpr bool bipolar(In i) noexcept {
+    switch (i) {
+        case In::Vco1Pitch: case In::Vco1Fm: case In::Vco1Pm: case In::Vco2Pitch: case In::Vco2Fm: case In::Vco2Pm:
+        case In::Vco3Pitch: case In::Vco3Fm: case In::Vco3Pm: case In::Vcf1Cutoff: case In::Vcf1Res:
+        case In::Vcf2Cutoff: case In::Vcf2Res: case In::FormantVowel: case In::VcaCv: case In::VcaMod:
+        case In::Lfo1Rate: case In::Lfo2Rate:
+            return true;
+        default:
+            return false;
+    }
+}
+inline constexpr float minLevel(In i) noexcept { return bipolar(i) ? -1.0f : 0.0f; }
+// A level below -1 (this one) removes a pin; a level of 0 keeps it, silent (S5.21: a fader passes through 0).
+inline constexpr float removePin = -2.0f;
+inline constexpr bool removes(float level) noexcept { return level < -1.0f; }
+
 inline constexpr bool isGlobal(Out o) noexcept { return o == Out::Lfo1 || o == Out::Lfo2 || o == Out::Noise || o == Out::Rand; }
 
 // Spec S5.14 (Phase 10): a patch is a pin matrix. Every input has up to maxPins pins, each an output
-// with a level 0..1 (a cable is a pin at 1); the input reads the sum of level x output over its pins,
-// or its normalled source while it has no pins.
+// with a level 0..1 (a cable is a pin at 1; -1..1 on modulation inputs, S5.21); the input reads the sum of
+// level x output over its pins, or its normalled source while it has no pins.
 class Patch {
 public:
     static constexpr std::int8_t none = -1;
     static constexpr int maxPins = 4;
     struct Pin { std::int8_t source = none; float level = 1.0f; };
 
-    // Adds a pin, or sets the level of the existing pin from `from`; a level <= 0 removes it. False
-    // when the input already has maxPins other pins.
+    // Adds a pin, or sets the level of the existing pin from `from` (up to 1; a level of 0 keeps it);
+    // removePin (any level below -1) removes it. False when the input already has maxPins other pins,
+    // for a negative level on an audio or gate input (S5.21), or across the domains (S7.6).
     bool connect(In in, Out from, float level = 1.0f) noexcept {
         auto& ps = pins[idx(in)];
         auto& n = count[idx(in)];
         const auto src = static_cast<std::int8_t>(from);
-        if (!canConnect(in, from)) return level <= 0.0f;            // across the domains (S7.6): refused
+        const bool remove = removes(level);
+        if (!canConnect(in, from)) return remove;                    // across the domains (S7.6): refused
+        if (!remove && level < minLevel(in)) return false;           // S5.21: not inverted on this input
+        if (level > 1.0f) level = 1.0f;
         for (int k = 0; k < n; ++k)
             if (ps[static_cast<std::size_t>(k)].source == src) {
-                if (level <= 0.0f) { removeAt(in, k); return true; }
-                ps[static_cast<std::size_t>(k)].level = level > 1.0f ? 1.0f : level;
+                if (remove) { removeAt(in, k); return true; }
+                ps[static_cast<std::size_t>(k)].level = level;
                 return true;
             }
-        if (level <= 0.0f) return true;
+        if (remove) return true;
         if (n >= maxPins) return false;
-        ps[static_cast<std::size_t>(n++)] = {src, level > 1.0f ? 1.0f : level};
+        ps[static_cast<std::size_t>(n++)] = {src, level};
         return true;
     }
-    void disconnect(In in, Out from) noexcept { connect(in, from, 0.0f); }
+    void disconnect(In in, Out from) noexcept { connect(in, from, removePin); }
     void disconnect(In in) noexcept { count[idx(in)] = 0; }                     // all pins of the input
     void clear() noexcept { count.fill(0); }
 
@@ -132,10 +154,15 @@ public:
     bool isPatched(In in) const noexcept { return count[idx(in)] > 0; }
     int pinCount(In in) const noexcept { return count[idx(in)]; }
     const Pin& pin(In in, int k) const noexcept { return pins[idx(in)][static_cast<std::size_t>(k)]; }
-    float level(In in, Out from) const noexcept {                              // 0 = no pin
+    float level(In in, Out from) const noexcept {                              // 0 = no pin (or a silent one)
         for (int k = 0; k < count[idx(in)]; ++k)
             if (pin(in, k).source == static_cast<std::int8_t>(from)) return pin(in, k).level;
         return 0.0f;
+    }
+    bool hasPin(In in, Out from) const noexcept {                              // S5.21: a pin may be at 0
+        for (int k = 0; k < count[idx(in)]; ++k)
+            if (pin(in, k).source == static_cast<std::int8_t>(from)) return true;
+        return false;
     }
     // The first pin's output, else the normalled source (for code that shows one source).
     Out source(In in) const noexcept {
@@ -168,7 +195,7 @@ private:
 };
 
 // A pin change sent from the GUI / 9P thread to the audio thread (Spec S5.4, S10.2): output none =
-// remove all pins of the input; level <= 0 = remove that pin; else add it or set its level.
+// remove all pins of the input; removePin (a level below -1) = remove that pin; else add it or set its level.
 struct PatchCommand {
     In input = In::Vco1Fm;
     std::int8_t output = Patch::none;

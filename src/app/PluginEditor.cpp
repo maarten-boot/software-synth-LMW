@@ -81,7 +81,13 @@ void LMWLookAndFeel::drawLinearSlider(juce::Graphics& g, int x, int y, int width
     const float bottom = static_cast<float>(y + height);
     g.setColour(kFg);
     g.fillRect(juce::Rectangle<float>(cx - 1.0f, top, 2.0f, bottom - top));
-    g.fillRect(juce::Rectangle<float>(cx - 3.0f, sliderPos, 6.0f, bottom - sliderPos));
+    if (s.getMinimum() < 0.0 && s.getMaximum() > 0.0) {      // Spec S5.21, S6.17: a range through 0 fills from 0
+        const float zero = static_cast<float>(s.getPositionOfValue(0.0));
+        g.fillRect(juce::Rectangle<float>(cx - 3.0f, std::min(zero, sliderPos), 6.0f, std::fabs(zero - sliderPos)));
+        g.fillRect(juce::Rectangle<float>(cx - 7.0f, zero - 1.0f, 14.0f, 2.0f));   // the 0 mark
+    } else {
+        g.fillRect(juce::Rectangle<float>(cx - 3.0f, sliderPos, 6.0f, bottom - sliderPos));
+    }
     // Spec S6.17: scale ticks left of the track (majors longer), value texts at the majors right of it (normal
     // view); their spacing shows the curve. Black on white, under the thumb.
     if (const auto* scaled = dynamic_cast<const ScaleSlider*>(&s)) {
@@ -676,7 +682,7 @@ juce::String LMWSynthEditor::describeInput(lmw::dsp::In in) const {
         const auto& pin = patch.pin(in, k);
         const auto n = lmw::dsp::outputNames[static_cast<std::size_t>(pin.source)];
         sources.add(juce::String(n.data(), n.size())
-                    + (pin.level < 1.0f ? " (" + juce::String(juce::roundToInt(pin.level * 100.0f)) + " %)" : juce::String()));
+                    + (pin.level != 1.0f ? " (" + juce::String(juce::roundToInt(pin.level * 100.0f)) + " %)" : juce::String()));
     }
     return sources.joinIntoString(" + ") + " " + arrow + " " + inName + (patch.pinCount(in) > 1 ? " (cables, summed)" : " (cable)");
 }
@@ -1386,18 +1392,22 @@ void LMWSynthEditor::cancelCableDrag() {
 }
 
 bool LMWSynthEditor::connect(int input, int output, float level) {
-    if (output != lmw::dsp::Patch::none && level > 0.0f
-        && !lmw::dsp::canConnect(static_cast<lmw::dsp::In>(input), static_cast<lmw::dsp::Out>(output))) {   // Spec S7.6
+    const bool adding = output != lmw::dsp::Patch::none && !lmw::dsp::removes(level);   // a level, or removing
+    if (adding && !lmw::dsp::canConnect(static_cast<lmw::dsp::In>(input), static_cast<lmw::dsp::Out>(output))) {   // Spec S7.6
         showError("Not possible", "Effect sockets (Effects tab) connect only to effect sockets, synth sockets only to synth sockets.");
         return false;
     }
-    const bool adding = output != lmw::dsp::Patch::none && level > 0.0f;
+    if (adding && level < lmw::dsp::minLevel(static_cast<lmw::dsp::In>(input))) {   // Spec S5.21
+        showError("Not possible", portName(false, input) + " is an audio or gate input: its cables take 0 to 100 %. "
+                                  "Only modulation inputs take a negative (inverted) level.");
+        return false;
+    }
     const juce::String inName(lmw::dsp::inputNames[static_cast<std::size_t>(input)].data());
     cableStep(adding ? "cable " + inName + juce::String::fromUTF8(" \xe2\x86\x90 ")
                            + juce::String(lmw::dsp::outputNames[static_cast<std::size_t>(output)].data())
                      : "remove cable " + inName, adding);
     const bool ok = processor.requestPatch(static_cast<lmw::dsp::In>(input), static_cast<std::int8_t>(output), level);
-    if (!ok && output != lmw::dsp::Patch::none && level > 0.0f)
+    if (!ok && adding)
         showError("Input full", portName(false, input) + " already has " + juce::String(lmw::dsp::Patch::maxPins)
                                 + " cables. Remove one first.");
     shownPatchVersion = processor.patchVersion();
@@ -1451,8 +1461,9 @@ juce::String LMWSynthEditor::describeOutput(lmw::dsp::Out out) const {
         if (!patch.isPatched(in)) {
             if (const float n = patch.normalLevel(in, out); n > 0.0f)   // Spec S5.17: 50 % each when parallel
                 fed.add(portName(false, i) + (n < 1.0f ? " (normalled " + juce::String(juce::roundToInt(n * 100.0f)) + " %)" : " (normalled)"));
-        } else if (const float l = patch.level(in, out); l > 0.0f) {
-            fed.add(portName(false, i) + (l < 1.0f ? " (cable " + juce::String(juce::roundToInt(l * 100.0f)) + " %)" : " (cable)"));
+        } else if (patch.hasPin(in, out)) {
+            const float l = patch.level(in, out);
+            fed.add(portName(false, i) + (l != 1.0f ? " (cable " + juce::String(juce::roundToInt(l * 100.0f)) + " %)" : " (cable)"));
         }
     }
     return portName(true, static_cast<int>(out)) + " " + juce::String::fromUTF8("\xe2\x86\x92") + " "
@@ -1474,7 +1485,7 @@ void LMWSynthEditor::showPortMenu(bool output, int port, juce::Rectangle<int> sc
         menu.addSectionHeader(describeInput(in));
         const bool full = patch.pinCount(in) >= lmw::dsp::Patch::maxPins;
         for (int o = 0; o < lmw::dsp::numOutputs; ++o) {           // only possible items (no greyed ones, contrast)
-            const bool cabled = patch.level(in, static_cast<Out>(o)) > 0.0f;
+            const bool cabled = patch.hasPin(in, static_cast<Out>(o));
             if (!lmw::dsp::canConnect(in, static_cast<Out>(o))) continue;   // Spec S7.6: the other domain
             if (cabled || !full) sub.addItem(100 + o, portName(true, o), true, cabled);
         }
@@ -1486,7 +1497,7 @@ void LMWSynthEditor::showPortMenu(bool output, int port, juce::Rectangle<int> sc
         menu.addSectionHeader("Output " + portName(true, port));
         for (int i = 0; i < lmw::dsp::numInputs; ++i) {
             const auto in = static_cast<In>(i);
-            const bool cabled = patch.level(in, out) > 0.0f;
+            const bool cabled = patch.hasPin(in, out);
             feeds = feeds || cabled;
             if (!lmw::dsp::canConnect(in, out)) continue;           // Spec S7.6: the other domain
             if (cabled || patch.pinCount(in) < lmw::dsp::Patch::maxPins) sub.addItem(200 + i, portName(false, i), true, cabled);
@@ -1511,17 +1522,17 @@ void LMWSynthEditor::showPortMenu(bool output, int port, juce::Rectangle<int> sc
             safe->connect(port, lmw::dsp::Patch::none);
         } else if (r == 2) {
             for (int i = 0; i < lmw::dsp::numInputs; ++i)
-                if (p.level(static_cast<In>(i), static_cast<lmw::dsp::Out>(port)) > 0.0f) safe->connect(i, port, 0.0f);
+                if (p.hasPin(static_cast<In>(i), static_cast<lmw::dsp::Out>(port))) safe->connect(i, port, lmw::dsp::removePin);
         } else if (r == 4) {
             safe->schematic->resetLayout();
         } else if (r == 3) {
             safe->removeAllCables();
         } else if (!output && r >= 100 && r < 100 + lmw::dsp::numOutputs) {    // toggle that cable
-            const bool cabled = p.level(static_cast<In>(port), static_cast<lmw::dsp::Out>(r - 100)) > 0.0f;
-            safe->connect(port, r - 100, cabled ? 0.0f : 1.0f);
+            const bool cabled = p.hasPin(static_cast<In>(port), static_cast<lmw::dsp::Out>(r - 100));
+            safe->connect(port, r - 100, cabled ? lmw::dsp::removePin : 1.0f);
         } else if (output && r >= 200 && r < 200 + lmw::dsp::numInputs) {
-            const bool cabled = p.level(static_cast<In>(r - 200), static_cast<lmw::dsp::Out>(port)) > 0.0f;
-            safe->connect(r - 200, port, cabled ? 0.0f : 1.0f);
+            const bool cabled = p.hasPin(static_cast<In>(r - 200), static_cast<lmw::dsp::Out>(port));
+            safe->connect(r - 200, port, cabled ? lmw::dsp::removePin : 1.0f);
         }
     });
 }

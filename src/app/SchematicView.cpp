@@ -345,7 +345,7 @@ void SchematicView::paint(juce::Graphics& g) {
     // Cable levels below 100 %, black on a white box at the middle of the cable.
     g.setFont(juce::FontOptions(1.6f * s));
     for (const auto& c : conns) {
-        if (c.normalled || c.level >= 1.0f) continue;
+        if (c.normalled || c.level == 1.0f) continue;   // S5.21: 0 and negative levels shown too
         const auto m = toScreen(sc::curveAt(sc::curve(sc::outputPoint(c.from, layout), sc::inputPoint(c.to, layout)), 0.5f));
         const auto box = juce::Rectangle<float>(4.2f * s, 2.0f * s).withCentre(m);
         g.setColour(kBg);

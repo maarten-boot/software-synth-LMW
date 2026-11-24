@@ -3,6 +3,7 @@
 Changes between releases.
 
 ## Unreleased
+- 2026-11-24: Inverted modulation: cables into modulation inputs (VCO pitch, FM, PM; VCF cutoff and resonance; FORMANT vowel; VCA CV and Mod; LFO rates) take a level from -100 % to +100 %. Below 0 the source is inverted: an envelope that closes the filter, keys that make low notes louder. A level of 0 keeps the cable. The Matrix slider and cells show the sign. Patches with an inverted cable lose their cables when opened in 1.4.0 or older.
 - 2026-11-24: Every fader shows its scale: small ticks beside the track at round values (their spacing shows the curve), the values at the main ticks, and a tag under the name: lin, ± (around 0), log (frequencies and rates) or curve (times and depths: more travel at small values). The hover text says the same, with the value at half way. /info and lmw-mcp report it as "scale".
 - 2026-11-24: The window fills the screen and can be resized; the panels keep their size, so there is room to move them (rows can be as wide as the screen). Compact makes the panels smaller and keeps the window. The on-screen keyboard keeps its size, at the right. Lines between the rows show the rack. In a DAW the plugin window can be resized too.
 - 2026-11-24: The socket under the mouse, with keyboard focus or under a dragged cable sits on a golden-yellow box with a black edge (Synth, Effects and Schematic tabs). Its colour is in Menu ▸ Theme ▸ Edit colours ("Selected socket"), and in saved themes.

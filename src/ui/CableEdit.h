@@ -7,6 +7,7 @@
 //   input it moves there with its level, dropped anywhere else it is removed.
 #pragma once
 #include "dsp/Patch.h"
+#include <algorithm>
 #include <optional>
 #include <vector>
 
@@ -44,7 +45,7 @@ inline Grab grab(const lmw::dsp::Patch& p, PortRef from) noexcept {
     return g;
 }
 
-// One cable change: connect(input, output, level), level 0 removes that cable.
+// One cable change: connect(input, output, level), lmw::dsp::removePin removes that cable.
 struct Op {
     int input, output;
     float level;
@@ -56,9 +57,11 @@ struct Op {
 inline std::vector<Op> drop(const Grab& g, std::optional<PortRef> target) {
     if (target && !g.accepts(*target)) target.reset();
     if (g.moving()) {
-        if (!target) return {{g.detachedInput, g.detachedSource, 0.0f}};                    // removed
+        if (!target) return {{g.detachedInput, g.detachedSource, lmw::dsp::removePin}};      // removed
         if (target->index == g.detachedInput) return {};                                     // put back
-        return {{target->index, g.detachedSource, g.detachedLevel}, {g.detachedInput, g.detachedSource, 0.0f}};
+        // A moved cable keeps its level; an inverted one moved onto an audio input becomes 0 (S5.21).
+        const float level = std::max(g.detachedLevel, lmw::dsp::minLevel(static_cast<lmw::dsp::In>(target->index)));
+        return {{target->index, g.detachedSource, level}, {g.detachedInput, g.detachedSource, lmw::dsp::removePin}};
     }
     if (!target) return {};
     return g.fixed.output ? std::vector<Op>{{target->index, g.fixed.index, 1.0f}}

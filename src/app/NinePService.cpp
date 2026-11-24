@@ -179,6 +179,10 @@ void NinePService::build() {
                 const auto pinText = trimmed(line.substr(eq + 1));
                 const auto pins = lmw::dsp::pinsFromText(pinText);
                 if (!pins) return "bad cables (unknown output, bad level, output twice or more than 4): " + pinText;
+                for (const auto& pin : *pins)                           // Spec S5.21
+                    if (pin.level < lmw::dsp::minLevel(*in))
+                        return "not possible: " + trimmed(line.substr(0, eq)) + " is an audio or gate input: levels 0 to 100 %, "
+                               "only modulation inputs take a negative level";
                 for (const auto& pin : *pins)                           // Spec S7.6: two domains
                     if (!lmw::dsp::canConnect(*in, static_cast<lmw::dsp::Out>(pin.source)))
                         return "not possible: " + trimmed(line.substr(0, eq)) + " is "

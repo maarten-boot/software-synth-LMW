@@ -19,6 +19,12 @@ A cable replaces an input's normal connection; up to 4 cables per input add up, 
 `vcf1.in=mix.out+vcf1.out@0.4` keeps the mixer and adds feedback). Effect sockets (comb, delay, reverb,
 out.out, main.in) connect only among themselves.
 
+Modulation inputs (`vcoN.pitch`, `vcoN.fm`, `vcoN.pm`, `vcfN.cutoff`, `vcfN.res`, `formant.vowel`, `vca.cv`,
+`vca.mod`, `lfoN.rate`) also take a negative level: the source inverted. `vcf1.cutoff=env2.out@-0.5` closes
+the filter as the envelope rises (a "negative envelope amount"); `vca.mod=keys.pitch@-0.3` makes low notes
+louder (keyboard scaling); with `vca.initial` 1, `vca.cv=env2.out@-1` is loud at rest and dips while the
+envelope is up. Audio and gate inputs take 0 to 1 only. A level of 0 keeps a cable, silent.
+
 ## Modules and the parameters that matter
 
 - **voice.count** 1-32 [8]: 1 for solo instruments (winds, brass, a lead), 6-16 for chords and pads.

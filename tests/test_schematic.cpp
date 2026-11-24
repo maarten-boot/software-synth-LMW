@@ -161,10 +161,10 @@ int main() {
         g = ce::grab(p, {false, cut});
         CHECK(g.moving() && g.detachedInput == cut && g.detachedSource == lfo2 && g.detachedLevel == 0.5f);
         CHECK(g.fixed == (ce::PortRef{true, lfo2}));
-        CHECK(ce::drop(g, ce::PortRef{false, mod}) == (V{{mod, lfo2, 0.5f}, {cut, lfo2, 0.0f}}));
-        CHECK(ce::drop(g, std::nullopt) == (V{{cut, lfo2, 0.0f}}));
+        CHECK(ce::drop(g, ce::PortRef{false, mod}) == (V{{mod, lfo2, 0.5f}, {cut, lfo2, lmw::dsp::removePin}}));
+        CHECK(ce::drop(g, std::nullopt) == (V{{cut, lfo2, lmw::dsp::removePin}}));
         CHECK(ce::drop(g, ce::PortRef{false, cut}).empty());
-        CHECK(ce::drop(g, ce::PortRef{true, env2}) == (V{{cut, lfo2, 0.0f}}));   // an output is no target: removed
+        CHECK(ce::drop(g, ce::PortRef{true, env2}) == (V{{cut, lfo2, lmw::dsp::removePin}}));   // an output is no target: removed
         // Port order for the keyboard: every port once, block by block, inputs before outputs.
         const auto order = sc::portOrder();
         CHECK(static_cast<int>(order.size()) == lmw::dsp::numInputs + lmw::dsp::numOutputs);

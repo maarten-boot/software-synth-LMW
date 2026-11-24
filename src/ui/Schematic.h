@@ -299,7 +299,7 @@ inline std::string describeInput(const lmw::dsp::Patch& p, In in) {
         const auto& pin = p.pin(in, k);
         if (k > 0) s += " + ";
         s += lmw::dsp::outputNames[static_cast<std::size_t>(pin.source)];
-        if (pin.level < 1.0f) s += " (" + percent(pin.level) + ")";
+        if (pin.level != 1.0f) s += " (" + percent(pin.level) + ")";   // S5.21: signed
     }
     return s + " → " + name + (p.pinCount(in) > 1 ? " (cables, summed)" : " (cable)");
 }
@@ -313,7 +313,7 @@ inline std::string describeOutput(const lmw::dsp::Patch& p, Out out) {
             if (!fed.empty()) fed += ", ";
             fed += lmw::dsp::inputNames[static_cast<std::size_t>(c.to)];
             if (c.normalled) fed += " (normalled)";
-            else if (c.level < 1.0f) fed += " (" + percent(c.level) + ")";
+            else if (c.level != 1.0f) fed += " (" + percent(c.level) + ")";
         }
     return s + " → " + (fed.empty() ? std::string("nothing") : fed);
 }

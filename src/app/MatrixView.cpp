@@ -27,7 +27,7 @@ MatrixView::MatrixView(std::function<const lmw::dsp::Patch&()> p, std::function<
     levelSlider.setRange(0.0, 100.0, 1.0);
     levelSlider.setTextValueSuffix(" %");
     levelSlider.setTitle("Cable level");
-    levelSlider.setTooltip("Level of the cable in the selected cell, 0-100 %; 0 removes it.\nScale: linear");   // S6.8
+    levelSlider.setTooltip("Level of the cable in the selected cell, 0-100 % (-100..+100 % on modulation inputs).\nScale: linear");   // S6.8, S5.21
     levelSlider.setWantsKeyboardFocus(true);              // Tab from the matrix; Up/Down change the level
     levelSlider.onDragStart = [this] { if (onLevelDrag) onLevelDrag(true); };
     levelSlider.onDragEnd = [this] { if (onLevelDrag) onLevelDrag(false); };
@@ -59,14 +59,19 @@ void MatrixView::syncSlider() {
     juce::String why;
     if (!lmw::dsp::canConnect(in, static_cast<lmw::dsp::Out>(cursor.output))) why = "synth and effects do not connect";   // S7.6
     else if (isGate(cursor.input)) why = "on/off only";
-    else if (l <= 0.0f && patch().pinCount(in) >= lmw::dsp::Patch::maxPins) why = "input full (4 cables)";
+    else if (!has(cursor) && patch().pinCount(in) >= lmw::dsp::Patch::maxPins) why = "input full (4 cables)";
     levelLabel.setFont(juce::FontOptions(fontSize));
     levelLabel.setText(link + (why.isEmpty() ? juce::String() : "\n(" + why + ")"), juce::dontSendNotification);
     const juce::ScopedValueSetter<bool> s(syncing, true);
+    const bool inverts = lmw::dsp::bipolar(in);                       // Spec S5.21: -100..+100 % on modulation rows
+    levelSlider.setRange(inverts ? -100.0 : 0.0, 100.0, 1.0);
+    levelSlider.setDoubleClickReturnValue(true, 100.0);
     levelSlider.setValue(std::round(l * 100.0f), juce::sendNotificationSync);
     levelSlider.setEnabled(why.isEmpty());
-    levelSlider.setTooltip((why.isEmpty() ? "Level of the cable " + link.replace("\n", " ") + " (0 % removes it)"
-                                          : "No level here: " + why) + "\nScale: linear");   // S6.1
+    levelSlider.setTooltip((why.isEmpty() ? "Level of the cable " + link.replace("\n", " ")
+                                                + (inverts ? " (-100 to +100 %; below 0 the source is inverted)" : " (0 to 100 %)")
+                                          : "No level here: " + why)
+                           + (inverts ? "\nScale: linear around 0" : "\nScale: linear"));   // S6.1, S6.17
 }
 
 bool MatrixView::isGate(int input) noexcept {
@@ -101,13 +106,25 @@ int MatrixView::columnAt(juce::Point<int> p) const {
 float MatrixView::level(Cell c) const {
     return patch().level(static_cast<lmw::dsp::In>(c.input), static_cast<lmw::dsp::Out>(c.output));
 }
+bool MatrixView::has(Cell c) const {
+    return patch().hasPin(static_cast<lmw::dsp::In>(c.input), static_cast<lmw::dsp::Out>(c.output));
+}
 
+// Sets (or makes) the cable at a level: whole percent, 0..100 % (-100..+100 % on modulation inputs, S5.21);
+// 0 keeps the cable. Gates are on (100 %) or off (removed).
 void MatrixView::set(Cell c, float l) {
-    l = juce::jlimit(0.0f, 1.0f, std::round(l * 100.0f) / 100.0f);   // whole percent
-    if (!lmw::dsp::canConnect(static_cast<lmw::dsp::In>(c.input), static_cast<lmw::dsp::Out>(c.output))) return;   // S7.6
-    if (isGate(c.input)) l = l > 0.0f ? 1.0f : 0.0f;                  // gates: on/off
-    if (std::fabs(l - level(c)) < 1e-6f) return;           // unchanged
+    const auto in = static_cast<lmw::dsp::In>(c.input);
+    if (!lmw::dsp::canConnect(in, static_cast<lmw::dsp::Out>(c.output))) return;   // S7.6
+    if (isGate(c.input)) { if (l > 0.0f) l = 1.0f; else { remove(c); return; } }   // gates: on/off
+    l = juce::jlimit(lmw::dsp::minLevel(in), 1.0f, std::round(l * 100.0f) / 100.0f);   // whole percent
+    if (has(c) && std::fabs(l - level(c)) < 1e-6f) return;           // unchanged
     setPin(c.input, c.output, l);
+    syncSlider();
+    repaint();
+}
+void MatrixView::remove(Cell c) {
+    if (!has(c)) return;
+    setPin(c.input, c.output, lmw::dsp::removePin);
     syncSlider();
     repaint();
 }
@@ -169,9 +186,11 @@ void MatrixView::paint(juce::Graphics& g) {
         for (int o = 0; o < numOutputs; ++o) {
             const auto b = cellBounds({i, o}).reduced(2);
             const float l = p.level(in, static_cast<Out>(o));
-            if (l > 0.0f) {
-                // Black bar filled to the level; the % text white on black and black on white (clipped).
-                const auto fill = b.withWidth(std::max(2, juce::roundToInt(static_cast<float>(b.getWidth()) * l)));
+            if (p.hasPin(in, static_cast<Out>(o))) {
+                // Black bar filled to the level; the % text white on black and black on white (clipped). Spec S5.21:
+                // a negative level fills from the right, its text has the minus.
+                const int w = std::max(2, juce::roundToInt(static_cast<float>(b.getWidth()) * std::fabs(l)));
+                const auto fill = l < 0.0f ? b.withLeft(b.getRight() - w) : b.withWidth(w);
                 g.setFont(font);
                 g.setColour(kFg);
                 g.drawText(percent(l), b, juce::Justification::centred, false);
@@ -248,9 +267,9 @@ void MatrixView::mouseDrag(const juce::MouseEvent& e) {
 // Phase 17f (user 2026-11-21): a click selects; only an empty cell gets a cable (100 %, a gate "on").
 void MatrixView::mouseUp(const juce::MouseEvent& e) {
     if (dragCell && !dragged && e.getNumberOfClicks() == 1 && cellAt(e.getPosition()) == std::optional<Cell>(*dragCell)
-        && level(*dragCell) <= 0.0f) {
+        && !has(*dragCell)) {
         set(*dragCell, 1.0f);
-        if (level(*dragCell) > 0.0f) { justMade = *dragCell; justMadeAt = juce::Time::getMillisecondCounter(); }
+        if (has(*dragCell)) { justMade = *dragCell; justMadeAt = juce::Time::getMillisecondCounter(); }
     }
     dragCell.reset();
 }
@@ -262,7 +281,7 @@ void MatrixView::mouseDoubleClick(const juce::MouseEvent& e) {
     const bool fresh = justMade == c
                     && juce::Time::getMillisecondCounter() - justMadeAt <= static_cast<juce::uint32>(juce::MouseEvent::getDoubleClickTimeout()) + 200;
     justMade.reset();
-    if (!fresh && level(*c) > 0.0f) set(*c, 0.0f);
+    if (!fresh) remove(*c);
 }
 
 // The cell menu (right-click, Shift+F10): only what is possible here (S6.2).
@@ -270,26 +289,29 @@ void MatrixView::showCellMenu(Cell c) {
     const auto in = static_cast<lmw::dsp::In>(c.input);
     if (!lmw::dsp::canConnect(in, static_cast<lmw::dsp::Out>(c.output))) return;
     const float l = level(c);
-    const bool full = l <= 0.0f && patch().pinCount(in) >= lmw::dsp::Patch::maxPins;
+    const bool cabled = has(c);
+    const bool full = !cabled && patch().pinCount(in) >= lmw::dsp::Patch::maxPins;
     juce::PopupMenu menu;
     menu.addSectionHeader(name(lmw::dsp::outputNames[static_cast<std::size_t>(c.output)]) + " "
                           + juce::String::fromUTF8("\xe2\x86\x92") + " "
                           + name(lmw::dsp::inputNames[static_cast<std::size_t>(c.input)]));
     if (isGate(c.input)) {
-        if (l <= 0.0f && !full) menu.addItem(2, "On");
+        if (!cabled && !full) menu.addItem(2, "On");
     } else if (!full) {
-        if (l < 1.0f) menu.addItem(2, "100 %");
+        if (!cabled || l != 1.0f) menu.addItem(2, "100 %");
+        if (lmw::dsp::bipolar(in) && (!cabled || l != -1.0f)) menu.addItem(5, "-100 % (inverted)");   // Spec S5.21
         menu.addItem(3, "Type level...");
     }
-    if (l > 0.0f) menu.addItem(1, isGate(c.input) ? "Off (remove cable)" : "Remove cable");
-    if (full && l <= 0.0f) menu.addItem(4, "Input full (4 cables)", false);
+    if (cabled) menu.addItem(1, isGate(c.input) ? "Off (remove cable)" : "Remove cable");
+    if (full) menu.addItem(4, "Input full (4 cables)", false);
     menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this)
                            .withTargetScreenArea(localAreaToGlobal(cellBounds(c))),
                        [safe = juce::Component::SafePointer<MatrixView>(this), c](int result) {
                            if (safe == nullptr) return;
                            safe->grabKeyboardFocus();               // computer keys keep playing (S3.2)
-                           if (result == 1) safe->set(c, 0.0f);
+                           if (result == 1) safe->remove(c);
                            else if (result == 2) safe->set(c, 1.0f);
+                           else if (result == 5) safe->set(c, -1.0f);
                            else if (result == 3) safe->typeLevel(c);
                        });
 }
@@ -299,7 +321,9 @@ void MatrixView::typeLevel(Cell c) {
                                     name(lmw::dsp::outputNames[static_cast<std::size_t>(c.output)]) + " "
                                         + juce::String::fromUTF8("\xe2\x86\x92") + " "
                                         + name(lmw::dsp::inputNames[static_cast<std::size_t>(c.input)])
-                                        + "\nLevel in percent (0 removes the cable):",
+                                        + (lmw::dsp::bipolar(static_cast<lmw::dsp::In>(c.input))
+                                               ? juce::String("\nLevel in percent, -100 to 100 (below 0: inverted):")
+                                               : juce::String("\nLevel in percent, 0 to 100:")),
                                     juce::MessageBoxIconType::NoIcon, this);
     w->addTextEditor("level", juce::String(juce::roundToInt(level(c) * 100.0f)));
     w->addButton("OK", 1, juce::KeyPress(juce::KeyPress::returnKey));
@@ -308,7 +332,7 @@ void MatrixView::typeLevel(Cell c) {
         [safe = juce::Component::SafePointer<MatrixView>(this), w, c](int result) {
             if (safe == nullptr || result != 1) return;
             const auto text = w->getTextEditorContents("level").trim().trimCharactersAtEnd("% ");
-            if (text.isEmpty() || !text.containsOnly("0123456789.")) return;
+            if (text.isEmpty() || !text.containsOnly("-0123456789.")) return;
             safe->set(c, static_cast<float>(text.getDoubleValue()) / 100.0f);
         }), true);
     if (auto* field = w->getTextEditor("level")) { field->grabKeyboardFocus(); field->selectAll(); }   // type at once
@@ -331,11 +355,11 @@ bool MatrixView::keyPressed(const juce::KeyPress& key) {
     if (code == juce::KeyPress::leftKey)  return move(0, -1);
     if (code == juce::KeyPress::rightKey) return move(0, 1);
     if (code == juce::KeyPress::spaceKey || code == juce::KeyPress::returnKey) {
-        set(cursor, level(cursor) > 0.0f ? 0.0f : 1.0f);
+        if (has(cursor)) remove(cursor); else set(cursor, 1.0f);
         return true;
     }
     if (code == juce::KeyPress::deleteKey || code == juce::KeyPress::backspaceKey || code == juce::KeyPress::endKey) {
-        set(cursor, 0.0f);
+        remove(cursor);
         return true;
     }
     if (code == juce::KeyPress::homeKey) { set(cursor, 1.0f); return true; }
@@ -370,14 +394,16 @@ juce::String MatrixView::getTooltip() {
     juce::String state;
     if (!lmw::dsp::canConnect(in, out))                                      // Spec S7.6
         return link + ": not possible (effect sockets connect only to effect sockets, synth sockets only to synth sockets)";
-    if (l > 0.0f) state = "cable at " + percent(l);
+    const bool cabled = p.hasPin(in, out);
+    if (cabled) state = "cable at " + percent(l) + (l < 0.0f ? " (inverted)" : "");
     else if (const float n = p.isPatched(in) ? 0.0f : p.normalLevel(in, out); n > 0.0f)
         state = "normalled" + (n < 1.0f ? " at " + percent(n) : juce::String()) + " (used while this input has no cables)";
     else state = "no cable";
     juce::String how = isGate(c->input)
-        ? (l > 0.0f ? "Double-click: off. Right-click: menu." : "Click: on. Right-click: menu.")
-        : (l > 0.0f ? "Click: select (the slider shows the level). Drag up/down: level. Double-click: remove. Right-click: menu."
-                    : "Click: cable at 100 %. Drag up/down: level. Right-click: menu.");
-    if (l <= 0.0f && p.pinCount(in) >= lmw::dsp::Patch::maxPins) how = "This input already has 4 cables.";
+        ? (cabled ? "Double-click: off. Right-click: menu." : "Click: on. Right-click: menu.")
+        : (cabled ? "Click: select (the slider shows the level). Drag up/down: level"
+                        + juce::String(lmw::dsp::bipolar(in) ? " (below 0: inverted)" : "") + ". Double-click: remove. Right-click: menu."
+                  : "Click: cable at 100 %. Drag up/down: level. Right-click: menu.");
+    if (!cabled && p.pinCount(in) >= lmw::dsp::Patch::maxPins) how = "This input already has 4 cables.";
     return link + ": " + state + "\n" + how;
 }

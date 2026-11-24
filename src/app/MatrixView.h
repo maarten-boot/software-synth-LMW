@@ -14,7 +14,7 @@
 // Finding a crossing (user 2026-11-21): the row and column under the mouse get a grey band and their labels
 // invert (white on black); clicking a row or column label pins that band until clicked again; the selected
 // cell's labels have a black frame.
-// A level slider on the right (0-100 %, user 2026-11-18) shows and sets the level of the cell under the
+// A level slider on the right (0-100 %, user 2026-11-18; -100..+100 % on modulation inputs, S5.21) shows and sets the level of the cell under the
 // cursor; it is active for every cell that takes a level (not on gate inputs, nor on an empty cell of a full input).
 #pragma once
 #include <juce_gui_basics/juce_gui_basics.h>
@@ -25,7 +25,7 @@
 
 class MatrixView final : public juce::Component, public juce::TooltipClient {
 public:
-    // setPin(input, output, level): level 0 removes; returns false when it does not fit (the caller
+    // setPin(input, output, level): lmw::dsp::removePin removes; returns false when it does not fit (the caller
     // tells the user). patch(): the current patch mirror (message thread).
     MatrixView(std::function<const lmw::dsp::Patch&()> patch, std::function<bool(int, int, float)> setPin);
     std::function<void(bool started)> onLevelDrag;   // Spec S6.14: a level drag is one undo step
@@ -58,6 +58,8 @@ private:
     int columnAt(juce::Point<int> p) const;  // the output column under p (cell or column label), else -1
     float level(Cell c) const;
     void set(Cell c, float level);
+    bool has(Cell c) const;              // a cable (S5.21: its level may be 0)
+    void remove(Cell c);
     void typeLevel(Cell c);
     void showCellMenu(Cell c);
     int labelWidth() const { return juce::roundToInt(fontSize * 7.5f); }
