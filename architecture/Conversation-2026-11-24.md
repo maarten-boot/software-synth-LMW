@@ -24,3 +24,13 @@
 - Code vs Spec S6.15–S6.17: all as built (Synth, Effects and Schematic sockets; Matrix has no sockets; tags and ticks on Synth and Effects; /info scale). Plan rows 24, 24a–c, L11 match. Tests T-S6.15/16/17 pass.
 - Open: the tutorial screenshots (synth.png, matrix.png, ...) show the 1.4.0 look (no tags, ticks, rails); not regenerated (done below).
 - User: commit (0baba57) and regenerate the screenshots. docs/images/synth, effects, matrix, schematic.png taken again on Xvfb (1496 × 904 window, the String section preset, as before): ticks, tags, rack rails, the Menu header, 1.4.0; effects cropped to the panels. T-S9.8-html passes.
+- User pushed (407d8ba). CI run 45395252588 green on all four.
+
+## Cable faders and inverted modulation (Phase 25)
+
+- User: horizontal faders for every connection shown in a socket's right-click menu, output name left, input name right, stacked at the bottom of the menu, on Synth, Effects and Schematic; inverted inputs for modulation (inverted ADSR on cutoff, resonance, FM, PM), an invert button or 0 in the middle; audio inputs do not need it; CV to scale loudness / modulation over the keyboard.
+- Typos confirmed in the answer: holrizontal, ths, schema view (= Schematic tab).
+- Advised: bipolar level on modulation inputs, menu custom items, a drag one undo step; noted that −env on VCA CV gives silence (no offset).
+- Asked: bipolar level 0 in the middle; faders for cables and normalled connections; plain negative everywhere (no offset); up to 100 %.
+- Spec S5.21 (bipolar levels) and S6.18 (menu faders) drafted; Plan 25, 25a–c; tests T-S5.21-bipolar, T-S6.18-menu planned. To confirm.
+- User: all ok, commit the spec and start 25a. Note for the future: resonators for drum and percussion effects and presets with "native instruments"; current native instruments to add (samisen, Japanese flute, didgeridoo, gamelan, ...). Typo "foe" (for); "native instruments" read as traditional / ethnic instruments, not the company → Plan L12, L13.
