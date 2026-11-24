@@ -46,3 +46,4 @@
 - Spec written before Phase 25 that it changed, marked "since Phase 25a": S5.14 pin levels and invalid texts; S6.8 Matrix Type level and slider (0 keeps the cable, −100 … 100 on modulation rows). S5.5 (VCA gain clamped) already matches the as-built note in S5.21.
 - Code vs S5.21 / S6.18: as built and noted there (keyboard via Type a level ▸, whole-menu scrolling, gate rows, unit colours). Plan rows 25, 25a–c and L12–L14 match; T-S5.21-bipolar and T-S6.18-menu pass. lmw-mcp set_cables and docs/ai/SoundDesign.md describe negative levels; README has no cable details.
 - Open: tests for the menu rows are by hand (Xvfb) only; CI runs after the push.
+- User (note for later): keys velocity to the VCA is not in the Matrix, is in the Schematic, not on the Synth tab; probably needs a fader. Checked: a fixed internal multiply (S5.8), not a connection → Plan L15 (Velocity fader on the VCA).
