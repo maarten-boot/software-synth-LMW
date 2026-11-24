@@ -3,6 +3,9 @@
 Changes between releases.
 
 ## Unreleased
+
+## 1.5.0 (2026-11-24)
+- 2026-11-24: Patches and saved settings from 1.4.0 load unchanged (the same sound, cables, notes and a panel layout you arranged); the new VCA Velocity starts at 100 %, which is the sound as before. The window now opens filling the screen.
 - 2026-11-24: VCA Velocity: a fader on the VCA panel sets how much the note velocity changes the loudness (100 % = as before, 0 % = every note equally loud). The velocity arrives on a new socket, VCA Vel (normally from KEYS Vel), so it shows in the Matrix and on the Schematic and a cable can replace it (e.g. NOISE Rand for random accents). Patches from 1.4.0 play the same; a patch with a cable on VCA Vel loses its cables in 1.4.0 or older.
 - 2026-11-24: Cable levels where you patch: right-click a socket (Synth, Effects or Schematic tab) and its menu ends with a fader per connection, output on the left, input on the right; drag to hear the change. Moving a normal connection's fader turns it into cables. Type a level ▸ in the same menu sets one without a mouse.
 - 2026-11-24: Inverted modulation: cables into modulation inputs (VCO pitch, FM, PM; VCF cutoff and resonance; FORMANT vowel; VCA CV and Mod; LFO rates) take a level from -100 % to +100 %. Below 0 the source is inverted: an envelope that closes the filter, keys that make low notes louder. A level of 0 keeps the cable. The Matrix slider and cells show the sign. Patches with an inverted cable lose their cables when opened in 1.4.0 or older.

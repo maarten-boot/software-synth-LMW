@@ -69,3 +69,10 @@
 - Spec written before Phase 26 that it changed, marked "since Phase 26" / S5.22: S5.3 normalled list (keys.vel → vca.vel), S5.5 VCA gain (velocity factor), S5a.1 parameter count 70, S6.6 VCA sockets, S6.7 Schematic internal links, S6.8 Matrix rows 34, S9.2 host parameters 70 (the VST3 total 2150 → 2151 too; the host test checks /info, not that total).
 - Code vs S5.22: as built (noted there). Plan 26, 26a–b, L15 → Phase 26, L18–L20 match; T-S5.22-velocity passes; 36 of 36. lmw-mcp: no tool lists parameters by hand (it reads /info), the AI guide names vca.velocity and vca.vel.
 - User pushed (75f308f). CI run 45427355833 green on Ubuntu, Fedora, Windows, macOS (Phase 26).
+
+## Release 1.5.0
+
+- User: commit (6aa0901) and prepare release 1.5.0.
+- Upgrade check (T-S9.6-upgrade-1.5): 1.4.0 download on Xvfb → sound, cables, notes, OUT moved, closed → the 1.5.0 build: full screen, layout kept, /patch identical but for vca.velocity = 1, round trip ok.
+- Screenshots retaken with the 1.5.0 title (String section, 1496 × 904; the VCA with Velocity). Downloads and test homes removed.
+- Prepared: CMakeLists 1.5.0, Changes "## 1.5.0 (2026-11-24)" with the upgrade note, Spec S6.10, Plan row 1.5.0, Tests.
