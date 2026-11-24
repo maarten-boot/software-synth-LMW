@@ -3,6 +3,9 @@
 Changes between releases.
 
 ## Unreleased
+- 2026-11-24: Undo and Redo buttons in the header (left of Menu), greyed when there is nothing; the hover text names what they take back.
+- 2026-11-24: Menu (and Options) ▸ Change history... shows what changed in each version.
+- 2026-11-24: Options ▸ Reset to default state keeps the window filling the screen (in 1.5.0 it shrank to the smallest size). The title bar has a maximise button: fill the screen, or back to the size before.
 
 ## 1.5.0 (2026-11-24)
 - 2026-11-24: Patches and saved settings from 1.4.0 load unchanged (the same sound, cables, notes and a panel layout you arranged); the new VCA Velocity starts at 100 %, which is the sound as before. The window now opens filling the screen.

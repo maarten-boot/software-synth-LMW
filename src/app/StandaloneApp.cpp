@@ -33,11 +33,38 @@ extern "C" void onQuitSignal(int sig) {
 }
 #endif
 
+    // Spec S6.16 (user 2026-11-24): the window fills the work area of the screen it was last on (no task bar /
+// dock); the panels keep their size and the free space takes moved panels. Never below the editor's minimum
+// (the window's own limits come from the editor through JUCE's decorator constrainer).
+void fillScreen(juce::StandaloneFilterWindow& w) {
+    const auto* display = juce::Desktop::getInstance().getDisplays().getDisplayForRect(w.getScreenBounds());
+    auto* editor = w.getContentComponent() != nullptr ? w.getContentComponent()->getChildComponent(0) : nullptr;
+    if (display == nullptr) return;
+    auto area = display->userBounds.toNearestInt();
+    if (auto* ed = dynamic_cast<juce::AudioProcessorEditor*>(editor); ed != nullptr && ed->getConstrainer() != nullptr) {
+        const int extraW = w.getWidth() - ed->getWidth(), extraH = w.getHeight() - ed->getHeight();
+        const int minW = ed->getConstrainer()->getMinimumWidth() + extraW, minH = ed->getConstrainer()->getMinimumHeight() + extraH;
+        area.setSize(std::max(area.getWidth(), minW), std::max(area.getHeight(), minH));
+    }
+    w.setBounds(area);
+}
+
 // Spec S6.11: JUCE's standalone window, whose Options menu (top bar) also holds the editor's menu items
 // (About, Contrast, ...) after JUCE's own four.
 class LMWStandaloneWindow final : public juce::StandaloneFilterWindow {
 public:
     using juce::StandaloneFilterWindow::StandaloneFilterWindow;
+
+    // Spec S6.16 (user 2026-11-24): the maximise button fills the screen's work area, or goes back to the size before.
+    void maximiseButtonPressed() override {
+        const auto* display = juce::Desktop::getInstance().getDisplays().getDisplayForRect(getScreenBounds());
+        if (display != nullptr && getBounds() == display->userBounds.toNearestInt() && !restoreBounds.isEmpty()) {
+            setBounds(restoreBounds);
+            return;
+        }
+        restoreBounds = getBounds();
+        fillScreen(*this);
+    }
 
     void buttonClicked(juce::Button* button) override {
         juce::PopupMenu m;
@@ -51,12 +78,18 @@ public:
         m.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(button),
                         [safe = juce::Component::SafePointer<LMWStandaloneWindow>(this)](int result) {
                             if (safe == nullptr || result <= 0) return;
-                            if (result < LMWSynthEditor::menuFirstId) safe->handleMenuResult(result);
+                            if (result < LMWSynthEditor::menuFirstId) {
+                                safe->handleMenuResult(result);
+                                // Reset to default state makes a new editor at its minimum size: fill the screen
+                                // again (S6.16; found 2026-11-24, the window shrank).
+                                if (result == 4 && safe != nullptr) fillScreen(*safe);
+                            }
                             else if (auto* e = safe->editor()) e->handleMenuItem(result);
                         });
     }
 
 private:
+    juce::Rectangle<int> restoreBounds;
     LMWSynthEditor* editor() {
         auto* holder = getPluginHolder();
         return holder != nullptr && holder->processor != nullptr
@@ -97,25 +130,12 @@ public:
         mainWindow = std::make_unique<LMWStandaloneWindow>(
             getApplicationName(), lookAndFeel.findColour(juce::ResizableWindow::backgroundColourId),
             createPluginHolder());
+        // Spec S6.16: minimise, maximise (fill the screen / back) and close; JUCE's standalone has no maximise.
+        mainWindow->setTitleBarButtonsRequired(juce::DocumentWindow::allButtons, false);
         fillScreen(*mainWindow);
         mainWindow->setVisible(true);
     }
 
-    // Spec S6.16 (user 2026-11-24): the window fills the work area of the screen it was last on (no task bar /
-    // dock); the panels keep their size and the free space takes moved panels. Never below the editor's minimum
-    // (the window's own limits come from the editor through JUCE's decorator constrainer).
-    static void fillScreen(juce::StandaloneFilterWindow& w) {
-        const auto* display = juce::Desktop::getInstance().getDisplays().getDisplayForRect(w.getScreenBounds());
-        auto* editor = w.getContentComponent() != nullptr ? w.getContentComponent()->getChildComponent(0) : nullptr;
-        if (display == nullptr) return;
-        auto area = display->userBounds.toNearestInt();
-        if (auto* ed = dynamic_cast<juce::AudioProcessorEditor*>(editor); ed != nullptr && ed->getConstrainer() != nullptr) {
-            const int extraW = w.getWidth() - ed->getWidth(), extraH = w.getHeight() - ed->getHeight();
-            const int minW = ed->getConstrainer()->getMinimumWidth() + extraW, minH = ed->getConstrainer()->getMinimumHeight() + extraH;
-            area.setSize(std::max(area.getWidth(), minW), std::max(area.getHeight(), minH));
-        }
-        w.setBounds(area);
-    }
 
     void shutdown() override {
         quitPoll.stopTimer();

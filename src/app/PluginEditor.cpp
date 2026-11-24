@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+#include "ChangesText.h"   // generated from architecture/Changes.md
 #include "PluginEditor.h"
 #include "AssistantView.h"
 #include "AssistantSettings.h"
@@ -502,6 +503,15 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     menuButton.setTooltip("About LMW-Synth, contrast, and more (Spec S6.11)");
     menuButton.onClick = [this] { showMainMenu(); };
     addAndMakeVisible(menuButton);
+    // Spec S6.14 (user 2026-11-24: "undo / redo should be directly available in the top menu"): two header
+    // buttons left of Menu, greyed when there is nothing; the hover text names the step.
+    undoButton.setButtonText(juce::String::fromUTF8("\xe2\x86\xb6 Undo"));
+    redoButton.setButtonText(juce::String::fromUTF8("Redo \xe2\x86\xb7"));
+    undoButton.onClick = [this] { undoStep(); updateUndoButtons(); };
+    redoButton.onClick = [this] { redoStep(); updateUndoButtons(); };
+    addAndMakeVisible(undoButton);
+    addAndMakeVisible(redoButton);
+    updateUndoButtons();
     loadButton.setTooltip("Load a patch file (parameters, cables, notes)");
     saveButton.setTooltip("Save parameters, cables and notes as a patch file");
     loadButton.onClick = [this] { loadPatch(); };
@@ -622,13 +632,27 @@ LMWSynthEditor::~LMWSynthEditor() {
         juce::LookAndFeel::setDefaultLookAndFeel(nullptr);   // the last LMW editor is closing
 }
 
+// Spec S6.14: the header's Undo / Redo follow the history (also changes made over 9P or by the Assistant).
+void LMWSynthEditor::updateUndoButtons() {
+    const auto& h = processor.steps();
+    undoButton.setEnabled(h.canUndo());
+    redoButton.setEnabled(h.canRedo());
+    const auto key = [](bool shift) {
+        return juce::KeyPress('z', juce::ModifierKeys::commandModifier | (shift ? juce::ModifierKeys::shiftModifier : 0), 0).getTextDescription();
+    };
+    undoButton.setTooltip(h.canUndo() ? "Undo " + juce::String::fromUTF8(h.undoName().c_str()) + " (" + key(false) + ")"
+                                      : juce::String("Nothing to undo"));
+    redoButton.setTooltip(h.canRedo() ? "Redo " + juce::String::fromUTF8(h.redoName().c_str()) + " (" + key(true) + ")"
+                                      : juce::String("Nothing to redo"));
+}
+
 void LMWSynthEditor::timerCallback() {
     processor.updateKeyboardFromMidiInput();
     if (processor.patchFileVersion() != shownPatchFile || (!notesEditor.hasKeyboardFocus(true)
             && notesEditor.getText() != processor.notes()))   // patch loaded, or state restored by the host
         refreshPatchInfo();
     if (schematic) schematic->poll(processor.schematicLayout());   // Key faders; layout from a loaded patch
-    if (++presetLabelTick >= 8) { presetLabelTick = 0; updatePresetLabels(); updatePatchLabel(); }   // S7.5, S7.7: ~4/s
+    if (++presetLabelTick >= 8) { presetLabelTick = 0; updatePresetLabels(); updatePatchLabel(); updateUndoButtons(); }   // S7.5, S7.7: ~4/s
     if (processor.patchVersion() != shownPatchVersion || processor.vcfRouting() != shownRouting) {   // cables or routing changed
         shownPatchVersion = processor.patchVersion();
         shownRouting = processor.vcfRouting();
@@ -1123,6 +1147,13 @@ void LMWSynthEditor::resized() {
     instrumentButton.setBounds(title.removeFromRight(m.colW >= 80 ? 76 : 64).reduced(0, 2));   // Spec S7.7
     title.removeFromRight(m.gap / 2);
     menuButton.setBounds(title.removeFromRight(m.colW >= 80 ? 70 : 60).reduced(0, 2));       // Spec S6.11
+    title.removeFromRight(m.gap / 2);
+    // Spec S6.14: "↶ Undo" / "Redo ↷"; compact view only the arrows (the hover text names the step).
+    undoButton.setButtonText(juce::String::fromUTF8(wide ? "\xe2\x86\xb6 Undo" : "\xe2\x86\xb6"));
+    redoButton.setButtonText(juce::String::fromUTF8(wide ? "Redo \xe2\x86\xb7" : "\xe2\x86\xb7"));
+    redoButton.setBounds(title.removeFromRight(wide ? 76 : 34).reduced(0, 2));
+    title.removeFromRight(m.gap / 2);
+    undoButton.setBounds(title.removeFromRight(wide ? 76 : 34).reduced(0, 2));
     titleButton.fontHeight = m.titleH * 0.6f;
     titleButton.setBounds(title.removeFromLeft(titleTextWidth()).reduced(0, 2));
     title.removeFromLeft(m.gap);
@@ -1853,6 +1884,36 @@ void LMWSynthEditor::showLesson(int number) {
     if (lessonWindow != nullptr) lessonWindow->setLookAndFeel(&lookAndFeel);
 }
 
+// Spec S6.11 (user 2026-11-24: "add a change history to the options menu", what's new per version): Changes.md
+// of this build as text in its own window, newest first; the headings and list marks as plain text.
+void LMWSynthEditor::showChanges() {
+    if (changesWindow != nullptr) { changesWindow->toFront(true); return; }
+    std::string md;
+    for (const char* part : lmw::changes::textParts) md += part;
+    if (const auto first = md.find("\n## "); first != std::string::npos) md.erase(0, first + 1);   // no file title / intro
+    auto text = std::make_unique<juce::TextEditor>();
+    text->setMultiLine(true, true);
+    text->setReadOnly(true);
+    text->setCaretVisible(false);
+    text->setScrollbarsShown(true);
+    text->setFont(juce::FontOptions(16.0f));
+    text->setColour(juce::TextEditor::backgroundColourId, juce::Colours::white);
+    text->setColour(juce::TextEditor::textColourId, juce::Colours::black);
+    text->setText(juce::String::fromUTF8(lmw::tutorial::plain(md).c_str()), false);
+    text->setTitle("Change history");
+    text->setSize(820, 600);
+    juce::DialogWindow::LaunchOptions o;
+    o.dialogTitle = "LMW-Synth change history";
+    o.dialogBackgroundColour = juce::Colours::white;
+    o.content.setOwned(text.release());
+    o.componentToCentreAround = this;
+    o.escapeKeyTriggersCloseButton = true;
+    o.useNativeTitleBar = false;
+    o.resizable = true;
+    changesWindow = o.launchAsync();
+    if (changesWindow != nullptr) changesWindow->setLookAndFeel(&lookAndFeel);
+}
+
 // Spec S6.11: the menu (header button; the same items in the standalone window's Options menu).
 void LMWSynthEditor::addMenuItems(juce::PopupMenu& m) const {
     {                                                      // Spec S6.14: named, greyed when there is nothing
@@ -1871,6 +1932,7 @@ void LMWSynthEditor::addMenuItems(juce::PopupMenu& m) const {
         m.addSeparator();
     }
     m.addItem(menuFirstId + 1, "About LMW-Synth...");
+    m.addItem(menuFirstId + 2, "Change history...");          // what changed in each version
     juce::PopupMenu contrast;                              // Spec S6.3, ticked: the current one
     const auto c = settings.contrast;
     contrast.addItem(menuFirstId + 11, "AA 4.5:1", true, c == lmw::ui::ContrastPreset::AA);
@@ -1919,6 +1981,7 @@ void LMWSynthEditor::addMenuItems(juce::PopupMenu& m) const {
 void LMWSynthEditor::handleMenuItem(int id) {
     switch (id - menuFirstId) {
         case 1: showAbout(); break;
+        case 2: showChanges(); break;
         case 11: case 12: case 13:
             settings.contrast = static_cast<lmw::ui::ContrastPreset>(id - menuFirstId - 11);
             applyContrast();
@@ -2245,7 +2308,7 @@ void LMWSynthEditor::showAbout() {
 void LMWSynthEditor::showTab(int tab) {
     currentTab = tab;
     const juce::Component* alwaysShown[] = {&titleButton, &instrumentButton, &panelTab, &effectsTab, &matrixTab, &schematicTab, &notesTab, &patchLabel, &loadButton,
-                                            &saveButton, &menuButton, &resetLayoutButton, &compactButton, &keyboard, &keyboardButton, &assistantTab};
+                                            &saveButton, &menuButton, &undoButton, &redoButton, &resetLayoutButton, &compactButton, &keyboard, &keyboardButton, &assistantTab};
     for (auto* child : getChildren()) {
         if (child == &notesEditor || child == matrix.get() || child == schematic.get() || child == assistant.get()
             || std::find(std::begin(alwaysShown), std::end(alwaysShown), child) != std::end(alwaysShown))

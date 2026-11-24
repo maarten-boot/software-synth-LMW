@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Spec S6.11: architecture/Changes.md as C++ text for Options / Menu > Change history..., so the program shows
+# the history of the version it is. Written at configure time like cmake/TutorialText.cmake; split before
+# every list item ("\n- ", never inside a UTF-8 character) into raw string literals well below MSVC's 16 KB.
+set(_lmw_chg_src "${CMAKE_SOURCE_DIR}/architecture/Changes.md")
+set(_lmw_chg_out "${CMAKE_BINARY_DIR}/generated/ChangesText.h")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_lmw_chg_src}")
+file(READ "${_lmw_chg_src}" _lmw_rest)
+set(_lmw_out "// Generated from architecture/Changes.md by cmake/ChangesText.cmake - do not edit.\n#pragma once\nnamespace lmw::changes {\ninline constexpr const char* textParts[] = {\n")
+while(TRUE)
+    string(FIND "${_lmw_rest}" "\n- " _lmw_at)
+    if(_lmw_at EQUAL -1)
+        string(APPEND _lmw_out "R\"lmwchg(${_lmw_rest})lmwchg\",\n")
+        break()
+    endif()
+    math(EXPR _lmw_cut "${_lmw_at} + 1")
+    string(SUBSTRING "${_lmw_rest}" 0 ${_lmw_cut} _lmw_part)
+    string(SUBSTRING "${_lmw_rest}" ${_lmw_cut} -1 _lmw_rest)
+    string(APPEND _lmw_out "R\"lmwchg(${_lmw_part})lmwchg\",\n")
+endwhile()
+string(APPEND _lmw_out "};\n} // namespace lmw::changes\n")
+if(EXISTS "${_lmw_chg_out}")
+    file(READ "${_lmw_chg_out}" _lmw_old)
+endif()
+if(NOT "${_lmw_old}" STREQUAL "${_lmw_out}")
+    file(WRITE "${_lmw_chg_out}" "${_lmw_out}")
+endif()

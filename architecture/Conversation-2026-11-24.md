@@ -77,3 +77,8 @@
 - Screenshots retaken with the 1.5.0 title (String section, 1496 × 904; the VCA with Velocity). Downloads and test homes removed.
 - Prepared: CMakeLists 1.5.0, Changes "## 1.5.0 (2026-11-24)" with the upgrade note, Spec S6.10, Plan row 1.5.0, Tests.
 - User pushed and tagged v1.5.0. Release run 45450536117 green (tag check, four builds, publish; six files); build run 45450530237 (253b7ed) green on all four. Release 1.5.0 published 2026-11-24 17:54 UTC.
+- User: commit (da68198). Reset to default state shrinks the synth: intentional? if so add a maximise. → Not intended (JUCE makes a new editor at its minimum): fillScreen after the reset; also a maximise button (fill the work area / back). Xvfb checked. S6.16, Changes.
+- User: add a change history to the top-left Options menu → asked what is meant.
+- User chose "what's new (release notes)" → Menu / Options ▸ Change history...: Changes.md embedded (cmake/ChangesText.cmake, split at every list item for MSVC's 16 KB literal limit: the oldest section is 19 KB), shown in a text window. Xvfb checked.
+- User: undo / redo should be directly available in the top menu (typo: sgould) → asked where. User (for later): PCM square, triangle, saw, sine? → asked (PWM?). User: a 36 dB filter like Arturia has in some? (typo: filer) → answered.
+- User choices: Undo / Redo as two header buttons → built (arrows only in compact; hover names the step); "PCM" = a shape morph for all waves → Plan L21; 36 dB filter → Plan L22 (opinion given). Xvfb checked: buttons undo / redo a 9P change, tooltip, compact header.

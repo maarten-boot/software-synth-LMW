@@ -238,7 +238,8 @@ private:
     static juce::Array<juce::File> themeFiles();
     juce::Component::SafePointer<juce::DialogWindow> colourWindow;
     // Spec S12.6: the Assistant settings and the "How to get a key" lesson; the key, once read.
-    juce::Component::SafePointer<juce::DialogWindow> assistantWindow, lessonWindow;
+    juce::Component::SafePointer<juce::DialogWindow> assistantWindow, lessonWindow, changesWindow;
+    void showChanges();                                   // Spec S6.11: Change history...
     std::optional<std::string> keyCache;
     std::string assistantKey();
     void showAssistantSettings();
@@ -345,7 +346,9 @@ private:
     // Spec S7: tabs, patch name, notes and patch files.
     juce::TextButton instrumentButton{"Presets"};          // Spec S7.7, in the header left of Load...
     juce::TextButton panelTab{"Synth"}, effectsTab{"Effects"}, matrixTab{"Matrix"}, schematicTab{"Schematic"}, notesTab{"Notes"}, loadButton{"Load..."},
-        saveButton{"Save..."}, menuButton{"Menu"};   // Spec S6.11: About, Contrast, Theme, Show keyboard
+        saveButton{"Save..."}, menuButton{"Menu"},   // Spec S6.11: About, Contrast, Theme, Show keyboard
+        undoButton, redoButton;                    // Spec S6.14 (user 2026-11-24): directly in the header
+    void updateUndoButtons();
     std::unique_ptr<MatrixView> matrix;                   // Spec S6.8: the Matrix tab
     std::unique_ptr<SchematicView> schematic;             // Spec S6.7: the Schematic tab
     std::unique_ptr<class AssistantView> assistant;       // Spec S12: the Assistant tab (standalone only)

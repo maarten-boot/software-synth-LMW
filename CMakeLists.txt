@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.22)
 project(LMWSynth VERSION 1.5.0 LANGUAGES C CXX)   # Spec S6.10: raised with every release
 include(cmake/TutorialText.cmake)   # Spec S7.9: docs/tutorial/Tutorial.md -> generated/TutorialText.h
 include(cmake/GuideText.cmake)      # Spec S11.5: docs/ai/SoundDesign.md -> generated/GuideText.h
+include(cmake/ChangesText.cmake)    # Spec S6.11: architecture/Changes.md -> generated/ChangesText.h
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
