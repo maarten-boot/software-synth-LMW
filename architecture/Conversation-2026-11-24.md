@@ -104,3 +104,8 @@
 - User: mini-daw has a terminology page (typo: mini-dew); make one part of the documentation and the tutorial, reachable via Menu. Read mini-daw SPEC-UI-17 (Terms tab: topics, Where, See also, Find).
 - User: yes Find and See also; note L23; start the spec. → Spec S7.10 drafted; Plan 27, 27a–b; L23 noted (A and B); test T-S7.10-terms planned. To confirm.
 - User: is adding a chorus now a good idea? → yes (biggest sound gain for the effort, a shared stereo effect, cheap, bypassed by default; the Effects tab would need to wrap). User: commit the terms spec, then start the ensemble spec.
+
+## ENSEMBLE (Phase 28, Plan L19)
+
+- Spec S7.11 drafted: stereo string-machine ensemble between COMB and DELAY (ports, normalled), three lines swept by a slow and a fast LFO 120° apart, Depth / Rate / Shimmer / Mix (Mix 0 = bypass, bit-identical), module presets, String section and Pad (slow) with it, Effects tab wraps, Matrix / Schematic / 9P / lmw-mcp; compatibility. Plan 28, 28a–b; T-S7.11-ensemble planned. To confirm.
+- User: all ok, commit the spec and start 28a.
