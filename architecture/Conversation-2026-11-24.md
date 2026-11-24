@@ -39,3 +39,10 @@
 - 25b done (and 25c with it): CableRow custom menu items (PopupMenu::CustomComponent, not closing on click) in showPortMenu, shared by Synth, Effects and Schematic; horizontal fader look (black on white, 0 mark); setCableLevel (normalled → cables first), typeCableLevel; drag = one "cable level" step. Found: a JUCE menu keeps the arrow keys and Enter does not trigger a row that stays open → keyboard via "Type a level ▸" submenu (Spec noted). Found and fixed: the header of a normalled input named only the first of two normal sources (formant.in in Parallel). Tutorial Lesson 6: menu faders and an inverted example. Xvfb checks.
 - User: looks good; colour the label background left and right of the fader in the unit's colour → done (palette unit colours, raised to the contrast; KEYS / OUT / MAIN white); Spec S6.18. Xvfb checked.
 - User (future): a pulse sequencer for percussion: 8 parallel tracks of up to 64 steps (initially), driving the resonators, synchronised to a 64-step note sequencer. Typos noted: paralell, traccks, secuenser / sequenser → Plan L14 (with Phase 19 SEQ and L12).
+
+## Crosscheck after Phase 25
+
+- User: commit (cd0ad30) and do the crosscheck.
+- Spec written before Phase 25 that it changed, marked "since Phase 25a": S5.14 pin levels and invalid texts; S6.8 Matrix Type level and slider (0 keeps the cable, −100 … 100 on modulation rows). S5.5 (VCA gain clamped) already matches the as-built note in S5.21.
+- Code vs S5.21 / S6.18: as built and noted there (keyboard via Type a level ▸, whole-menu scrolling, gate rows, unit colours). Plan rows 25, 25a–c and L12–L14 match; T-S5.21-bipolar and T-S6.18-menu pass. lmw-mcp set_cables and docs/ai/SoundDesign.md describe negative levels; README has no cable details.
+- Open: tests for the menu rows are by hand (Xvfb) only; CI runs after the push.
