@@ -90,3 +90,8 @@
 - User pushed (1558d8f). CI run 45471334761 green on all four.
 - User: Compact leaves the Schematic as it is, compact that too? → asked; 75 % of the fit, centred → built.
 - User: is the preset extension the default, why must the user see it? (typo: extenstion) → only Save... (patch) showed it: the dialog now offers the name only, the extension is added; found: a name with a dot lost its last part (withFileExtension) → kept; an existing file is asked about (the dialog checked the name without the extension). Xvfb checked.
+
+## Crosscheck after the Compact Schematic and Save name
+
+- User: commit (f4167b5) and do the crosscheck.
+- Spec S6.7 "the view scales with the window (also compact)" pointed to the new 75 % rule; S7.1 and S6.7 carry the new text; Tests T-S6.7-compact and T-S7.1-savename; Plan row 1.5.x lists both. Code matches (SchematicView::setCompact from LMWSynthEditor::setCompact; savePatch). Other save paths (instrument and module presets, themes) ask a name only and add the extension with getChildFile(name + ext), so a dotted name is kept there already. 36 of 36.
