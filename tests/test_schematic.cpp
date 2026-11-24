@@ -29,7 +29,7 @@ int main() {
                 if (ra.intersects(rb)) std::printf("overlap: %s / %s\n", blocks[a].name.data(), blocks[b].name.data());
                 CHECK(!ra.intersects(rb));
             }
-        CHECK(blocks.size() == 19);   // 19 since S7.8 (DELAY), 18 with S7.6
+        CHECK(blocks.size() == 20);   // 20 since S7.11 (ENSEMBLE), 19 with S7.8 (DELAY), 18 with S7.6
     }
     {   // Ports: inputs on the left edge, outputs on the right edge (a triangle's output at its tip); distinct.
         for (const auto& b : blocks) {
@@ -64,7 +64,7 @@ int main() {
     {   // Default patch: the 21 normalled connections (24 inputs; vcf1.res, vcf2.res and formant.vowel have none).
         lmw::dsp::Patch p;
         const auto c = sc::connections(p);
-        CHECK(c.size() == 26);   // + comb.in, delay.in, reverb.in, main.in (S7.6, S7.8), vca.vel (S5.22)
+        CHECK(c.size() == 27);   // + comb.in, delay.in, reverb.in, main.in (S7.6, S7.8), vca.vel (S5.22), ensemble.in (S7.11)
         for (const auto& x : c) CHECK(x.normalled && x.level == 1.0f);
         CHECK(sc::describeInput(p, In::Vcf1Cutoff) == "env2.out → vcf1.cutoff (normalled)");
         CHECK(sc::describeInput(p, In::Vcf1Res) == "vcf1.res: not connected");
@@ -75,7 +75,7 @@ int main() {
         lmw::dsp::Patch p;
         p.setRouting(lmw::dsp::VcfRouting::Parallel);
         const auto c = sc::connections(p);
-        CHECK(c.size() == 27);
+        CHECK(c.size() == 28);
         int toFormant = 0;
         for (const auto& x : c) {
             if (x.to == In::FormantIn) { ++toFormant; CHECK(x.level == 0.5f && x.normalled); }
@@ -91,7 +91,7 @@ int main() {
         CHECK(p.connect(In::Vcf1Cutoff, Out::Env2));
         CHECK(p.connect(In::Vcf1Res, Out::KeysVel));
         const auto c = sc::connections(p);
-        CHECK(c.size() == 28);   // 25 normalled + 3 cables
+        CHECK(c.size() == 29);   // 26 normalled + 3 cables
         int cables = 0;
         for (const auto& x : c)
             if (!x.normalled) {

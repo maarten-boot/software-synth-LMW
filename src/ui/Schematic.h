@@ -68,7 +68,8 @@ inline const std::vector<Block>& blocks() {
         {"ENV 2",  Shape::Adsr,     {50, 45, 12, 8},  {In::Env2Gate}, {Out::Env2}},
         {"LFO 2",  Shape::Triangle, {110, 50, 10, 9}, {In::Lfo2Rate}, {Out::Lfo2}},
         // Spec S7.6: the effects rack; MAIN (what is heard) has the line-out symbol OUT had before.
-        {"COMB",   Shape::Triangle, {104, 40, 12, 10}, {In::CombIn}, {Out::CombOut}},
+        {"COMB",   Shape::Triangle, {88, 40, 12, 10}, {In::CombIn}, {Out::CombOut}},
+        {"ENSEMBLE", Shape::Triangle, {104, 40, 12, 10}, {In::EnsembleIn}, {Out::EnsembleOut}},   // S7.11
         {"DELAY",  Shape::Triangle, {120, 40, 12, 10}, {In::DelayIn}, {Out::DelayOut}},   // S7.8
         {"REVERB", Shape::Triangle, {136, 40, 12, 10}, {In::ReverbIn}, {Out::ReverbOut}},
         {"MAIN",   Shape::Out,      {152, 41, 8, 8}, {In::MainIn}, {}},
