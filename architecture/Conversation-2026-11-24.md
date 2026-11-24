@@ -62,3 +62,9 @@
 - 26b done: VCA panel Velocity fader and Vel socket (Out moved to the new column), fader count 55; AI guide vca.velocity / vca.vel. Xvfb: panel, Matrix row, Schematic port; upgrade check from the 1.4.0 release (first attempt void: my click missed the 1.4.0 close button, redone): identical but the added vca.velocity line. Phase 26 done.
 - User (future): a chorus / "stringifier" in the effects to mimic Solina String Ensemble modulation of an input signal (typo: mimick) → Plan L19 ENSEMBLE.
 - User: can we measure CPU / memory load while playing, for feedback to the user? Measured the engine offline (1 / 8 / 16 / 32 voices: 1.2 / 7 / 14.5 / 27 % of one core, no effects); options given. User: only a question for options, skip if difficult → not difficult; noted as Plan L20 (options only).
+
+## Crosscheck after Phase 26
+
+- User: commit (5b50d99) and do the crosscheck.
+- Spec written before Phase 26 that it changed, marked "since Phase 26" / S5.22: S5.3 normalled list (keys.vel → vca.vel), S5.5 VCA gain (velocity factor), S5a.1 parameter count 70, S6.6 VCA sockets, S6.7 Schematic internal links, S6.8 Matrix rows 34, S9.2 host parameters 70 (the VST3 total 2150 → 2151 too; the host test checks /info, not that total).
+- Code vs S5.22: as built (noted there). Plan 26, 26a–b, L15 → Phase 26, L18–L20 match; T-S5.22-velocity passes; 36 of 36. lmw-mcp: no tool lists parameters by hand (it reads /info), the AI guide names vca.velocity and vca.vel.
