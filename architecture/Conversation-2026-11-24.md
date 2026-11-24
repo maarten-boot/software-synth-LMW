@@ -76,3 +76,4 @@
 - Upgrade check (T-S9.6-upgrade-1.5): 1.4.0 download on Xvfb → sound, cables, notes, OUT moved, closed → the 1.5.0 build: full screen, layout kept, /patch identical but for vca.velocity = 1, round trip ok.
 - Screenshots retaken with the 1.5.0 title (String section, 1496 × 904; the VCA with Velocity). Downloads and test homes removed.
 - Prepared: CMakeLists 1.5.0, Changes "## 1.5.0 (2026-11-24)" with the upgrade note, Spec S6.10, Plan row 1.5.0, Tests.
+- User pushed and tagged v1.5.0. Release run 45450536117 green (tag check, four builds, publish; six files); build run 45450530237 (253b7ed) green on all four. Release 1.5.0 published 2026-11-24 17:54 UTC.
