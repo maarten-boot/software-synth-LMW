@@ -46,7 +46,9 @@ envelope is up. Audio and gate inputs take 0 to 1 only. A level of 0 keeps a cab
   Pulse source, mix 1, the voice type by range (Bass/Baritone male low, Tenor male high, Alto/Soprano
   female, Child), the vowel (A "aah", E "eh", I "ee", O "oh", U "ooo"), a little vibrato (LFO 1 at 5-6 Hz,
   FM 0.1-0.2 st). A cable `formant.vowel=lfo2.out@0.1` makes the vowel move.
-- **VCA** (`vca.initial` 0-1 a level without any envelope; `vca.tremolo` 0-1 depth of LFO 2).
+- **VCA** (`vca.initial` 0-1 a level without any envelope; `vca.tremolo` 0-1 depth of LFO 2; `vca.velocity` 0-1
+  how much the note velocity sets the loudness, 1 = soft notes quiet, 0 = every note full; the velocity comes
+  in on `vca.vel`, normally `keys.vel`: a cable such as `vca.vel=noise.rand@0.5` gives random accents).
 - **ENV 1 → VCA, ENV 2 → VCF** (`envN.attack` / `decay` 0-5 s, `sustain` 0-1, `release` 0-10 s):
   loudness and tone over time. Winds: attack 0.03-0.1, sustain 0.85-0.9, release 0.1-0.15. Strings:
   attack 0.15-0.4. Pads: attack 1-2, release 2-4. Plucked and struck (piano, guitar, marimba): attack

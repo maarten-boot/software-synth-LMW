@@ -283,7 +283,10 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
                               + "\nGain = Initial + CV (0..1). Above 0, notes keep sounding after release.";
                      }),
                      addFader(P::vcaTremolo, "Tremolo", inputTip(In::VcaMod,
-                         "Tremolo depth: vca.mod swings the gain down by up to this much (0 = off)"))}, {}});
+                         "Tremolo depth: vca.mod swings the gain down by up to this much (0 = off)")),
+                     addFader(P::vcaVelocity, "Velocity", inputTip(In::VcaVel,   // Spec S5.22
+                         "How much the note velocity (vca.vel, normally keys.vel) sets the loudness:\n"
+                         "100 % = soft notes quiet, 0 % = every note full"))}, {}});
     const std::size_t outPanel = groups.size();
     groups.push_back({"OUT", 2, {addFader(P::gain, "Volume", inputTip(In::OutIn, "All voices summed, then soft limiter"))}, {}});
     // Spec S5.16: FORMANT, after VCF 2 in row 2. Created last, so saved rack layouts keep their panel
@@ -400,7 +403,8 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
             {vcfPanel[1], 0, false, in(In::Vcf2In), "In"},      {vcfPanel[1], 1, false, in(In::Vcf2Res), "Res"},
             {vcfPanel[1], 2, false, in(In::Vcf2Cutoff), "Cut"}, {vcfPanel[1], 4, true, out(Out::Vcf2), "Out"},
             {vcaPanel, 0, false, in(In::VcaIn), "In"},          {vcaPanel, 0, false, in(In::VcaCv), "CV"},
-            {vcaPanel, 1, false, in(In::VcaMod), "Mod"},        {vcaPanel, 1, true, out(Out::Vca), "Out"},
+            {vcaPanel, 1, false, in(In::VcaMod), "Mod"},
+            {vcaPanel, 2, false, in(In::VcaVel), "Vel"},        {vcaPanel, 2, true, out(Out::Vca), "Out"},   // S5.22
             {lfoPanel, 1, false, in(In::Lfo1Rate), "Rate"},     {lfoPanel, 1, true, out(Out::Lfo1), "Out"},   // S5.19
             {lfo2Panel, 1, false, in(In::Lfo2Rate), "Rate"},    {lfo2Panel, 1, true, out(Out::Lfo2), "Out"},
             {outPanel, 0, false, in(In::OutIn), "In"},
