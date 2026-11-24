@@ -715,14 +715,15 @@ bool LMWSynthProcessor::loadPatchText(const juce::String& text, juce::String& er
     for (const auto& prm : p->parameters) values[lmw::migration::parameterId(version, prm.id)] = prm.value;
     if (!applySound(juce::String::fromUTF8(p->name.c_str()), values, lmw::migration::cables(version, cableText), error))
         return false;
-    if (!soundOnly) {
-        // Spec S6.7: the schematic as saved; without a [schematic] section (or an unreadable one) the default.
+    // Spec S6.7: the schematic as saved; without a [schematic] section (or an unreadable one) the default. An own
+    // instrument preset (soundOnly) restores it only when its file has one (user 2026-11-24), else it stays.
+    if (!soundOnly || !p->schematic.empty()) {
         std::string layout;
         for (const auto& [id, at] : p->schematic) layout += id + ":" + at + ";";
         const auto l = lmw::ui::schematic::Layout::parse(layout);
         setSchematicLayout(l && !l->isDefault() ? juce::String(l->serialize()) : juce::String());
-        setNotes(juce::String::fromUTF8(p->notes.c_str()));
     }
+    if (!soundOnly) setNotes(juce::String::fromUTF8(p->notes.c_str()));
     return true;
 }
 

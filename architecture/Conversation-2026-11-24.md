@@ -95,3 +95,5 @@
 
 - User: commit (f4167b5) and do the crosscheck.
 - Spec S6.7 "the view scales with the window (also compact)" pointed to the new 75 % rule; S7.1 and S6.7 carry the new text; Tests T-S6.7-compact and T-S7.1-savename; Plan row 1.5.x lists both. Code matches (SchematicView::setCompact from LMWSynthEditor::setCompact; savePatch). Other save paths (instrument and module presets, themes) ask a name only and add the extension with getChildFile(name + ext), so a dotted name is kept there already. 36 of 36.
+- User pushed (16f5f1c). CI run 45477000332 green on all four. User asked whether a saved preset keeps the Schematic layout → answered (patch file yes, choosing an own instrument preset no by design; offered to restore it when the file has [schematic]).
+- User: yes, restore it and commit → loadPatchText(soundOnly) restores the layout when the file has [schematic]; Xvfb checked (Moved / Plain presets). S7.7, Changes, Tests.

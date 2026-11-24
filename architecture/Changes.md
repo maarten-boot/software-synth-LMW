@@ -3,6 +3,7 @@
 Changes between releases.
 
 ## Unreleased
+- 2026-11-24: Choosing one of your own instrument presets also restores its Schematic layout when the preset was saved with moved symbols (the notes stay as they are).
 - 2026-11-24: Save... offers the patch name without ".lmwpatch" (it is added for you); a name with a dot keeps it ("Pad v1.2"); replacing an existing patch is asked first. Compact also makes the Schematic smaller.
 - 2026-11-24: Undo and Redo buttons in the header (left of Menu), greyed when there is nothing; the hover text names what they take back.
 - 2026-11-24: Menu (and Options) ▸ Change history... shows what changed in each version.

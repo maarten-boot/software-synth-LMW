@@ -173,7 +173,8 @@ public:
     std::optional<Scale> scaleOf(const std::string& id) const;
     const std::string& ninepEndpoints() const noexcept { return ninepAddress; }  // "unix!<path> tcp!..."
     const class NinePService* ninepService() const noexcept { return ninep.get(); }   // Spec S12.2: in-process files
-    // soundOnly (Spec S7.7, instrument presets): parameters, cables and name only; notes and the schematic stay.
+    // soundOnly (Spec S7.7, instrument presets): parameters, cables and name; the notes stay, the schematic layout
+    // too unless the file has a [schematic] section (then it is restored, user 2026-11-24).
     bool loadPatchText(const juce::String& text, juce::String& error, bool soundOnly = false);
     // Spec S7.7: sets the whole sound — every parameter (`values` by id; missing: default) and the cables —
     // and the patch name; keeps notes and the schematic. Message thread.
