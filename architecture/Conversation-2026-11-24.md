@@ -50,3 +50,9 @@
 - User (for later): Large / Normal / Compact instead of the Compact toggle; move the racks vertically to show hidden parts in Large or Normal; modules into all rack lanes in every size (the visible lanes in compact usable). Typos: a extra, veritcal, vizible → Plan L16; "moving the racks vertical" read as vertical scrolling, to confirm.
 - User pushed (f15ad85). CI run 45414376773 green on Ubuntu, Fedora, Windows, macOS. User asked the cost of a full second synth (synth2 with its own Matrix and Schematic): estimate given (two instances already work; built in about 3–4 phases; the question is layering / split / two MIDI channels / cross-modulation).
 - User: the matrix would become unmanageable with cross-modulation → proposed separate matrices plus 2 bus links each way. User: layering first, note as L17, commit.
+
+## Velocity on the VCA (Phase 26, Plan L15)
+
+- User: start the spec for L15. Asked: fader only, or fader and a patchable input socket → fader and socket.
+- Spec S5.22 drafted (input vca.vel normalled from keys.vel, Velocity fader 0–100 % default 100 %, gain × (1 − a + a·vel), VCA panel 3 columns, Matrix row, Schematic line instead of the label; compatibility); Plan 26, 26a–b; test T-S5.22-velocity planned. To confirm.
+- User: all ok, commit the spec and start 26a.
