@@ -82,3 +82,8 @@
 - User chose "what's new (release notes)" → Menu / Options ▸ Change history...: Changes.md embedded (cmake/ChangesText.cmake, split at every list item for MSVC's 16 KB literal limit: the oldest section is 19 KB), shown in a text window. Xvfb checked.
 - User: undo / redo should be directly available in the top menu (typo: sgould) → asked where. User (for later): PCM square, triangle, saw, sine? → asked (PWM?). User: a 36 dB filter like Arturia has in some? (typo: filer) → answered.
 - User choices: Undo / Redo as two header buttons → built (arrows only in compact; hover names the step); "PCM" = a shape morph for all waves → Plan L21; 36 dB filter → Plan L22 (opinion given). Xvfb checked: buttons undo / redo a 9P change, tooltip, compact header.
+
+## Crosscheck after the 1.5.0 follow-ups
+
+- User: commit (5b102a1) and do the crosscheck.
+- Spec S6.11 notes the Undo / Redo buttons left of Menu; S6.14, S6.16 and S6.11 (Change history) were written with the changes. Tests: T-S6.11-changes, T-S6.14-buttons, T-S6.16-reset added (they had been checked on Xvfb but had no rows). Plan: a row 1.5.x for the three follow-ups. Code matches; 36 of 36. CI: Changes.md is now built into the program but stays in the workflow's paths-ignore, so a Changes-only commit is not built (acceptable: releases always carry code).
