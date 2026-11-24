@@ -48,3 +48,5 @@
 - Open: tests for the menu rows are by hand (Xvfb) only; CI runs after the push.
 - User (note for later): keys velocity to the VCA is not in the Matrix, is in the Schematic, not on the Synth tab; probably needs a fader. Checked: a fixed internal multiply (S5.8), not a connection → Plan L15 (Velocity fader on the VCA).
 - User (for later): Large / Normal / Compact instead of the Compact toggle; move the racks vertically to show hidden parts in Large or Normal; modules into all rack lanes in every size (the visible lanes in compact usable). Typos: a extra, veritcal, vizible → Plan L16; "moving the racks vertical" read as vertical scrolling, to confirm.
+- User pushed (f15ad85). CI run 45414376773 green on Ubuntu, Fedora, Windows, macOS. User asked the cost of a full second synth (synth2 with its own Matrix and Schematic): estimate given (two instances already work; built in about 3–4 phases; the question is layering / split / two MIDI channels / cross-modulation).
+- User: the matrix would become unmanageable with cross-modulation → proposed separate matrices plus 2 bus links each way. User: layering first, note as L17, commit.
