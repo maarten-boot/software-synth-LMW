@@ -300,8 +300,8 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
             if (item.fader != nullptr) { effectComponents.push_back(&item.fader->slider); effectComponents.push_back(&item.fader->label); }
     jassert(usedFaders == faders.size() && usedChoices == choices.size());
 
-    // Spec S6.5: rack. A row holds at most as many columns as the widest default row, so the window
-    // width never changes; panels can be moved into up to 4 rows. The layout is remembered.
+    // Spec S6.5, S6.16: rack. A row holds as many columns as fit on the widest screen (at least the widest
+    // default row); panels can be moved into up to 4 rows. The layout is remembered.
     {
         std::vector<int> columns;
         int rowCount = 0;
@@ -336,7 +336,9 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
             for (int g : row) c += columns[static_cast<std::size_t>(g)];
             maxColumns = std::max(maxColumns, c);
         }
-        rack.emplace(columns, defaultRows, maxColumns, kMaxRows);
+        defaultMaxColumns = maxColumns;
+        // Compact columns are the narrowest: a layout saved in compact view is accepted; setCompact narrows it.
+        rack.emplace(columns, defaultRows, std::max(maxColumns, screenColumns(compactMetrics)), kMaxRows);
         rack->parse(processor.state().state.getProperty(kLayoutProp).toString().toStdString());
     }
     // Spec S6.6: patch points per panel (since S5.15 noise.out and noise.rand are on the NOISE panel).
@@ -547,6 +549,9 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     keyboardShown = processor.state().state.getProperty(kKeyboardProp, settings.keyboard.value_or(true));
     keyboard.setVisible(keyboardShown);
     keyboardButton.setButtonText(juce::String::fromUTF8(keyboardShown ? "\xe2\x96\xbe keyboard" : "\xe2\x96\xb4 keyboard"));
+    // Spec S6.16: resizable (the standalone window by its edges, a DAW's window by the corner), never below
+    // the size the rack needs.
+    setResizable(true, !standalone());
     setCompact(compact);                         // sets the window size
 
     cables = std::make_unique<CableLayer>(*this);   // last child: drawn above the panels
@@ -630,7 +635,7 @@ void LMWSynthEditor::setKeyboardShown(bool shown) {
     saveConfig();
     keyboard.setVisible(shown);
     keyboardButton.setButtonText(juce::String::fromUTF8(shown ? "\xe2\x96\xbe keyboard" : "\xe2\x96\xb4 keyboard"));
-    updateSize();
+    updateSize(!standalone());
     if (hadFocus || !shown) grabKeyboardFocus();  // the computer keys keep playing
     if (shown && hadFocus) keyboard.grabKeyboardFocus();
 }
@@ -714,10 +719,23 @@ void LMWSynthEditor::setCompact(bool compact) {
     for (std::size_t i = 0; i < usedChoices; ++i) choices[i].label.setFont(juce::FontOptions(m.labelFont));
     notesEditor.applyFontToAllText(juce::FontOptions(m.labelFont + 3.0f));   // Spec S7: notes, readable size
     notesEditor.setFont(juce::FontOptions(m.labelFont + 3.0f));
-    updateSize();
+    if (rack) rack->setMaxColumns(std::max(defaultMaxColumns, screenColumns(m)));
+    updateSize(!standalone());                   // S6.16: the standalone keeps its size, a plugin fits the view
 }
 
-void LMWSynthEditor::updateSize() {
+bool LMWSynthEditor::standalone() const {
+    return processor.wrapperType == juce::AudioProcessor::wrapperType_Standalone;
+}
+
+int LMWSynthEditor::screenColumns(const Metrics& metrics) const {
+    int widest = 0;
+    for (const auto& d : juce::Desktop::getInstance().getDisplays().displays)
+        widest = std::max(widest, d.userBounds.toNearestInt().getWidth());
+    // Room for the margins and up to six gaps between the panels of a row.
+    return widest > 0 ? (widest - 2 * (metrics.gap + 2) - 6 * metrics.gap) / metrics.colW : 0;
+}
+
+void LMWSynthEditor::updateSize(bool shrink) {
     // Width of the widest row, at least that of the default layout, so moving panels never makes
     // the window narrower (Spec S6.5).
     int width = 0;
@@ -727,8 +745,24 @@ void LMWSynthEditor::updateSize() {
     const int rows = static_cast<int>(rack->rows().size());
     const int pad = m.gap + 2;
     // title, gap, rows with gaps between, gap, keyboard
-    setSize(pad + width + pad, pad + m.titleH + m.gap + rows * m.rowH + (rows - 1) * m.gap + m.gap + keyStripH()
-                                   + (keyboardShown ? m.keysH : 0) + pad);
+    const int minW = pad + width + pad;
+    const int minH = pad + m.titleH + m.gap + rows * m.rowH + (rows - 1) * m.gap + m.gap + keyStripH()
+                   + (keyboardShown ? m.keysH : 0) + pad;
+    setResizeLimits(minW, minH, 32768, 32768);
+   #if JUCE_LINUX
+    // The standalone window (S6.16) takes its limits from these (JUCE's decorator constrainer), but on Linux the
+    // window manager hears of a new minimum only with new bounds (equal bounds are not sent): when the
+    // minimum changed, resize by one pixel and back.
+    if (auto* top = getTopLevelComponent(); top != nullptr && top != static_cast<juce::Component*>(this)
+                                            && juce::Point<int>(minW, minH) != sentMinimum && top->getPeer() != nullptr) {
+        sentMinimum = {minW, minH};
+        const auto b = top->getBounds();
+        top->setBounds(b.withHeight(b.getHeight() + 1));
+        top->setBounds(b);
+    }
+   #endif
+    const bool first = getWidth() == 0 || getHeight() == 0;
+    setSize(shrink || first ? minW : std::max(getWidth(), minW), shrink || first ? minH : std::max(getHeight(), minH));
     resized();
     repaint();
 }
@@ -928,6 +962,16 @@ void LMWSynthEditor::paint(juce::Graphics& g) {
         const int top = juce::roundToInt(lineY) + 1;
         g.setColour(toJuce(palette.rack));
         g.fillRect(0, top, getWidth(), keyboardButton.getY() - 1 - top);   // down to the keyboard strip (S6.12)
+        // Spec S6.16: rack rails, a 2 px line in the gap under every row and on down at the row pitch, so the
+        // free space reads as empty rack rows.
+        {
+            const int bottom = keyboardButton.getY() - m.gap;
+            int y = currentTab == 0 ? (rowBounds.empty() ? top : rowBounds.front().getY())
+                                    : (effectGroups.empty() ? top : effectGroups.front().bounds.getY());
+            g.setColour(toJuce(palette.cable));
+            for (y += m.rowH + m.gap / 2; y < bottom; y += m.rowH + m.gap)
+                g.fillRect(0, y - 1, getWidth(), 2);
+        }
         g.setColour(kBg);
         if (currentTab == 0) for (const auto& grp : groups) g.fillRect(grp.bounds);
         else for (const auto& grp : effectGroups) g.fillRect(grp.bounds);
@@ -1031,13 +1075,22 @@ void LMWSynthEditor::resized() {
     title.removeFromLeft(m.gap);
     patchLabel.setBounds(title);
     area.removeFromTop(m.gap);
-    if (keyboardShown) keyboard.setBounds(area.removeFromBottom(m.keysH));   // Spec S6.12
+    // Spec S6.12, S6.16: the 88 keys (52 white) at their normal width — as wide as the default rack layout (in
+    // compact view at least 16 px, then the keyboard scrolls) — at the right; the free space on the left is
+    // kept for later controls (user 2026-11-24: a mod wheel, glissando / portamento).
+    if (keyboardShown) {
+        int rackW = 0;
+        for (const auto& row : rack->defaultRows())
+            rackW = std::max(rackW, rack->rowColumns(row) * m.colW + (static_cast<int>(row.size()) - 1) * m.gap);
+        const float keyW = std::max(16.0f, static_cast<float>(rackW) / 52.0f);
+        auto keys = area.removeFromBottom(m.keysH);
+        keyboard.setBounds(keys.removeFromRight(std::min(keys.getWidth(), juce::roundToInt(keyW * 52.0f))));
+        keyboard.setKeyWidth(keyW);
+    }
     {
         auto strip = area.removeFromBottom(keyStripH());
         keyboardButton.setBounds(strip.removeFromRight(m.colW >= 80 ? 96 : 84).reduced(0, 1));
     }
-    // The 88 keys (52 white) fill the window; a window narrower than 52 x 16 px scrolls.
-    keyboard.setKeyWidth(std::max(16.0f, static_cast<float>(keyboard.getWidth()) / 52.0f));
     area.removeFromBottom(m.gap);
     notesEditor.setBounds(area);                             // Notes tab: the area of the panels
     if (matrix) { matrix->setBounds(area); matrix->setFontSize(m.labelFont - 2.0f); }   // Matrix tab

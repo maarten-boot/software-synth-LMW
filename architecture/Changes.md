@@ -3,6 +3,7 @@
 Changes between releases.
 
 ## Unreleased
+- 2026-11-24: The window fills the screen and can be resized; the panels keep their size, so there is room to move them (rows can be as wide as the screen). Compact makes the panels smaller and keeps the window. The on-screen keyboard keeps its size, at the right. Lines between the rows show the rack. In a DAW the plugin window can be resized too.
 - 2026-11-24: The socket under the mouse, with keyboard focus or under a dragged cable sits on a golden-yellow box with a black edge (Synth, Effects and Schematic tabs). Its colour is in Menu ▸ Theme ▸ Edit colours ("Selected socket"), and in saved themes.
 
 ## 1.4.0 (2026-11-23)

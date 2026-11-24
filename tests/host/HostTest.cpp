@@ -625,6 +625,10 @@ int main(int argc, char* argv[]) {
         if (editor != nullptr) {
             std::printf("editor: %d x %d\n", editor->getWidth(), editor->getHeight());
             CHECK(editor->getWidth() > 600 && editor->getHeight() > 400);
+            // T-S6.16-window: in a host the editor opens at the size the rack needs (normal view, keyboard shown:
+            // 1496 x 874 without the standalone title bar) and can be resized.
+            std::printf("editor resizable: %d\n", editor->isResizable() ? 1 : 0);
+            CHECK(editor->isResizable());
         }
     } else {
         std::printf("editor: skipped (no display)\n");

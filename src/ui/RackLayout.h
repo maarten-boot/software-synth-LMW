@@ -25,6 +25,10 @@ public:
     const Rows& rows() const { return rows_; }
     const Rows& defaultRows() const { return default_; }
     int maxRows() const { return maxRows_; }
+    int maxColumns() const { return maxColumns_; }
+    // Spec S6.16: rows may be as wide as the screen; the limit follows the view (normal / compact). A layout
+    // that is already wider stays as it is.
+    void setMaxColumns(int c) { maxColumns_ = c; }
     void reset() { rows_ = default_; }
     bool isDefault() const { return rows_ == default_; }
 

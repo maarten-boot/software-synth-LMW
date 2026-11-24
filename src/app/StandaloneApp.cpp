@@ -97,7 +97,24 @@ public:
         mainWindow = std::make_unique<LMWStandaloneWindow>(
             getApplicationName(), lookAndFeel.findColour(juce::ResizableWindow::backgroundColourId),
             createPluginHolder());
+        fillScreen(*mainWindow);
         mainWindow->setVisible(true);
+    }
+
+    // Spec S6.16 (user 2026-11-24): the window fills the work area of the screen it was last on (no task bar /
+    // dock); the panels keep their size and the free space takes moved panels. Never below the editor's minimum
+    // (the window's own limits come from the editor through JUCE's decorator constrainer).
+    static void fillScreen(juce::StandaloneFilterWindow& w) {
+        const auto* display = juce::Desktop::getInstance().getDisplays().getDisplayForRect(w.getScreenBounds());
+        auto* editor = w.getContentComponent() != nullptr ? w.getContentComponent()->getChildComponent(0) : nullptr;
+        if (display == nullptr) return;
+        auto area = display->userBounds.toNearestInt();
+        if (auto* ed = dynamic_cast<juce::AudioProcessorEditor*>(editor); ed != nullptr && ed->getConstrainer() != nullptr) {
+            const int extraW = w.getWidth() - ed->getWidth(), extraH = w.getHeight() - ed->getHeight();
+            const int minW = ed->getConstrainer()->getMinimumWidth() + extraW, minH = ed->getConstrainer()->getMinimumHeight() + extraH;
+            area.setSize(std::max(area.getWidth(), minW), std::max(area.getHeight(), minH));
+        }
+        w.setBounds(area);
     }
 
     void shutdown() override {

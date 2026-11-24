@@ -238,7 +238,13 @@ private:
     static juce::Component::SafePointer<juce::Component> focusNow();   // around popup menus (S3.2)
     void restoreFocus(juce::Component::SafePointer<juce::Component> c);
     void setCompact(bool compact);
-    void updateSize();                                    // window size from metrics and row count
+    // Window size from metrics and row count (Spec S6.16): the minimum the rack needs; the window grows to it,
+    // and with `shrink` (the plugin's Compact / keyboard toggles) is set to it.
+    void updateSize(bool shrink = false);
+    int screenColumns(const Metrics& metrics) const;     // S6.16: columns that fit on the widest screen
+    bool standalone() const;
+    int defaultMaxColumns = 0;
+    juce::Point<int> sentMinimum;                         // S6.16: the minimum the window manager was last told
     std::optional<DropTarget> findDrop(int panel, juce::Point<int> where) const;
     void dragPanel(int panel, juce::Point<int> where);    // editor coordinates
     void dropPanel(int panel, juce::Point<int> where);
