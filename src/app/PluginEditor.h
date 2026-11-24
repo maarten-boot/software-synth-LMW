@@ -278,6 +278,8 @@ private:
     void removeAllCables();
     // Spec S6.6, S6.7: the cable menu of a socket (Synth tab) or a port (Schematic tab), shown at `screenArea`.
     void showPortMenu(bool output, int port, juce::Rectangle<int> screenArea);
+    void typeCableLevel(int input, int output);            // Spec S6.18: Type a level ▸ a connection
+    void setCableLevel(int input, int output, float level);   // S6.18: normalled -> cables, then this level
     juce::String describeOutput(lmw::dsp::Out) const;     // "<output> → <inputs it feeds>"
     // Spec S6.3: config file and contrast.
     void saveConfig() const;

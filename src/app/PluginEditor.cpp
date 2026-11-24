@@ -70,6 +70,24 @@ LMWLookAndFeel::LMWLookAndFeel() {
 void LMWLookAndFeel::drawLinearSlider(juce::Graphics& g, int x, int y, int width, int height,
                                       float sliderPos, float minSliderPos, float maxSliderPos,
                                       juce::Slider::SliderStyle style, juce::Slider& s) {
+    if (style == juce::Slider::LinearHorizontal) {             // Spec S6.18: the cable faders in a socket menu
+        const float cy = static_cast<float>(y) + static_cast<float>(height) * 0.5f;
+        const float left = static_cast<float>(x), right = static_cast<float>(x + width);
+        g.setColour(kFg);
+        g.fillRect(juce::Rectangle<float>(left, cy - 1.0f, right - left, 2.0f));
+        const float zero = s.getMinimum() < 0.0 ? static_cast<float>(s.getPositionOfValue(0.0)) : left;
+        g.fillRect(juce::Rectangle<float>(std::min(zero, sliderPos), cy - 3.0f, std::fabs(sliderPos - zero), 6.0f));
+        if (s.getMinimum() < 0.0) g.fillRect(juce::Rectangle<float>(zero - 1.0f, cy - 7.0f, 2.0f, 14.0f));   // the 0 mark
+        const auto thumb = juce::Rectangle<float>(12.0f, std::min(22.0f, static_cast<float>(height))).withCentre({sliderPos, cy});
+        g.fillRect(thumb);
+        g.setColour(kBg);
+        g.fillRect(juce::Rectangle<float>(sliderPos - 1.0f, thumb.getY() + 4.0f, 2.0f, thumb.getHeight() - 8.0f));
+        if (s.hasKeyboardFocus(false)) {
+            g.setColour(kFg);
+            g.drawRect(juce::Rectangle<float>(left, static_cast<float>(y), right - left, static_cast<float>(height)).expanded(2.0f), 1.0f);
+        }
+        return;
+    }
     if (style != juce::Slider::LinearVertical) {
         LookAndFeel_V4::drawLinearSlider(g, x, y, width, height, sliderPos, minSliderPos, maxSliderPos, style, s);
         return;
@@ -672,10 +690,15 @@ juce::String LMWSynthEditor::describeInput(lmw::dsp::In in) const {
     const juce::String arrow = juce::String::fromUTF8("\xe2\x86\x92");
     // Signal flow reads left to right: source → input (Spec S6.1). Several cables: "a + b (50 %) → in".
     if (!patch.isPatched(in)) {
-        const auto src = patch.source(in);
-        if (src == lmw::dsp::noSource) return inName + ": not connected (reads 0); patch a cable into it";
-        const juce::String srcName(lmw::dsp::outputNames[idx(src)].data(), lmw::dsp::outputNames[idx(src)].size());
-        return srcName + " " + arrow + " " + inName + " (normalled)";
+        const auto ns = patch.normals(in);
+        if (ns.n == 0 || ns.s[0].source == lmw::dsp::noSource) return inName + ": not connected (reads 0); patch a cable into it";
+        juce::StringArray srcs;                               // S5.17: two sources at 50 % each in Parallel
+        for (int k = 0; k < ns.n; ++k) {
+            const auto& x = ns.s[static_cast<std::size_t>(k)];
+            srcs.add(juce::String(lmw::dsp::outputNames[idx(x.source)].data(), lmw::dsp::outputNames[idx(x.source)].size())
+                     + (x.level != 1.0f ? " (" + juce::String(juce::roundToInt(x.level * 100.0f)) + " %)" : juce::String()));
+        }
+        return srcs.joinIntoString(" + ") + " " + arrow + " " + inName + " (normalled)";
     }
     juce::StringArray sources;
     for (int k = 0; k < patch.pinCount(in); ++k) {
@@ -1470,6 +1493,128 @@ juce::String LMWSynthEditor::describeOutput(lmw::dsp::Out out) const {
          + (fed.isEmpty() ? juce::String("(not connected)") : fed.joinIntoString(", "));
 }
 
+namespace {
+// Spec S6.18 (Phase 25b): one connection of a socket as a row at the bottom of its menu — the output name, a
+// horizontal fader for the level, the input name, the level as text. A modulation input's fader runs -100..+100 %
+// (S5.21), others 0..100 %; a gate input has no level (on/off). The row follows the patch (10 times a second), so
+// it shows changes made elsewhere and a normalled connection that became a cable.
+class CableRow final : public juce::PopupMenu::CustomComponent, private juce::Timer {
+public:
+    struct Link {
+        std::function<const lmw::dsp::Patch&()> patch;
+        std::function<void(float)> set;                  // the new level (makes the cable(s) when normalled)
+        std::function<void(bool)> drag;                  // drag started / ended (one undo step)
+        juce::Colour sourceFill = kBg, targetFill = kBg;  // the units' colours (S6.9, user 2026-11-24)
+    };
+    CableRow(int input, int output, Link l) : juce::PopupMenu::CustomComponent(false), in(input), out(output), link(std::move(l)) {
+        const auto inName = lmw::dsp::inputNames[static_cast<std::size_t>(in)];
+        const auto outName = lmw::dsp::outputNames[static_cast<std::size_t>(out)];
+        source.setText(juce::String(outName.data(), outName.size()), juce::dontSendNotification);
+        target.setText(juce::String(inName.data(), inName.size()), juce::dontSendNotification);
+        for (auto* lab : {&source, &target, &value}) {
+            lab->setColour(juce::Label::textColourId, kFg);
+            lab->setFont(juce::FontOptions(14.0f));
+            lab->setInterceptsMouseClicks(false, false);
+            addAndMakeVisible(*lab);
+        }
+        source.setColour(juce::Label::backgroundColourId, link.sourceFill);   // black text on the unit colour (S6.3)
+        target.setColour(juce::Label::backgroundColourId, link.targetFill);
+        source.setJustificationType(juce::Justification::centredRight);
+        value.setJustificationType(juce::Justification::centredRight);
+        const auto i = static_cast<lmw::dsp::In>(in);
+        gate = i == lmw::dsp::In::Env1Gate || i == lmw::dsp::In::Env2Gate;
+        fader.setSliderStyle(juce::Slider::LinearHorizontal);
+        fader.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+        fader.setRange(lmw::dsp::bipolar(i) ? -100.0 : 0.0, 100.0, 1.0);
+        fader.setDoubleClickReturnValue(true, 100.0);
+        fader.setTitle("Level " + source.getText() + " to " + target.getText());
+        fader.setTooltip(lmw::dsp::bipolar(i) ? "Cable level, -100 to +100 % (below 0 the source is inverted). Double-click: 100 %."
+                                              : "Cable level, 0 to 100 %. Double-click: 100 %.");
+        fader.onDragStart = [this] { dragging = true; if (link.drag) link.drag(true); };
+        fader.onDragEnd = [this] { dragging = false; if (link.drag) link.drag(false); };
+        fader.onValueChange = [this] {
+            if (syncing) return;
+            link.set(static_cast<float>(fader.getValue()) / 100.0f);
+            sync();
+        };
+        if (!gate) addAndMakeVisible(fader);
+        sync();
+        startTimerHz(10);
+    }
+    void getIdealSize(int& w, int& h) override { w = 470; h = 30; }
+    void resized() override {
+        auto r = getLocalBounds().reduced(6, 3);
+        source.setBounds(r.removeFromLeft(100));
+        value.setBounds(r.removeFromRight(54));
+        target.setBounds(r.removeFromRight(gate ? 260 : 160));
+        fader.setBounds(r.reduced(8, 0));
+    }
+    void paint(juce::Graphics& g) override { g.fillAll(kBg); }
+private:
+    void timerCallback() override { if (!dragging) sync(); }
+    void sync() {
+        const auto& p = link.patch();
+        const auto i = static_cast<lmw::dsp::In>(in);
+        const auto o = static_cast<lmw::dsp::Out>(out);
+        const bool cable = p.hasPin(i, o);
+        const float level = cable ? p.level(i, o) : p.isPatched(i) ? 0.0f : p.normalLevel(i, o);
+        const auto inName = lmw::dsp::inputNames[static_cast<std::size_t>(in)];
+        target.setText(juce::String(inName.data(), inName.size()) + (cable ? "" : p.isPatched(i) ? " (removed)" : " (normalled)")
+                           + (gate ? " (on/off)" : ""), juce::dontSendNotification);
+        value.setText(gate ? juce::String(cable || !p.isPatched(i) ? "on" : "off")
+                           : juce::String(juce::roundToInt(level * 100.0f)) + " %", juce::dontSendNotification);
+        const juce::ScopedValueSetter<bool> s(syncing, true);
+        fader.setValue(std::round(level * 100.0f), juce::dontSendNotification);
+    }
+    int in, out;
+    Link link;
+    bool gate = false, dragging = false, syncing = false;
+    juce::Label source, target, value;
+    juce::Slider fader;
+};
+}
+
+// Spec S6.18: the level of one connection; a normalled input's normal connection becomes cables first (all its
+// normal sources at their normal levels, e.g. formant.in in Parallel: both VCFs at 50 %), then this one is set.
+void LMWSynthEditor::setCableLevel(int input, int output, float level) {
+    const auto in = static_cast<lmw::dsp::In>(input);
+    const auto& p = processor.currentPatch();
+    if (!p.isPatched(in)) {
+        const auto ns = p.normals(in);
+        for (int k = 0; k < ns.n; ++k)
+            if (const auto& x = ns.s[static_cast<std::size_t>(k)]; x.source != lmw::dsp::noSource)
+                connect(input, static_cast<int>(x.source), x.level);
+    }
+    connect(input, output, level);
+}
+
+// Spec S6.18: a level typed for one connection (Enter on its row in the socket menu); a normalled one becomes cables.
+void LMWSynthEditor::typeCableLevel(int input, int output) {
+    using lmw::dsp::In;
+    const auto in = static_cast<In>(input);
+    const auto& p = processor.currentPatch();
+    const float now = p.hasPin(in, static_cast<lmw::dsp::Out>(output)) ? p.level(in, static_cast<lmw::dsp::Out>(output))
+                    : p.isPatched(in) ? 0.0f : p.normalLevel(in, static_cast<lmw::dsp::Out>(output));
+    const bool inverts = lmw::dsp::bipolar(in);
+    auto* w = new juce::AlertWindow("Cable level", portName(true, output) + " " + juce::String::fromUTF8("\xe2\x86\x92") + " "
+                                        + portName(false, input) + (inverts ? "\nLevel in percent, -100 to 100 (below 0: inverted):"
+                                                                            : "\nLevel in percent, 0 to 100:"),
+                                    juce::MessageBoxIconType::NoIcon, this);
+    w->addTextEditor("level", juce::String(juce::roundToInt(now * 100.0f)));
+    w->addButton("OK", 1, juce::KeyPress(juce::KeyPress::returnKey));
+    w->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
+    w->enterModalState(true, juce::ModalCallbackFunction::create(
+        [safe = juce::Component::SafePointer<LMWSynthEditor>(this), w, input, output, inverts](int result) {
+            if (safe == nullptr || result != 1) return;
+            const auto text = w->getTextEditorContents("level").trim().trimCharactersAtEnd("% ");
+            if (text.isEmpty() || !text.containsOnly("-0123456789.")) return;
+            const float l = juce::jlimit(inverts ? -1.0f : 0.0f, 1.0f, static_cast<float>(text.getDoubleValue()) / 100.0f);
+            const LMWSynthProcessor::ScopedStep step(safe->processor, "cable level");   // Spec S6.14
+            safe->setCableLevel(input, output, l);
+        }), true);
+    if (auto* field = w->getTextEditor("level")) { field->grabKeyboardFocus(); field->selectAll(); }
+}
+
 void LMWSynthEditor::showPortMenu(bool output, int port, juce::Rectangle<int> screenArea) {
     using lmw::dsp::In;
     using lmw::dsp::Out;
@@ -1513,6 +1658,55 @@ void LMWSynthEditor::showPortMenu(bool output, int port, juce::Rectangle<int> sc
         menu.addSeparator();
         menu.addItem(4, "Reset schematic layout");
     }
+    // Spec S6.18: a fader row per connection of this socket — its cables, or the normalled connections they replace.
+    {
+        std::vector<std::pair<int, int>> rows;                // (input, output)
+        const auto addInput = [&](In in, std::optional<Out> only) {
+            if (patch.isPatched(in)) {
+                for (int k = 0; k < patch.pinCount(in); ++k) {
+                    const auto o = static_cast<Out>(patch.pin(in, k).source);
+                    if (!only || o == *only) rows.push_back({static_cast<int>(in), static_cast<int>(o)});
+                }
+            } else {
+                const auto ns = patch.normals(in);
+                for (int k = 0; k < ns.n; ++k) {
+                    const auto o = ns.s[static_cast<std::size_t>(k)].source;
+                    if (o != lmw::dsp::noSource && (!only || o == *only)) rows.push_back({static_cast<int>(in), static_cast<int>(o)});
+                }
+            }
+        };
+        if (!output) addInput(static_cast<In>(port), std::nullopt);
+        else for (int i = 0; i < lmw::dsp::numInputs; ++i) addInput(static_cast<In>(i), static_cast<Out>(port));
+        if (!rows.empty()) {
+            menu.addSeparator();
+            menu.addSectionHeader(rows.size() == 1 ? "Level" : "Levels");
+            const auto safe = juce::Component::SafePointer<LMWSynthEditor>(this);
+            // Without a mouse (a menu does not pass keys to its rows): Type a level ▸ one item per connection.
+            juce::PopupMenu typed;
+            typed.setLookAndFeel(&lookAndFeel);
+            for (const auto& [in, out] : rows)
+                typed.addItem(1000 + in * 100 + out, portName(true, out) + " " + juce::String::fromUTF8("\xe2\x86\x92") + " " + portName(false, in));
+            menu.addSubMenu("Type a level", typed);
+            for (const auto& [in, out] : rows) {
+                CableRow::Link link;
+                link.patch = [safe]() -> const lmw::dsp::Patch& {
+                    static const lmw::dsp::Patch none;               // the editor closed while the menu was open
+                    return safe != nullptr ? safe->processor.currentPatch() : none;
+                };
+                link.set = [safe, in = in, out = out](float level) { if (safe != nullptr) safe->setCableLevel(in, out, level); };
+                // User 2026-11-24: the names on their unit's colour, as in the panel titles and the Matrix (S6.9).
+                link.sourceFill = toJuce(palette.unitColour(lmw::ui::theme::unitOf(lmw::dsp::outputNames[static_cast<std::size_t>(out)])));
+                link.targetFill = toJuce(palette.unitColour(lmw::ui::theme::unitOf(lmw::dsp::inputNames[static_cast<std::size_t>(in)])));
+                link.drag = [safe](bool started) {               // Spec S6.14: one drag, one step
+                    if (safe == nullptr) return;
+                    if (started) safe->processor.beginStep("cable level");
+                    else safe->processor.endStep();
+                };
+                menu.addCustomItem(5000 + in * 100 + out, std::make_unique<CableRow>(in, out, std::move(link)), nullptr,
+                                   "Level " + portName(true, out) + " to " + portName(false, in));
+            }
+        }
+    }
     menu.showMenuAsync(juce::PopupMenu::Options().withTargetScreenArea(screenArea),
                        [safe = juce::Component::SafePointer<LMWSynthEditor>(this), output, port, focus = focusNow()](int r) {
         if (safe != nullptr) safe->restoreFocus(focus);
@@ -1533,6 +1727,8 @@ void LMWSynthEditor::showPortMenu(bool output, int port, juce::Rectangle<int> sc
         } else if (output && r >= 200 && r < 200 + lmw::dsp::numInputs) {
             const bool cabled = p.hasPin(static_cast<In>(r - 200), static_cast<lmw::dsp::Out>(port));
             safe->connect(r - 200, port, cabled ? lmw::dsp::removePin : 1.0f);
+        } else if (r >= 1000 && r < 5000) {                    // Spec S6.18: Type a level ▸ a connection
+            safe->typeCableLevel((r - 1000) / 100, (r - 1000) % 100);
         }
     });
 }

@@ -140,13 +140,18 @@ Schematic), and a cable replaces a normal connection where you want something el
 
 3. Cables add up: in the Matrix also set *env2.out × vcf1.cutoff* to 100 %: envelope **and** wobble.
 4. Back on **Synth**: drag the cable's plug from *VCF 1 › Cut* into empty space to remove it.
-   Right-click (or Tab to a socket and press Enter) for a menu of connections.
+   Right-click (or Tab to a socket and press Enter) for a menu of connections. At its bottom every
+   connection of that socket has a fader: drag it to change the level while you listen (*Type a level*
+   in the same menu does it without a mouse).
 5. *ENV 2 › Out* → *LFO 1 › Rate*, *VCO 1 › FM* 0.3 st: the vibrato speeds up as a note is held.
 6. **Schematic** tab: cables are solid lines, normal connections dashed; you can patch there too.
 
 **Listen for:** a cable on an input switches off its normal source — unplug it and the default returns.
 **Try yourself:** *noise.rand* (the random steps of NOISE) → *vcf1.cutoff* at 40 %: the classic
 "sample & hold" bleeps.
+**Inverted:** right-click *VCF 1 › Cut* and drag the *env2.out* fader below 0 (to −50 %): the
+envelope now closes the filter as it rises. Modulation inputs take −100 … +100 %; *keys.pitch* at
+−30 % on *VCA › Mod* makes low notes louder.
 
 ---
 
