@@ -333,10 +333,11 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
          addFader(P::delaySpread, "Spread", [] { return juce::String("0 = each side echoes itself; 100 % = ping-pong between left and right"); }),
          addFader(P::delayMix, "Mix", [] { return juce::String("Dry/wet: 0 = off (the input passes unchanged), 100 % = only the echoes"); })}, {}});
     effectGroups.push_back({"REVERB", 0,
-        {addFader(P::reverbMix, "Mix", [] { return juce::String("Dry/wet balance: 0 = off (no reverb at all), 100 % = only reverb"); }),
-         addFader(P::reverbSize, "Size", [] { return juce::String("Room size: longer decay when larger"); }),
+        // Mix on the right as on every other effect (user 2026-11-24; it was first).
+        {addFader(P::reverbSize, "Size", [] { return juce::String("Room size: longer decay when larger"); }),
          addFader(P::reverbDamping, "Damping", [] { return juce::String("High-frequency damping of the reflections: darker when higher"); }),
-         addFader(P::reverbWidth, "Width", [] { return juce::String("Stereo width of the reverb: 0 = mono, 100 % = widest"); })}, {}});
+         addFader(P::reverbWidth, "Width", [] { return juce::String("Stereo width of the reverb: 0 = mono, 100 % = widest"); }),
+         addFader(P::reverbMix, "Mix", [] { return juce::String("Dry/wet balance: 0 = off (no reverb at all), 100 % = only reverb"); })}, {}});
     effectGroups.push_back({"MAIN", 0, {}, {}, 1});
     for (const auto& grp : effectGroups)                     // Spec S7.5: COMB, DELAY and REVERB have presets
         if (const auto module = presetModuleOf(grp.title); module.isNotEmpty()) {
