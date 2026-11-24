@@ -154,6 +154,29 @@ int main() {
         std::printf("keys.pitch +100 %%: %.1f Hz, -100 %%: %.1f Hz\n", fUp, fInv);
         CHECK(std::fabs(fUp - 523.25) < 3.0 && std::fabs(fInv - 130.81) < 3.0);
     }
+    // T-S5.22-velocity: vca.vel normalled from keys.vel, the Velocity amount (vca.velocity).
+    {
+        auto peak = [](const std::vector<float>& x) { double m = 0; for (float v : x) m = std::max(m, std::fabs(double(v))); return m; };
+        auto play = [&](float vel, float amount, bool cable = false) {
+            Engine e = makeEngine();
+            ModParams mp; mp.vcaVelocity = amount; e.setModParams(mp);
+            if (cable) e.addPin(In::VcaVel, Out::KeysGate, 1.0f);       // a cable replaces velocity (gate = 1 while held)
+            e.noteOn(60, vel);
+            return render(e, 4800);
+        };
+        CHECK(normals(In::VcaVel, VcfRouting::Serial).s[0].source == Out::KeysVel && bipolar(In::VcaVel));
+        const auto full = play(1.0f, 1.0f), half = play(0.5f, 1.0f);
+        CHECK(maxDiff(half, full, 0.5f) < 1e-7);                      // 100 %: gain x velocity, as before
+        const auto a0lo = play(0.2f, 0.0f), a0hi = play(1.0f, 0.0f);
+        CHECK(maxDiff(a0lo, a0hi) < 1e-7);                            // 0 %: every note at full level
+        const auto mid = play(0.2f, 0.5f);
+        std::printf("velocity 0.2: amount 50 %% peak %.3f of %.3f (expected 0.6)\n", peak(mid), peak(full));
+        CHECK(std::fabs(peak(mid) / peak(full) - 0.6) < 0.01);         // 1 - 0.5 + 0.5 x 0.2
+        CHECK(maxDiff(play(0.2f, 1.0f, true), full) < 1e-7);          // cabled keys.gate: full level whatever the velocity
+        const auto t = patchFromText("vca.vel=keys.pitch@0.5;vca.cv=env1.out");
+        CHECK(t.has_value() && t->level(In::VcaVel, Out::KeysPitch) == 0.5f && patchToText(*t) == "vca.cv=env1.out;vca.vel=keys.pitch@0.5");
+        CHECK(patchFromText("vca.vel=lfo1.out@-0.5").has_value());
+    }
     if (failures == 0) std::printf("T-S5.14-pins: all passed\n");
     return failures == 0 ? 0 : 1;
 }

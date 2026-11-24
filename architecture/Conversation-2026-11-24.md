@@ -56,3 +56,6 @@
 - User: start the spec for L15. Asked: fader only, or fader and a patchable input socket → fader and socket.
 - Spec S5.22 drafted (input vca.vel normalled from keys.vel, Velocity fader 0–100 % default 100 %, gain × (1 − a + a·vel), VCA panel 3 columns, Matrix row, Schematic line instead of the label; compatibility); Plan 26, 26a–b; test T-S5.22-velocity planned. To confirm.
 - User: all ok, commit the spec and start 26a.
+- 26a done: In::VcaVel (normalled keys.vel, bipolar), vca.velocity parameter (default 100 %), engine gain × clamp(1 − a + a·vel); Schematic: velocity label replaced by the port. Tests: counts (inputs 34, /info 70, schematic connections +1, internal links without velocity), new T-S5.22 checks in test_pins (100 % = gain × velocity exactly, 0 % equal loudness, 50 % at 0.2 → 0.6, a cable replaces velocity, text). 9P checked: /params/vca/velocity, /ports keys.vel -> vca.vel, /info, a negative cable. 36 of 36.
+- User question: dark themes and readability → answered.
+- User: commit 26a, note the dark theme as L18, start 26b.

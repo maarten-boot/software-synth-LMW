@@ -101,7 +101,8 @@ APVTS::ParameterLayout LMWSynthProcessor::createLayout(std::map<std::string, Flo
           f(P::formantRes, "Formant Resonance", Range(0.0f, 1.0f), 0.5f, percent),
           f(P::formantMix, "Formant Mix", Range(0.0f, 1.0f), 0.0f, percent));
     l.add(f(P::vcaInitial, "VCA Initial",  Range(0.0f, 1.0f), 0.0f, percent),
-          f(P::vcaTremolo, "VCA Tremolo",  Range(0.0f, 1.0f), 0.0f, percent));   // Spec S5.12
+          f(P::vcaTremolo, "VCA Tremolo",  Range(0.0f, 1.0f), 0.0f, percent),    // Spec S5.12
+          f(P::vcaVelocity, "VCA Velocity", Range(0.0f, 1.0f), 1.0f, percent));   // Spec S5.22
     envelope(l, P::env1Attack, P::env1Decay, P::env1Sustain, P::env1Release, "Env1", 0.01f, 0.2f, 0.7f, 0.3f);
     envelope(l, P::env2Attack, P::env2Decay, P::env2Sustain, P::env2Release, "Env2", 0.01f, 0.3f, 0.0f, 0.3f);
     // Spec S5.12: LFO 1 (vibrato) and LFO 2 (tremolo).
@@ -146,6 +147,7 @@ LMWSynthProcessor::LMWSynthProcessor()
     raw.e2a = get(P::env2Attack); raw.e2d = get(P::env2Decay); raw.e2s = get(P::env2Sustain); raw.e2r = get(P::env2Release);
     raw.lfoRate = get(P::lfoRate); raw.lfoWave = get(P::lfoWave); raw.gain = get(P::gain);
     raw.lfo2Rate = get(P::lfo2Rate); raw.lfo2Wave = get(P::lfo2Wave); raw.tremolo = get(P::vcaTremolo);
+    raw.vcaVelocity = get(P::vcaVelocity);
     raw.revMix = get(P::reverbMix); raw.revSize = get(P::reverbSize);
     raw.revDamping = get(P::reverbDamping); raw.revWidth = get(P::reverbWidth);
     raw.combFreq = get(P::combFreq); raw.combKey = get(P::combKey); raw.combFeedback = get(P::combFeedback);
@@ -389,6 +391,7 @@ void LMWSynthProcessor::pullParameters() noexcept {
     m.lfo2Rate    = raw.lfo2Rate->load();
     m.lfo2Wave    = static_cast<lmw::dsp::LfoWave>(static_cast<int>(raw.lfo2Wave->load()));
     m.tremolo     = raw.tremolo->load();
+    m.vcaVelocity = raw.vcaVelocity->load();
     m.noiseColour = static_cast<lmw::dsp::NoiseColour>(static_cast<int>(raw.noiseColour->load()));
     m.randRate    = raw.noiseRate->load();
     m.randSmooth  = raw.noiseSmooth->load();

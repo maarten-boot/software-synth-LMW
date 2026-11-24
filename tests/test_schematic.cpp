@@ -64,7 +64,7 @@ int main() {
     {   // Default patch: the 21 normalled connections (24 inputs; vcf1.res, vcf2.res and formant.vowel have none).
         lmw::dsp::Patch p;
         const auto c = sc::connections(p);
-        CHECK(c.size() == 25);   // + comb.in, delay.in, reverb.in, main.in (S7.6, S7.8)
+        CHECK(c.size() == 26);   // + comb.in, delay.in, reverb.in, main.in (S7.6, S7.8), vca.vel (S5.22)
         for (const auto& x : c) CHECK(x.normalled && x.level == 1.0f);
         CHECK(sc::describeInput(p, In::Vcf1Cutoff) == "env2.out → vcf1.cutoff (normalled)");
         CHECK(sc::describeInput(p, In::Vcf1Res) == "vcf1.res: not connected");
@@ -75,7 +75,7 @@ int main() {
         lmw::dsp::Patch p;
         p.setRouting(lmw::dsp::VcfRouting::Parallel);
         const auto c = sc::connections(p);
-        CHECK(c.size() == 26);
+        CHECK(c.size() == 27);
         int toFormant = 0;
         for (const auto& x : c) {
             if (x.to == In::FormantIn) { ++toFormant; CHECK(x.level == 0.5f && x.normalled); }
@@ -91,7 +91,7 @@ int main() {
         CHECK(p.connect(In::Vcf1Cutoff, Out::Env2));
         CHECK(p.connect(In::Vcf1Res, Out::KeysVel));
         const auto c = sc::connections(p);
-        CHECK(c.size() == 27);   // 24 normalled + 3 cables
+        CHECK(c.size() == 28);   // 25 normalled + 3 cables
         int cables = 0;
         for (const auto& x : c)
             if (!x.normalled) {
@@ -113,13 +113,14 @@ int main() {
         CHECK(std::isfinite(mid.x) && std::isfinite(mid.y));
         CHECK(sc::curveAt(cv, 0).x == cv[0].x && sc::curveAt(cv, 1).y == cv[3].y);
     }
-    {   // Internal links: key tracking only while Key > 0, velocity -> VCA always; targets on the block's lower edge.
+    {   // Internal links: key tracking only while Key > 0 (velocity -> VCA is the normalled input vca.vel since
+        // S5.22); targets on the block's lower edge.
         auto l = sc::internalLinks(0.0f, 0.0f);
-        CHECK(l.size() == 1 && l[0].from == Out::KeysVel && l[0].block == "VCA" && l[0].label == "velocity");
+        CHECK(l.empty());
         l = sc::internalLinks(0.5f, 0.0f);
-        CHECK(l.size() == 2 && l[0].from == Out::KeysPitch && l[0].block == "VCF 1" && l[0].label == "key 50 %");
+        CHECK(l.size() == 1 && l[0].from == Out::KeysPitch && l[0].block == "VCF 1" && l[0].label == "key 50 %");
         l = sc::internalLinks(0.25f, 1.0f);
-        CHECK(l.size() == 3 && l[1].block == "VCF 2" && l[1].label == "key 100 %");
+        CHECK(l.size() == 2 && l[1].block == "VCF 2" && l[1].label == "key 100 %");
         for (const auto& x : l) {
             const auto bi = sc::findBlock(x.block);
             CHECK(bi.has_value());
@@ -134,7 +135,7 @@ int main() {
         CHECK(!sc::findBlock("nothing"));
         CHECK(sc::blockNote("VCF 1", 0.5f, 0.0f) == "keys.pitch \u2192 cutoff (internal: Key 50 %)");
         CHECK(sc::blockNote("VCF 2", 0.5f, 0.0f) == "key tracking off (Key 0 %)");
-        CHECK(sc::blockNote("VCA", 0, 0).find("velocity") != std::string::npos);
+        CHECK(sc::blockNote("VCA", 0, 0).find("velocity") == std::string::npos);   // S5.22: a normal connection now
         CHECK(sc::blockNote("VCO 2", 0, 0).find("mod wheel") != std::string::npos);
         CHECK(sc::blockNote("MIX", 0, 0).empty());
     }

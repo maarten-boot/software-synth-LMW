@@ -57,6 +57,7 @@ struct ModParams {
     float lfo2Rate = 4.0f;                      // lfo2.rate (Hz), Spec S5.12
     LfoWave lfo2Wave = LfoWave::Sine;           // lfo2.wave
     float tremolo = 0.0f;                       // vca.tremolo: depth of vca.mod, 0..1 (0 = off)
+    float vcaVelocity = 1.0f;                   // vca.velocity (S5.22): how much vca.vel sets the gain, 0..1
     NoiseColour noiseColour = NoiseColour::White;   // noise.colour (Spec S5.15)
     float randRate = 4.0f;                      // noise.rate: sample & hold steps per second
     float randSmooth = 0.0f;                    // noise.smooth: 0 = steps .. 1 = glides
@@ -203,7 +204,11 @@ public:
         // depth 0 leaves the gain exactly as it is.
         if (mp.tremolo > 0.0f)
             vcaGain *= 1.0f - mp.tremolo * 0.5f * (1.0f - std::clamp(read(In::VcaMod, g, patch), -1.0f, 1.0f));
-        out[o(Out::Vca)] = read(In::VcaIn, g, patch) * vcaGain * velocity;
+        // Spec S5.22: gain x (1 - amount + amount x vca.vel); vca.vel is keys.vel unless cabled. At 100 % with the
+        // normal connection this is gain x velocity exactly (1 - 1 = 0, 0 + 1 x v = v), as before.
+        const float a = mp.vcaVelocity;
+        const float velGain = std::clamp(1.0f - a + a * read(In::VcaVel, g, patch), 0.0f, 1.0f);
+        out[o(Out::Vca)] = read(In::VcaIn, g, patch) * vcaGain * velGain;
 
         return readPerVoice(In::OutIn, g, patch);           // global pins are added once by the engine
     }

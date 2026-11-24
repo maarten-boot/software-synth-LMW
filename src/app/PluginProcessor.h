@@ -51,6 +51,7 @@ inline constexpr const char* formantRes   = "formant.res";
 inline constexpr const char* formantMix   = "formant.mix";
 inline constexpr const char* vcaInitial  = "vca.initial";
 inline constexpr const char* vcaTremolo  = "vca.tremolo";   // Spec S5.12
+inline constexpr const char* vcaVelocity = "vca.velocity";  // Spec S5.22
 inline constexpr const char* env1Attack  = "env1.attack";
 inline constexpr const char* env1Decay   = "env1.decay";
 inline constexpr const char* env1Sustain = "env1.sustain";
@@ -320,7 +321,7 @@ private:
     struct RawParams {                 // atomics owned by apvts, read on the audio thread
         std::atomic<float> *voices{}, *mixNoise{}, *vcaInitial{},
             *e1a{}, *e1d{}, *e1s{}, *e1r{}, *e2a{}, *e2d{}, *e2s{}, *e2r{}, *lfoRate{}, *lfoWave{}, *gain{},
-            *lfo2Rate{}, *lfo2Wave{}, *tremolo{}, *revMix{}, *revSize{}, *revDamping{}, *revWidth{},
+            *lfo2Rate{}, *lfo2Wave{}, *tremolo{}, *vcaVelocity{}, *revMix{}, *revSize{}, *revDamping{}, *revWidth{},
             *noiseColour{}, *noiseRate{}, *noiseSmooth{},
             *combFreq{}, *combKey{}, *combFeedback{}, *combDamping{}, *combMix{},
             *delayTime{}, *delayFeedback{}, *delayDamping{}, *delaySpread{}, *delayMix{}, *formantVowel{}, *formantVoice{}, *formantRes{}, *formantMix{}, *vcfRouting{};

@@ -62,7 +62,7 @@ inline const std::vector<Block>& blocks() {
         {"VCF 1",  Shape::Triangle, {68, 20, 12, 14}, {In::Vcf1In, In::Vcf1Cutoff, In::Vcf1Res}, {Out::Vcf1}},
         {"VCF 2",  Shape::Triangle, {86, 20, 12, 14}, {In::Vcf2In, In::Vcf2Cutoff, In::Vcf2Res}, {Out::Vcf2}},
         {"FORMANT", Shape::Triangle, {104, 20, 12, 14}, {In::FormantIn, In::FormantVowel}, {Out::Formant}},   // S5.16
-        {"VCA",    Shape::Triangle, {122, 20, 12, 14},{In::VcaIn, In::VcaCv, In::VcaMod}, {Out::Vca}},
+        {"VCA",    Shape::Triangle, {122, 20, 12, 14},{In::VcaIn, In::VcaCv, In::VcaMod, In::VcaVel}, {Out::Vca}},
         {"OUT",    Shape::Triangle, {140, 22, 10, 10}, {In::OutIn}, {Out::OutOut}},   // S7.6: feeds the effects
         {"ENV 1",  Shape::Adsr,     {50, 58, 12, 8},  {In::Env1Gate}, {Out::Env1}},
         {"ENV 2",  Shape::Adsr,     {50, 45, 12, 8},  {In::Env2Gate}, {Out::Env2}},
@@ -319,8 +319,8 @@ inline std::string describeOutput(const lmw::dsp::Patch& p, Out out) {
 }
 
 // Internal links (set by a fader, not by a socket): drawn thin and dotted with an arrow into the module
-// body. Key tracking keys.pitch -> VCF N only while its Key fader is above 0; velocity -> VCA always
-// (the VCA always multiplies by velocity, S5.8). The mod wheel has no block; the VCO hover text names it.
+// body. Key tracking keys.pitch -> VCF N only while its Key fader is above 0 (velocity -> VCA was one until
+// S5.22 made it the normalled input vca.vel). The mod wheel has no block; the VCO hover text names it.
 struct InternalLink {
     Out from;
     std::string_view block;          // target block name
@@ -337,7 +337,6 @@ inline std::vector<InternalLink> internalLinks(float vcf1Key, float vcf2Key) {
     std::vector<InternalLink> l;
     if (vcf1Key > 0.0f) l.push_back({Out::KeysPitch, "VCF 1", "key " + percent(vcf1Key)});
     if (vcf2Key > 0.0f) l.push_back({Out::KeysPitch, "VCF 2", "key " + percent(vcf2Key)});
-    l.push_back({Out::KeysVel, "VCA", "velocity"});
     return l;
 }
 
@@ -359,7 +358,6 @@ inline std::array<Point, 4> internalCurve(Point a, Point t) noexcept {
 // Extra hover lines for a block: its internal links.
 inline std::string blockNote(std::string_view name, float vcf1Key, float vcf2Key) {
     if (name.starts_with("VCO")) return "mod wheel \u2192 FM depth (internal: FM fader + wheel \u00d7 1 st)";
-    if (name == "VCA") return "keys.vel \u2192 gain (internal, always: the VCA multiplies by velocity)";
     if (name == "VCF 1" || name == "VCF 2") {
         const float k = name == "VCF 1" ? vcf1Key : vcf2Key;
         return k > 0.0f ? "keys.pitch \u2192 cutoff (internal: Key " + percent(k) + ")"

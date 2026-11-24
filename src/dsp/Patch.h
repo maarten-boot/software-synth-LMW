@@ -18,7 +18,8 @@ enum class In  : std::uint8_t { Vco1Pitch, Vco1Fm, Vco1Pm, Vco2Pitch, Vco2Fm, Vc
                                 Env1Gate, Env2Gate,
                                 MixIn1, MixIn2, MixIn3, MixIn4, Vcf1In, Vcf1Cutoff, Vcf1Res, Vcf2In, Vcf2Cutoff, Vcf2Res,
                                 FormantIn, FormantVowel, VcaIn, VcaCv,
-                                VcaMod, OutIn, Lfo1Rate, Lfo2Rate,      // LFO rate inputs: Spec S5.19
+                                VcaMod, VcaVel,                          // velocity input: Spec S5.22
+                                OutIn, Lfo1Rate, Lfo2Rate,               // LFO rate inputs: Spec S5.19
                                 CombIn, DelayIn, ReverbIn, MainIn,       // effects (Spec S7.6, S7.8)
                                 Count };
 
@@ -42,7 +43,7 @@ inline constexpr std::array<std::string_view, numInputs> inputNames{
     "env1.gate", "env2.gate",
     "mix.in1", "mix.in2", "mix.in3", "mix.in4", "vcf1.in", "vcf1.cutoff", "vcf1.res", "vcf2.in", "vcf2.cutoff", "vcf2.res",
     "formant.in", "formant.vowel", "vca.in", "vca.cv",
-    "vca.mod", "out.in", "lfo1.rate", "lfo2.rate", "comb.in", "delay.in", "reverb.in", "main.in"};
+    "vca.mod", "vca.vel", "out.in", "lfo1.rate", "lfo2.rate", "comb.in", "delay.in", "reverb.in", "main.in"};
 
 // An input without a normalled source reads 0 until a cable is plugged in (Spec S5.13: vcfN.res).
 inline constexpr Out noSource = Out::Count;
@@ -54,6 +55,7 @@ inline constexpr std::array<Out, numInputs> normalled{
     Out::KeysGate, Out::KeysGate,
     Out::Vco1, Out::Vco2, Out::Vco3, Out::Noise, Out::Mix, Out::Env2, noSource, Out::Vcf1, Out::Env2, noSource,
     Out::Vcf2, noSource, Out::Formant, Out::Env1, Out::Lfo2,
+    Out::KeysVel,                                                 // S5.22: velocity -> VCA, as before but patchable
     Out::Vca, noSource, noSource,
     Out::OutOut, Out::CombOut, Out::DelayOut, Out::ReverbOut};   // S7.6, S7.8: out.out -> COMB -> DELAY -> REVERB -> main.in
 
@@ -96,7 +98,7 @@ inline constexpr bool bipolar(In i) noexcept {
     switch (i) {
         case In::Vco1Pitch: case In::Vco1Fm: case In::Vco1Pm: case In::Vco2Pitch: case In::Vco2Fm: case In::Vco2Pm:
         case In::Vco3Pitch: case In::Vco3Fm: case In::Vco3Pm: case In::Vcf1Cutoff: case In::Vcf1Res:
-        case In::Vcf2Cutoff: case In::Vcf2Res: case In::FormantVowel: case In::VcaCv: case In::VcaMod:
+        case In::Vcf2Cutoff: case In::Vcf2Res: case In::FormantVowel: case In::VcaCv: case In::VcaMod: case In::VcaVel:
         case In::Lfo1Rate: case In::Lfo2Rate:
             return true;
         default:
