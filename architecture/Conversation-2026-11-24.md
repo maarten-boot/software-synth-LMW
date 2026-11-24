@@ -22,4 +22,5 @@
 - User: commit 24c (d087ebe) and do the crosscheck.
 - Spec items written before Phase 24 that it changed, marked with "since Phase 24x": S3.2 keyboard keys (normal width at the right), S6.1 hover scale words (S6.17), S6.4 sizes now the minimum, S6.5 row width / window size, S6.6 and S6.7 drop ring and port cursor (highlight box), S6.12 hidden keyboard (standalone keeps its size), S6.13 theme items and color_ keys (highlight); S6.16 sizes as measured.
 - Code vs Spec S6.15–S6.17: all as built (Synth, Effects and Schematic sockets; Matrix has no sockets; tags and ticks on Synth and Effects; /info scale). Plan rows 24, 24a–c, L11 match. Tests T-S6.15/16/17 pass.
-- Open: the tutorial screenshots (synth.png, matrix.png, ...) show the 1.4.0 look (no tags, ticks, rails); not regenerated.
+- Open: the tutorial screenshots (synth.png, matrix.png, ...) show the 1.4.0 look (no tags, ticks, rails); not regenerated (done below).
+- User: commit (0baba57) and regenerate the screenshots. docs/images/synth, effects, matrix, schematic.png taken again on Xvfb (1496 × 904 window, the String section preset, as before): ticks, tags, rack rails, the Menu header, 1.4.0; effects cropped to the panels. T-S9.8-html passes.
