@@ -2946,3 +2946,137 @@ bool LMWSynthEditor::applyLesson(int number, juce::String& error) {
     processor.setNotes(juce::String::fromUTF8(lmw::tutorial::notes(number).c_str()));
     return true;
 }
+
+// ---- Spec S7.12 (Phase 31): 9P /preset, /view, /snapshot ----
+
+namespace {
+std::string trimmedText(std::string_view s) {
+    while (!s.empty() && std::isspace(static_cast<unsigned char>(s.back())) != 0) s.remove_suffix(1);
+    while (!s.empty() && std::isspace(static_cast<unsigned char>(s.front())) != 0) s.remove_prefix(1);
+    return std::string(s);
+}
+bool sameText(std::string_view a, std::string_view b) {
+    return juce::String::fromUTF8(a.data(), static_cast<int>(a.size())).equalsIgnoreCase(juce::String::fromUTF8(b.data(), static_cast<int>(b.size())));
+}
+constexpr std::array<const char*, 6> tabNames{"Synth", "Effects", "Matrix", "Notes", "Schematic", "Assistant"};   // showTab order
+} // namespace
+
+std::string LMWSynthEditor::runPreset(const std::string& text) {
+    const auto t = trimmedText(text);
+    if (t.empty()) return "no preset name";
+    juce::String error;
+    bool ok = true;
+    const auto space = t.find(' ');
+    const auto first = t.substr(0, space), rest = space == std::string::npos ? std::string() : trimmedText(t.substr(space + 1));
+    if ((sameText(first, "tutorial") || sameText(first, "lesson")) && !rest.empty()) {          // Spec S7.9
+        const int n = std::atoi(rest.c_str());
+        const LMWSynthProcessor::ScopedStep step(processor, "Lesson " + juce::String(n));
+        ok = applyLesson(n, error);
+        if (!ok && error.isEmpty()) error = "no tutorial lesson " + juce::String(rest);
+    } else if (const auto kind = lmw::presets::kindOf(juce::String(first).toLowerCase().toStdString()); kind && !rest.empty()) {
+        const auto module = juce::String(first).toLowerCase();                                  // Spec S7.5
+        if (sameText(rest, "Default")) { applyDefaults(module); refreshPatchInfo(); repaint(); return {}; }
+        for (const auto& p : lmw::presets::builtIn(*kind))
+            if (sameText(p.name, rest)) { applyPreset(module, p); refreshPatchInfo(); repaint(); return {}; }
+        for (const auto& f : presetFolder(*kind).findChildFiles(juce::File::findFiles, false, "*.lmwpreset"))
+            if (sameText(f.getFileNameWithoutExtension().toStdString(), rest)) {
+                std::string why;
+                auto preset = lmw::presets::parse(*kind, f.loadFileAsString().toStdString(), &why);
+                if (!preset) return f.getFileName().toStdString() + ": " + why;
+                applyPreset(module, *preset);
+                refreshPatchInfo(); repaint();
+                return {};
+            }
+        return "no " + module.toStdString() + " preset named " + rest;
+    } else {                                                                                       // Spec S7.7
+        const LMWSynthProcessor::ScopedStep step(processor, "instrument preset");
+        bool found = false;
+        if (sameText(t, "Default")) { processor.renameStep("preset Default"); ok = processor.applySound("Default", {}, {}, error); found = true; }
+        for (const auto& ins : lmw::instruments::builtIn())
+            if (!found && sameText(ins.name, t)) {
+                processor.renameStep("preset " + ins.name);
+                std::map<std::string, std::string> values;
+                for (const auto& [id, value] : ins.values) values[id] = value;
+                ok = processor.applySound(juce::String::fromUTF8(ins.name.c_str()), values, ins.cables, error);
+                found = true;
+            }
+        for (const auto& f : instrumentFolder().findChildFiles(juce::File::findFiles, false, "*.lmwpatch"))
+            if (!found && sameText(f.getFileNameWithoutExtension().toStdString(), t)) {
+                ok = processor.loadPatchText(f.loadFileAsString(), error, true);
+                found = true;
+            }
+        if (!found) return "no instrument preset named " + t;
+    }
+    refreshPatchInfo();
+    repaint();
+    return ok ? std::string() : error.toStdString();
+}
+
+std::string LMWSynthEditor::viewText() const {
+    const auto rect = [](juce::Rectangle<int> r) {
+        return std::to_string(r.getX()) + " " + std::to_string(r.getY()) + " " + std::to_string(r.getWidth()) + " " + std::to_string(r.getHeight());
+    };
+    std::string s = "tab " + std::string(tabNames[static_cast<std::size_t>(std::clamp(currentTab, 0, 5))]) + "\n";
+    s += "size " + std::to_string(getWidth()) + " " + std::to_string(getHeight()) + "\n";
+    s += std::string("compact ") + (compactButton.getToggleState() ? "on" : "off") + "\n";
+    s += std::string("keyboard ") + (keyboardShown ? "on" : "off") + "\n";
+    if (currentTab == 0 || currentTab == 1)
+        for (const auto& g : currentTab == 0 ? groups : effectGroups)
+            s += "panel " + rect(g.bounds) + " " + g.title.toStdString() + "\n";
+    if (currentTab == 4 && schematic != nullptr) {
+        s += "area " + rect(schematic->getBounds()) + " schematic\n";
+        for (const auto& [name, r] : schematic->blockAreas()) s += "panel " + rect(r + schematic->getPosition()) + " " + name + "\n";
+    }
+    if (currentTab == 2 && matrix != nullptr) s += "area " + rect(matrix->getBounds()) + " matrix\n";
+    if (keyboardShown) s += "area " + rect(keyboard.getBounds()) + " keyboard\n";
+    return s;
+}
+
+std::string LMWSynthEditor::applyView(const std::string& text) {
+    std::string_view rest(text);
+    while (!rest.empty()) {
+        const auto nl = rest.find('\n');
+        const auto line = trimmedText(rest.substr(0, nl));
+        rest = nl == std::string_view::npos ? std::string_view{} : rest.substr(nl + 1);
+        if (line.empty()) continue;
+        const auto space = line.find(' ');
+        const auto key = line.substr(0, space), value = space == std::string::npos ? std::string() : trimmedText(line.substr(space + 1));
+        if (key == "tab") {
+            const auto it = std::find_if(tabNames.begin(), tabNames.end(), [&](const char* n) { return sameText(n, value); });
+            if (it == tabNames.end()) return "unknown tab: " + value + " (Synth, Effects, Matrix, Notes, Schematic, Assistant)";
+            if (it - tabNames.begin() == 5 && assistant == nullptr) return "no Assistant tab here";
+            const int tab = static_cast<int>(it - tabNames.begin());
+            juce::Button* buttons[] = {&panelTab, &effectsTab, &matrixTab, &notesTab, &schematicTab, &assistantTab};
+            buttons[tab]->setToggleState(true, juce::dontSendNotification);   // the radio group clears the others
+            showTab(tab);
+        } else if (key == "size") {
+            int w = 0, h = 0;
+            if (std::sscanf(value.c_str(), "%d %d", &w, &h) != 2 || w < 100 || h < 100) return "bad size: " + value + " (width height)";
+            setSize(w, h);
+        } else if (key == "compact" || key == "keyboard") {
+            if (value != "on" && value != "off") return "bad " + key + ": " + value + " (on or off)";
+            const bool on = value == "on";
+            if (key == "keyboard") setKeyboardShown(on);
+            else if (compactButton.getToggleState() != on) {
+                compactButton.setToggleState(on, juce::dontSendNotification);
+                if (compactButton.onClick) compactButton.onClick();
+            }
+        } else if (key == "pointer" && value == "away") {
+            // Pictures: no hover band, hover box or tooltip — the pointer just above the editor (a title bar).
+            juce::Desktop::getInstance().setMousePosition(getScreenPosition() - juce::Point<int>(0, 8));
+        } else if (key == "focus" && value == "none") {
+            unfocusAllComponents();                       // no keyboard cursor (Matrix, Schematic) in a picture
+        } else {
+            return "bad view line: " + line + " (tab, size, compact, keyboard, pointer away, focus none)";
+        }
+    }
+    return {};
+}
+
+std::string LMWSynthEditor::snapshotPng() {
+    const auto image = createComponentSnapshot(getLocalBounds(), true, 1.0f);
+    juce::MemoryOutputStream out;
+    juce::PNGImageFormat png;
+    if (!png.writeImageToStream(image, out)) return {};
+    return std::string(static_cast<const char*>(out.getData()), out.getDataSize());
+}

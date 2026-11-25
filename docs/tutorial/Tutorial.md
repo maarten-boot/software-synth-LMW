@@ -28,7 +28,7 @@ The keys work whichever control you used last, except while you type a value.
 
 **Lesson sound:** *Default* (everything at its default; Volume −1.9 dB).
 
-![The Synth tab: the module panels, the on-screen keyboard below](../images/synth.png)
+![The Synth tab with the Lesson 1 sound (Default): the module panels, the on-screen keyboard below](../images/lesson1-synth.png)
 
 1. Play a few notes and a chord. You hear a plain sawtooth: bright, buzzy, with a short click-free
    start and a short release.
@@ -38,7 +38,7 @@ The keys work whichever control you used last, except while you type a value.
 4. Look at the tabs: **Synth** (the panels you see), **Effects**, **Matrix**, **Schematic**, **Notes**.
    Open **Schematic**: the whole instrument as a drawing, the sound flowing from left to right.
 
-![The Schematic tab: the sound flows from the keys and oscillators on the left to MAIN on the right](../images/schematic.png)
+![The Schematic tab: the sound flows from the keys and oscillators on the left to MAIN on the right](../images/lesson1-schematic.png)
 
 **Listen for:** the difference between one and eight voices.
 **Try yourself:** hold a note and click *Compact* (top right): the same synthesizer, smaller.
@@ -69,6 +69,8 @@ section from three oscillators.
 
 **Lesson sound:** *Lesson 3* — VCO 1 Saw, *VCF 1 › Cutoff* 1 kHz, Reso 20 %.
 
+![The VCF 1 panel with the Lesson 3 sound: Cutoff 1.00 kHz, Reso 20 %, Slope 24 dB, Type Low](../images/lesson3-vcf.png)
+
 1. Hold a note and move *VCF 1 › Cutoff* slowly from the top to the bottom: the sound goes from
    bright to dull, as if a hand covers a speaker. That is a **lowpass** filter (see [cutoff](../Terms.md#cutoff),
    [filter type](../Terms.md#filter-type)).
@@ -94,6 +96,8 @@ section from three oscillators.
 *Env 2* fader of each VCF). Each [envelope](../Terms.md#envelope) has Attack, Decay, Sustain, Release ([ADSR](../Terms.md#adsr)):
 attack = time to rise, decay = time to fall to the sustain level, release = time to die away after
 the key is let go.
+
+![The ENV 2 and ENV 1 panels with the Lesson 4 sound](../images/lesson4-env.png)
 
 1. *ENV 1 › Attack* 1 s: notes swell in, like strings. Back to 10 ms.
 2. *ENV 1 › Sustain* 0 %, *Decay* 400 ms: a pluck. *Release* 1 s: it rings on after the key.
@@ -123,7 +127,13 @@ the key is let go.
    A cable from LFO 1 straight to OUT, or to an LFO's Rate, is **not** delayed: there the LFO is used once
    for all notes together (their hover text says so). The Schematic shows "delay 1.00 s" under LFO 1, and
    the hover texts of the sockets it feeds say "delayed". Set it back to 0 s.
+
+   ![The LFO 1 panel: Rate 5 Hz, Delay 1.00 s](../images/lesson5-lfo1.png)
+
 4. *VCA › Tremolo* to 50 %: the loudness pulses ([tremolo](../Terms.md#tremolo)). That is **LFO 2**, connected to the VCA's Mod input.
+
+   ![The VCA panel: Tremolo 50 %](../images/lesson5-vca.png)
+
 5. *LFO 2 › Rate* 25 Hz, *Tremolo* 80 %: a growl; on a vowel (lesson 7) this becomes a rolled "rrr".
 6. The LFO's speed can be changed by a signal too: Lesson 6 shows how, with a cable from ENV 2 to
    *LFO 1 › Rate*, so the vibrato speeds up while a note is held.
@@ -148,7 +158,7 @@ Schematic), and a cable replaces a normal connection where you want something el
    right-click opens a small menu (100 %, Type level..., Remove cable). A ring in a cell shows a normal
    connection, used while that input has no cable.
 
-   ![The Matrix tab: inputs as rows, outputs as columns; rings are the normal connections](../images/matrix.png)
+   ![The Matrix tab: inputs as rows, outputs as columns; rings are the normal connections; the cable lfo2.out → vcf1.cutoff at 30 %](../images/lesson6-matrix.png)
 
 3. Cables add up: in the Matrix also set *env2.out × vcf1.cutoff* to 100 %: envelope **and** wobble.
 4. Back on **Synth**: drag the cable's plug from *VCF 1 › Cut* into empty space to remove it.
@@ -171,6 +181,8 @@ envelope now closes the filter as it rises. Modulation inputs take −100 … +1
 
 **Lesson sound:** *Lesson 7* — VCO 1 Pulse, VCO 2 Saw (+0.1) at 70 %, FORMANT Mix 100 %, Voice Tenor.
 
+![The FORMANT panel with the Lesson 7 sound: Voice Tenor, Vowel A, Mix 100 %](../images/lesson7-formant.png)
+
 1. *FORMANT › Vowel*: slide from A to U and play. The filter shapes the sound like a mouth ([formant](../Terms.md#formant)): aa, ee,
    ii, oo, uu, gliding in between.
 2. *FORMANT › Voice*: Bass, Baritone, Tenor, Alto, Sopr(ano), Child — the vowels move up.
@@ -190,6 +202,8 @@ envelope now closes the filter as it rises. Modulation inputs take −100 … +1
 
 **Phase modulation** ([PM](../Terms.md#pm); called FM on DX synthesizers, see [FM](../Terms.md#fm)): one oscillator wobbles the phase of another so fast
 that you hear new overtones instead of vibrato.
+
+![The Schematic with the Lesson 8 sound: the cable from VCO 2's output to VCO 1's pm input](../images/lesson8-schematic.png)
 
 1. *VCO 1 › PM* from 0 up to 2: the plain sine gets brighter and brighter. The fader is the
    **index**; the lower half of its travel (0–2) is the most musical.
@@ -213,7 +227,7 @@ The **Effects** tab: SYNTH (the instrument) → COMB → ENSEMBLE → DELAY → 
 hear), connected by default; [Mix](../Terms.md#mix) 0 means an [effect](../Terms.md#effect) is off. In a narrow window REVERB and MAIN wrap to
 a second row.
 
-![The Effects tab: SYNTH, COMB, ENSEMBLE, DELAY, REVERB and MAIN](../images/effects.png)
+![The Effects tab with the Lesson 9 sound and the ENSEMBLE preset Solina: SYNTH, COMB, ENSEMBLE, DELAY, REVERB and MAIN](../images/lesson9-effects.png)
 
 1. *REVERB › Mix* 25 %, *Size* 80 %: a hall. *Damping* darker, *Width* narrower or wider.
 2. *COMB › Mix* 30 %, *Key* 100 %, *Freq* 262 Hz (C4), *Feedback* 40 %: a resonant body that

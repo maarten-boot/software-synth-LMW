@@ -2,6 +2,7 @@
 #include "NinePService.h"
 #include "LMWVersion.h"
 #include "PluginProcessor.h"
+#include "PluginEditor.h"
 #include "dsp/PatchText.h"
 #include <chrono>
 #include <cstdio>
@@ -237,6 +238,27 @@ void NinePService::build() {
                 .value_or("busy");
         },
         true);
+
+    // Spec S7.12 (Phase 31): /preset (w) as the Presets menus, /view (rw) the tab, size, compact view, keyboard and
+    // where the panels are, /snapshot (r) the window as PNG. They use the window: without one they say so.
+    const auto withEditor = [this](std::function<std::string(LMWSynthEditor&)> fn, std::string none) {
+        return onMessageThread([fn, none](LMWSynthProcessor& p) {
+            auto* e = dynamic_cast<LMWSynthEditor*>(p.getActiveEditor());
+            return e != nullptr ? fn(*e) : none;
+        });
+    };
+    tree.file("preset", [] { return std::string(); }, [withEditor](std::string_view text) -> std::string {
+        const std::string copy(text);
+        return withEditor([copy](LMWSynthEditor& e) { return e.runPreset(copy); }, "no window open: /preset needs the LMW-Synth window")
+            .value_or("busy");
+    });
+    tree.file("view",
+        [withEditor] { return withEditor([](LMWSynthEditor& e) { return e.viewText(); }, "no window\n").value_or(""); },
+        [withEditor](std::string_view text) -> std::string {
+            const std::string copy(text);
+            return withEditor([copy](LMWSynthEditor& e) { return e.applyView(copy); }, "no window open").value_or("busy");
+        });
+    tree.file("snapshot", [withEditor] { return withEditor([](LMWSynthEditor& e) { return e.snapshotPng(); }, "").value_or(""); });
 
     // /ports: inputs with their normalled source, then outputs (signal-flow order: source -> input).
     // Spec S5.17: with parallel VCFs, vcf2.in is normalled from mix.out and formant.in from both VCFs

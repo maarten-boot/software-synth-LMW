@@ -134,7 +134,8 @@ int main(int argc, char** argv) {
     }
     if (cmd == "cat" && args.size() > 2) {
         if (!s.openPath(args[2], oRead)) return 1;
-        std::fputs(s.readAll().c_str(), stdout);
+        const auto data = s.readAll();                    // binary-safe (/snapshot is a PNG)
+        std::fwrite(data.data(), 1, data.size(), stdout);
         return s.clunk() ? 0 : 1;
     }
     if (cmd == "write" && args.size() > 2) {

@@ -21,6 +21,9 @@
 #include <array>
 #include <functional>
 #include <optional>
+#include <string>
+#include <utility>
+#include <vector>
 
 class SchematicView final : public juce::Component, public juce::TooltipClient {
 public:
@@ -60,6 +63,8 @@ private:
     float scale() const noexcept;
 public:
     void setCompact(bool compact) { zoom = compact ? 0.75f : 1.0f; repaint(); }   // Spec S6.7, S6.4
+    // Spec S7.12: every block's name and its area in this component's pixels (for 9P /view).
+    std::vector<std::pair<std::string, juce::Rectangle<int>>> blockAreas() const;
 private:
     float zoom = 1.0f;
     juce::Point<float> toScreen(lmw::ui::schematic::Point p) const noexcept;

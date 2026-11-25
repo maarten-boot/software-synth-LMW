@@ -398,6 +398,13 @@ void SchematicView::paint(juce::Graphics& g) {
                juce::Justification::centredLeft, false);
 }
 
+std::vector<std::pair<std::string, juce::Rectangle<int>>> SchematicView::blockAreas() const {
+    std::vector<std::pair<std::string, juce::Rectangle<int>>> out;
+    for (std::size_t i = 0; i < sc::blocks().size(); ++i)
+        out.emplace_back(std::string(sc::blocks()[i].name), toScreen(layout.box(i)).getSmallestIntegerContainer());
+    return out;
+}
+
 juce::String SchematicView::getTooltip() {
     if (grab) return {};
     const auto note = [](const std::string& n) { return n.empty() ? juce::String() : "\n" + juce::String::fromUTF8(n.c_str()); };

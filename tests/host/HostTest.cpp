@@ -618,6 +618,16 @@ int main(int argc, char* argv[]) {
         }
     }
 
+    // Instance a's 9P socket (<pid>-1.sock), for the window files of S7.12.
+    std::string sockA;
+    for (const auto& candidate : ourSockets())
+        if (candidate.size() > 7 && candidate.compare(candidate.size() - 7, 7, "-1.sock") == 0) sockA = candidate;
+    // T-S7.12-pictures: without a window /preset and /view say so.
+    if (!sockA.empty()) {
+        CHECK(write9P(sockA, {"preset"}, "Flute").find("no window open") != std::string::npos);
+        CHECK(read9P(sockA, {"view"}) == "no window\n");
+    }
+
     // 5. Editor, only with a display (CI runners on Linux have none).
     if (juce::Desktop::getInstance().getDisplays().displays.size() > 0 && a->hasEditor()) {
         std::unique_ptr<juce::AudioProcessorEditor> editor(a->createEditorAndMakeActive());
@@ -629,6 +639,30 @@ int main(int argc, char* argv[]) {
             // 1496 x 874 without the standalone title bar) and can be resized.
             std::printf("editor resizable: %d\n", editor->isResizable() ? 1 : 0);
             CHECK(editor->isResizable());
+            // T-S7.12-pictures: /preset as the Presets menus, /view, /snapshot (a PNG of the editor's size).
+            if (!sockA.empty()) {
+                CHECK(write9P(sockA, {"preset"}, "flute").empty());
+                CHECK(read9P(sockA, {"params", "voice", "count"}) == "1\n" && read9P(sockA, {"params", "lfo1", "delay"}) == "0.4\n");
+                CHECK(write9P(sockA, {"preset"}, "vcf2 Flute").empty());
+                CHECK(write9P(sockA, {"preset"}, "Tutorial 3").empty() && read9P(sockA, {"params", "vcf1", "cutoff"}) == "1000\n");
+                CHECK(write9P(sockA, {"preset"}, "Kazoo").find("no instrument preset named Kazoo") != std::string::npos);
+                CHECK(write9P(sockA, {"preset"}, "vcf1 Nope").find("no vcf1 preset") != std::string::npos);
+                const auto view = read9P(sockA, {"view"});
+                CHECK(view.rfind("tab Synth\nsize ", 0) == 0);
+                CHECK(view.find("\npanel ") != std::string::npos && view.find(" VCF 1\n") != std::string::npos);
+                CHECK(view.find("keyboard off") != std::string::npos || view.find(" keyboard\n") != std::string::npos);   // "area x y w h keyboard"
+                // (keyboard and compact are not changed here: they are also written to the user's config file)
+                CHECK(write9P(sockA, {"view"}, "tab schematic\nsize 1600 900\npointer away\nfocus none\n").empty());
+                const auto view2 = read9P(sockA, {"view"});
+                std::printf("view after a change: %s", view2.substr(0, view2.find("compact")).c_str());
+                CHECK(view2.rfind("tab Schematic\nsize 1600 900\n", 0) == 0 && view2.find(" LFO 1\n") != std::string::npos
+                      && view2.find("area ") != std::string::npos && view2.find(" VCF 1\n") != std::string::npos);
+                CHECK(write9P(sockA, {"view"}, "tab Piano").find("unknown tab") != std::string::npos);
+                CHECK(write9P(sockA, {"view"}, "zoom 2").find("bad view line") != std::string::npos);
+                const auto png = read9P(sockA, {"snapshot"});
+                CHECK(png.size() > 1000 && png.compare(0, 8, "\x89PNG\r\n\x1a\n") == 0);
+                std::printf("snapshot: %zu bytes\n", png.size());
+            }
         }
     } else {
         std::printf("editor: skipped (no display)\n");
