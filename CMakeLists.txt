@@ -83,6 +83,7 @@ if(LMW_BUILD_PLUGIN)
         src/app/PluginEditor.cpp
         src/app/MatrixView.cpp
         src/app/SchematicView.cpp
+        src/app/TermsView.cpp
         src/app/StandaloneApp.cpp
         src/app/NinePService.cpp
         src/app/AssistantSession.cpp

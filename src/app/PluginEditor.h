@@ -238,8 +238,9 @@ private:
     static juce::Array<juce::File> themeFiles();
     juce::Component::SafePointer<juce::DialogWindow> colourWindow;
     // Spec S12.6: the Assistant settings and the "How to get a key" lesson; the key, once read.
-    juce::Component::SafePointer<juce::DialogWindow> assistantWindow, lessonWindow, changesWindow;
+    juce::Component::SafePointer<juce::DialogWindow> assistantWindow, lessonWindow, changesWindow, termsWindow;
     void showChanges();                                   // Spec S6.11: Change history...
+    void showTerms();                                     // Spec S7.10: Terms...
     std::optional<std::string> keyCache;
     std::string assistantKey();
     void showAssistantSettings();

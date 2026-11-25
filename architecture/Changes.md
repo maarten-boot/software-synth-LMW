@@ -3,6 +3,7 @@
 Changes between releases.
 
 ## Unreleased
+- 2026-11-25: Menu (and Options) ▸ Terms... opens the Terms page in the program: type in Find to see only the terms with that word, or read them all by topic; a See also button jumps to that term.
 - 2026-11-24: Terms: a page that explains the words LMW-Synth uses (VCO, cutoff, envelope, normalled, ...) by topic, with where to find them and related terms — Terms.html in every download, in the Windows Start menu, linked from the read-me and from the tutorial's lessons.
 - 2026-11-24: Choosing a preset (instrument, module or effect) while holding notes on the computer keys no longer stops them. MIDI keyboard notes were never stopped.
 - 2026-11-24: REVERB: the Mix fader is on the right, as on every other effect.

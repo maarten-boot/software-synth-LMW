@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "ChangesText.h"   // generated from architecture/Changes.md
+#include "TermsView.h"
 #include "PluginEditor.h"
 #include "AssistantView.h"
 #include "AssistantSettings.h"
@@ -1960,6 +1961,27 @@ void LMWSynthEditor::showChanges() {
     if (changesWindow != nullptr) changesWindow->setLookAndFeel(&lookAndFeel);
 }
 
+// Spec S7.10 (Phase 27b): the Terms window — Find, "N of M terms", Show all, the terms by topic, See also.
+void LMWSynthEditor::showTerms() {
+    if (termsWindow != nullptr) { termsWindow->toFront(true); return; }
+    auto view = std::make_unique<TermsView>();
+    auto* raw = view.get();
+    juce::DialogWindow::LaunchOptions o;
+    o.dialogTitle = "LMW-Synth terms";
+    o.dialogBackgroundColour = juce::Colours::white;
+    o.content.setOwned(view.release());
+    o.componentToCentreAround = this;
+    o.escapeKeyTriggersCloseButton = true;
+    o.useNativeTitleBar = false;
+    o.resizable = true;
+    termsWindow = o.launchAsync();
+    if (termsWindow == nullptr) return;
+    termsWindow->setLookAndFeel(&lookAndFeel);
+    termsWindow->setResizeLimits(420, 320, 4000, 4000);
+    juce::Component::SafePointer<TermsView> safe(raw);
+    juce::MessageManager::callAsync([safe] { if (safe != nullptr) safe->findField().grabKeyboardFocus(); });
+}
+
 // Spec S6.11: the menu (header button; the same items in the standalone window's Options menu).
 void LMWSynthEditor::addMenuItems(juce::PopupMenu& m) const {
     {                                                      // Spec S6.14: named, greyed when there is nothing
@@ -1979,6 +2001,7 @@ void LMWSynthEditor::addMenuItems(juce::PopupMenu& m) const {
     }
     m.addItem(menuFirstId + 1, "About LMW-Synth...");
     m.addItem(menuFirstId + 2, "Change history...");          // what changed in each version
+    m.addItem(menuFirstId + 3, "Terms...");                   // Spec S7.10: the words LMW-Synth uses
     juce::PopupMenu contrast;                              // Spec S6.3, ticked: the current one
     const auto c = settings.contrast;
     contrast.addItem(menuFirstId + 11, "AA 4.5:1", true, c == lmw::ui::ContrastPreset::AA);
@@ -2028,6 +2051,7 @@ void LMWSynthEditor::handleMenuItem(int id) {
     switch (id - menuFirstId) {
         case 1: showAbout(); break;
         case 2: showChanges(); break;
+        case 3: showTerms(); break;
         case 11: case 12: case 13:
             settings.contrast = static_cast<lmw::ui::ContrastPreset>(id - menuFirstId - 11);
             applyContrast();
