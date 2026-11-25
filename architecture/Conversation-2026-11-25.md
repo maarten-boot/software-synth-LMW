@@ -19,3 +19,12 @@
 - Upgrade check (T-S9.6-upgrade-1.6): 1.5.0 download on Xvfb → sound, cables, notes, OUT moved, closed → the 1.6.0 build: layout kept, /patch identical but for the four ensemble lines (Mix 0), round trip ok. (The 9P socket cannot live under the scratchpad: the path is longer than a Unix socket allows; the default runtime folder was used.)
 - Screenshots retaken with the 1.6.0 title (String section, 1496 × 904); the Effects picture is now two rows (1496 × 552: ENSEMBLE makes the row wrap) and shows REVERB's Mix on the right. README and tutorial captions name ENSEMBLE. Downloads and test homes removed.
 - Prepared: CMakeLists 1.6.0, Changes "## 1.6.0 (2026-11-25)" with the upgrade note, Spec S6.10, Plan row 1.6.0, Tests.
+- User: listening tests of Phase 16 (FORMANT and the other 16 modules) and the live Assistant check with a real key and Haiku (22f): done and ok → Plan rows 16 and 22f.
+
+## L22, L23, L24 (Phases 29–31)
+
+- User: start with L22, L23 and L24.
+- Spec proposed (to confirm): S5.23 36 dB slope (36 / 24 / 12 / 6, ladder + two one-pole stages; HP mirror; BP / Notch as 24; peak about 6 dB lower); S5.24 LFO Delay (option A: lfo1.delay / lfo2.delay 0–5 s, per voice silent for half the Delay then a linear fade-in; solo presets 0.4 s; Lesson 5 step, Terms); S7.12 tutorial pictures (scripts/pictures.sh; new 9P /preset, /view, /snapshot; pictures listed per lesson). Plan rows 29–31; Tests planned.
+- User pushed and tagged v1.6.0; cleanup done by the user (releases 1.0.0, 1.1.0, 1.2.1, 1.3.0 and the artifacts older than 14 days deleted; tags kept; checked: 0 old artifacts, 1.4.0 and 1.5.0 left before 1.6.0).
+- Release run 45582250600 green (tag check, four builds, publish): 1.6.0 released with six files. Build run 45582243681: Ubuntu "VST3 validators" red — pluginval printed SUCCESS for all tests, then segfaulted at exit (the Steinberg validator 47 of 47); the same step passed in the release run, and 12 local runs pass: intermittent, at pluginval's exit (as the Fedora fuzz crash of 2026-11-20). Fedora, Windows, macOS green.
+- User: 36 first, half delay ok, 9P ok; commit and start 29. Spec S5.23, S5.24, S7.12 confirmed.
