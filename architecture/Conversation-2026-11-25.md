@@ -38,3 +38,7 @@
 - User (during 31): colour the sockets per type (audio, gate, voltage) with a ring; FM / PM take both (typos: thingking, volage) → Plan L25.
 - Committed 0397f78. 31 done: editor runPreset / viewText / applyView / snapshotPng; 9P /preset, /view, /snapshot; lmw9p cat binary-safe (fputs stopped at the first 0 byte); scripts/pictures.sh (own display, HOME, socket; crops by /view panel lines); 14 pictures, tutorial image lines per lesson; README mentions the script. Found: hover band, tooltip and the Schematic keyboard cursor in the first pictures → /view "pointer away" and "focus none"; tab button not following a 9P tab switch → fixed; the script's synth still saving after rm → waits for it. Host test extended (window part runs with a display; it does not change keyboard / compact, which go to the user's config: a first version did, the VM's config.ini keyboard line restored to shown). 39 of 39.
 - User: commit and do the crosscheck.
+
+## Crosscheck after Phases 29–31
+
+- Committed cc209bc. Code vs S5.23, S5.24, S7.12: as built (noted there). Stale lines written before and fixed: S5a.1 (lfo1.delay / lfo2.delay, 76 parameters), S5.12 (Delay among the LFO controls), S9.2 (76 / 2157 host parameters, measured with the host test), S7.1 (state_version 5, patch files keep names), S7.9 (pictures per lesson), S7.10 (78 terms), S10.14 (cat binary-safe). Plan rows 29–31 done, L22–L24 → phases; Plan header updated. 39 of 39. Open: listening to the 0.4 s vibrato delay (user); CI after the push.
