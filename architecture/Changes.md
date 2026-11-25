@@ -3,6 +3,9 @@
 Changes between releases.
 
 ## Unreleased
+
+## 1.6.0 (2026-11-25)
+- 2026-11-25: Patches and saved settings from 1.5.0 load unchanged (the same sound, cables, notes and panel layout); the new ENSEMBLE starts with Mix 0, so they sound as before.
 - 2026-11-25: Menu (and Options) ▸ Terms... opens the Terms page in the program: type in Find to see only the terms with that word, or read them all by topic; a See also button jumps to that term.
 - 2026-11-24: Terms: a page that explains the words LMW-Synth uses (VCO, cutoff, envelope, normalled, ...) by topic, with where to find them and related terms — Terms.html in every download, in the Windows Start menu, linked from the read-me and from the tutorial's lessons.
 - 2026-11-24: Choosing a preset (instrument, module or effect) while holding notes on the computer keys no longer stops them. MIDI keyboard notes were never stopped.

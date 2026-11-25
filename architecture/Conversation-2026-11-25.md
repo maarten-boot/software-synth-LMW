@@ -12,3 +12,10 @@
 - Gaps fixed in the docs: S7.9 did not mention the term links → noted; S7.10 proposed terms not built as their own entry (sound, cent, wave names, noise colours, filter types, ADSR stages, damping, spread, redo) → noted where they are explained; Plan 27 → done.
 - Tests: T-S7.10-terms (unit + Xvfb), T-S9.8-html pass; 38 of 38. Open: the installer Terms check runs in CI on Windows after the push.
 - User pushed f3893c7 and 885466d. CI run 45574913048 (f3893c7) green on all four (Windows installer test checks the Terms Start menu entry and Terms.html). 885466d changes only architecture/ (paths-ignore: no run).
+
+## Release 1.6.0
+
+- User: commit (CI record) and prepare release 1.6.0.
+- Upgrade check (T-S9.6-upgrade-1.6): 1.5.0 download on Xvfb → sound, cables, notes, OUT moved, closed → the 1.6.0 build: layout kept, /patch identical but for the four ensemble lines (Mix 0), round trip ok. (The 9P socket cannot live under the scratchpad: the path is longer than a Unix socket allows; the default runtime folder was used.)
+- Screenshots retaken with the 1.6.0 title (String section, 1496 × 904); the Effects picture is now two rows (1496 × 552: ENSEMBLE makes the row wrap) and shows REVERB's Mix on the right. README and tutorial captions name ENSEMBLE. Downloads and test homes removed.
+- Prepared: CMakeLists 1.6.0, Changes "## 1.6.0 (2026-11-25)" with the upgrade note, Spec S6.10, Plan row 1.6.0, Tests.

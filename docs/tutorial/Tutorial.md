@@ -205,7 +205,7 @@ The **Effects** tab: SYNTH (the instrument) → COMB → ENSEMBLE → DELAY → 
 hear), connected by default; [Mix](../Terms.md#mix) 0 means an [effect](../Terms.md#effect) is off. In a narrow window REVERB and MAIN wrap to
 a second row.
 
-![The Effects tab: SYNTH, COMB, DELAY, REVERB and MAIN](../images/effects.png)
+![The Effects tab: SYNTH, COMB, ENSEMBLE, DELAY, REVERB and MAIN](../images/effects.png)
 
 1. *REVERB › Mix* 25 %, *Size* 80 %: a hall. *Damping* darker, *Width* narrower or wider.
 2. *COMB › Mix* 30 %, *Key* 100 %, *Freq* 262 Hz (C4), *Feedback* 40 %: a resonant body that
