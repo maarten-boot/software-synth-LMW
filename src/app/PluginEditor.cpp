@@ -250,12 +250,12 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
                  return juce::String("Key tracking: at 100 % the cutoff follows the keys one octave per octave\n"
                                      "(unchanged at C4); 0 % = same cutoff for every note");
              }),
-             n == 0 ? stacked(addChoice(P::vcfSlope[i], "Slope", {"24 dB", "12 dB", "6 dB"},
-                                        "Steepness. Bandpass and notch: 12 or 24 dB (6 dB acts as 12 dB)."),
+             n == 0 ? stacked(addChoice(P::vcfSlope[i], "Slope", {"36 dB", "24 dB", "12 dB", "6 dB"},
+                                        "Steepness. Bandpass and notch: 12 or 24 dB (6 dB acts as 12 dB, 36 dB as 24 dB)."),
                               addChoice(P::vcfType[i], "Type", {"Low", "High", "Band", "Notch"},
                                         "Lowpass, highpass, bandpass or notch"))
-                    : stacked(addChoice(P::vcfSlope[i], "Slope", {"24 dB", "12 dB", "6 dB"},
-                                        "Steepness. Bandpass and notch: 12 or 24 dB (6 dB acts as 12 dB)."),
+                    : stacked(addChoice(P::vcfSlope[i], "Slope", {"36 dB", "24 dB", "12 dB", "6 dB"},
+                                        "Steepness. Bandpass and notch: 12 or 24 dB (6 dB acts as 12 dB, 36 dB as 24 dB)."),
                               addChoice(P::vcfType[i], "Type", {"Low", "High", "Band", "Notch"},
                                         "Lowpass, highpass, bandpass or notch"),
                               routing)}, {}});

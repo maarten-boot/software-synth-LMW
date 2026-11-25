@@ -188,7 +188,7 @@ See also: [Cutoff](#cutoff), [VCF](#vcf)
 
 ### Slope
 How steeply a filter takes away what it removes: 24 dB per octave is steep and smooth, 12 softer, 6
-gentle.
+gentle; 36 dB is the steepest and darkest, with a softer resonance.
 
 Where: VCF › Slope.
 

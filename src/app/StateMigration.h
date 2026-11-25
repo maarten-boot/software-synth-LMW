@@ -4,6 +4,8 @@
 //   1 -> 2 (VCO 1-3):  vco.* -> vco1.*, mix.vco -> mix.vco1, noise input mix.in2 -> mix.in4
 //   2 -> 3 (VCF 1-2):  vcf.* -> vcf1.*
 //   3 -> 4 (LFO 1-2):  lfo.* -> lfo1.*
+//   4 -> 5 (S5.23, 36 dB slope): the slope choices became 36 / 24 / 12 / 6 dB, so a saved slope index moves up
+//                      one (0 = 24 dB -> 1); patch files store the name and need nothing
 // A state without "stateVersion" is version 1. Pure C++ so it can be unit-tested.
 #pragma once
 #include <array>
@@ -13,7 +15,7 @@
 
 namespace lmw::migration {
 
-inline constexpr int currentStateVersion = 4;
+inline constexpr int currentStateVersion = 5;
 
 namespace detail {
 template <std::size_t N>
@@ -44,6 +46,13 @@ inline std::string parameterId(int from, std::string_view id) {
     if (from < 3) s = std::string(detail::lookup(detail::params2, s));
     if (from < 4) s = std::string(detail::lookup(detail::params3, s));
     return s;
+}
+
+// A saved parameter value (the host state keeps a choice as its index) of version `from` -> current; `id` is the
+// current ID (after parameterId). S5.23: vcf1.slope / vcf2.slope gained "36 dB" in front.
+inline float parameterValue(int from, std::string_view id, float value) {
+    if (from < 5 && (id == "vcf1.slope" || id == "vcf2.slope")) return value + 1.0f;
+    return value;
 }
 
 // Port name saved by state version `from` -> current name.

@@ -69,6 +69,11 @@ int main() {
         CHECK(cables(1, "vcf.cutoff=vco.out@.25+lfo.out") == "vcf1.cutoff=vco1.out@.25+lfo1.out");
         CHECK(cables(4, "vca.mod=lfo1.out;out.in=lfo2.out") == "vca.mod=lfo1.out;out.in=lfo2.out");
         CHECK(parameterId(4, "lfo.rate") == "lfo.rate");
+        // version 4 -> 5 (S5.23): a saved slope index moves up one ("36 dB" in front); other values stay
+        CHECK(parameterValue(4, "vcf1.slope", 0.0f) == 1.0f && parameterValue(4, "vcf2.slope", 2.0f) == 3.0f);
+        CHECK(parameterValue(2, parameterId(2, "vcf.slope"), 1.0f) == 2.0f);   // 12 dB of a version-2 state
+        CHECK(parameterValue(4, "vcf1.type", 1.0f) == 1.0f && parameterValue(5, "vcf1.slope", 0.0f) == 0.0f);
+        CHECK(currentStateVersion == 5);
         // new ports by name; vca.mod is normalled from lfo2.out
         const auto q4 = patchFromText("vca.mod=lfo1.out");
         CHECK(q4.has_value() && q4->source(In::VcaMod) == Out::Lfo1);

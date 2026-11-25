@@ -3,7 +3,9 @@
 // with global feedback k = 4.4 * resonance; the feedback signal is tanh-limited so high resonance
 // self-oscillates without blowing up. Modes (slope 6/12/24 dB, type LP/HP/BP/Notch) mix the input
 // after feedback (y0) and the four stage outputs (y1..y4), as in the Oberheim Xpander, so cutoff and
-// resonance behave alike in every mode. A mode change crossfades the mix over 20 ms. RT-safe.
+// resonance behave alike in every mode. 36 dB (Spec S5.23) adds two one-pole stages at the same cutoff after
+// the ladder, outside the feedback: lowpass y4 through two more lowpass stages (z1), highpass the 24 dB
+// highpass through two highpass stages (z2). A mode change crossfades the mix over 20 ms. RT-safe.
 #pragma once
 #include <algorithm>
 #include <array>
@@ -12,24 +14,28 @@
 
 namespace lmw::dsp {
 
-enum class FilterSlope : int { Db24, Db12, Db6 };            // order = parameter choice order
+enum class FilterSlope : int { Db36, Db24, Db12, Db6 };      // order = parameter choice order (S5.23: 36 first)
 enum class FilterType : int { Lowpass, Highpass, Bandpass, Notch };
 
-// Mix of y0..y4 for each mode, with H = one stage (1 / (1 + s/wc)):
+// Mix of y0..y4, z1, z2 for each mode, with H = one stage (1 / (1 + s/wc)):
 //   LP: H^n; HP: (1-H)^n; BP: 2H(1-H) or 4H^2(1-H)^2 (gain 1 at the cutoff);
-//   Notch: 1 - BP (exactly 0 at the cutoff). Bandpass and notch have no 6 dB form: 6 dB acts as 12.
-inline std::array<double, 5> filterMix(FilterSlope slope, FilterType type) noexcept {
-    if ((type == FilterType::Bandpass || type == FilterType::Notch) && slope == FilterSlope::Db6) slope = FilterSlope::Db12;
-    const bool four = slope == FilterSlope::Db24, one = slope == FilterSlope::Db6;
+//   Notch: 1 - BP (exactly 0 at the cutoff). Bandpass and notch have no 6 dB form: 6 dB acts as 12; nor a
+//   36 dB form: 36 dB acts as 24 (S5.23). LP 36 = z1 (H^6), HP 36 = z2 ((1-H)^6).
+using FilterMix = std::array<double, 7>;
+inline FilterMix filterMix(FilterSlope slope, FilterType type) noexcept {
+    const bool bandOrNotch = type == FilterType::Bandpass || type == FilterType::Notch;
+    if (bandOrNotch && slope == FilterSlope::Db6) slope = FilterSlope::Db12;
+    if (bandOrNotch && slope == FilterSlope::Db36) slope = FilterSlope::Db24;
+    const bool four = slope == FilterSlope::Db24, one = slope == FilterSlope::Db6, six = slope == FilterSlope::Db36;
     switch (type) {
-        case FilterType::Lowpass:  return one ? std::array<double, 5>{0, 1, 0, 0, 0}
-                                       : four ? std::array<double, 5>{0, 0, 0, 0, 1} : std::array<double, 5>{0, 0, 1, 0, 0};
-        case FilterType::Highpass: return one ? std::array<double, 5>{1, -1, 0, 0, 0}
-                                       : four ? std::array<double, 5>{1, -4, 6, -4, 1} : std::array<double, 5>{1, -2, 1, 0, 0};
-        case FilterType::Bandpass: return four ? std::array<double, 5>{0, 0, 4, -8, 4} : std::array<double, 5>{0, 2, -2, 0, 0};
-        case FilterType::Notch:    return four ? std::array<double, 5>{1, 0, -4, 8, -4} : std::array<double, 5>{1, -2, 2, 0, 0};
+        case FilterType::Lowpass:  return six ? FilterMix{0, 0, 0, 0, 0, 1, 0} : one ? FilterMix{0, 1, 0, 0, 0, 0, 0}
+                                       : four ? FilterMix{0, 0, 0, 0, 1, 0, 0} : FilterMix{0, 0, 1, 0, 0, 0, 0};
+        case FilterType::Highpass: return six ? FilterMix{0, 0, 0, 0, 0, 0, 1} : one ? FilterMix{1, -1, 0, 0, 0, 0, 0}
+                                       : four ? FilterMix{1, -4, 6, -4, 1, 0, 0} : FilterMix{1, -2, 1, 0, 0, 0, 0};
+        case FilterType::Bandpass: return four ? FilterMix{0, 0, 4, -8, 4, 0, 0} : FilterMix{0, 2, -2, 0, 0, 0, 0};
+        case FilterType::Notch:    return four ? FilterMix{1, 0, -4, 8, -4, 0, 0} : FilterMix{1, -2, 2, 0, 0, 0, 0};
     }
-    return {0, 0, 0, 0, 1};
+    return {0, 0, 0, 0, 1, 0, 0};
 }
 
 class Ladder {
@@ -40,7 +46,7 @@ public:
         sampleRate = sr; lastCutoff = -1.0;
         fadeStep = 1.0 / (0.02 * sr);                                   // 20 ms mode crossfade
     }
-    void reset() noexcept { s[0] = s[1] = s[2] = s[3] = 0.0; fade = 1.0; }
+    void reset() noexcept { s[0] = s[1] = s[2] = s[3] = 0.0; t[0] = t[1] = t[2] = t[3] = 0.0; fade = 1.0; }
 
     // Spec S5.11: 24 dB lowpass (fully faded in) with no resonance — at maximum cutoff this is "open".
     bool isPlainLowpassNoResonance() const noexcept { return isPlainLowpass24 && fade >= 1.0 && !(k > 0.0); }
@@ -53,6 +59,9 @@ public:
         target = next;
         fade = 0.0;
         isPlainLowpass24 = next == filterMix(FilterSlope::Db24, FilterType::Lowpass);
+        const bool was = extra;
+        extra = next[5] != 0.0 || next[6] != 0.0 || from[5] != 0.0 || from[6] != 0.0;
+        if (extra && !was) t[0] = t[1] = t[2] = t[3] = 0.0;   // the extra stages start from rest (under the fade)
     }
     // k = 4 is the self-oscillation threshold; 4.4 * r puts it at r ~ 0.91, so the top of the
     // resonance range really self-oscillates (amplitude then set by the tanh-limited feedback).
@@ -87,22 +96,35 @@ public:
             y[i + 1] = out;
         }
         if (fade >= 1.0 && isPlainLowpass24) return static_cast<float>(u);   // 24 dB LP: the original path
-        if (fade < 1.0) fade = std::min(1.0, fade + fadeStep);
+        if (fade < 1.0) {
+            fade = std::min(1.0, fade + fadeStep);
+            if (fade >= 1.0) extra = target[5] != 0.0 || target[6] != 0.0;   // the old mix is gone
+        }
+        double z1 = 0.0, z2 = 0.0;
+        if (extra) {                               // S5.23: two more stages, outside the feedback
+            const auto onePole = [this](double& st, double x) { const double v = (x - st) * G; const double lp = v + st; st = lp + v; return lp; };
+            z1 = onePole(t[1], onePole(t[0], y[4]));
+            const double hp24 = y[0] - 4.0 * y[1] + 6.0 * y[2] - 4.0 * y[3] + y[4];
+            const double h1 = hp24 - onePole(t[2], hp24);
+            z2 = h1 - onePole(t[3], h1);
+        }
         const auto m = current();
-        return static_cast<float>(m[0] * y[0] + m[1] * y[1] + m[2] * y[2] + m[3] * y[3] + m[4] * y[4]);
+        return static_cast<float>(m[0] * y[0] + m[1] * y[1] + m[2] * y[2] + m[3] * y[3] + m[4] * y[4] + m[5] * z1 + m[6] * z2);
     }
 
 private:
-    std::array<double, 5> current() const noexcept {
+    FilterMix current() const noexcept {
         if (fade >= 1.0) return target;
-        std::array<double, 5> m{};
-        for (std::size_t i = 0; i < 5; ++i) m[i] = from[i] + (target[i] - from[i]) * fade;
+        FilterMix m{};
+        for (std::size_t i = 0; i < m.size(); ++i) m[i] = from[i] + (target[i] - from[i]) * fade;
         return m;
     }
 
     double sampleRate = 48000.0, G = 0.5, k = 0.0, lastCutoff = -1.0;
     double s[4]{};
-    std::array<double, 5> target{0, 0, 0, 0, 1}, from{0, 0, 0, 0, 1};
+    double t[4]{};                            // S5.23 extra stages: two lowpass (z1), two highpass (z2)
+    FilterMix target{0, 0, 0, 0, 1, 0, 0}, from{0, 0, 0, 0, 1, 0, 0};
+    bool extra = false;                       // target or from uses z1 / z2: run the extra stages
     double fade = 1.0, fadeStep = 1.0 / 960.0;
     bool isPlainLowpass24 = true;             // target is 24 dB lowpass (once faded in: original path)
 };

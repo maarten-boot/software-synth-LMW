@@ -64,10 +64,10 @@ int main() {
     for (float v : {0.1f, 0.5f, 0.8f, 1.0f})          CHECK(std::fabs(parseDecibels(decibels(v)) - v) <= 0.01f);
 
     // matchChoice (9P writes, patch files): names, " dB", "+", unique prefixes, then indices.
-    const std::vector<std::string> slope{"24 dB", "12 dB", "6 dB"}, oct{"-2", "-1", "0", "+1", "+2"},
+    const std::vector<std::string> slope{"36 dB", "24 dB", "12 dB", "6 dB"}, oct{"-2", "-1", "0", "+1", "+2"},
         type{"Lowpass", "Highpass", "Bandpass", "Notch"}, wave{"Sine", "Saw", "Square", "Triangle", "Pulse"};
-    CHECK(matchChoice(slope, "24") == 0 && matchChoice(slope, "6 dB") == 2 && matchChoice(slope, "12db") == 1);
-    CHECK(matchChoice(slope, "1") == 1);                     // index as last resort
+    CHECK(matchChoice(slope, "24") == 1 && matchChoice(slope, "6 dB") == 3 && matchChoice(slope, "12db") == 2 && matchChoice(slope, "36") == 0);
+    CHECK(matchChoice(slope, "1") == 2);                     // unique prefix of "12 dB"
     CHECK(matchChoice(oct, "1") == 3 && matchChoice(oct, "+1") == 3 && matchChoice(oct, "-1") == 1 && matchChoice(oct, "0") == 2);
     CHECK(matchChoice(type, "low") == 0 && matchChoice(type, "Band") == 2 && matchChoice(type, "NOTCH") == 3);
     CHECK(matchChoice(wave, "s") == -1);                      // ambiguous prefix

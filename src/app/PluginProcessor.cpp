@@ -87,7 +87,7 @@ APVTS::ParameterLayout LMWSynthProcessor::createLayout(std::map<std::string, Flo
               f(P::vcfEnv[n],    (name + " Env").toRawUTF8(),       Range(-5.0f, 5.0f), 0.0f, octaves),
               f(P::vcfKey[n],    (name + " Key").toRawUTF8(),       Range(0.0f, 1.0f), 0.0f, percent),   // Spec S5.13
               std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{P::vcfSlope[n], 1}, name + " Slope",
-                  juce::StringArray{"24 dB", "12 dB", "6 dB"}, 0),
+                  juce::StringArray{"36 dB", "24 dB", "12 dB", "6 dB"}, 1),   // S5.23: 36 first, default 24
               std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{P::vcfType[n], 1}, name + " Type",
                   juce::StringArray{"Lowpass", "Highpass", "Bandpass", "Notch"}, 0));
     }
@@ -515,6 +515,11 @@ void LMWSynthProcessor::setStateInformation(const void* data, int size) {
                     const auto id = child.getProperty("id").toString().toStdString();
                     const auto newId = lmw::migration::parameterId(version, id);
                     if (newId != id) child.setProperty("id", juce::String(newId), nullptr);
+                    if (child.hasProperty("value")) {                // S5.23: choice indices that moved
+                        const auto v = static_cast<float>(child.getProperty("value"));
+                        const auto nv = lmw::migration::parameterValue(version, newId, v);
+                        if (nv != v) child.setProperty("value", nv, nullptr);
+                    }
                 }
             text = lmw::migration::cables(version, text);
         }

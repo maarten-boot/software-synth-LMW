@@ -379,7 +379,7 @@ int main(int argc, char* argv[]) {
         CHECK(info.find("{\"id\": \"vco1.tune\", \"name\": \"VCO 1 Tune\", \"kind\": \"float\", \"min\": -7.0, \"max\": 7.0, "
                         "\"default\": 0.0, \"unit\": \"st\", \"step\": 0.01, \"scale\": \"pm\"}") != std::string::npos);
         CHECK(info.find("{\"id\": \"voice.count\", \"name\": \"Voices\", \"kind\": \"int\", \"min\": 1, \"max\": 32, \"default\": 8}") != std::string::npos);
-        CHECK(info.find("\"choices\": [\"24 dB\", \"12 dB\", \"6 dB\"], \"default\": \"24 dB\"}") != std::string::npos);
+        CHECK(info.find("\"choices\": [\"36 dB\", \"24 dB\", \"12 dB\", \"6 dB\"], \"default\": \"24 dB\"}") != std::string::npos);
         CHECK(info.find("{\"id\": \"out.gain\", \"name\": \"Volume\", \"kind\": \"float\", \"min\": 0.0, \"max\": 1.0, "
                         "\"default\": 0.8, \"unit\": \"dB\", \"scale\": \"lin\"}") != std::string::npos);
 

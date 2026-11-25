@@ -3,6 +3,7 @@
 Changes between releases.
 
 ## Unreleased
+- 2026-11-25: VCF 1 and VCF 2 Slope has 36 dB: steeper and darker than 24 dB, with a softer resonance (Bandpass and Notch treat it as 24 dB). Saved settings and patches keep their slope. If a DAW project automates Slope, check that lane: the list now starts with 36 dB.
 
 ## 1.6.0 (2026-11-25)
 - 2026-11-25: Patches and saved settings from 1.5.0 load unchanged (the same sound, cables, notes and panel layout); the new ENSEMBLE starts with Mix 0, so they sound as before.

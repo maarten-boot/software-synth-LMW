@@ -75,7 +75,7 @@ section from three oscillators.
 2. *Reso* up to 70 %: a whistling peak at the cutoff. Sweep the cutoff again: the classic "wow".
    Near the top the filter sings on its own.
 3. *Type*: High (the low end disappears, thin), Band (only around the cutoff, telephone-like),
-   Notch (a hole). *Slope*: 24 dB is steep, 6 dB gentle.
+   Notch (a hole). *Slope*: 36 dB is the steepest, 6 dB gentle.
 4. *VCF 1 › Key* 100 %: play low and high notes. The cutoff now follows the keys, so high notes are
    as bright as low ones — as on real instruments.
 5. *VCF 2*: a second filter after the first. Set it to High, Cutoff 300 Hz: VCF 1 removes the top,

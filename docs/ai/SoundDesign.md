@@ -37,7 +37,7 @@ envelope is up. Audio and gate inputs take 0 to 1 only. A level of 0 keeps a cab
   breath. **NOISE** `noise.colour` White / Pink / Brown; `noise.rand` output: random steps at
   `noise.rate` Hz (sample & hold), smoothed by `noise.smooth`.
 - **VCF 1 / VCF 2** (`vcfN.cutoff` 20-18000 Hz, `vcfN.res` 0-1, `vcfN.env` ±5 octaves from ENV 2,
-  `vcfN.key` 0-1 key tracking, `vcfN.slope` 24 dB / 12 dB / 6 dB, `vcfN.type` Lowpass / Highpass /
+  `vcfN.key` 0-1 key tracking, `vcfN.slope` 36 dB / 24 dB / 12 dB / 6 dB, `vcfN.type` Lowpass / Highpass /
   Bandpass / Notch; `vcf2.routing` Serial / Parallel): the main tone control. Low cutoff = dark, high
   resonance = a whistling peak (at 1 it rings by itself). Cutoff 600-1500 Hz with env 1.5-3 octaves and
   a short ENV 2 = a plucked or brassy attack. VCF 2 stays open (18 kHz) unless used.
