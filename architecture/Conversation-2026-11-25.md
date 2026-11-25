@@ -11,3 +11,4 @@
 - Code vs S7.10: Find rules (Terms.h), See also jump and "> " mark, Show all, keyboard (Find focused, Tab, Enter, Escape) as specified; as-built notes cover the focus ring and the focus after a jump. S6.11 lists Terms...; S3.2 has the computer-key fix; S9.8 Terms.html and the Start menu entry.
 - Gaps fixed in the docs: S7.9 did not mention the term links → noted; S7.10 proposed terms not built as their own entry (sound, cent, wave names, noise colours, filter types, ADSR stages, damping, spread, redo) → noted where they are explained; Plan 27 → done.
 - Tests: T-S7.10-terms (unit + Xvfb), T-S9.8-html pass; 38 of 38. Open: the installer Terms check runs in CI on Windows after the push.
+- User pushed f3893c7 and 885466d. CI run 45574913048 (f3893c7) green on all four (Windows installer test checks the Terms Start menu entry and Terms.html). 885466d changes only architecture/ (paths-ignore: no run).
