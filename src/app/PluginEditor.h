@@ -383,8 +383,18 @@ private:
         // Octave scroll arrows: solid black (JUCE draws them at 40 % opacity, ~2.8:1), hover = outline.
         void drawUpDownButton(juce::Graphics&, int w, int h, bool isMouseOver, bool isButtonPressed,
                               bool movesOctavesUp) override;
+        // Spec S3.2 (found 2026-11-24): notes held on the computer keys keep sounding when the focus moves to a
+        // button or menu of LMW-Synth (choosing a preset while playing); JUCE released them on every focus loss.
+        // They are released when the focus goes to a text box or to another program.
+        void focusLost(FocusChangeType) override;
+        bool keyStateChanged(bool isKeyDown) override;
+        // Called by the editor's timer: while computer keys are held without the focus, follows the keys (a key
+        // released while a menu was open), and releases them all when LMW-Synth is no longer in front.
+        void followHeldKeys();
     private:
+        static bool anyNoteKeyDown();
         const lmw::ui::theme::Palette& pal;
+        bool held = false;                                // notes from the computer keys may be sounding
     };
     Keyboard keyboard;
     bool keyboardShown = true;                            // Spec S6.12

@@ -53,7 +53,8 @@ inline std::string section(int n, std::string_view doc = text()) {
 }
 
 // Markdown to plain text for the Notes tab: emphasis marks (* and **) and backticks go, "\*" stays a star,
-// "## " headings lose their marks, code-fence lines (```) and image lines (![...](...)) are dropped.
+// "## " headings lose their marks, code-fence lines (```) and image lines (![...](...)) are dropped, a link
+// [text](target) keeps only its text (Spec S7.10: the lessons link their words to the Terms page).
 inline std::string plain(std::string_view md) {
     std::string out;
     std::size_t lineStart = 0;
@@ -72,6 +73,16 @@ inline std::string plain(std::string_view md) {
         for (std::size_t i = 0; i < line.size(); ++i) {
             if (line[i] == '\\' && i + 1 < line.size() && line[i + 1] == '*') { out += '*'; ++i; continue; }
             if (line[i] == '*' || line[i] == '`') continue;
+            if (line[i] == '[') {
+                const auto close = line.find("](", i);
+                const auto end = close == std::string_view::npos ? close : line.find(')', close);
+                if (end != std::string_view::npos && line.substr(i + 1, close - i - 1).find('[') == std::string_view::npos) {
+                    for (std::size_t k = i + 1; k < close; ++k)
+                        if (line[k] != '*' && line[k] != '`') out += line[k];
+                    i = end;
+                    continue;
+                }
+            }
             out += line[i];
         }
         if (lineEnd < md.size()) out += '\n';

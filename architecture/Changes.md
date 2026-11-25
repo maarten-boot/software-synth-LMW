@@ -3,6 +3,8 @@
 Changes between releases.
 
 ## Unreleased
+- 2026-11-24: Terms: a page that explains the words LMW-Synth uses (VCO, cutoff, envelope, normalled, ...) by topic, with where to find them and related terms — Terms.html in every download, in the Windows Start menu, linked from the read-me and from the tutorial's lessons.
+- 2026-11-24: Choosing a preset (instrument, module or effect) while holding notes on the computer keys no longer stops them. MIDI keyboard notes were never stopped.
 - 2026-11-24: REVERB: the Mix fader is on the right, as on every other effect.
 - 2026-11-24: ENSEMBLE: a string-machine chorus (as in the Solina) on the Effects tab between COMB and DELAY — Depth, Rate, Shimmer, Mix, presets Solina, Subtle chorus, Wide, Vibrato strings. String section and Pad (slow) use it. In a narrow window the Effects tab wraps to a second row. Patches from 1.5.0 sound the same (Mix 0).
 - 2026-11-24: The Matrix shows the input and output names on all four sides.

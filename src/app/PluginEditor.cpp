@@ -658,6 +658,7 @@ void LMWSynthEditor::updateUndoButtons() {
 
 void LMWSynthEditor::timerCallback() {
     processor.updateKeyboardFromMidiInput();
+    keyboard.followHeldKeys();                           // Spec S3.2: held computer keys across focus changes
     if (processor.patchFileVersion() != shownPatchFile || (!notesEditor.hasKeyboardFocus(true)
             && notesEditor.getText() != processor.notes()))   // patch loaded, or state restored by the host
         refreshPatchInfo();
@@ -680,6 +681,37 @@ juce::Component::SafePointer<juce::Component> LMWSynthEditor::focusNow() {
 void LMWSynthEditor::restoreFocus(juce::Component::SafePointer<juce::Component> c) {
     if (c != nullptr && c->isShowing()) c->grabKeyboardFocus();
     else if (keyboard.isShowing()) keyboard.grabKeyboardFocus();
+}
+
+// Spec S3.2: computer-key notes across focus changes inside LMW-Synth (see PluginEditor.h).
+bool LMWSynthEditor::Keyboard::anyNoteKeyDown() {
+    for (const char c : std::string_view("awsedftgyhujkolp;"))   // JUCE's default note keys
+        if (juce::KeyPress(c).isCurrentlyDown()) return true;
+    return false;
+}
+
+bool LMWSynthEditor::Keyboard::keyStateChanged(bool isKeyDown) {
+    const bool used = juce::MidiKeyboardComponent::keyStateChanged(isKeyDown);
+    held = anyNoteKeyDown();
+    return used;
+}
+
+void LMWSynthEditor::Keyboard::focusLost(FocusChangeType cause) {
+    const bool typing = dynamic_cast<juce::TextEditor*>(juce::Component::getCurrentlyFocusedComponent()) != nullptr;
+    if (held && !typing && juce::Process::isForegroundProcess()) return;   // a button or menu of ours: keep playing
+    held = false;
+    juce::MidiKeyboardComponent::focusLost(cause);       // releases the notes (JUCE)
+}
+
+void LMWSynthEditor::Keyboard::followHeldKeys() {
+    if (!held || hasKeyboardFocus(false)) return;
+    const bool typing = dynamic_cast<juce::TextEditor*>(juce::Component::getCurrentlyFocusedComponent()) != nullptr;
+    if (typing || !juce::Process::isForegroundProcess()) {
+        held = false;
+        juce::MidiKeyboardComponent::focusLost(focusChangedDirectly);   // release them all
+        return;
+    }
+    keyStateChanged(false);                               // a key released while the focus was elsewhere
 }
 
 bool LMWSynthEditor::isTypingText() {

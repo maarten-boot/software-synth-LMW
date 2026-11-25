@@ -3,6 +3,7 @@ project(LMWSynth VERSION 1.5.0 LANGUAGES C CXX)   # Spec S6.10: raised with ever
 include(cmake/TutorialText.cmake)   # Spec S7.9: docs/tutorial/Tutorial.md -> generated/TutorialText.h
 include(cmake/GuideText.cmake)      # Spec S11.5: docs/ai/SoundDesign.md -> generated/GuideText.h
 include(cmake/ChangesText.cmake)    # Spec S6.11: architecture/Changes.md -> generated/ChangesText.h
+include(cmake/TermsText.cmake)      # Spec S7.10: docs/Terms.md -> generated/TermsText.h
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -189,6 +190,9 @@ if(LMW_BUILD_TESTS)
     add_executable(test_ensemble tests/test_ensemble.cpp)
     target_include_directories(test_ensemble PRIVATE src)
     add_test(NAME T-S7.11-ensemble COMMAND test_ensemble)
+    add_executable(test_terms tests/test_terms.cpp)
+    target_include_directories(test_terms PRIVATE src ${CMAKE_BINARY_DIR}/generated)
+    add_test(NAME T-S7.10-terms COMMAND test_terms)
     find_package(Python3 COMPONENTS Interpreter)    # Spec S9.8: the documents as HTML (no other packages)
     if(Python3_Interpreter_FOUND)
         add_test(NAME T-S9.8-html COMMAND ${Python3_EXECUTABLE} -I ${CMAKE_SOURCE_DIR}/tests/test_md2html.py

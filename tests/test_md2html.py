@@ -47,7 +47,7 @@ class Nesting(HTMLParser):
 
 out = sys.argv[1]
 subprocess.run([sys.executable, "-I", os.path.join(ROOT, "scripts", "md2html.py"), out], check=True)
-for name in ("README.html", "Tutorial.html", "THIRD_PARTY.html"):
+for name in ("README.html", "Tutorial.html", "THIRD_PARTY.html", "Terms.html"):
     path = os.path.join(out, name)
     check(os.path.isfile(path), name + " written")
     if not os.path.isfile(path):
@@ -66,8 +66,15 @@ for name in ("README.html", "Tutorial.html", "THIRD_PARTY.html"):
 readme = open(os.path.join(out, "README.html"), encoding="utf-8").read()
 check('href="Tutorial.html"' in readme and 'src="images/synth.png"' in readme, "README links the tutorial and shows the Synth tab")
 tutorial = open(os.path.join(out, "Tutorial.html"), encoding="utf-8").read()
-check(len(re.findall(r"<h2>Lesson \d+ ", tutorial)) == 12, "tutorial: 12 lessons")
-lesson6 = tutorial[tutorial.index("<h2>Lesson 6 "):tutorial.index("<h2>Lesson 7 ")]
+# Spec S7.10: Terms.html — an id per term, See also links to them, the tutorial and README link into it.
+terms = open(os.path.join(out, "Terms.html"), encoding="utf-8").read()
+ids = set(re.findall(r'<h3 id="([^"]+)">', terms))
+check(len(ids) >= 70 and "cutoff" in ids and "normalled" in ids, "Terms.html: an id per term (%d)" % len(ids))
+check(all(a in ids for a in re.findall(r'href="#([^"]+)"', terms)), "Terms.html: every See also link has its term")
+check('href="Terms.html#cutoff"' in tutorial and 'href="Terms.html"' in tutorial, "the tutorial links its words to Terms.html")
+check('href="Terms.html"' in readme, "README links the terms")
+check(len(re.findall(r"<h2[^>]*>Lesson \d+ ", tutorial)) == 12, "tutorial: 12 lessons")   # headings have ids (S7.10)
+lesson6 = tutorial[re.search(r"<h2[^>]*>Lesson 6 ", tutorial).start():re.search(r"<h2[^>]*>Lesson 7 ", tutorial).start()]
 check(lesson6.count("<ol") == 1 and lesson6.count("<li>") == 6, "Lesson 6: one list with 6 steps (the image inside step 2)")
 check("<pre><code>lmw9p unix!" in tutorial, "Lesson 11: the commands as a code block")
 print("%d FAILED" % failures if failures else "T-S9.8-html: all passed")

@@ -7,6 +7,9 @@ others in any order.
 
 Status: reviewed (2026-11-21). Screenshots: the *String section* preset.
 
+**Words**: every term (VCO, cutoff, envelope, normalled, ...) is explained on the [Terms](../Terms.md)
+page — also in the program, Menu › Terms... (with a Find field). A linked word below goes there.
+
 **Conventions**
 - Controls are written as *PANEL › Control*, e.g. *VCF 1 › Cutoff*.
 - A cable is written *source → input*, e.g. *lfo2.out → vcf1.cutoff* (the names the Matrix tab uses).
@@ -51,7 +54,7 @@ so a held note stays.
    clarinet-like), Pulse (thin and nasal), Saw (bright, string- and brass-like).
 2. *VCO 1 › Oct*: −1 and +1 move by octaves; *Tune* moves by semitones (±7).
 3. *MIXER › VCO 2* up to 100 %: VCO 2 joins. Set *VCO 2 › Tune* to 0.08 (8 cents): the sound
-   starts to move and get wider — **detune**, the classic way to make one note sound like several.
+   starts to move and get wider — **detune** ([tune](../Terms.md#tune)), the classic way to make one note sound like several.
 4. *VCO 2 › Oct* +1 and *Tune* 0: an octave on top, organ-like. *VCO 2 › Tune* 7: a fifth.
 5. *MIXER › Noise* to 10 %: a breath on top of the tone. *NOISE › Colour*: White, Pink (softer),
    Brown (darker).
@@ -67,7 +70,8 @@ section from three oscillators.
 **Lesson sound:** *Lesson 3* — VCO 1 Saw, *VCF 1 › Cutoff* 1 kHz, Reso 20 %.
 
 1. Hold a note and move *VCF 1 › Cutoff* slowly from the top to the bottom: the sound goes from
-   bright to dull, as if a hand covers a speaker. That is a **lowpass** filter.
+   bright to dull, as if a hand covers a speaker. That is a **lowpass** filter (see [cutoff](../Terms.md#cutoff),
+   [filter type](../Terms.md#filter-type)).
 2. *Reso* up to 70 %: a whistling peak at the cutoff. Sweep the cutoff again: the classic "wow".
    Near the top the filter sings on its own.
 3. *Type*: High (the low end disappears, thin), Band (only around the cutoff, telephone-like),
@@ -86,8 +90,8 @@ section from three oscillators.
 
 **Lesson sound:** *Lesson 4* — VCO 1 Saw, *VCF 1 › Cutoff* 600 Hz, *VCF 1 › Env 2* +3 oct.
 
-**ENV 1** shapes the loudness (it drives the VCA), **ENV 2** the filter (it drives the cutoff, by the
-*Env 2* fader of each VCF). Each has Attack, Decay, Sustain, Release:
+**ENV 1** shapes the loudness (it drives the [VCA](../Terms.md#vca)), **ENV 2** the filter (it drives the cutoff, by the
+*Env 2* fader of each VCF). Each [envelope](../Terms.md#envelope) has Attack, Decay, Sustain, Release ([ADSR](../Terms.md#adsr)):
 attack = time to rise, decay = time to fall to the sustain level, release = time to die away after
 the key is let go.
 
@@ -107,11 +111,11 @@ the key is let go.
 
 **Lesson sound:** *Lesson 5* — VCO 1 Sine, ENV 1 sustain 100 %.
 
-1. *VCO 1 › FM* to 0.3 st: vibrato. **LFO 1** (a slow oscillator) is connected to the FM inputs of
+1. *VCO 1 › FM* to 0.3 st: [vibrato](../Terms.md#vibrato). **LFO 1** (a slow oscillator, an [LFO](../Terms.md#lfo)) is connected to the FM inputs of
    all three VCOs; the FM fader sets how much. The mod wheel of a MIDI keyboard adds to it.
 2. *LFO 1 › Rate*: 5–6 Hz is a singer's vibrato; 0.5 Hz a slow drift; 15 Hz a nervous warble.
    *LFO 1 › Wave* Square: a trill between two pitches.
-3. *VCA › Tremolo* to 50 %: the loudness pulses. That is **LFO 2**, connected to the VCA's Mod input.
+3. *VCA › Tremolo* to 50 %: the loudness pulses ([tremolo](../Terms.md#tremolo)). That is **LFO 2**, connected to the VCA's Mod input.
 4. *LFO 2 › Rate* 25 Hz, *Tremolo* 80 %: a growl; on a vowel (lesson 7) this becomes a rolled "rrr".
 5. The LFO's speed can be changed by a signal too: Lesson 6 shows how, with a cable from ENV 2 to
    *LFO 1 › Rate*, so the vibrato speeds up while a note is held.
@@ -125,7 +129,7 @@ the key is let go.
 
 **Lesson sound:** *Lesson 6* — like Lesson 3 (filtered saw), Cutoff 800 Hz.
 
-LMW-Synth is **semi-modular**: everything is already connected ("normalled", the dashed lines in the
+LMW-Synth is **[semi-modular](../Terms.md#semi-modular)**: everything is already connected ("[normalled](../Terms.md#normalled)", the dashed lines in the
 Schematic), and a cable replaces a normal connection where you want something else.
 
 1. Sockets are under the panels: white = input, black = output. Drag from *LFO 2 › Out* to
@@ -159,7 +163,7 @@ envelope now closes the filter as it rises. Modulation inputs take −100 … +1
 
 **Lesson sound:** *Lesson 7* — VCO 1 Pulse, VCO 2 Saw (+0.1) at 70 %, FORMANT Mix 100 %, Voice Tenor.
 
-1. *FORMANT › Vowel*: slide from A to U and play. The filter shapes the sound like a mouth: aa, ee,
+1. *FORMANT › Vowel*: slide from A to U and play. The filter shapes the sound like a mouth ([formant](../Terms.md#formant)): aa, ee,
    ii, oo, uu, gliding in between.
 2. *FORMANT › Voice*: Bass, Baritone, Tenor, Alto, Sopr(ano), Child — the vowels move up.
 3. *FORMANT › Reso*: higher is more pronounced, lower more natural.
@@ -176,7 +180,7 @@ envelope now closes the filter as it rises. Modulation inputs take −100 … +1
 
 **Lesson sound:** *Lesson 8* — VCO 1 and VCO 2 Sine, VCO 2 not in the mixer, cable *vco2.out → vco1.pm*.
 
-**Phase modulation** (FM, as on DX synthesizers): one oscillator wobbles the phase of another so fast
+**Phase modulation** ([PM](../Terms.md#pm); called FM on DX synthesizers, see [FM](../Terms.md#fm)): one oscillator wobbles the phase of another so fast
 that you hear new overtones instead of vibrato.
 
 1. *VCO 1 › PM* from 0 up to 2: the plain sine gets brighter and brighter. The fader is the
@@ -198,7 +202,7 @@ that you hear new overtones instead of vibrato.
 **Lesson sound:** *Lesson 9* — *Flute* without its comb and reverb (all effect Mix faders at 0).
 
 The **Effects** tab: SYNTH (the instrument) → COMB → ENSEMBLE → DELAY → REVERB → MAIN (what you
-hear), connected by default; Mix 0 means an effect is off. In a narrow window REVERB and MAIN wrap to
+hear), connected by default; [Mix](../Terms.md#mix) 0 means an [effect](../Terms.md#effect) is off. In a narrow window REVERB and MAIN wrap to
 a second row.
 
 ![The Effects tab: SYNTH, COMB, DELAY, REVERB and MAIN](../images/effects.png)
@@ -208,7 +212,7 @@ a second row.
    follows the notes — the breathy flute gets a tube.
 3. *COMB › Feedback* −50 %: odd harmonics, clarinet-like. *Damping* softens it. Back to *COMB › Mix* 0.
 4. *Presets › String section*, then *ENSEMBLE › Mix* 0 and back to 70 %: the string-machine chorus
-   (as in the Solina) that makes the saws wide and moving. *Depth*: how far it sweeps; *Shimmer*: the
+   (as in the Solina; [ENSEMBLE](../Terms.md#ensemble)) that makes the saws wide and moving. *Depth*: how far it sweeps; *Shimmer*: the
    fast trembling; *Rate*: both sweeps faster or slower. *ENSEMBLE › Presets › Wide* or *Subtle chorus*.
 5. *DELAY › Mix* 30 %, *Time* 350 ms, *Feedback* 40 %: echoes. *Spread* 100 %: they bounce between
    left and right (ping-pong). *Damping*: each echo darker.

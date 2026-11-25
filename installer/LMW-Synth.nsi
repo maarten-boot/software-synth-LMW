@@ -3,7 +3,7 @@
 ; Built by `cmake --build <build> --config Release --target installer`, which passes:
 ;   VERSION   e.g. 0.13.1
 ;   STAGE     folder with LMW-Synth.exe, LMW-Synth.vst3 (bundle folder), lmw9p.exe, lmw-mcp.exe, LICENSE.txt and
-;             docs (README, Tutorial, THIRD_PARTY as HTML with their images, scripts/md2html.py, S9.8)
+;             docs (README, Tutorial, THIRD_PARTY, Terms as HTML with their images, scripts/md2html.py, S9.8)
 ;   OUTFILE   the installer to write
 ;
 ; Install for (a page, or /CURRENTUSER or /ALLUSERS on the command line):
@@ -325,6 +325,7 @@ Section "${PRODUCT} (required)" SecMain
   CreateShortcut "$SMPROGRAMS\${PRODUCT}.lnk" "$INSTDIR\LMW-Synth.exe"
   CreateShortcut "$SMPROGRAMS\${PRODUCT} Tutorial.lnk" "$INSTDIR\docs\Tutorial.html"
   CreateShortcut "$SMPROGRAMS\${PRODUCT} Read me.lnk" "$INSTDIR\docs\README.html"
+  CreateShortcut "$SMPROGRAMS\${PRODUCT} Terms.lnk" "$INSTDIR\docs\Terms.html"            ; Spec S7.10
 
   WriteRegStr SHCTX "${PRODUCT_KEY}" "InstallDir" "$INSTDIR"
   WriteRegStr SHCTX "${UNINSTALL_KEY}" "DisplayName" "${PRODUCT}"
@@ -405,6 +406,7 @@ Section "Uninstall"
   Delete "$SMPROGRAMS\${PRODUCT}.lnk"
   Delete "$SMPROGRAMS\${PRODUCT} Tutorial.lnk"
   Delete "$SMPROGRAMS\${PRODUCT} Read me.lnk"
+  Delete "$SMPROGRAMS\${PRODUCT} Terms.lnk"
   Delete "$DESKTOP\${PRODUCT}.lnk"
   DeleteRegKey SHCTX "${UNINSTALL_KEY}"
   DeleteRegKey SHCTX "${PRODUCT_KEY}"

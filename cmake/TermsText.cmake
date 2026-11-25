@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Spec S7.10: docs/Terms.md as C++ text for Menu > Terms..., so the window shows the terms of this build.
+# Written at configure time like cmake/TutorialText.cmake; split before every term ("\n### ", never inside a
+# UTF-8 character) into raw string literals well below MSVC's 16 KB.
+set(_lmw_terms_src "${CMAKE_SOURCE_DIR}/docs/Terms.md")
+set(_lmw_terms_out "${CMAKE_BINARY_DIR}/generated/TermsText.h")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_lmw_terms_src}")
+file(READ "${_lmw_terms_src}" _lmw_rest)
+set(_lmw_out "// Generated from docs/Terms.md by cmake/TermsText.cmake - do not edit.\n#pragma once\nnamespace lmw::terms {\ninline constexpr const char* textParts[] = {\n")
+while(TRUE)
+    string(FIND "${_lmw_rest}" "\n### " _lmw_at)
+    if(_lmw_at EQUAL -1)
+        string(APPEND _lmw_out "R\"lmwterms(${_lmw_rest})lmwterms\",\n")
+        break()
+    endif()
+    math(EXPR _lmw_cut "${_lmw_at} + 1")
+    string(SUBSTRING "${_lmw_rest}" 0 ${_lmw_cut} _lmw_part)
+    string(SUBSTRING "${_lmw_rest}" ${_lmw_cut} -1 _lmw_rest)
+    string(APPEND _lmw_out "R\"lmwterms(${_lmw_part})lmwterms\",\n")
+endwhile()
+string(APPEND _lmw_out "};\n} // namespace lmw::terms\n")
+if(EXISTS "${_lmw_terms_out}")
+    file(READ "${_lmw_terms_out}" _lmw_old)
+endif()
+if(NOT "${_lmw_old}" STREQUAL "${_lmw_out}")
+    file(WRITE "${_lmw_terms_out}" "${_lmw_out}")
+endif()

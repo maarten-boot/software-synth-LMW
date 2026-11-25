@@ -47,8 +47,8 @@ foreach ($mode in @('CURRENTUSER', 'ALLUSERS')) {
     Check (Test-Path "$vst\$vstBinary") "$mode VST3 plugin in $vst"
     Check (Test-Path $menu) "$mode Start menu entry"
     $menuDir = Split-Path $menu
-    Check ((Test-Path "$menuDir\LMW-Synth Tutorial.lnk") -and (Test-Path "$menuDir\LMW-Synth Read me.lnk")) "$mode Start menu Tutorial and Read me"
-    Check ((Test-Path "$app\docs\Tutorial.html") -and (Test-Path "$app\docs\README.html") -and (Test-Path "$app\docs\THIRD_PARTY.html") -and (Test-Path "$app\docs\images\synth.png")) "$mode documents as HTML (S9.8)"
+    Check ((Test-Path "$menuDir\LMW-Synth Tutorial.lnk") -and (Test-Path "$menuDir\LMW-Synth Read me.lnk") -and (Test-Path "$menuDir\LMW-Synth Terms.lnk")) "$mode Start menu Tutorial, Read me and Terms"
+    Check ((Test-Path "$app\docs\Tutorial.html") -and (Test-Path "$app\docs\README.html") -and (Test-Path "$app\docs\THIRD_PARTY.html") -and (Test-Path "$app\docs\Terms.html") -and (Test-Path "$app\docs\images\synth.png")) "$mode documents as HTML (S9.8)"
     Check (-not (Test-Path "$app\README.md")) "$mode no .md files"
     Check ((Get-ItemProperty $reg).DisplayVersion -eq $version) "$mode Apps & features entry, version $version"
 
@@ -68,7 +68,7 @@ foreach ($mode in @('CURRENTUSER', 'ALLUSERS')) {
     Check (-not (Test-Path $app)) "$mode app folder removed"
     Check (-not (Test-Path "$vst\LMW-Synth.vst3")) "$mode plugin removed"
     Check (-not (Test-Path $menu)) "$mode Start menu entry removed"
-    Check (-not (Test-Path "$menuDir\LMW-Synth Tutorial.lnk")) "$mode Start menu Tutorial removed"
+    Check (-not (Test-Path "$menuDir\LMW-Synth Tutorial.lnk") -and -not (Test-Path "$menuDir\LMW-Synth Terms.lnk")) "$mode Start menu Tutorial and Terms removed"
     Check (-not (Test-Path $reg)) "$mode Apps & features entry removed"
 }
 

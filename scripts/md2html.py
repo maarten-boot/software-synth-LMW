@@ -7,7 +7,7 @@
 # links, images, bare https:// links and backslash escapes.
 #
 # Usage: md2html.py <out folder>
-# Writes README.html, Tutorial.html, THIRD_PARTY.html and images/*.png from the repository this script
+# Writes README.html, Tutorial.html, THIRD_PARTY.html, Terms.html and images/*.png from the repository this script
 # lives in. Links between these documents point to the HTML copies, images to images/, any other link
 # into the repository to its page on GitHub. Black on white (Spec S6.2; links 8.6:1).
 import html
@@ -18,7 +18,8 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO_URL = "https://github.com/maarten-boot/software-synth-LMW/blob/main/"
-DOCS = {"README.md": "README.html", "docs/tutorial/Tutorial.md": "Tutorial.html", "THIRD_PARTY.md": "THIRD_PARTY.html"}
+DOCS = {"README.md": "README.html", "docs/tutorial/Tutorial.md": "Tutorial.html", "THIRD_PARTY.md": "THIRD_PARTY.html",
+        "docs/Terms.md": "Terms.html"}   # Spec S7.10
 IMAGES = "docs/images"
 
 STYLE = """
@@ -33,6 +34,12 @@ table { border-collapse: collapse; }
 th, td { border: 1px solid #000000; padding: 0.2em 0.5em; text-align: left; vertical-align: top; }
 hr { border: 0; border-top: 1px solid #000000; }
 """
+
+
+def anchor(heading):
+    """A heading's id: lower case, anything but letters and digits as '-' (Spec S7.10; as src/ui/Terms.h)."""
+    plain = re.sub(r"[*`]", "", heading)
+    return re.sub(r"[^a-z0-9]+", "-", plain.lower()).strip("-")
 
 
 def target(link, source):
@@ -113,7 +120,7 @@ def blocks(lines, source):
         if m:
             flush()
             n = len(m.group(1))
-            out.append("<h%d>%s</h%d>" % (n, inline(m.group(2), source), n))
+            out.append('<h%d id="%s">%s</h%d>' % (n, anchor(m.group(2)), inline(m.group(2), source), n))
             i += 1; continue
         if re.fullmatch(r"-{3,}|\*{3,}", stripped):
             flush(); out.append("<hr>"); i += 1; continue
