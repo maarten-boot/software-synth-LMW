@@ -29,6 +29,9 @@ inline constexpr float cableOpacityDesign = 0.58f;
 // Spec S6.15 (Phase 24a, user 2026-11-24): the selected socket (keyboard focus, under the mouse, drop target)
 // sits on a golden-yellow box with a black edge; black on it 12.8:1. A theme item, raised like the unit colours.
 inline constexpr Rgb highlightDesign{0xFF, 0xC0, 0x00};
+// Spec S6.19 (Phase 32, user 2026-11-25): socket type rings, lines on white (raised to the contrast like the
+// cables): audio dark blue 6.7:1, CV dark orange 6.0:1, gate dark magenta 7.0:1. Index = lmw::dsp::SignalType.
+inline constexpr std::array<Rgb, 3> socketDesign{{{0x0B, 0x5C, 0xAD}, {0xA0, 0x4A, 0x00}, {0xB0, 0x00, 0x60}}};
 
 // Spec S6.9: unit colours — light tints behind black title text, one per unit type. Units without a
 // colour (KEYS, OUT, SYNTH, MAIN) keep white. Effects (user 2026-11-22): COMB is a filter (VCF yellow),
@@ -83,6 +86,7 @@ struct Palette {
     Rgb cableInk{cableDesign};         // the colour drawn at cableOpacity (below AAA)
     float cableOpacity = 1.0f;
     std::array<Rgb, static_cast<std::size_t>(Unit::Count)> unit{unitDesign};   // title bar fills (S6.9)
+    std::array<Rgb, 3> socket{socketDesign};   // S6.19: type rings (audio, CV, gate) on white
 
     Rgb unitColour(Unit u) const noexcept { return unit[static_cast<std::size_t>(u)]; }
     // Spec S6.6 (Phase 21a): cables at rest are drawn see-through — cableInk (with a white edge) at this
@@ -92,8 +96,8 @@ struct Palette {
     Rgb cableDrawn() const noexcept { return cableOpacity < 1.0f ? cableInk : cable; }
 
     // (foreground, background) pairs actually drawn by the GUI.
-    std::array<std::pair<Rgb, Rgb>, 9 + static_cast<std::size_t>(Unit::Count)> pairs() const noexcept {
-        std::array<std::pair<Rgb, Rgb>, 9 + static_cast<std::size_t>(Unit::Count)> p{{
+    std::array<std::pair<Rgb, Rgb>, 12 + static_cast<std::size_t>(Unit::Count)> pairs() const noexcept {
+        std::array<std::pair<Rgb, Rgb>, 12 + static_cast<std::size_t>(Unit::Count)> p{{
             {foreground, background},             // text, faders, value boxes, outlines, cables, black keys
             {background, foreground},             // highlighted menu text, fader cap line, output sockets
             {whiteKeyDown, background},           // pressed white key
@@ -103,9 +107,12 @@ struct Palette {
             {foreground, band},                   // Matrix: rings, strokes and grid on a highlighted band
             {cable, background},                  // a cable at rest on its white edge
             {foreground, highlight},              // S6.15: socket, label and edge on the highlight box
+            {socket[0], background},              // S6.19: audio ring on white
+            {socket[1], background},              //        CV ring
+            {socket[2], background},              //        gate ring
         }};
         for (std::size_t i = 0; i < unit.size(); ++i)
-            p[9 + i] = {foreground, unit[i]};     // black title text, line and focus ring on a unit colour
+            p[12 + i] = {foreground, unit[i]};     // black title text, line and focus ring on a unit colour
         return p;
     }
 };
@@ -118,6 +125,7 @@ struct Colours {
     Rgb cable{cableDesign};
     float cableOpacity = cableOpacityDesign;   // 0.2 .. 1
     Rgb highlight{highlightDesign};            // S6.15
+    std::array<Rgb, 3> socket{socketDesign};   // S6.19: audio, CV, gate rings
 };
 enum class ThemePreset { Default, Soft, Vivid, Monochrome, Custom };
 inline constexpr std::array<std::string_view, 5> themeNames{"Default", "Soft", "Vivid", "Monochrome", "Custom"};
@@ -139,18 +147,21 @@ inline std::optional<ThemePreset> parseTheme(std::string_view name) noexcept {
 // The editable items: the unit colours (not None), the three greys and the socket highlight (S6.15).
 // key: config.ini "color_<key>". New items go at the end (indices are kept).
 struct ThemeItem { std::string_view key, label; bool textOnIt; };   // textOnIt: black text on it (else a line on white)
-inline constexpr std::array<ThemeItem, 12> themeItems{{
+inline constexpr std::array<ThemeItem, 15> themeItems{{
     {"vco", "VCO", true}, {"noise", "NOISE", true}, {"vcf", "VCF, FORMANT, COMB", true}, {"vca", "VCA", true},
     {"env", "ENV", true}, {"lfo", "LFO", true}, {"mixer", "MIXER", true}, {"effects", "ENSEMBLE, DELAY, REVERB", true},
     {"background", "Background around the panels", true}, {"band", "Matrix highlight band", true},
     {"cable", "Cables at rest (colour)", false},
     {"highlight", "Selected socket (highlight)", true},
+    {"socket_audio", "Audio sockets (ring)", false}, {"socket_cv", "CV sockets (ring)", false},
+    {"socket_gate", "Gate sockets (ring)", false},     // S6.19
 }};
 inline Rgb& itemColour(Colours& c, std::size_t item) noexcept {
     if (item < 8) return c.unit[item + 1];                     // Vco .. Effect
     if (item == 8) return c.rack;
     if (item == 9) return c.band;
     if (item == 11) return c.highlight;
+    if (item >= 12 && item < 15) return c.socket[item - 12];
     return c.cable;
 }
 inline Rgb itemColour(const Colours& c, std::size_t item) noexcept { return itemColour(const_cast<Colours&>(c), item); }
@@ -176,6 +187,7 @@ inline Colours presetColours(ThemePreset t) noexcept {
             c.unit[static_cast<std::size_t>(Unit::Mix)] = Rgb{244, 244, 244};
             c.unit[static_cast<std::size_t>(Unit::Effect)] = Rgb{244, 244, 244};
             c.highlight = Rgb{0xD0, 0xD0, 0xD0};
+            c.socket = {{{0, 0, 0}, {0, 0, 0}, {0, 0, 0}}};   // S6.19: the ring styles tell them apart
             break;
         case ThemePreset::Default:
         case ThemePreset::Custom:
@@ -211,6 +223,7 @@ inline Palette palette(double minRatio, const Colours& c = Colours{}) noexcept {
     // that is white, so the bars are black and white like everything else.
     for (std::size_t i = 0; i < p.unit.size(); ++i) p.unit[i] = enforceContrast(c.unit[i], foreground, minRatio);
     p.highlight = enforceContrast(c.highlight, foreground, minRatio);
+    for (std::size_t i = 0; i < p.socket.size(); ++i) p.socket[i] = enforceContrast(c.socket[i], background, minRatio);
     return p;
 }
 } // namespace lmw::ui::theme

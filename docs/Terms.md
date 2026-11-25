@@ -259,11 +259,12 @@ Where: ENV › Attack, Decay, Sustain, Release.
 See also: [Envelope](#envelope)
 
 ### Gate
-An on/off signal: on while a key is held. It starts and stops the envelopes.
+An on/off signal: on while a key is held. It starts and stops the envelopes. Gate sockets have a
+dashed ring (magenta).
 
 Where: KEYS › Gate socket; ENV › Gate socket.
 
-See also: [Envelope](#envelope), [Note](#note)
+See also: [Envelope](#envelope), [Note](#note), [Socket](#socket)
 
 ### LFO
 Low-frequency oscillator: a slow wave (below what you hear as a tone) that moves something else.
@@ -334,11 +335,31 @@ See also: [VCA](#vca), [MIDI](#midi)
 
 ### Socket
 A round connection point at the bottom of a panel. White sockets are inputs, black ones outputs; a
-plugged input has a black centre.
+plugged input has a black centre. The ring around it tells the type of signal: a solid ring (blue) for
+audio, a double ring (orange) for a control voltage, a dashed ring (magenta) for a gate. Any output can
+still go to any input; the ring says what the input is made for, and its hover text names the type.
 
-Where: the bottom row of every panel; the ports on the Schematic.
+Where: the bottom row of every panel; the ports on the Schematic (its legend shows the rings).
 
-See also: [Input](#input), [Output](#output), [Cable](#cable)
+See also: [Input](#input), [Output](#output), [Cable](#cable), [Audio signal](#audio-signal), [Control voltage (CV)](#control-voltage-cv), [Gate](#gate)
+
+### Audio signal
+A signal you can hear: the sound itself, from a VCO, NOISE, the mixer, a filter, FORMANT, the VCA, OUT
+or an effect. Audio sockets have a solid ring (blue).
+
+Where: the sockets with a solid ring; "audio" in 9P /ports.
+
+See also: [Control voltage (CV)](#control-voltage-cv), [Gate](#gate), [Socket](#socket)
+
+### Control voltage (CV)
+A slower signal that moves a setting instead of being heard: an LFO, an envelope, the key pitch and
+velocity, noise.rand. CV sockets have a double ring (orange); a modulation input takes it at a level
+from −100 to +100 %. The FM and PM inputs of the VCOs are CV inputs that also take audio (a VCO on
+another VCO's FM or PM gives new overtones).
+
+Where: the sockets with a double ring; "cv" in 9P /ports ("cv+audio" for FM and PM).
+
+See also: [Modulation](#modulation), [Audio signal](#audio-signal), [Gate](#gate), [PM](#pm)
 
 ### Input
 A socket where a signal goes in: it changes something, e.g. VCF › Cut moves the cutoff.

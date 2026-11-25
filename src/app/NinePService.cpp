@@ -260,7 +260,8 @@ void NinePService::build() {
         });
     tree.file("snapshot", [withEditor] { return withEditor([](LMWSynthEditor& e) { return e.snapshotPng(); }, "").value_or(""); });
 
-    // /ports: inputs with their normalled source, then outputs (signal-flow order: source -> input).
+    // /ports: inputs with their normalled source, then outputs (signal-flow order: source -> input); each line ends
+    // with the socket's type (S6.19): audio, cv ("cv+audio" for FM / PM) or gate.
     // Spec S5.17: with parallel VCFs, vcf2.in is normalled from mix.out and formant.in from both VCFs
     // ("vcf1.out@0.5+vcf2.out@0.5", as in /cables).
     tree.file("ports", [p = &proc] {
@@ -275,10 +276,13 @@ void NinePService::build() {
                 src += lmw::dsp::sourceName(x.source);
                 if (x.level < 1.0f) { char buf[16]; std::snprintf(buf, sizeof buf, "@%g", static_cast<double>(x.level)); src += buf; }
             }
-            ports += "input  " + name(src) + " -> " + name(lmw::dsp::inputNames[static_cast<std::size_t>(i)]) + "\n";
+            const auto in = static_cast<lmw::dsp::In>(i);                 // Spec S6.19: the type at the end
+            ports += "input  " + name(src) + " -> " + name(lmw::dsp::inputNames[static_cast<std::size_t>(i)]) + "  "
+                   + name(lmw::dsp::typeName(lmw::dsp::typeOf(in))) + (lmw::dsp::alsoTakesAudio(in) ? "+audio" : "") + "\n";
         }
         for (int o = 0; o < lmw::dsp::numOutputs; ++o)
-            ports += "output " + name(lmw::dsp::outputNames[static_cast<std::size_t>(o)]) + "\n";
+            ports += "output " + name(lmw::dsp::outputNames[static_cast<std::size_t>(o)]) + "  "
+                   + name(lmw::dsp::typeName(lmw::dsp::typeOf(static_cast<lmw::dsp::Out>(o)))) + "\n";
         return ports;
     });
 }

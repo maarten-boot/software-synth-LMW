@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "SchematicView.h"
+#include "SocketRing.h"
 #include <algorithm>
 #include <cmath>
 #include <vector>
@@ -327,6 +328,20 @@ void SchematicView::paint(juce::Graphics& g) {
         const auto c = toScreen(sc::outputPoint(static_cast<lmw::dsp::Out>(o), layout));
         g.fillEllipse(c.x - pr, c.y - pr, 2 * pr, 2 * pr);
     }
+    {   // Spec S6.19: type rings around the ports (audio solid, CV double, gate dashed)
+        const float rr = pr + std::max(2.0f, 0.3f * s), rw = std::max(1.5f, 0.2f * s);
+        for (int i = 0; i < lmw::dsp::numInputs; ++i) {
+            const auto in = static_cast<lmw::dsp::In>(i);
+            const auto t = lmw::dsp::typeOf(in);
+            lmw::ui::drawTypeRing(g, toScreen(sc::inputPoint(in, layout)), rr, rw, t, colour(palette.socket[static_cast<std::size_t>(t)]));
+        }
+        for (int o = 0; o < lmw::dsp::numOutputs; ++o) {
+            const auto out = static_cast<lmw::dsp::Out>(o);
+            const auto t = lmw::dsp::typeOf(out);
+            lmw::ui::drawTypeRing(g, toScreen(sc::outputPoint(out, layout)), rr, rw, t, colour(palette.socket[static_cast<std::size_t>(t)]));
+        }
+        g.setColour(kFg);
+    }
 
     // Editing: the cable being dragged (from its fixed end to the target port or the mouse); the drop target
     // and the keyboard port cursor are on the highlight box (S6.15, drawn with the ports).
@@ -396,6 +411,21 @@ void SchematicView::paint(juce::Graphics& g) {
     g.fillPath(dottedSample);
     g.drawText("internal (set by a fader)", juce::Rectangle<float>(l0.x + 64 * s, l0.y - s, 30 * s, 2 * s),
                juce::Justification::centredLeft, false);
+    // Spec S6.19: the socket type rings.
+    const std::pair<lmw::dsp::SignalType, const char*> kinds[] = {
+        {lmw::dsp::SignalType::Audio, "audio"}, {lmw::dsp::SignalType::Cv, "CV (modulation)"}, {lmw::dsp::SignalType::Gate, "gate"}};
+    float x = l0.x + 98 * s;
+    for (const auto& [t, label] : kinds) {
+        g.setColour(kBg);
+        g.fillEllipse(x - 0.55f * s, l0.y - 0.55f * s, 1.1f * s, 1.1f * s);
+        g.setColour(kFg);
+        g.drawEllipse(x - 0.55f * s, l0.y - 0.55f * s, 1.1f * s, 1.1f * s, std::max(1.0f, 0.15f * s));
+        lmw::ui::drawTypeRing(g, {x, l0.y}, 0.95f * s, std::max(1.5f, 0.2f * s), t, colour(palette.socket[static_cast<std::size_t>(t)]));
+        g.setColour(kFg);
+        const float w = t == lmw::dsp::SignalType::Cv ? 17.0f : 7.0f;
+        g.drawText(label, juce::Rectangle<float>(x + 1.6f * s, l0.y - s, w * s, 2 * s), juce::Justification::centredLeft, false);
+        x += (w + 4.0f) * s;
+    }
 }
 
 std::vector<std::pair<std::string, juce::Rectangle<int>>> SchematicView::blockAreas() const {
@@ -412,11 +442,12 @@ juce::String SchematicView::getTooltip() {
     const auto& p = patch();
     if (const auto hit = sc::portAt(c, 1.2f, std::nullopt, layout)) {
         if (!hit->input)
-            return juce::String::fromUTF8(sc::describeOutput(p, static_cast<lmw::dsp::Out>(hit->index)).c_str())
+            return lmw::ui::typeLine(false, hit->index) + "\n"
+                 + juce::String::fromUTF8(sc::describeOutput(p, static_cast<lmw::dsp::Out>(hit->index)).c_str())
                  + note(sc::lfoDelayOutputNote(static_cast<lmw::dsp::Out>(hit->index), delays()))
                  + "\nDrag to an input to patch a cable. Right-click or Enter: cable menu.";
         const auto in = static_cast<lmw::dsp::In>(hit->index);
-        return juce::String::fromUTF8(sc::describeInput(p, in).c_str())
+        return lmw::ui::typeLine(true, hit->index) + "\n" + juce::String::fromUTF8(sc::describeInput(p, in).c_str())
              + note(sc::lfoDelayNote(p, in, delays()))
              + "\nDrag to an output to add a cable (up to 4 per input)"
              + (p.isPatched(in) ? "; drag the newest cable away to remove it. Delete: remove all." : ".")

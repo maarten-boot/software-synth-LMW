@@ -42,3 +42,9 @@
 ## Crosscheck after Phases 29–31
 
 - Committed cc209bc. Code vs S5.23, S5.24, S7.12: as built (noted there). Stale lines written before and fixed: S5a.1 (lfo1.delay / lfo2.delay, 76 parameters), S5.12 (Delay among the LFO controls), S9.2 (76 / 2157 host parameters, measured with the host test), S7.1 (state_version 5, patch files keep names), S7.9 (pictures per lesson), S7.10 (78 terms), S10.14 (cat binary-safe). Plan rows 29–31 done, L22–L24 → phases; Plan header updated. 39 of 39. Open: listening to the 0.4 s vibrato delay (user); CI after the push.
+- User: pushed (c13df96), wait for CI; start on L25. Spec S6.19 proposed (to confirm): audio / CV / gate rings with different styles (solid, dashed, double), colours #0B5CAD / #A04A00 / #B00060, hover text with the type, Schematic legend, theme items, Terms, Lesson 6; Matrix unchanged; /ports type to confirm. Plan Phase 32, Tests planned.
+- User: styles ok, FM / PM in the hover text only, yes add the type to /ports. S6.19 confirmed; Phase 32 started.
+- CI run 45608007991 (c13df96) green on all four (macOS / Windows with the window checks of /preset, /view, /snapshot).
+- 32 done: SignalType in Patch.h, SocketRing.h, rings on the tabs (sockets 2 px smaller) and the Schematic (legend), hover type line, theme items (15), /ports types, lmw-mcp text, AI guide, Terms (Audio signal, Control voltage (CV)), Lesson 6; Edit colours rows fixed (line items described as the cable; highlight "(adjusted)" against Default's colour). Pictures retaken with scripts/pictures.sh. 39 of 39.
+- User (visual): the dashed rings are too dominant; switch the CV layout with the gate (typos: dottet, to). Swapped the styles, colours kept: CV a double ring, gate a dashed ring; Spec, Terms, Lesson 6, Changes; pictures retaken. 39 of 39.
+- User: commit and do the crosscheck.

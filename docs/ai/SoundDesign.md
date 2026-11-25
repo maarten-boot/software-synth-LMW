@@ -6,6 +6,9 @@ Use the tools: `describe_synth` for exact ranges, `set_parameters` and `set_cabl
 `play` to listen, `get_sound` to check. Start from a preset when one is close (`list_presets`,
 `apply_instrument_preset`), then adjust. Values are written as in patch files: numbers in the
 parameter's own unit (seconds, Hz, octaves, semitones; 0-1 for percentages), choices by name.
+`describe_synth` also lists every socket with its type: audio (sound), cv (a control voltage: LFO,
+envelope, key pitch / velocity) or gate (on / off); "cv+audio" inputs (VCO FM and PM) take audio too.
+Patch audio into audio inputs and CV into modulation inputs unless you want an effect such as audio-rate FM.
 
 ## Signal flow (normalled: connected without cables)
 

@@ -150,8 +150,11 @@ the key is let go.
 LMW-Synth is **[semi-modular](../Terms.md#semi-modular)**: everything is already connected ("[normalled](../Terms.md#normalled)", the dashed lines in the
 Schematic), and a cable replaces a normal connection where you want something else.
 
-1. Sockets are under the panels: white = input, black = output. Drag from *LFO 2 › Out* to
-   *VCF 1 › Cut* (the cutoff input). The filter now wobbles with LFO 2 instead of following ENV 2.
+1. Sockets are under the panels: white = input, black = output. The ring around each tells the kind of
+   signal it is made for: solid blue = audio (sound), double orange = control voltage (a signal that moves a
+   setting, like an LFO or an envelope), dashed magenta = gate (on / off); the hover text says it too, and
+   the Schematic has a legend. Any output may still go to any input — a VCO on another VCO's FM is FM
+   synthesis. Drag from *LFO 2 › Out* to *VCF 1 › Cut* (the cutoff input). The filter now wobbles with LFO 2 instead of following ENV 2.
 2. Open the **Matrix** tab: every input is a row, every output a column. The cable is a filled cell
    at 100 %. Click the cell (that only selects it) and drag up/down, or use the slider on the right:
    set it to 30 %. A click on an empty cell makes a cable at 100 %, a double-click removes a cable, and

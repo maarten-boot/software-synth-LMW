@@ -540,10 +540,14 @@ int main(int argc, char* argv[]) {
         CHECK(write9P(sock, {"cables"}, "reverb.in=").empty());
         {
             const auto ports = read9P(sock, {"ports"});
-            CHECK(ports.find("input  out.out -> comb.in\n") != std::string::npos
-                  && ports.find("input  comb.out -> ensemble.in\n") != std::string::npos && ports.find("input  ensemble.out -> delay.in\n") != std::string::npos
-                  && ports.find("input  delay.out -> reverb.in\n") != std::string::npos
-                  && ports.find("input  reverb.out -> main.in\n") != std::string::npos);
+            CHECK(ports.find("input  out.out -> comb.in  audio\n") != std::string::npos
+                  && ports.find("input  comb.out -> ensemble.in  audio\n") != std::string::npos && ports.find("input  ensemble.out -> delay.in  audio\n") != std::string::npos
+                  && ports.find("input  delay.out -> reverb.in  audio\n") != std::string::npos
+                  && ports.find("input  reverb.out -> main.in  audio\n") != std::string::npos);
+            // Spec S6.19: the type at the end of every line
+            CHECK(ports.find("input  lfo1.out -> vco1.fm  cv+audio\n") != std::string::npos && ports.find("input  keys.gate -> env1.gate  gate\n") != std::string::npos
+                  && ports.find("output keys.gate  gate\n") != std::string::npos && ports.find("output lfo1.out  cv\n") != std::string::npos
+                  && ports.find("output vco1.out  audio\n") != std::string::npos);
         }
         CHECK(write9P(sock, {"notes"}, "serial test").empty());
         const auto s3 = serial();

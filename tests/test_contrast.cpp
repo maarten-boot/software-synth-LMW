@@ -91,6 +91,11 @@ int main() {
                 const auto pal = palette(r, presetColours(static_cast<ThemePreset>(t)));
                 for (const auto& [fg, bg] : pal.pairs()) CHECK(contrastRatio(fg, bg) >= r - 1e-9);
             }
+        // S6.19: the socket rings — the designs pass 4.5:1 on white as they are, Monochrome draws them black,
+        // three more editable items (15).
+        for (const auto& c : socketDesign) CHECK(contrastRatio(c, {255, 255, 255}) >= 4.5);
+        CHECK(palette(4.5).socket == socketDesign && themeItems.size() == 15 && itemColour(Colours{}, 13).r == socketDesign[1].r);
+        for (const auto& c : presetColours(ThemePreset::Monochrome).socket) CHECK(c.r == 0 && c.g == 0 && c.b == 0);
         const auto def = presetColours(ThemePreset::Default), soft = presetColours(ThemePreset::Soft),
                    vivid = presetColours(ThemePreset::Vivid), mono = presetColours(ThemePreset::Monochrome);
         CHECK(def.unit == unitDesign && def.cable.r == cableDesign.r);
@@ -135,7 +140,7 @@ int main() {
               && std::fabs(rt.cableOpacity - 0.4f) < 1e-6);
         // T-S6.15-highlight: the socket highlight is theme item 11 "highlight", golden yellow by default,
         // preset colours, black on it meets every setting, white at Max (edge only); config and theme files.
-        CHECK(themeItems.size() == 12 && themeItems[11].key == "highlight" && themeItems[11].textOnIt);
+        CHECK(themeItems.size() == 15 && themeItems[11].key == "highlight" && themeItems[11].textOnIt);
         CHECK(def.highlight == (Rgb{0xFF, 0xC0, 0x00}) && itemColour(def, 11) == def.highlight && soft.highlight == (Rgb{0xFF, 0xE0, 0x8A})
               && vivid.highlight == (Rgb{0xFF, 0xB0, 0x00}) && mono.highlight == (Rgb{0xD0, 0xD0, 0xD0}));
         CHECK(palette(4.5).highlight == highlightDesign && contrastRatio({0, 0, 0}, highlightDesign) > 12.0);

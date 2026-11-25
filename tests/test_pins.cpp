@@ -177,6 +177,29 @@ int main() {
         CHECK(t.has_value() && t->level(In::VcaVel, Out::KeysPitch) == 0.5f && patchToText(*t) == "vca.cv=env1.out;vca.vel=keys.pitch@0.5");
         CHECK(patchFromText("vca.vel=lfo1.out@-0.5").has_value());
     }
+    {   // T-S6.19-types: the type of every socket (audio, CV, gate); FM / PM also take audio.
+        int audioIn = 0, cvIn = 0, gateIn = 0, audioOut = 0, cvOut = 0, gateOut = 0, alsoAudio = 0;
+        for (int i = 0; i < numInputs; ++i) {
+            const auto in = static_cast<In>(i);
+            const auto t = typeOf(in);
+            (t == SignalType::Audio ? audioIn : t == SignalType::Cv ? cvIn : gateIn) += 1;
+            CHECK((t == SignalType::Cv) == bipolar(in));            // CV inputs are the modulation inputs (S5.21)
+            alsoAudio += alsoTakesAudio(in) ? 1 : 0;
+            if (alsoTakesAudio(in)) CHECK(t == SignalType::Cv);
+            if (isEffectIn(in)) CHECK(t == SignalType::Audio);
+        }
+        for (int o = 0; o < numOutputs; ++o) {
+            const auto t = typeOf(static_cast<Out>(o));
+            (t == SignalType::Audio ? audioOut : t == SignalType::Cv ? cvOut : gateOut) += 1;
+        }
+        std::printf("types: inputs %d audio, %d cv, %d gate; outputs %d audio, %d cv, %d gate\n", audioIn, cvIn, gateIn, audioOut, cvOut, gateOut);
+        CHECK(gateIn == 2 && gateOut == 1 && alsoAudio == 6);
+        CHECK(cvIn == 19 && audioIn == 14 && cvOut == 7 && audioOut == 14);
+        CHECK(typeOf(In::Vco1Fm) == SignalType::Cv && typeOf(In::MixIn1) == SignalType::Audio && typeOf(In::Env2Gate) == SignalType::Gate);
+        CHECK(typeOf(Out::KeysGate) == SignalType::Gate && typeOf(Out::Env1) == SignalType::Cv && typeOf(Out::Rand) == SignalType::Cv
+              && typeOf(Out::Noise) == SignalType::Audio && typeOf(Out::ReverbOut) == SignalType::Audio);
+        CHECK(typeName(SignalType::Audio) == "audio" && typeName(SignalType::Cv) == "cv" && typeName(SignalType::Gate) == "gate");
+    }
     if (failures == 0) std::printf("T-S5.14-pins: all passed\n");
     return failures == 0 ? 0 : 1;
 }

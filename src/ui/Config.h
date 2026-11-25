@@ -7,7 +7,8 @@
 //   ninep_tcp      = [host:]port        (also serve 9P over TCP; empty = off; host default 127.0.0.1)
 //   keyboard       = shown | hidden     (on-screen keyboard for a new window, Spec S6.12; a saved state overrides it)
 //   theme          = Default | Soft | Vivid | Monochrome | Custom   (Spec S6.13)
-//   color_<item>   = #RRGGBB            (Custom: vco, noise, vcf, vca, env, lfo, mixer, effects, background, band, cable, highlight)
+//   color_<item>   = #RRGGBB            (Custom: vco, noise, vcf, vca, env, lfo, mixer, effects, background, band, cable, highlight,
+//                                     socket_audio, socket_cv, socket_gate)
 //   cable_opacity  = 20 .. 100          (Custom: cables at rest, %)
 //   theme_name     = <name>             (Custom taken from a saved theme, Documents/LMW-Synth Presets/THEME)
 // Unknown keys and unreadable values are ignored (the default is kept). Pure C++, no JUCE.

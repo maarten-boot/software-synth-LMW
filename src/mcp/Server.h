@@ -288,7 +288,7 @@ private:
             const auto ports = rd("ports", why);
             if (!ports) return text(why, true);
             return text("Parameters (id, kind, range, unit, default, choices):\n" + *info
-                        + "\nSockets (input lines: normal source -> input; output lines):\n" + *ports);
+                        + "\nSockets (input lines: normal source -> input  type; output lines: output  type; types audio, cv, gate; cv+audio = also takes audio):\n" + *ports);
         }
         if (name == "get_sound") {
             auto p = rd("patch", why);

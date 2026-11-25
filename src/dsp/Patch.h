@@ -106,6 +106,30 @@ inline constexpr bool bipolar(In i) noexcept {
     }
 }
 inline constexpr float minLevel(In i) noexcept { return bipolar(i) ? -1.0f : 0.0f; }
+
+// Spec S6.19 (Phase 32): what a socket carries or is made for — audio, control voltage (modulation) or a gate.
+// Patching stays free within a domain (S7.6); the type is shown as a ring and named in the hover text and /ports.
+enum class SignalType : std::uint8_t { Audio, Cv, Gate };
+inline constexpr SignalType typeOf(In i) noexcept {
+    if (i == In::Env1Gate || i == In::Env2Gate) return SignalType::Gate;
+    return bipolar(i) ? SignalType::Cv : SignalType::Audio;
+}
+inline constexpr SignalType typeOf(Out o) noexcept {
+    switch (o) {
+        case Out::KeysGate: return SignalType::Gate;
+        case Out::KeysPitch: case Out::KeysVel: case Out::Rand: case Out::Lfo1: case Out::Lfo2: case Out::Env1: case Out::Env2:
+            return SignalType::Cv;
+        default: return SignalType::Audio;
+    }
+}
+// FM and PM: CV inputs that also take audio (audio-rate FM / PM, S5.20).
+inline constexpr bool alsoTakesAudio(In i) noexcept {
+    for (int n = 0; n < numVcos; ++n) if (i == vcoFmIn(n) || i == vcoPmIn(n)) return true;
+    return false;
+}
+inline constexpr std::string_view typeName(SignalType t) noexcept {
+    return t == SignalType::Audio ? "audio" : t == SignalType::Cv ? "cv" : "gate";
+}
 // A level below -1 (this one) removes a pin; a level of 0 keeps it, silent (S5.21: a fader passes through 0).
 inline constexpr float removePin = -2.0f;
 inline constexpr bool removes(float level) noexcept { return level < -1.0f; }

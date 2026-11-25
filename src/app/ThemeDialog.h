@@ -132,14 +132,17 @@ private:
             const auto chosen = lmw::ui::theme::itemColour(colours, i);
             lmw::ui::theme::Colours shownAll;                 // the colours as drawn at this contrast
             shownAll.unit = pal.unit; shownAll.rack = pal.rack; shownAll.band = pal.band; shownAll.cable = pal.cable;
+            shownAll.highlight = pal.highlight; shownAll.socket = pal.socket;   // S6.15, S6.19
             const auto shown = lmw::ui::theme::itemColour(shownAll, i);
             rows[i]->swatch.fill = juce::Colour(chosen.r, chosen.g, chosen.b);
             rows[i]->swatch.repaint();
             const double r = item.textOnIt ? lmw::ui::contrastRatio(lmw::ui::theme::foreground, shown)
                                            : lmw::ui::contrastRatio(shown, lmw::ui::theme::background);
-            const bool raised = item.textOnIt ? shown != chosen : pal.cableInk != chosen;
+            const bool isCable = item.key == "cable";           // drawn see-through: it "looks" lighter
+            const bool raised = isCable ? pal.cableInk != chosen : shown != chosen;
             rows[i]->contrast.setText(juce::String(lmw::ui::hexColour(chosen)) + "   " + juce::String(r, 1) + ":1"
-                                          + (item.textOnIt ? " with black" : " on white, looks " + juce::String(lmw::ui::hexColour(shown)))
+                                          + (item.textOnIt ? " with black"
+                                             : isCable ? " on white, looks " + juce::String(lmw::ui::hexColour(shown)) : juce::String(" on white"))
                                           + (raised ? " (adjusted)" : ""),
                                       juce::dontSendNotification);
         }

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "ChangesText.h"   // generated from architecture/Changes.md
 #include "TermsView.h"
+#include "SocketRing.h"
 #include "PluginEditor.h"
 #include "AssistantView.h"
 #include "AssistantSettings.h"
@@ -1310,9 +1311,10 @@ LMWSynthEditor::Jack::Jack(LMWSynthEditor& e, bool isOutput, int portIndex, juce
     setTitle((output ? "Output " : "Input ") + portName(output, port));
 }
 
+// Spec S6.19: 2 px smaller than before, so the type ring (1 px gap, 2 px line) fits above the label.
 juce::Rectangle<float> LMWSynthEditor::Jack::socket() const {
-    const float d = editor.m.colW >= 80 ? 16.0f : 14.0f;
-    return juce::Rectangle<float>(d, d).withCentre({getWidth() * 0.5f, 2.0f + d * 0.5f});
+    const float d = editor.m.colW >= 80 ? 14.0f : 12.0f;
+    return juce::Rectangle<float>(d, d).withCentre({getWidth() * 0.5f, 1.0f + 3.0f + d * 0.5f});
 }
 
 juce::Point<float> LMWSynthEditor::Jack::centreInEditor() const {
@@ -1343,7 +1345,12 @@ void LMWSynthEditor::Jack::paint(juce::Graphics& g) {
         g.fillEllipse(c);
         g.setColour(kFg);
         g.drawEllipse(c.reduced(1.0f), 2.0f);
-        if (patch.isPatched(static_cast<lmw::dsp::In>(port))) g.fillEllipse(c.reduced(4.5f));
+        if (patch.isPatched(static_cast<lmw::dsp::In>(port))) g.fillEllipse(c.reduced(4.0f));
+    }
+    {   // Spec S6.19: the type ring (audio solid, CV double, gate dashed)
+        const auto t = output ? lmw::dsp::typeOf(static_cast<lmw::dsp::Out>(port)) : lmw::dsp::typeOf(static_cast<lmw::dsp::In>(port));
+        const auto col = editor.palette.socket[static_cast<std::size_t>(t)];
+        lmw::ui::drawTypeRing(g, c.getCentre(), c.getWidth() * 0.5f + 2.0f, 2.0f, t, toJuce(col));
     }
     g.setColour(kFg);
     // Label shrinks to fit a narrow slot (several sockets under one fader column).
@@ -1354,15 +1361,15 @@ void LMWSynthEditor::Jack::paint(juce::Graphics& g) {
         font = juce::Font(juce::FontOptions(size));
     }
     g.setFont(font);
-    g.drawText(name, getLocalBounds().withTrimmedTop(static_cast<int>(c.getBottom()) + 1), juce::Justification::centredTop, false);
+    g.drawText(name, getLocalBounds().withTrimmedTop(static_cast<int>(c.getBottom()) + 4), juce::Justification::centredTop, false);   // below the ring
 }
 
 juce::String LMWSynthEditor::Jack::getTooltip() {
     if (output)
-        return editor.describeOutput(static_cast<lmw::dsp::Out>(port))
+        return lmw::ui::typeLine(false, port) + "\n" + editor.describeOutput(static_cast<lmw::dsp::Out>(port))
              + "\nDrag to an input to patch a cable. Enter: cable menu.";
     const auto in = static_cast<lmw::dsp::In>(port);
-    return editor.describeInput(in) + "\nDrag to an output to add a cable (up to 4 per input)"
+    return lmw::ui::typeLine(true, port) + "\n" + editor.describeInput(in) + "\nDrag to an output to add a cable (up to 4 per input)"
          + (editor.processor.currentPatch().isPatched(in) ? "; drag the newest cable away to remove it. Delete: remove all." : ".")
          + "\nEnter: cable menu.";
 }
