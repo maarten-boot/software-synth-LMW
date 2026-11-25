@@ -52,3 +52,4 @@
 ## Crosscheck after Phase 32
 
 - Committed 59625b8. Code vs S6.19: as built (styles swapped by the user, noted). Stale lines fixed: S6.6 (rings, socket 14 / 12 px), S6.7 (legend with the rings), S6.13 (15 items), S7.10 (80 terms), S10.10 (/ports ends with the type). Plan header. 39 of 39. Open: CI after the push; the user's look at the rings.
+- User pushed 208590c (CI run 45625407567 watched). User: commit; looking whether to include more features in the next release. (1.7.0 so far: Phases 29–32; ENSEMBLE and Terms were already in 1.6.0.)
