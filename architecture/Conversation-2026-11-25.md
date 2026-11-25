@@ -48,3 +48,7 @@
 - 32 done: SignalType in Patch.h, SocketRing.h, rings on the tabs (sockets 2 px smaller) and the Schematic (legend), hover type line, theme items (15), /ports types, lmw-mcp text, AI guide, Terms (Audio signal, Control voltage (CV)), Lesson 6; Edit colours rows fixed (line items described as the cable; highlight "(adjusted)" against Default's colour). Pictures retaken with scripts/pictures.sh. 39 of 39.
 - User (visual): the dashed rings are too dominant; switch the CV layout with the gate (typos: dottet, to). Swapped the styles, colours kept: CV a double ring, gate a dashed ring; Spec, Terms, Lesson 6, Changes; pictures retaken. 39 of 39.
 - User: commit and do the crosscheck.
+
+## Crosscheck after Phase 32
+
+- Committed 59625b8. Code vs S6.19: as built (styles swapped by the user, noted). Stale lines fixed: S6.6 (rings, socket 14 / 12 px), S6.7 (legend with the rings), S6.13 (15 items), S7.10 (80 terms), S10.10 (/ports ends with the type). Plan header. 39 of 39. Open: CI after the push; the user's look at the rings.
