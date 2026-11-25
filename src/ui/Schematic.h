@@ -8,6 +8,7 @@
 // while it has none.
 #pragma once
 #include "dsp/Patch.h"
+#include "ui/ParamText.h"
 #include "ui/Theme.h"
 #include <algorithm>
 #include <array>
@@ -356,8 +357,41 @@ inline std::array<Point, 4> internalCurve(Point a, Point t) noexcept {
     return {{a, {a.x + d, a.y}, {t.x, t.y + std::max(8.0f, std::abs(t.y - a.y) * 0.6f)}, t}};
 }
 
-// Extra hover lines for a block: its internal links.
-inline std::string blockNote(std::string_view name, float vcf1Key, float vcf2Key) {
+// Spec S5.24 (user 2026-11-25: show it, and say that OUT is not delayed): LFO Delay notes. `delays` are
+// lfo1.delay and lfo2.delay in seconds. The Delay acts where a voice reads the LFO (every per-voice input);
+// out.in and the LFO Rate inputs read the shared LFO once, so it is not delayed there.
+using LfoDelays = std::array<float, 2>;
+inline std::string lfoDelayLabel(float seconds) { return "delay " + lmw::ui::text::time(seconds); }
+inline bool readsSharedLfo(In in) noexcept { return in == In::OutIn || in == In::Lfo1Rate || in == In::Lfo2Rate; }
+// The note for an input fed (normalled or by cable) by an LFO whose Delay is above 0; empty if none.
+inline std::string lfoDelayNote(const lmw::dsp::Patch& p, In in, const LfoDelays& delays) {
+    std::string note;
+    for (std::size_t k = 0; k < 2; ++k) {
+        const Out lfo = k == 0 ? Out::Lfo1 : Out::Lfo2;
+        if (!(delays[k] > 0.0f)) continue;
+        bool feeds = false;
+        if (p.isPatched(in)) feeds = p.hasPin(in, lfo);
+        else { const auto ns = p.normals(in); for (int i = 0; i < ns.n; ++i) feeds = feeds || ns.s[static_cast<std::size_t>(i)].source == lfo; }
+        if (!feeds) continue;
+        const std::string name(lmw::dsp::outputNames[static_cast<std::size_t>(lfo)]);
+        if (!note.empty()) note += "\n";
+        note += readsSharedLfo(in)
+            ? name + " is not delayed here: the LFO Delay works per note, inside the voices"
+            : name + " delayed " + lmw::ui::text::time(delays[k]) + " per note (fades in after each note starts)";
+    }
+    return note;
+}
+// The note for an LFO output while its Delay is above 0; empty otherwise.
+inline std::string lfoDelayOutputNote(Out out, const LfoDelays& delays) {
+    const std::size_t k = out == Out::Lfo1 ? 0 : out == Out::Lfo2 ? 1 : 2;
+    if (k > 1 || !(delays[k] > 0.0f)) return {};
+    return "Delay " + lmw::ui::text::time(delays[k]) + ": fades in per note in the voices it feeds; "
+           "not delayed at out.in or the LFO Rate inputs";
+}
+
+// Extra hover lines for a block: its internal links (and the LFO Delay, S5.24).
+inline std::string blockNote(std::string_view name, float vcf1Key, float vcf2Key, const LfoDelays& delays = {}) {
+    if (name == "LFO 1" || name == "LFO 2") return lfoDelayOutputNote(name == "LFO 1" ? Out::Lfo1 : Out::Lfo2, delays);
     if (name.starts_with("VCO")) return "mod wheel \u2192 FM depth (internal: FM fader + wheel \u00d7 1 st)";
     if (name == "VCF 1" || name == "VCF 2") {
         const float k = name == "VCF 1" ? vcf1Key : vcf2Key;

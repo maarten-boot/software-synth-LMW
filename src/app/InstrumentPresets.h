@@ -72,21 +72,22 @@ inline const std::vector<Instrument>& builtIn() {
     static const std::vector<Instrument> list = [] {
         const auto solo = std::pair<std::string, std::string>{"voice.count", "1"};
         const auto vibrato = std::pair<std::string, std::string>{"lfo1.rate", "5.5"};
+        const auto delayed = std::pair<std::string, std::string>{"lfo1.delay", "0.4"};   // S5.24: vibrato after the attack
         std::vector<Instrument> v;
         // Winds: one voice; breath noise; a comb body that follows the notes (the COMB preset of the name: Key 100 %, from C4).
-        v.push_back(fromModules("Flute", join({solo, vibrato, {"mix.noise", "0.06"}, {"noise.colour", "Pink"}},
+        v.push_back(fromModules("Flute", join({solo, vibrato, delayed, {"mix.noise", "0.06"}, {"noise.colour", "Pink"}},
                                               join(comb("Flute"), reverb("Chamber")))));
         v.push_back(fromModules("Recorder", join({solo, {"mix.noise", "0.04"}, {"noise.colour", "Pink"}}, reverb("Small room"))));
-        v.push_back(fromModules("Oboe", join({solo, vibrato}, join(comb("Oboe"), reverb("Chamber")))));
-        v.push_back(fromModules("Clarinet", join({solo, vibrato}, join(comb("Clarinet"), reverb("Chamber")))));
-        v.push_back(fromModules("Bassoon", join({solo, vibrato}, join(comb("Bassoon"), reverb("Chamber")))));
+        v.push_back(fromModules("Oboe", join({solo, vibrato, delayed}, join(comb("Oboe"), reverb("Chamber")))));
+        v.push_back(fromModules("Clarinet", join({solo, vibrato, delayed}, join(comb("Clarinet"), reverb("Chamber")))));
+        v.push_back(fromModules("Bassoon", join({solo, vibrato, delayed}, join(comb("Bassoon"), reverb("Chamber")))));
         // Brass: one voice; VCO 2 slightly detuned for width.
-        v.push_back(fromModules("Trumpet", join({solo, vibrato, {"vco2.wave", "Saw"}, {"vco2.tune", "0.06"}, {"mix.vco2", "0.5"}},
+        v.push_back(fromModules("Trumpet", join({solo, vibrato, delayed, {"vco2.wave", "Saw"}, {"vco2.tune", "0.06"}, {"mix.vco2", "0.5"}},
                                                 reverb("Concert hall"))));
-        v.push_back(fromModules("French horn", join({solo, vibrato, {"vco2.wave", "Saw"}, {"vco2.octave", "-1"},
+        v.push_back(fromModules("French horn", join({solo, vibrato, delayed, {"vco2.wave", "Saw"}, {"vco2.octave", "-1"},
                                                      {"vco2.tune", "0.04"}, {"mix.vco2", "0.4"}}, reverb("Concert hall"))));
         // Strings.
-        v.push_back(fromModules("Violin", join({solo, vibrato, {"vco2.wave", "Saw"}, {"vco2.tune", "0.05"}, {"mix.vco2", "0.4"}},
+        v.push_back(fromModules("Violin", join({solo, vibrato, delayed, {"vco2.wave", "Saw"}, {"vco2.tune", "0.05"}, {"mix.vco2", "0.4"}},
                                                reverb("Concert hall"))));
         v.push_back(fromModules("String section", join({{"voice.count", "12"}, {"lfo1.rate", "5"}, {"vco1.fm", "0.12"},
                                                         {"vco2.wave", "Saw"}, {"vco2.tune", "0.1"}, {"vco2.fm", "0.12"}, {"mix.vco2", "0.8"},
@@ -113,7 +114,7 @@ inline const std::vector<Instrument>& builtIn() {
                                           {"env1.attack", "0.35"}, {"env1.decay", "0.3"}, {"env1.sustain", "0.9"}, {"env1.release", "0.9"},
                                           {"formant.vowel", "0"}, {"formant.voice", "Alto"}, {"formant.res", "0.6"}, {"formant.mix", "1"}},
                                          reverb("Concert hall")), {}});
-        v.push_back({"Male voice (ooo)", join({solo, {"vco1.wave", "Pulse"}, {"vco1.octave", "-1"}, {"vco1.fm", "0.12"}, {"lfo1.rate", "5.2"},
+        v.push_back({"Male voice (ooo)", join({solo, {"vco1.wave", "Pulse"}, {"vco1.octave", "-1"}, {"vco1.fm", "0.12"}, {"lfo1.rate", "5.2"}, {"lfo1.delay", "0.4"},
                                                {"env1.attack", "0.15"}, {"env1.decay", "0.2"}, {"env1.sustain", "0.9"}, {"env1.release", "0.4"},
                                                {"formant.vowel", "4"}, {"formant.voice", "Baritone"}, {"formant.res", "0.6"},
                                                {"formant.mix", "1"}}, reverb("Chamber")), {}});

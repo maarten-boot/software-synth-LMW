@@ -112,6 +112,8 @@ APVTS::ParameterLayout LMWSynthProcessor::createLayout(std::map<std::string, Flo
           f(P::lfo2Rate, "LFO 2 Rate", logRange(0.05f, 20.0f, 2.0f), 4.0f, hertz),
           std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{P::lfo2Wave, 1}, "LFO 2 Wave",
               juce::StringArray{"Sine", "Triangle", "Saw", "Square"}, 0),
+          f(P::lfoDelay, "LFO 1 Delay", time(5.0f), 0.0f, seconds),      // Spec S5.24
+          f(P::lfo2Delay, "LFO 2 Delay", time(5.0f), 0.0f, seconds),
           f(P::gain, "Volume", Range(0.0f, 1.0f), 0.8f, decibels));
     // Spec S7.4: reverb on the Effects tab. Mix 0 = off (bypassed exactly).
     l.add(f(P::reverbMix,     "Reverb Mix",     Range(0.0f, 1.0f), 0.0f, percent),
@@ -151,7 +153,8 @@ LMWSynthProcessor::LMWSynthProcessor()
     raw.e1a = get(P::env1Attack); raw.e1d = get(P::env1Decay); raw.e1s = get(P::env1Sustain); raw.e1r = get(P::env1Release);
     raw.e2a = get(P::env2Attack); raw.e2d = get(P::env2Decay); raw.e2s = get(P::env2Sustain); raw.e2r = get(P::env2Release);
     raw.lfoRate = get(P::lfoRate); raw.lfoWave = get(P::lfoWave); raw.gain = get(P::gain);
-    raw.lfo2Rate = get(P::lfo2Rate); raw.lfo2Wave = get(P::lfo2Wave); raw.tremolo = get(P::vcaTremolo);
+    raw.lfo2Rate = get(P::lfo2Rate); raw.lfo2Wave = get(P::lfo2Wave);
+    raw.lfoDelay = get(P::lfoDelay); raw.lfo2Delay = get(P::lfo2Delay); raw.tremolo = get(P::vcaTremolo);
     raw.vcaVelocity = get(P::vcaVelocity);
     raw.revMix = get(P::reverbMix); raw.revSize = get(P::reverbSize);
     raw.revDamping = get(P::reverbDamping); raw.revWidth = get(P::reverbWidth);
@@ -422,6 +425,7 @@ void LMWSynthProcessor::pullParameters() noexcept {
     m.lfoWave     = static_cast<lmw::dsp::LfoWave>(static_cast<int>(raw.lfoWave->load()));
     m.lfo2Rate    = raw.lfo2Rate->load();
     m.lfo2Wave    = static_cast<lmw::dsp::LfoWave>(static_cast<int>(raw.lfo2Wave->load()));
+    m.lfoDelay    = {raw.lfoDelay->load(), raw.lfo2Delay->load()};          // Spec S5.24
     m.tremolo     = raw.tremolo->load();
     m.vcaVelocity = raw.vcaVelocity->load();
     m.noiseColour = static_cast<lmw::dsp::NoiseColour>(static_cast<int>(raw.noiseColour->load()));

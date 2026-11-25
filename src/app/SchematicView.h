@@ -24,11 +24,12 @@
 
 class SchematicView final : public juce::Component, public juce::TooltipClient {
 public:
-    // keyTrack(): the Key faders of VCF 1 and VCF 2 (0..1), for the internal key-tracking links.
+    // keyTrack(): the Key faders of VCF 1 and VCF 2 (0..1), for the internal key-tracking links, then the LFO 1 and
+    // LFO 2 Delay faders (s, Spec S5.24: a label under the LFO symbol and a line in the hover texts while above 0).
     // connect(input, output, level): as the editor's connect (level 0 removes, output Patch::none removes
     // all cables of the input); false when it does not fit (the editor tells the user).
     // showMenu(output, port, screenArea): the editor's cable menu for that port.
-    SchematicView(std::function<const lmw::dsp::Patch&()> patch, std::function<std::array<float, 2>()> keyTrack,
+    SchematicView(std::function<const lmw::dsp::Patch&()> patch, std::function<std::array<float, 4>()> keyTrack,
                   std::function<bool(int, int, float)> connect, std::function<void(bool, int, juce::Rectangle<int>)> showMenu);
 
     // Called by the editor's timer: repaints when a fader shown in the schematic changed.
@@ -72,10 +73,11 @@ private:
     void cancelDrag();
 
     std::function<const lmw::dsp::Patch&()> patch;
-    std::function<std::array<float, 2>()> keyTrack;
+    std::function<std::array<float, 4>()> keyTrack;
     std::function<bool(int, int, float)> connect;
     std::function<void(bool, int, juce::Rectangle<int>)> showMenu;
-    std::array<float, 2> shownKeys{};
+    std::array<float, 4> shownKeys{};                 // VCF 1 / 2 Key, LFO 1 / 2 Delay
+    lmw::ui::schematic::LfoDelays delays() const noexcept { return {shownKeys[2], shownKeys[3]}; }
     lmw::ui::theme::Palette palette = lmw::ui::theme::palette(4.5);
 
     // Editing (Phase 12b).

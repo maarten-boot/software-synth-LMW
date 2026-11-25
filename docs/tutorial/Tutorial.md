@@ -115,9 +115,17 @@ the key is let go.
    all three VCOs; the FM fader sets how much. The mod wheel of a MIDI keyboard adds to it.
 2. *LFO 1 › Rate*: 5–6 Hz is a singer's vibrato; 0.5 Hz a slow drift; 15 Hz a nervous warble.
    *LFO 1 › Wave* Square: a trill between two pitches.
-3. *VCA › Tremolo* to 50 %: the loudness pulses ([tremolo](../Terms.md#tremolo)). That is **LFO 2**, connected to the VCA's Mod input.
-4. *LFO 2 › Rate* 25 Hz, *Tremolo* 80 %: a growl; on a vowel (lesson 7) this becomes a rolled "rrr".
-5. The LFO's speed can be changed by a signal too: Lesson 6 shows how, with a cable from ENV 2 to
+3. *LFO 1 › Delay* to 1 s and play long notes: each note starts plain and the vibrato comes in after it
+   ([delayed vibrato](../Terms.md#delayed-vibrato)), as a singer or violinist does: nothing for the first
+   half second, then it fades in, full at 1 s. The delay counts **per note**: in a chord every note fades in
+   from its own start. The LFO itself keeps running; what is delayed is how much of it each note gets —
+   wherever LFO 1 goes into a voice (the VCOs' FM, a VCF, the VCA, any cable from *lfo1.out* to a voice).
+   A cable from LFO 1 straight to OUT, or to an LFO's Rate, is **not** delayed: there the LFO is used once
+   for all notes together (their hover text says so). The Schematic shows "delay 1.00 s" under LFO 1, and
+   the hover texts of the sockets it feeds say "delayed". Set it back to 0 s.
+4. *VCA › Tremolo* to 50 %: the loudness pulses ([tremolo](../Terms.md#tremolo)). That is **LFO 2**, connected to the VCA's Mod input.
+5. *LFO 2 › Rate* 25 Hz, *Tremolo* 80 %: a growl; on a vowel (lesson 7) this becomes a rolled "rrr".
+6. The LFO's speed can be changed by a signal too: Lesson 6 shows how, with a cable from ENV 2 to
    *LFO 1 › Rate*, so the vibrato speeds up while a note is held.
 
 **Listen for:** vibrato moves pitch, tremolo moves loudness.

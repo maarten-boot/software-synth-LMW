@@ -55,6 +55,8 @@ envelope is up. Audio and gate inputs take 0 to 1 only. A level of 0 keeps a cab
   0.001-0.002, decay 0.6-3, sustain 0. Organ: attack 0.005, sustain 1, release 0.02.
 - **LFO 1 / LFO 2** (`lfoN.rate` 0.05-20 Hz, `lfoN.wave` Sine / Triangle / Saw / Square; Rate inputs):
   vibrato 5-6 Hz, slow movement 0.1-0.5 Hz. A cable `lfo1.rate=env2.out` makes the vibrato speed up.
+  `lfoN.delay` 0-5 s (0 = at once): per note the LFO fades in after the start (nothing for half the
+  delay, full at the delay) — delayed vibrato, 0.3-0.6 s for solo winds, strings and voices.
 - **OUT** `out.gain` 0-1 (the default 0.8 ≈ -1.9 dB); a soft limiter catches peaks.
 - **COMB** (`comb.freq` 20-5000 Hz, `comb.key` 0-1, `comb.feedback` -0.95..0.95, `comb.damping` 0-1,
   `comb.mix` 0-1, 0 = off): a resonant tube or body. Key 1 with Freq 261.6 (C4) follows the notes;

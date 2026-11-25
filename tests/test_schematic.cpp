@@ -139,6 +139,25 @@ int main() {
         CHECK(sc::blockNote("VCO 2", 0, 0).find("mod wheel") != std::string::npos);
         CHECK(sc::blockNote("MIX", 0, 0).empty());
     }
+    {   // T-S5.24-lfodelay: the LFO Delay notes (label under the LFO, hover lines; OUT and the rate inputs not delayed).
+        const sc::LfoDelays none{0.0f, 0.0f}, d{0.4f, 1.5f};
+        CHECK(sc::lfoDelayLabel(0.4f) == "delay 400 ms" && sc::lfoDelayLabel(1.5f) == "delay 1.50 s");
+        lmw::dsp::Patch p;
+        CHECK(sc::lfoDelayNote(p, In::Vco1Fm, none).empty());                     // Delay 0: nothing
+        CHECK(sc::lfoDelayNote(p, In::Vco1Fm, d) == "lfo1.out delayed 400 ms per note (fades in after each note starts)");
+        CHECK(sc::lfoDelayNote(p, In::VcaMod, d).find("lfo2.out delayed 1.50 s") == 0);   // normalled tremolo
+        CHECK(sc::lfoDelayNote(p, In::Vcf1Cutoff, d).empty());                     // not fed by an LFO
+        CHECK(p.connect(In::Vcf1Cutoff, Out::Lfo1, 0.3f));
+        CHECK(sc::lfoDelayNote(p, In::Vcf1Cutoff, d).find("lfo1.out delayed") == 0);
+        CHECK(p.connect(In::OutIn, Out::Lfo1));
+        CHECK(sc::lfoDelayNote(p, In::OutIn, d) == "lfo1.out is not delayed here: the LFO Delay works per note, inside the voices");
+        CHECK(sc::lfoDelayNote(p, In::OutIn, none).empty());
+        CHECK(p.connect(In::Lfo1Rate, Out::Lfo2));
+        CHECK(sc::lfoDelayNote(p, In::Lfo1Rate, d).find("lfo2.out is not delayed here") == 0);
+        CHECK(sc::lfoDelayOutputNote(Out::Lfo1, d).find("Delay 400 ms: fades in per note") == 0);
+        CHECK(sc::lfoDelayOutputNote(Out::Lfo1, none).empty() && sc::lfoDelayOutputNote(Out::Env1, d).empty());
+        CHECK(sc::blockNote("LFO 2", 0, 0, d).find("Delay 1.50 s") == 0 && sc::blockNote("LFO 1", 0, 0).empty());
+    }
     {   // Phase 12b: drag rules shared with the Synth tab (CableEdit.h).
         namespace ce = lmw::ui::cables;
         using V = std::vector<ce::Op>;

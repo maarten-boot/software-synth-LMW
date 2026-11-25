@@ -56,6 +56,7 @@ struct ModParams {
     LfoWave lfoWave = LfoWave::Sine;            // lfo1.wave
     float lfo2Rate = 4.0f;                      // lfo2.rate (Hz), Spec S5.12
     LfoWave lfo2Wave = LfoWave::Sine;           // lfo2.wave
+    std::array<float, 2> lfoDelay{};            // lfo1.delay, lfo2.delay (s, Spec S5.24): 0 = no delay
     float tremolo = 0.0f;                       // vca.tremolo: depth of vca.mod, 0..1 (0 = off)
     float vcaVelocity = 1.0f;                   // vca.velocity (S5.22): how much vca.vel sets the gain, 0..1
     NoiseColour noiseColour = NoiseColour::White;   // noise.colour (Spec S5.15)
@@ -80,6 +81,7 @@ struct GlobalSignals {
 class Voice {
 public:
     void prepare(double sr) noexcept {
+        sampleRate = sr; sinceOn = 0; lfoGain = {1.0f, 1.0f};
         for (auto& o : osc) o.setSampleRate(sr);
         env1.setSampleRate(sr); env2.setSampleRate(sr); vcf.setSampleRate(sr); vcf2.setSampleRate(sr);
         formant.setSampleRate(sr);
@@ -106,6 +108,7 @@ public:
     void noteOn(int n, float vel, const Patch& patch) noexcept {
         if (!env1.isActive()) { for (auto& o : osc) o.reset(); vcf.reset(); vcf2.reset(); formant.reset(); }
         note = n; velocity = vel; gate = true; keyDown = true; played = true;
+        sinceOn = 0;                              // Spec S5.24: the LFO delay starts again at every note-on
         lastPitch.fill(1e9);                      // force frequency update
         if (keyGated(In::Env1Gate, patch)) env1.noteOn();
         if (keyGated(In::Env2Gate, patch)) env2.noteOn();
@@ -124,6 +127,15 @@ public:
     // Returns this voice's contribution to out.in (only meaningful for per-voice sources).
     float process(const GlobalSignals& g, const Patch& patch, const ModParams& mp,
                   double cutoffLog2, double cutoff2Log2, const std::array<bool, numVcos>& vcoUsed) noexcept {
+        // Spec S5.24: how much of LFO 1 / 2 this voice gets: nothing for the first half of the Delay, then a
+        // linear fade-in to full at the Delay; Delay 0 = 1 exactly. Counted while the gate is open, so in
+        // release the depth stays where it was.
+        const double t = static_cast<double>(sinceOn) / sampleRate;
+        for (std::size_t k = 0; k < 2; ++k) {
+            const double d = static_cast<double>(mp.lfoDelay[k]);
+            lfoGain[k] = !(d > 0.0) ? 1.0f : static_cast<float>(std::clamp((t - 0.5 * d) / (0.5 * d), 0.0, 1.0));
+        }
+        if (gate && sinceOn < (std::int64_t{1} << 40)) ++sinceOn;
         const double keySemitones = static_cast<double>(note - keysPitchZeroNote) + bend;   // Spec S5.8
         out[o(Out::KeysPitch)] = static_cast<float>(keySemitones / 12.0);
         out[o(Out::KeysGate)] = gate ? 1.0f : 0.0f;
@@ -244,8 +256,8 @@ private:
 
     float value(Out src, const GlobalSignals& g) const noexcept {
         if (src == noSource)   return 0.0f;           // input without a normalled source
-        if (src == Out::Lfo1)  return g.lfo;
-        if (src == Out::Lfo2)  return g.lfo2;
+        if (src == Out::Lfo1)  return g.lfo * lfoGain[0];     // Spec S5.24: delayed per voice
+        if (src == Out::Lfo2)  return g.lfo2 * lfoGain[1];
         if (src == Out::Noise) return g.noise;
         if (src == Out::Rand)  return g.rand;
         return out[o(src)];                    // computed earlier this sample, or previous sample (feedback)
@@ -297,6 +309,9 @@ private:
     bool played = false;                       // has had a note since prepare()
     bool env1GateWasOn = false, env2GateWasOn = false;     // gate level last sample (edge detection)
     bool env1KeyGated = true, env2KeyGated = true;         // gate source was keys.gate last sample
+    double sampleRate = 48000.0;
+    std::int64_t sinceOn = 0;                  // samples with the gate open since the last note-on (S5.24)
+    std::array<float, 2> lfoGain{1.0f, 1.0f}; // this voice's share of LFO 1 / LFO 2 now (S5.24)
 };
 
 // Polyphonic engine (Spec S4). Voice count 1..maxVoices, changeable at runtime.

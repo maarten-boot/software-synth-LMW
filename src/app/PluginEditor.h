@@ -318,11 +318,13 @@ private:
     int presetLabelTick = 0;
     int titleTextWidth() const;
     juce::String describeInput(lmw::dsp::In) const;   // "<source> → <input> (normalled|cable)"
+    juce::String describeInputOnly(lmw::dsp::In) const;   // without the LFO Delay note (S5.24)
+    lmw::ui::schematic::LfoDelays lfoDelays() const;     // lfo1.delay, lfo2.delay (s)
 
     LMWSynthProcessor& processor;
     LMWLookAndFeel lookAndFeel;
     Metrics m = normalMetrics;
-    std::array<Fader, 59> faders;
+    std::array<Fader, 61> faders;
     std::array<Choice, 15> choices;
     std::size_t usedFaders = 0, usedChoices = 0;
     std::vector<Group> groups;

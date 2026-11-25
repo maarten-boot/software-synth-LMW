@@ -13,7 +13,7 @@ const juce::Colour kFg = colour(lmw::ui::theme::foreground);
 juce::String text(std::string_view s) { return juce::String::fromUTF8(s.data(), static_cast<int>(s.size())); }
 }
 
-SchematicView::SchematicView(std::function<const lmw::dsp::Patch&()> p, std::function<std::array<float, 2>()> k,
+SchematicView::SchematicView(std::function<const lmw::dsp::Patch&()> p, std::function<std::array<float, 4>()> k,
                              std::function<bool(int, int, float)> c, std::function<void(bool, int, juce::Rectangle<int>)> m)
     : patch(std::move(p)), keyTrack(std::move(k)), connect(std::move(c)), showMenu(std::move(m)) {
     setWantsKeyboardFocus(true);
@@ -282,6 +282,20 @@ void SchematicView::paint(juce::Graphics& g) {
         g.setColour(kFg);
         g.drawText(t, box, juce::Justification::centred, false);
     }
+    // Spec S5.24: an LFO whose Delay is above 0 gets "delay 400 ms" under its symbol, as the key labels.
+    for (std::size_t k = 0; k < 2; ++k) {
+        if (!(shownKeys[2 + k] > 0.0f)) continue;
+        const auto bi = sc::findBlock(k == 0 ? "LFO 1" : "LFO 2");
+        if (!bi) continue;
+        const auto r = toScreen(layout.box(*bi));
+        const auto t = juce::String::fromUTF8(sc::lfoDelayLabel(shownKeys[2 + k]).c_str());
+        const float w = juce::GlyphArrangement::getStringWidth(juce::Font(juce::FontOptions(1.5f * s, juce::Font::italic)), t) + 0.6f * s;
+        const juce::Rectangle<float> box(r.getCentreX() - w / 2, r.getBottom() + 0.2f * s, w, 1.9f * s);
+        g.setColour(kBg);
+        g.fillRect(box);
+        g.setColour(kFg);
+        g.drawText(t, box, juce::Justification::centred, false);
+    }
 
     // Ports: inputs white with a black ring, outputs black (as on the Synth tab, S6.6).
     const float pr = 0.55f * s;
@@ -386,14 +400,17 @@ void SchematicView::paint(juce::Graphics& g) {
 
 juce::String SchematicView::getTooltip() {
     if (grab) return {};
+    const auto note = [](const std::string& n) { return n.empty() ? juce::String() : "\n" + juce::String::fromUTF8(n.c_str()); };
     const auto c = toCanvas(getMouseXYRelative().toFloat());
     const auto& p = patch();
     if (const auto hit = sc::portAt(c, 1.2f, std::nullopt, layout)) {
         if (!hit->input)
             return juce::String::fromUTF8(sc::describeOutput(p, static_cast<lmw::dsp::Out>(hit->index)).c_str())
+                 + note(sc::lfoDelayOutputNote(static_cast<lmw::dsp::Out>(hit->index), delays()))
                  + "\nDrag to an input to patch a cable. Right-click or Enter: cable menu.";
         const auto in = static_cast<lmw::dsp::In>(hit->index);
         return juce::String::fromUTF8(sc::describeInput(p, in).c_str())
+             + note(sc::lfoDelayNote(p, in, delays()))
              + "\nDrag to an output to add a cable (up to 4 per input)"
              + (p.isPatched(in) ? "; drag the newest cable away to remove it. Delete: remove all." : ".")
              + "\nRight-click or Enter: cable menu.";
@@ -403,8 +420,8 @@ juce::String SchematicView::getTooltip() {
             juce::String t = text(b.name);
             for (auto in : b.inputs) t += "\n" + juce::String::fromUTF8(sc::describeInput(p, in).c_str());
             for (auto out : b.outputs) t += "\n" + juce::String::fromUTF8(sc::describeOutput(p, out).c_str());
-            if (const auto note = sc::blockNote(b.name, shownKeys[0], shownKeys[1]); !note.empty())
-                t += "\n" + juce::String::fromUTF8(note.c_str());
+            if (const auto bn = sc::blockNote(b.name, shownKeys[0], shownKeys[1], delays()); !bn.empty())
+                t += "\n" + juce::String::fromUTF8(bn.c_str());
             return t + "\nDrag the symbol to move it (keyboard: Shift+arrows on one of its ports).";
     }
     return {};

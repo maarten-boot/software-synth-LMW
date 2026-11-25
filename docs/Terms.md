@@ -267,11 +267,11 @@ See also: [Envelope](#envelope), [Note](#note)
 
 ### LFO
 Low-frequency oscillator: a slow wave (below what you hear as a tone) that moves something else.
-LFO 1 gives vibrato (pitch), LFO 2 tremolo (loudness).
+LFO 1 gives vibrato (pitch), LFO 2 tremolo (loudness). Its Delay lets it fade in after each note starts.
 
 Where: the LFO 1 and LFO 2 panels.
 
-See also: [Vibrato](#vibrato), [Tremolo](#tremolo), [Rate](#rate), [Modulation](#modulation)
+See also: [Vibrato](#vibrato), [Tremolo](#tremolo), [Rate](#rate), [Delayed vibrato](#delayed-vibrato), [Modulation](#modulation)
 
 ### Rate
 How fast an LFO (or the NOISE random steps) runs, in Hz: cycles per second.
@@ -294,7 +294,18 @@ the FM fader sets how far.
 
 Where: LFO 1; VCO › FM; the mod wheel adds more.
 
-See also: [LFO](#lfo), [FM](#fm), [Mod wheel](#mod-wheel)
+See also: [LFO](#lfo), [FM](#fm), [Mod wheel](#mod-wheel), [Delayed vibrato](#delayed-vibrato)
+
+### Delayed vibrato
+Vibrato that starts a moment after the note, as singers and violinists play it: the note begins
+plain, then the wobble fades in. LFO 1 › Delay sets when it is at full depth (nothing for the first
+half of that time, then a smooth fade-in); 0 = at once. LFO 2 has the same for tremolo. It counts per
+note and works wherever the LFO goes into a voice (VCOs, VCFs, VCA); a cable from the LFO straight to OUT
+or to an LFO's Rate input is not delayed (the LFO is used once there, for all notes).
+
+Where: LFO 1 › Delay (LFO 2 › Delay for tremolo).
+
+See also: [Vibrato](#vibrato), [LFO](#lfo), [Tremolo](#tremolo)
 
 ### Tremolo
 A regular wobble of the loudness. Here: LFO 2 on the VCA's Mod input; VCA › Tremolo sets how deep.

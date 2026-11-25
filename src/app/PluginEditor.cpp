@@ -223,7 +223,11 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
                                    addFader(P::lfoRate, "Rate", inputTip(In::Lfo1Rate,
                                        "Shared LFO 1 (vibrato): lfo1.out feeds vco1.fm, vco2.fm and vco3.fm\n"
                                        "(normalled); the FM faders set the depth.\n"
-                                       "Rate input: +1.0 doubles the rate, -1.0 halves it (per-voice sources: newest note)"))}, {}});
+                                       "Rate input: +1.0 doubles the rate, -1.0 halves it (per-voice sources: newest note)")),
+                                   addFader(P::lfoDelay, "Delay", [] {
+                                       return juce::String("Delayed vibrato: after each note starts, LFO 1 has no effect for the first\n"
+                                                           "half of this time, then fades in to full at this time (0 = at once).");
+                                   })}, {}});
     const std::size_t mixPanel = groups.size();
     groups.push_back({"MIXER", 1,
         {addFader(P::mixVco[0], "VCO 1", inputTip(In::MixIn1, "Level of mixer input 1")),
@@ -278,7 +282,11 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
                                    addFader(P::lfo2Rate, "Rate", inputTip(In::Lfo2Rate,
                                        "Shared LFO 2 (tremolo): lfo2.out feeds vca.mod (normalled);\n"
                                        "the VCA Tremolo fader sets the depth.\n"
-                                       "Rate input: +1.0 doubles the rate, -1.0 halves it (per-voice sources: newest note)"))}, {}});
+                                       "Rate input: +1.0 doubles the rate, -1.0 halves it (per-voice sources: newest note)")),
+                                   addFader(P::lfo2Delay, "Delay", [] {
+                                       return juce::String("Delayed tremolo: after each note starts, LFO 2 has no effect for the first\n"
+                                                           "half of this time, then fades in to full at this time (0 = at once).");
+                                   })}, {}});
     const std::size_t vcaPanel = groups.size();
     groups.push_back({"VCA", 2, {addFader(P::vcaInitial, "Initial", [this] {
                          return describeInput(In::VcaIn) + "\n" + describeInput(In::VcaCv)
@@ -552,10 +560,12 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     };
     addChildComponent(*matrix);
     schematic = std::make_unique<SchematicView>([this]() -> const lmw::dsp::Patch& { return processor.currentPatch(); },
-        [this] {                                           // VCF Key faders, for the key-tracking links
+        [this] {                                           // VCF Key faders (key-tracking links), LFO Delays (S5.24)
             auto& s = processor.state();
-            return std::array<float, 2>{s.getRawParameterValue(lmw::param::vcfKey[0])->load(),
-                                        s.getRawParameterValue(lmw::param::vcfKey[1])->load()};
+            return std::array<float, 4>{s.getRawParameterValue(lmw::param::vcfKey[0])->load(),
+                                        s.getRawParameterValue(lmw::param::vcfKey[1])->load(),
+                                        s.getRawParameterValue(lmw::param::lfoDelay)->load(),
+                                        s.getRawParameterValue(lmw::param::lfo2Delay)->load()};
         },
         [this](int in, int out, float level) { return connect(in, out, level); },   // Phase 12b: editing
         [this](bool output, int port, juce::Rectangle<int> area) { showPortMenu(output, port, area); });
@@ -754,7 +764,19 @@ bool LMWSynthEditor::keyStateChanged(bool isKeyDown) {
     return !isTypingText() && keyboard.keyStateChanged(isKeyDown);
 }
 
+// Spec S5.24: the LFO 1 / LFO 2 Delay faders, for the hover notes (Schematic.h lfoDelayNote).
+lmw::ui::schematic::LfoDelays LMWSynthEditor::lfoDelays() const {
+    auto& s = processor.state();
+    return {s.getRawParameterValue(lmw::param::lfoDelay)->load(), s.getRawParameterValue(lmw::param::lfo2Delay)->load()};
+}
+
 juce::String LMWSynthEditor::describeInput(lmw::dsp::In in) const {
+    const auto delayNote = lmw::ui::schematic::lfoDelayNote(processor.currentPatch(), in, lfoDelays());
+    const auto text = describeInputOnly(in);
+    return delayNote.empty() ? text : text + "\n" + juce::String::fromUTF8(delayNote.c_str());
+}
+
+juce::String LMWSynthEditor::describeInputOnly(lmw::dsp::In in) const {
     const auto& patch = processor.currentPatch();
     const auto idx = [](auto e) { return static_cast<std::size_t>(e); };
     const juce::String inName(lmw::dsp::inputNames[idx(in)].data(), lmw::dsp::inputNames[idx(in)].size());
@@ -1571,8 +1593,10 @@ juce::String LMWSynthEditor::describeOutput(lmw::dsp::Out out) const {
             fed.add(portName(false, i) + (l != 1.0f ? " (cable " + juce::String(juce::roundToInt(l * 100.0f)) + " %)" : " (cable)"));
         }
     }
+    const auto delayNote = lmw::ui::schematic::lfoDelayOutputNote(out, lfoDelays());   // S5.24
     return portName(true, static_cast<int>(out)) + " " + juce::String::fromUTF8("\xe2\x86\x92") + " "
-         + (fed.isEmpty() ? juce::String("(not connected)") : fed.joinIntoString(", "));
+         + (fed.isEmpty() ? juce::String("(not connected)") : fed.joinIntoString(", "))
+         + (delayNote.empty() ? juce::String() : "\n" + juce::String::fromUTF8(delayNote.c_str()));
 }
 
 namespace {

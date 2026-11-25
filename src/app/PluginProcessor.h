@@ -66,6 +66,8 @@ inline constexpr const char* lfoRate     = "lfo1.rate";
 inline constexpr const char* lfoWave     = "lfo1.wave";
 inline constexpr const char* lfo2Rate    = "lfo2.rate";
 inline constexpr const char* lfo2Wave    = "lfo2.wave";
+inline constexpr const char* lfoDelay    = "lfo1.delay";   // Spec S5.24: delayed vibrato
+inline constexpr const char* lfo2Delay   = "lfo2.delay";
 inline constexpr const char* gain        = "out.gain";
 // Spec S7.4: Effects tab, reverb after the voices (and the soft limiter), before the output.
 inline constexpr const char* reverbMix     = "reverb.mix";
@@ -329,7 +331,7 @@ private:
     struct RawParams {                 // atomics owned by apvts, read on the audio thread
         std::atomic<float> *voices{}, *mixNoise{}, *vcaInitial{},
             *e1a{}, *e1d{}, *e1s{}, *e1r{}, *e2a{}, *e2d{}, *e2s{}, *e2r{}, *lfoRate{}, *lfoWave{}, *gain{},
-            *lfo2Rate{}, *lfo2Wave{}, *tremolo{}, *vcaVelocity{}, *revMix{}, *revSize{}, *revDamping{}, *revWidth{},
+            *lfo2Rate{}, *lfo2Wave{}, *lfoDelay{}, *lfo2Delay{}, *tremolo{}, *vcaVelocity{}, *revMix{}, *revSize{}, *revDamping{}, *revWidth{},
             *noiseColour{}, *noiseRate{}, *noiseSmooth{},
             *combFreq{}, *combKey{}, *combFeedback{}, *combDamping{}, *combMix{},
             *delayTime{}, *delayFeedback{}, *delayDamping{}, *delaySpread{}, *delayMix{}, *ensembleDepth{}, *ensembleRate{}, *ensembleShimmer{}, *ensembleMix{}, *formantVowel{}, *formantVoice{}, *formantRes{}, *formantMix{}, *vcfRouting{};

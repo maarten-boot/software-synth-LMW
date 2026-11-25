@@ -3,6 +3,7 @@
 Changes between releases.
 
 ## Unreleased
+- 2026-11-25: Delayed vibrato: LFO 1 and LFO 2 have a Delay fader — after each note starts the LFO fades in (nothing for the first half of the Delay, full at the Delay). Flute, Oboe, Clarinet, Bassoon, Trumpet, French horn, Violin and Male voice (ooo) start their vibrato after 0.4 s. Older patches: Delay 0, as before. While a Delay is set, the Schematic shows it under the LFO and the socket hover texts say where it acts (per note, in the voices) and where not (a cable to OUT or to an LFO Rate).
 - 2026-11-25: VCF 1 and VCF 2 Slope has 36 dB: steeper and darker than 24 dB, with a softer resonance (Bandpass and Notch treat it as 24 dB). Saved settings and patches keep their slope. If a DAW project automates Slope, check that lane: the list now starts with 36 dB.
 
 ## 1.6.0 (2026-11-25)

@@ -39,6 +39,15 @@ int main() {
             bool solo = false; for (const auto& [id, value] : i.values) solo = solo || (id == "voice.count" && value == "1");
             CHECK(solo);
         }
+    // S5.24: the solo instruments with vibrato start it after the attack (lfo1.delay 0.4 s); the others have none.
+    {
+        const std::set<std::string> delayed{"Flute", "Oboe", "Clarinet", "Bassoon", "Trumpet", "French horn", "Violin", "Male voice (ooo)"};
+        for (const auto& i : list) {
+            std::string d;
+            for (const auto& [id, value] : i.values) if (id == "lfo1.delay") d = value;
+            CHECK(delayed.count(i.name) ? d == "0.4" : d.empty());
+        }
+    }
     std::printf("%zu built-in instrument presets\n", list.size());
     CHECK(list.size() == 19);
     std::printf(failures ? "%d FAILED\n" : "T-S7.7-instruments: all passed\n", failures);
