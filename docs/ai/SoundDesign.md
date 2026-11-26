@@ -9,6 +9,9 @@ parameter's own unit (seconds, Hz, octaves, semitones; 0-1 for percentages), cho
 `describe_synth` also lists every socket with its type: audio (sound), cv (a control voltage: LFO,
 envelope, key pitch / velocity) or gate (on / off); "cv+audio" inputs (VCO FM and PM) take audio too.
 Patch audio into audio inputs and CV into modulation inputs unless you want an effect such as audio-rate FM.
+Stereo: `out.pan` -1..1 [0] (centre), `out.spread` 0-1 [0] with `out.spreadmode` Keys (by pitch, piano-like) or
+Voices (alternating; one voice stays centred); a cable into `out.pan` (e.g. lfo2.out at 50 %) pans each voice.
+Width before the effects makes ENSEMBLE, DELAY and REVERB sound wider; keep solo instruments centred.
 
 ## Signal flow (normalled: connected without cables)
 

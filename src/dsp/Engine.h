@@ -17,6 +17,7 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <numbers>
 
 namespace lmw::dsp {
 
@@ -26,6 +27,9 @@ struct VoiceParams {
     float attack = 0.01f, decay = 0.2f, sustain = 0.7f, release = 0.3f;              // ENV1 -> VCA
     float env2Attack = 0.01f, env2Decay = 0.3f, env2Sustain = 0.0f, env2Release = 0.3f; // ENV2 -> VCF
 };
+
+// Spec S5.25: how Spread places the voices — by pitch (as on a piano) or by voice slot (alternating).
+enum class SpreadMode : int { Keys, Voices };
 
 // Module parameters shared by all voices (Spec S5a.1).
 struct ModParams {
@@ -57,6 +61,9 @@ struct ModParams {
     float lfo2Rate = 4.0f;                      // lfo2.rate (Hz), Spec S5.12
     LfoWave lfo2Wave = LfoWave::Sine;           // lfo2.wave
     std::array<float, 2> lfoDelay{};            // lfo1.delay, lfo2.delay (s, Spec S5.24): 0 = no delay
+    float pan = 0.0f;                           // out.pan, -1 (left) .. +1 (right) (Spec S5.25)
+    float spread = 0.0f;                        // out.spread, 0 .. 1
+    SpreadMode spreadMode = SpreadMode::Keys;   // out.spreadmode
     float tremolo = 0.0f;                       // vca.tremolo: depth of vca.mod, 0..1 (0 = off)
     float vcaVelocity = 1.0f;                   // vca.velocity (S5.22): how much vca.vel sets the gain, 0..1
     NoiseColour noiseColour = NoiseColour::White;   // noise.colour (Spec S5.15)
@@ -222,8 +229,11 @@ public:
         const float velGain = std::clamp(1.0f - a + a * read(In::VcaVel, g, patch), 0.0f, 1.0f);
         out[o(Out::Vca)] = read(In::VcaIn, g, patch) * vcaGain * velGain;
 
+        // Spec S5.25: this voice's out.pan input (per voice), read only while patched.
+        panInput = patch.isPatched(In::OutPan) ? read(In::OutPan, g, patch) : 0.0f;
         return readPerVoice(In::OutIn, g, patch);           // global pins are added once by the engine
     }
+    float panIn() const noexcept { return panInput; }
 
     bool isActive() const noexcept { return env1.isActive(); }
     bool isHeld() const noexcept { return gate && env1.isActive(); }   // key down or sustained by pedal
@@ -312,7 +322,26 @@ private:
     double sampleRate = 48000.0;
     std::int64_t sinceOn = 0;                  // samples with the gate open since the last note-on (S5.24)
     std::array<float, 2> lfoGain{1.0f, 1.0f}; // this voice's share of LFO 1 / LFO 2 now (S5.24)
+    float panInput = 0.0f;                     // out.pan read this sample (S5.25)
 };
+
+// Spec S5.25: the Voices spread term of a voice slot — alternating left / right, wider first; 0 with one voice.
+inline float voiceSlotPan(int slot, int voiceCount) noexcept {
+    if (voiceCount <= 1) return 0.0f;
+    static constexpr float pattern[8] = {-1.0f, 1.0f, -0.5f, 0.5f, -0.75f, 0.75f, -0.25f, 0.25f};
+    return pattern[slot % 8];
+}
+// Spec S5.25: equal-power pan, scaled so the centre is exactly 1 on both sides (today's level); a voice fully
+// to one side is sqrt(2) there and 0 on the other side (the same power).
+inline void panGains(float position, float& left, float& right) noexcept {
+    if (position == 0.0f) { left = right = 1.0f; return; }
+    if (position <= -1.0f) { left = std::numbers::sqrt2_v<float>; right = 0.0f; return; }   // exactly one side
+    if (position >= 1.0f)  { left = 0.0f; right = std::numbers::sqrt2_v<float>; return; }
+    const double p = static_cast<double>(position);
+    const double theta = (p + 1.0) * std::numbers::pi / 4.0;
+    left = static_cast<float>(std::cos(theta) * std::numbers::sqrt2);
+    right = static_cast<float>(std::sin(theta) * std::numbers::sqrt2);
+}
 
 // Polyphonic engine (Spec S4). Voice count 1..maxVoices, changeable at runtime.
 // Allocation: same note already sounding -> reuse that voice; else a free voice;
@@ -334,6 +363,7 @@ public:
         counter = 0;
         sustainPedal = false;
         gainStep = static_cast<float>(1.0 / (0.02 * sr));                     // 20 ms gain smoothing
+        panStep = static_cast<float>(2.0 / (0.02 * sr));                      // S5.25: 20 ms across the full width
         cutoffStep = (std::log2(Ladder::maxCutoff) - std::log2(Ladder::minCutoff)) / (0.02 * sr);
         cutoffLog2 = cutoffTarget;
         cutoff2Log2 = cutoff2Target;
@@ -412,14 +442,40 @@ public:
             if (lfo2RatePatched) lfo2.setRate(modulatedRate(mod.lfo2Rate, In::Lfo2Rate));
             const GlobalSignals g{lfo.next(), lfo2.next(), noise.next(), modWheel, random.next()};
             lastGlobal = g;
-            float sum = 0.0f;
-            for (auto& v : voices)                    // includes voices ringing out after a count reduction
-                if (v.isActive() || (drone && v.hasPlayed())) sum += v.process(g, patch, mod, cutoffLog2, cutoff2Log2, vcoUsed);
-            if (globalOnOut) sum += globalOut(g);     // a global source is output once (Spec S5.5)
+            // Spec S5.25: Pan and Spread glide (20 ms); while both are 0 and out.pan has no cable the output is
+            // the mono sum on both sides, exactly as before.
+            if (panNow < mod.pan)         panNow = std::fmin(panNow + panStep, mod.pan);
+            else if (panNow > mod.pan)    panNow = std::fmax(panNow - panStep, mod.pan);
+            if (spreadNow < mod.spread)      spreadNow = std::fmin(spreadNow + panStep, mod.spread);
+            else if (spreadNow > mod.spread) spreadNow = std::fmax(spreadNow - panStep, mod.spread);
+            const bool panning = right != nullptr && (panNow != 0.0f || spreadNow != 0.0f || panPatched);
+            float sum = 0.0f, sumL = 0.0f, sumR = 0.0f;
+            for (std::size_t k = 0; k < voices.size(); ++k) {   // includes voices ringing out after a count reduction
+                auto& v = voices[k];
+                if (!(v.isActive() || (drone && v.hasPlayed()))) continue;
+                const float x = v.process(g, patch, mod, cutoffLog2, cutoff2Log2, vcoUsed);
+                if (!panning) { sum += x; continue; }
+                float term = 0.0f;
+                if (spreadNow != 0.0f)
+                    term = mod.spreadMode == SpreadMode::Voices
+                        ? voiceSlotPan(static_cast<int>(k), voiceCount)
+                        : std::clamp(v.output(Out::KeysPitch) / 3.0f, -1.0f, 1.0f);   // +-3 octaves from C4
+                const float pos = std::clamp(panNow + spreadNow * term + v.panIn(), -1.0f, 1.0f);
+                float gl = 1.0f, gr = 1.0f;
+                panGains(pos, gl, gr);
+                sumL += x * gl;
+                sumR += x * gr;
+            }
+            const float globals = globalOnOut ? globalOut(g) : 0.0f;   // a global source is output once (S5.5), centred
 
-            const float s = SoftLimiter::process(sum * gain * headroom);   // Spec S4.6
-            left[i] = s;
-            if (right) right[i] = s;
+            if (!panning) {
+                const float s = SoftLimiter::process((sum + globals) * gain * headroom);   // Spec S4.6
+                left[i] = s;
+                if (right) right[i] = s;
+            } else {                                                                     // the limiter per side
+                left[i] = SoftLimiter::process((sumL + globals) * gain * headroom);
+                right[i] = SoftLimiter::process((sumR + globals) * gain * headroom);
+            }
         }
     }
 
@@ -439,6 +495,7 @@ private:
              || !patch.onlySource(In::Env1Gate, Out::KeysGate);
         lfo1RatePatched = patch.isPatched(In::Lfo1Rate);
         lfo2RatePatched = patch.isPatched(In::Lfo2Rate);
+        panPatched = patch.isPatched(In::OutPan);                // S5.25
         if (!lfo1RatePatched) lfo.setRate(mod.lfoRate);     // back to the fader's rate exactly
         if (!lfo2RatePatched) lfo2.setRate(mod.lfo2Rate);
         globalOnOut = false;
@@ -527,6 +584,8 @@ private:
     static constexpr float minModulatedLfoRate = 0.01f, maxModulatedLfoRate = 50.0f;
     std::array<bool, numVcos> vcoUsed{true, false, false};
     float gain = 0.0f, targetGain = 1.0f, gainStep = 0.001f, modWheel = 0.0f;
+    float panNow = 0.0f, spreadNow = 0.0f, panStep = 0.001f;   // Spec S5.25: glided Pan and Spread
+    bool panPatched = false;                                    // out.pan has a cable
     double cutoffLog2 = std::log2(18000.0), cutoffTarget = std::log2(18000.0), cutoffStep = 0.01;
     double cutoff2Log2 = std::log2(18000.0), cutoff2Target = std::log2(18000.0);
 };

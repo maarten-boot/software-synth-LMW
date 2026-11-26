@@ -102,6 +102,8 @@ private:
         Choice* choice3 = nullptr;      // a third box below, without its label (S5.17: VCF routing)
     };
     static Item stacked(Item top, Item bottom) { return {nullptr, top.choice, bottom.choice}; }
+    // Spec S5.25: a fader with a choice box (no label) under it in the same column (OUT: Spread and its mode).
+    static Item withBox(Item fader, Item box) { return {fader.fader, box.choice}; }
     static Item stacked(Item top, Item middle, Item bottom) { return {nullptr, top.choice, middle.choice, bottom.choice}; }
     struct Group {                      // a framed module panel (Spec S6.1)
         juce::String title;
@@ -333,8 +335,8 @@ private:
     LMWSynthProcessor& processor;
     LMWLookAndFeel lookAndFeel;
     Metrics m = normalMetrics;
-    std::array<Fader, 61> faders;
-    std::array<Choice, 15> choices;
+    std::array<Fader, 63> faders;
+    std::array<Choice, 16> choices;
     std::size_t usedFaders = 0, usedChoices = 0;
     std::vector<Group> groups;
     std::vector<std::unique_ptr<PanelHeader>> headers;    // one per group, same index

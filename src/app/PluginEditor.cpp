@@ -299,7 +299,17 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
                          "How much the note velocity (vca.vel, normally keys.vel) sets the loudness:\n"
                          "100 % = soft notes quiet, 0 % = every note full"))}, {}});
     const std::size_t outPanel = groups.size();
-    groups.push_back({"OUT", 2, {addFader(P::gain, "Volume", inputTip(In::OutIn, "All voices summed, then soft limiter"))}, {}});
+    groups.push_back({"OUT", 2, {addFader(P::gain, "Volume", inputTip(In::OutIn, "All voices summed, then soft limiter (per side)")),
+        // Spec S5.25: each voice placed left-right before the sum.
+        addFader(P::outPan, "Pan", inputTip(In::OutPan,
+            "Where the sound sits: -100 % left, 0 centre, +100 % right (equal power).\n"
+            "Pan input: added per voice, e.g. LFO 2 for auto-pan, noise.rand for a random place per note")),
+        withBox(addFader(P::outSpread, "Spread", [] {
+                    return juce::String("How far the notes spread around Pan: by pitch (Keys: low left, high right, as on a piano)\n"
+                                        "or by voice (Voices: alternating; one voice stays in the centre). The box below chooses.");
+                }),
+                addChoice(P::spreadMode, "Spread mode", {"Keys", "Voices"},
+                          "Spread by Keys (pitch: C4 in the centre, +-3 octaves to the sides) or by Voices (alternating left / right)"))}, {}});
     // Spec S5.16: FORMANT, after VCF 2 in row 2. Created last, so saved rack layouts keep their panel
     // numbers (S6.5: a stored layout without it gets it at the end of its default row).
     const std::size_t formantPanel = groups.size();
@@ -427,7 +437,7 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
             {vcaPanel, 2, false, in(In::VcaVel), "Vel"},        {vcaPanel, 2, true, out(Out::Vca), "Out"},   // S5.22
             {lfoPanel, 1, false, in(In::Lfo1Rate), "Rate"},     {lfoPanel, 1, true, out(Out::Lfo1), "Out"},   // S5.19
             {lfo2Panel, 1, false, in(In::Lfo2Rate), "Rate"},    {lfo2Panel, 1, true, out(Out::Lfo2), "Out"},
-            {outPanel, 0, false, in(In::OutIn), "In"},
+            {outPanel, 0, false, in(In::OutIn), "In"},          {outPanel, 1, false, in(In::OutPan), "Pan"},   // S5.25
             {env1Panel, 0, false, in(In::Env1Gate), "Gate"},    {env1Panel, 3, true, out(Out::Env1), "Out"},
             {env2Panel, 0, false, in(In::Env2Gate), "Gate"},    {env2Panel, 3, true, out(Out::Env2), "Out"},
             {formantPanel, 0, false, in(In::FormantIn), "In"}, {formantPanel, 1, false, in(In::FormantVowel), "Vowel"},
@@ -1175,6 +1185,11 @@ void LMWSynthEditor::layoutJacks(const std::vector<Jack*>& js, int columns, juce
 
 void LMWSynthEditor::layoutItem(const Item& item, juce::Rectangle<int> column) const {
     column.reduce(m.colW >= 80 ? 4 : 2, 0);
+    if (item.fader != nullptr && item.choice != nullptr) {   // S5.25: a box under the fader, its text says it
+        item.choice->label.setBounds({});
+        item.choice->box.setBounds(column.removeFromBottom(m.boxH + 2).reduced(2, 0));
+        column.removeFromBottom(m.gap / 2);
+    }
     if (item.fader != nullptr) {
         item.fader->label.setBounds(column.removeFromTop(m.labelH));
         item.fader->tag.setBounds(column.removeFromTop(tagH()));   // Spec S6.17 (also kept free without a tag)

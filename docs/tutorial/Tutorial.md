@@ -246,6 +246,11 @@ a second row.
 7. Order with cables: on the Effects tab, *SYNTH › Out* → *REVERB › In*, *REVERB › Out* →
    *COMB › In*, *COMB › Out* → *MAIN › In*: now the comb colours the reverb too (ensemble and delay are
    out of the chain until you patch them back).
+8. **Stereo**: on the Synth tab, *OUT › Spread* 60 % (the box under it: Keys) and play a chord across the
+   keyboard: low notes come from the left, high notes from the right, as on a piano — each voice gets its
+   own place before the effects, so the reverb and delay sound wider ([spread](../Terms.md#spread)). Set the box to
+   Voices with *KEYS › Voices* 6: even one note played twice moves. *OUT › Pan* moves the whole sound
+   ([pan](../Terms.md#pan)); a cable from *LFO 2 › Out* to *OUT › Pan* makes it wander (auto-pan).
 
 Each effect has its own **Presets** in its title bar, e.g. *DELAY › Presets › Ping-pong* or
 *COMB › Presets › Hollow tube*.

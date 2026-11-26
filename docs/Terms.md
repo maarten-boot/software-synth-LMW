@@ -343,6 +343,32 @@ Where: the bottom row of every panel; the ports on the Schematic (its legend sho
 
 See also: [Input](#input), [Output](#output), [Cable](#cable), [Audio signal](#audio-signal), [Control voltage (CV)](#control-voltage-cv), [Gate](#gate)
 
+### Stereo
+Sound with a left and a right side. In LMW-Synth every voice is mono until OUT, which gives each voice
+its own place left–right (Pan, Spread) before the voices are added; the effects then work in stereo.
+
+Where: OUT › Pan and Spread; the Effects tab.
+
+See also: [Pan](#pan), [Spread](#spread), [Effect](#effect)
+
+### Pan
+Where a sound sits between left and right: −100 % left, 0 the centre, +100 % right. Equal power: a
+voice moved to one side is as loud as in the centre. The Pan input moves each voice by a signal, e.g.
+LFO 2 for auto-pan or noise.rand for a random place per note.
+
+Where: OUT › Pan and its Pan socket.
+
+See also: [Spread](#spread), [Stereo](#stereo), [LFO](#lfo)
+
+### Spread
+How far the notes spread around Pan. Keys: by pitch, as on a piano (C4 in the centre, low notes left,
+high notes right). Voices: by voice, alternating left and right; with one voice the note stays in the
+centre, so a solo sound spreads only when you give it more voices.
+
+Where: OUT › Spread and the box under it.
+
+See also: [Pan](#pan), [Voice](#voice), [Stereo](#stereo)
+
 ### Audio signal
 A signal you can hear: the sound itself, from a VCO, NOISE, the mixer, a filter, FORMANT, the VCA, OUT
 or an effect. Audio sockets have a solid ring (blue).

@@ -64,7 +64,7 @@ inline const std::vector<Block>& blocks() {
         {"VCF 2",  Shape::Triangle, {86, 20, 12, 14}, {In::Vcf2In, In::Vcf2Cutoff, In::Vcf2Res}, {Out::Vcf2}},
         {"FORMANT", Shape::Triangle, {104, 20, 12, 14}, {In::FormantIn, In::FormantVowel}, {Out::Formant}},   // S5.16
         {"VCA",    Shape::Triangle, {122, 20, 12, 14},{In::VcaIn, In::VcaCv, In::VcaMod, In::VcaVel}, {Out::Vca}},
-        {"OUT",    Shape::Triangle, {140, 22, 10, 10}, {In::OutIn}, {Out::OutOut}},   // S7.6: feeds the effects
+        {"OUT",    Shape::Triangle, {140, 22, 10, 10}, {In::OutIn, In::OutPan}, {Out::OutOut}},   // S7.6: feeds the effects; S5.25: pan
         {"ENV 1",  Shape::Adsr,     {50, 58, 12, 8},  {In::Env1Gate}, {Out::Env1}},
         {"ENV 2",  Shape::Adsr,     {50, 45, 12, 8},  {In::Env2Gate}, {Out::Env2}},
         {"LFO 2",  Shape::Triangle, {110, 50, 10, 9}, {In::Lfo2Rate}, {Out::Lfo2}},

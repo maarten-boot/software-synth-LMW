@@ -133,7 +133,7 @@ int main() {
     CHECK(normalled[static_cast<std::size_t>(In::FormantIn)] == Out::Vcf2);
     CHECK(normalled[static_cast<std::size_t>(In::VcaIn)] == Out::Formant);
     CHECK(normalled[static_cast<std::size_t>(In::FormantVowel)] == noSource);
-    CHECK(numInputs == 35 && numOutputs == 22);   // 33 / 21 since S7.8 (delay ports)
+    CHECK(numInputs == 36 && numOutputs == 22);   // 36 since S5.25 (out.pan); 33 / 21 since S7.8 (delay ports)
 
     std::printf(failures ? "%d FAILED\n" : "all passed\n", failures);
     return failures ? 1 : 0;

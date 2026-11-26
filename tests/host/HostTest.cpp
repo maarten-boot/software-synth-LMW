@@ -373,7 +373,7 @@ int main(int argc, char* argv[]) {
         for (std::size_t at = 0; (at = info.find("{\"id\": ", at)) != std::string::npos; ++at) ++objects;
         std::printf("/info: %zu bytes, %d parameters\n", info.size(), objects);
         CHECK(info.rfind("[\n", 0) == 0 && info.size() > 2 && info.substr(info.size() - 2) == "]\n");
-        CHECK(objects == 76);   // 76 since S5.24 (lfo1.delay, lfo2.delay), 74 since S7.11 (ensemble.*), 70 with S5.22 (vca.velocity), 69 with S7.8 (delay.*), 64 with S7.6, 59 with S5.20
+        CHECK(objects == 79);   // 79 since S5.25 (out.pan, out.spread, out.spreadmode), 76 since S5.24, 74 since S7.11 (ensemble.*), 70 with S5.22 (vca.velocity), 69 with S7.8 (delay.*), 64 with S7.6, 59 with S5.20
         CHECK(info.find("{\"id\": \"vcf1.cutoff\", \"name\": \"VCF 1 Cutoff\", \"kind\": \"float\", \"min\": 20.0, "
                         "\"max\": 18000.0, \"default\": 18000.0, \"unit\": \"Hz\", \"centre\": 600.0, \"scale\": \"log\"}") != std::string::npos);
         CHECK(info.find("{\"id\": \"vco1.tune\", \"name\": \"VCO 1 Tune\", \"kind\": \"float\", \"min\": -7.0, \"max\": 7.0, "
@@ -581,6 +581,31 @@ int main(int argc, char* argv[]) {
         const double released = level(20);
         std::printf("/keys: rms %.6f before, %.4f with on 60 100 + on 64, %.6f after off\n", silent, playing, released);
         CHECK(silent < 1e-6 && playing > 0.01 && released < 1e-4);
+        // T-S5.25-pan through the VST3: Pan -1 puts the sound on the left only, +1 on the right only.
+        {
+            auto sides = [&](int blocks) {
+                juce::AudioBuffer<float> buffer(2, blockSize);
+                double l = 0, r = 0;
+                for (int blk = 0; blk < blocks; ++blk) {
+                    juce::MidiBuffer midi;
+                    buffer.clear();
+                    a->processBlock(buffer, midi);
+                    for (int i = 0; i < blockSize; ++i) { l += double(buffer.getSample(0, i)) * buffer.getSample(0, i); r += double(buffer.getSample(1, i)) * buffer.getSample(1, i); }
+                }
+                return std::pair<double, double>{std::sqrt(l / (blocks * blockSize)), std::sqrt(r / (blocks * blockSize))};
+            };
+            for (const char* value : {"-1", "1"}) {
+                CHECK(write9P(sock, {"params", "out", "pan"}, value).empty());
+                CHECK(write9P(sock, {"keys"}, "on 60 100\n").empty());
+                sides(10);                                            // the 20 ms glide
+                const auto [l, r] = sides(20);
+                CHECK(write9P(sock, {"keys"}, "off 60\n").empty());
+                sides(100);
+                std::printf("pan %s: rms left %.5f, right %.5f\n", value, l, r);
+                CHECK(value[0] == '-' ? (l > 0.01 && r == 0.0) : (r > 0.01 && l == 0.0));
+            }
+            CHECK(write9P(sock, {"params", "out", "pan"}, "0").empty());
+        }
 
         // 4j. Undo / redo over 9P (Spec S6.14, T-S6.14-9p): every write is a step; undo puts back only what
         // that step changed, so a value moved in between by the host (automation) stays.

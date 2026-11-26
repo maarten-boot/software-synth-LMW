@@ -114,7 +114,11 @@ APVTS::ParameterLayout LMWSynthProcessor::createLayout(std::map<std::string, Flo
               juce::StringArray{"Sine", "Triangle", "Saw", "Square"}, 0),
           f(P::lfoDelay, "LFO 1 Delay", time(5.0f), 0.0f, seconds),      // Spec S5.24
           f(P::lfo2Delay, "LFO 2 Delay", time(5.0f), 0.0f, seconds),
-          f(P::gain, "Volume", Range(0.0f, 1.0f), 0.8f, decibels));
+          f(P::gain, "Volume", Range(0.0f, 1.0f), 0.8f, decibels),
+          f(P::outPan, "Pan", Range(-1.0f, 1.0f), 0.0f, percent),          // Spec S5.25
+          f(P::outSpread, "Spread", Range(0.0f, 1.0f), 0.0f, percent),
+          std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{P::spreadMode, 1}, "Spread mode",
+              juce::StringArray{"Keys", "Voices"}, 0));
     // Spec S7.4: reverb on the Effects tab. Mix 0 = off (bypassed exactly).
     l.add(f(P::reverbMix,     "Reverb Mix",     Range(0.0f, 1.0f), 0.0f, percent),
           f(P::reverbSize,    "Reverb Size",    Range(0.0f, 1.0f), 0.5f, percent),
@@ -154,7 +158,8 @@ LMWSynthProcessor::LMWSynthProcessor()
     raw.e2a = get(P::env2Attack); raw.e2d = get(P::env2Decay); raw.e2s = get(P::env2Sustain); raw.e2r = get(P::env2Release);
     raw.lfoRate = get(P::lfoRate); raw.lfoWave = get(P::lfoWave); raw.gain = get(P::gain);
     raw.lfo2Rate = get(P::lfo2Rate); raw.lfo2Wave = get(P::lfo2Wave);
-    raw.lfoDelay = get(P::lfoDelay); raw.lfo2Delay = get(P::lfo2Delay); raw.tremolo = get(P::vcaTremolo);
+    raw.lfoDelay = get(P::lfoDelay); raw.lfo2Delay = get(P::lfo2Delay);
+    raw.outPan = get(P::outPan); raw.outSpread = get(P::outSpread); raw.spreadMode = get(P::spreadMode); raw.tremolo = get(P::vcaTremolo);
     raw.vcaVelocity = get(P::vcaVelocity);
     raw.revMix = get(P::reverbMix); raw.revSize = get(P::reverbSize);
     raw.revDamping = get(P::reverbDamping); raw.revWidth = get(P::reverbWidth);
@@ -426,6 +431,9 @@ void LMWSynthProcessor::pullParameters() noexcept {
     m.lfo2Rate    = raw.lfo2Rate->load();
     m.lfo2Wave    = static_cast<lmw::dsp::LfoWave>(static_cast<int>(raw.lfo2Wave->load()));
     m.lfoDelay    = {raw.lfoDelay->load(), raw.lfo2Delay->load()};          // Spec S5.24
+    m.pan         = raw.outPan->load();                                      // Spec S5.25
+    m.spread      = raw.outSpread->load();
+    m.spreadMode  = static_cast<lmw::dsp::SpreadMode>(static_cast<int>(raw.spreadMode->load()));
     m.tremolo     = raw.tremolo->load();
     m.vcaVelocity = raw.vcaVelocity->load();
     m.noiseColour = static_cast<lmw::dsp::NoiseColour>(static_cast<int>(raw.noiseColour->load()));

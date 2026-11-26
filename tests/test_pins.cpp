@@ -194,7 +194,7 @@ int main() {
         }
         std::printf("types: inputs %d audio, %d cv, %d gate; outputs %d audio, %d cv, %d gate\n", audioIn, cvIn, gateIn, audioOut, cvOut, gateOut);
         CHECK(gateIn == 2 && gateOut == 1 && alsoAudio == 6);
-        CHECK(cvIn == 19 && audioIn == 14 && cvOut == 7 && audioOut == 14);
+        CHECK(cvIn == 20 && audioIn == 14 && cvOut == 7 && audioOut == 14);   // 20 CV inputs since S5.25 (out.pan)
         CHECK(typeOf(In::Vco1Fm) == SignalType::Cv && typeOf(In::MixIn1) == SignalType::Audio && typeOf(In::Env2Gate) == SignalType::Gate);
         CHECK(typeOf(Out::KeysGate) == SignalType::Gate && typeOf(Out::Env1) == SignalType::Cv && typeOf(Out::Rand) == SignalType::Cv
               && typeOf(Out::Noise) == SignalType::Audio && typeOf(Out::ReverbOut) == SignalType::Audio);
