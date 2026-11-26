@@ -76,3 +76,8 @@
 - User: the glide and wheels are lost after switching to Effects / Matrix / Schematic; they should always be visible with the keyboard. Cause: showTab() hid every child not on its always-shown list. Fixed; Xvfb: the strip the same on all six tabs.
 - User (mid-turn): Reset layout on the Effects tab should give the default effects order. Done (one step; rack layout and cables kept); Xvfb checked. S6.24, S7.14, Tests T-S6.24-tabs, Changes. 42 of 42.
 - User: commit and do the crosscheck.
+- Committed c788d85 (Phase 42 + fixes).
+
+## Crosscheck after Phase 42
+
+- Code vs S7.14, S6.24 (tabs fix), S6.5 / S6.7 (default rack, Schematic effects row): as built. Stale lines fixed: S7.6 (the normalled chain follows effects.order), S6.7 (Reset layout on the Effects tab). Plan header. 42 of 42. Open: push (60835b6 … this), CI; listening checks (glide presets, effect orders by ear).
