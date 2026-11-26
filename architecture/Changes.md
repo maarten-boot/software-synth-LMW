@@ -3,6 +3,7 @@
 Changes between releases.
 
 ## Unreleased
+- 2026-11-26: The rack scrolls when it is larger than the window: scroll bars, the mouse wheel (Shift + wheel sideways), dragging the empty space, Home / End, and Tab brings a control into view. The window can now be as small as 1280 × 720 (the header gets shorter texts); a first window still shows the whole rack.
 - 2026-11-26: Presets ▸ World: Shakuhachi, Bansuri, Pan flute, Duduk, Erhu, Shamisen, Koto, Sitar, Oud, Kalimba, Gamelan, Steel pan and Didgeridoo, made from the existing modules. Organ and Electric piano (FM) now spread by keys too (low left, high right).
 - 2026-11-26: MIX 2, a mixer after the filters with a level and a pan for three inputs: one voice can now be stereo (e.g. VCO 1 left, VCO 2 right). New preset Choral flute. FORMANT moves to the first row by default; the window is now at least 1834 px wide (1920 × 1080 screens).
 - 2026-11-26: REVERB: a large Size no longer gets louder and overloads (the level stays about the same at every Size), Damping now clearly darkens the tail, and nothing after the effects clips any more (a limiter on MAIN). The Cathedral preset is a little smaller and darker (85 %, Damping 50 %).

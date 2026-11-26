@@ -59,7 +59,7 @@ public:
                            const juce::Colour* textColour) override;
 };
 
-class LMWSynthEditor final : public juce::AudioProcessorEditor, private juce::Timer {
+class LMWSynthEditor final : public juce::AudioProcessorEditor, private juce::Timer, private juce::FocusChangeListener {
 public:
     explicit LMWSynthEditor(LMWSynthProcessor&);
     ~LMWSynthEditor() override;
@@ -194,6 +194,31 @@ private:
     private:
         LMWSynthEditor& editor;
     };
+    // Spec S6.21 (Phase 38): the rack of the Synth and Effects tabs — panels, sockets, cables — on a surface that
+    // can be larger than the window, shown in rackView (a Viewport). Its paint draws the rack (paintRack);
+    // dragging on its empty space pans the view like a hand.
+    class RackArea final : public juce::Component {
+    public:
+        explicit RackArea(LMWSynthEditor& e) : editor(e) { setTitle("Rack"); }
+        void paint(juce::Graphics& g) override { editor.paintRack(g); }
+        void mouseDown(const juce::MouseEvent&) override;
+        void mouseDrag(const juce::MouseEvent&) override;
+        void mouseUp(const juce::MouseEvent&) override;
+    private:
+        LMWSynthEditor& editor;
+        juce::Point<int> viewAtStart;
+        bool panning = false;
+    };
+    std::unique_ptr<RackArea> rackArea;                   // created first: every rack component is its child
+    // The rack's view: keys go on to the editor (Home / End there go to both corners; JUCE's Viewport would take
+    // Home / End / arrows for up and down only).
+    struct RackViewport final : juce::Viewport { bool keyPressed(const juce::KeyPress&) override { return false; } };
+    RackViewport rackView;
+    std::array<juce::Point<int>, 2> tabScroll{};          // S6.21: the view position of the Synth / Effects tab
+    void paintRack(juce::Graphics&);
+    void scrollIntoView(const juce::Component&);           // S6.21: a focused control out of view comes into view
+    void autoScrollRack(juce::Point<int> inRack);          // S6.21: near the edge while dragging, pan on
+    void globalFocusChanged(juce::Component*) override;
     const Jack* hoverJack = nullptr;    // the socket under the mouse (its cables are drawn black)
     struct CableDrag {                  // a cable being drawn or moved with the mouse
         Jack* fixed = nullptr;          // the end that stays where it is

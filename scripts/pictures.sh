@@ -55,6 +55,7 @@ p9 write view "size 1496 874"
 p9 write view "keyboard on"
 p9 write view "scales on"                               # Spec S6.20: the beginner aids shown
 p9 write view "rings on"
+p9 write view "scroll 0 0"                             # Spec S6.21: the rack from its top-left
 
 # shot <file> [panel title prefixes...]: the window, or the smallest area holding those panels (+ 8 px).
 shot() {

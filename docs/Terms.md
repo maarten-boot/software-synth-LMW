@@ -470,7 +470,8 @@ See also: [Module](#module), [Cable](#cable)
 
 ### Rack
 The rows the panels sit in, as in a studio rack; the lines between rows are the rack rails. Drag a
-panel's title to move it.
+panel's title to move it. A rack larger than the window scrolls: the scroll bars, the mouse wheel
+(Shift + wheel sideways), dragging the empty grey space, Home / End; Tab brings a control into view.
 
 Where: the Synth tab; Reset layout.
 

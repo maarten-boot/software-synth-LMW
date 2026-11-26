@@ -138,7 +138,8 @@ namespace {
 const juce::Identifier kCompactProp{"uiCompact"};   // stored in the plugin/standalone state
 const juce::Identifier kKeyboardProp{"uiKeyboard"}; // Spec S6.12: on-screen keyboard shown
 const juce::Identifier kLayoutProp{"uiLayout"};     // rack layout (Spec S6.5), RackLayout::serialize()
-constexpr int kMaxRows = 4;
+constexpr int kMaxRows = 6;                       // Spec S6.21 (was 4): more rows, the rack scrolls
+constexpr int kSmallestW = 1280, kSmallestH = 720;   // Spec S6.21: the smallest window
 
 juce::String pct(float v) { return juce::String(juce::roundToInt(v * 100.0f)) + " %"; }
 }
@@ -171,6 +172,17 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
       palette(lmw::ui::theme::palette(settings.minRatio(), settings.colours())),
       keyboard(p.keyboardState(), palette) {
     setLookAndFeel(&lookAndFeel);
+    // Spec S6.21: the rack surface in a scrolling view; every rack component below is its child.
+    rackArea = std::make_unique<RackArea>(*this);
+    rackView.setViewedComponent(rackArea.get(), false);
+    rackView.setScrollBarsShown(true, true);
+    rackView.setScrollBarThickness(10);
+    for (auto* bar : {&rackView.getVerticalScrollBar(), &rackView.getHorizontalScrollBar()}) {
+        bar->setColour(juce::ScrollBar::thumbColourId, kFg);       // black on white (S6.2)
+        bar->setColour(juce::ScrollBar::trackColourId, kBg);
+    }
+    addAndMakeVisible(rackView);
+    juce::Desktop::getInstance().addFocusChangeListener(this);
     namespace P = lmw::param;
     using lmw::dsp::In;
     const juce::String arrow = juce::String::fromUTF8("\xe2\x86\x92");
@@ -381,7 +393,7 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
         if (const auto module = presetModuleOf(grp.title); module.isNotEmpty()) {
             auto& button = effectPresets[module];
             button = std::make_unique<PresetButton>(*this, module, grp.title);
-            addChildComponent(*button);
+            rackArea->addChildComponent(*button);
             effectComponents.push_back(button.get());
         }
     for (const auto& grp : effectGroups)
@@ -401,7 +413,7 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
             columns.push_back(groups[i].columns());
             defaultRows[static_cast<std::size_t>(groups[i].row)].push_back(static_cast<int>(i));
             headers.push_back(std::make_unique<PanelHeader>(*this, static_cast<int>(i)));
-            addAndMakeVisible(*headers.back());
+            rackArea->addAndMakeVisible(*headers.back());
         }
         // Plan L10 (user 2026-11-22): LFO 1 before the VCOs, and ENV 2 → VCF before ENV 1 → VCA. Only the
         // default order changes (Reset layout, a first start); panel numbers, and so saved layouts, stay.
@@ -475,7 +487,7 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
             jacks.push_back(std::make_unique<Jack>(*this, d.output, d.port, d.name));
             jacks.back()->column = d.column;
             groupJacks[d.group].push_back(jacks.back().get());
-            addAndMakeVisible(*jacks.back());
+            rackArea->addAndMakeVisible(*jacks.back());
         }
         // Spec S7.6: sockets of the Effects tab (SYNTH, COMB, REVERB, MAIN); shown with that tab.
         const std::vector<PortDef> effectPorts = {
@@ -492,7 +504,7 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
             jacks.push_back(std::make_unique<Jack>(*this, d.output, d.port, d.name));
             jacks.back()->column = d.column;
             effectGroupJacks[d.group].push_back(jacks.back().get());
-            addChildComponent(*jacks.back());
+            rackArea->addChildComponent(*jacks.back());
             effectComponents.push_back(jacks.back().get());
         }
     }
@@ -660,9 +672,9 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     setResizable(true, !standalone());
     setCompact(compact);                         // sets the window size
 
-    cables = std::make_unique<CableLayer>(*this);   // last child: drawn above the panels
-    addAndMakeVisible(*cables);
-    cables->setBounds(getLocalBounds());
+    cables = std::make_unique<CableLayer>(*this);   // last child of the rack: drawn above the panels
+    rackArea->addAndMakeVisible(*cables);
+    cables->setBounds(rackArea->getLocalBounds());
     shownPatchVersion = p.patchVersion();
 
     refreshPatchInfo();                          // patch name and notes from the saved state
@@ -676,6 +688,7 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
 
 LMWSynthEditor::~LMWSynthEditor() {
     stopTimer();
+    juce::Desktop::getInstance().removeFocusChangeListener(this);
     if (auto* w = colourWindow.getComponent()) { w->setLookAndFeel(nullptr); delete w; }   // uses our look-and-feel
     for (auto* w : {assistantWindow.getComponent(), lessonWindow.getComponent()})
         if (w != nullptr) { w->setLookAndFeel(nullptr); delete w; }
@@ -774,6 +787,13 @@ bool LMWSynthEditor::keyPressed(const juce::KeyPress& key) {
     }
     if (key == juce::KeyPress('k', juce::ModifierKeys::commandModifier, 0)) {   // Spec S6.12: Ctrl+K (Cmd+K)
         setKeyboardShown(!keyboardShown);
+        return true;
+    }
+    // Spec S6.21: Home / End show the top-left / bottom-right of the rack (keys a control does not use itself).
+    if (!isTypingText() && rackView.isVisible() && !key.getModifiers().isAnyModifierKeyDown()
+        && (key.isKeyCode(juce::KeyPress::homeKey) || key.isKeyCode(juce::KeyPress::endKey))) {
+        rackView.setViewPosition(key.isKeyCode(juce::KeyPress::homeKey) ? juce::Point<int>()
+                                 : juce::Point<int>(rackArea->getWidth(), rackArea->getHeight()));
         return true;
     }
     return !isTypingText() && keyboard.keyPressed(key);
@@ -882,9 +902,9 @@ LMWSynthEditor::Item LMWSynthEditor::addFader(const char* paramId, const juce::S
     k.label.setJustificationType(juce::Justification::centred);
     k.tag.setJustificationType(juce::Justification::centred);
     k.tag.setInterceptsMouseClicks(false, false);
-    addAndMakeVisible(k.slider);
-    addAndMakeVisible(k.label);
-    addAndMakeVisible(k.tag);
+    rackArea->addAndMakeVisible(k.slider);
+    rackArea->addAndMakeVisible(k.label);
+    rackArea->addAndMakeVisible(k.tag);
     return {&k, nullptr};
 }
 
@@ -896,8 +916,8 @@ LMWSynthEditor::Item LMWSynthEditor::addChoice(const char* paramId, const juce::
     c.attachment = std::make_unique<ComboAttachment>(processor.state(), paramId, c.box);
     c.label.setText(text, juce::dontSendNotification);
     c.label.setJustificationType(juce::Justification::centred);
-    addAndMakeVisible(c.box);
-    addAndMakeVisible(c.label);
+    rackArea->addAndMakeVisible(c.box);
+    rackArea->addAndMakeVisible(c.label);
     return {nullptr, &c, nullptr};
 }
 
@@ -948,9 +968,12 @@ void LMWSynthEditor::updateSize(bool shrink) {
     const int rows = static_cast<int>(rack->rows().size());
     const int pad = m.gap + 2;
     // title, gap, rows with gaps between, gap, keyboard
-    const int minW = pad + width + pad;
-    const int minH = pad + m.titleH + m.gap + rows * m.rowH + (rows - 1) * m.gap + m.gap + keyStripH()
+    // Spec S6.21: the size that shows the whole rack (a first window, "shrink"); the window may be smaller
+    // (down to 1280 x 720): the rack then scrolls in its view.
+    const int fitW = pad + width + pad;
+    const int fitH = pad + m.titleH + m.gap + rows * m.rowH + (rows - 1) * m.gap + m.gap + keyStripH()
                    + (keyboardShown ? m.keysH : 0) + pad;
+    const int minW = std::min(fitW, kSmallestW), minH = std::min(fitH, kSmallestH);
     setResizeLimits(minW, minH, 32768, 32768);
    #if JUCE_LINUX
     // The standalone window (S6.16) takes its limits from these (JUCE's decorator constrainer), but on Linux the
@@ -965,7 +988,7 @@ void LMWSynthEditor::updateSize(bool shrink) {
     }
    #endif
     const bool first = getWidth() == 0 || getHeight() == 0;
-    setSize(shrink || first ? minW : std::max(getWidth(), minW), shrink || first ? minH : std::max(getHeight(), minH));
+    setSize(shrink || first ? fitW : std::max(getWidth(), minW), shrink || first ? fitH : std::max(getHeight(), minH));
     resized();
     repaint();
 }
@@ -1020,13 +1043,14 @@ void LMWSynthEditor::PanelHeader::mouseDown(const juce::MouseEvent& e) {
 void LMWSynthEditor::PanelHeader::mouseDrag(const juce::MouseEvent& e) {
     if (e.mods.isPopupMenu() || (!dragging && e.getDistanceFromDragStart() < 4)) return;
     dragging = true;
-    editor.dragPanel(panel, e.getEventRelativeTo(&editor).getPosition());
+    editor.autoScrollRack(e.getEventRelativeTo(editor.rackArea.get()).getPosition());   // S6.21
+    editor.dragPanel(panel, e.getEventRelativeTo(editor.rackArea.get()).getPosition());
 }
 
 void LMWSynthEditor::PanelHeader::mouseUp(const juce::MouseEvent& e) {
     if (!dragging) return;
     dragging = false;
-    editor.dropPanel(panel, e.getEventRelativeTo(&editor).getPosition());
+    editor.dropPanel(panel, e.getEventRelativeTo(editor.rackArea.get()).getPosition());
 }
 
 bool LMWSynthEditor::PanelHeader::keyPressed(const juce::KeyPress& key) {
@@ -1062,7 +1086,7 @@ std::optional<LMWSynthEditor::DropTarget> LMWSynthEditor::findDrop(int panel, ju
     }
     if (t.newRow) {
         const int y = t.row == 0 ? first.getY() - m.gap / 2 : rowBounds.back().getBottom() + m.gap / 2;
-        t.marker = {first.getX(), y - 2, getWidth() - 2 * first.getX(), 4};
+        t.marker = {first.getX(), y - 2, rackArea->getWidth() - 2 * first.getX(), 4};
     } else {
         const auto& rowArea = rowBounds[static_cast<std::size_t>(t.row)];
         int x = rowArea.getX() - m.gap / 2;
@@ -1161,25 +1185,29 @@ void LMWSynthEditor::paint(juce::Graphics& g) {
     g.setFont(juce::FontOptions(m.titleH * 0.6f, juce::Font::bold));
     const float lineY = static_cast<float>(pad + m.titleH + m.gap / 2);   // between title row and modules
     g.drawLine(static_cast<float>(pad), lineY, static_cast<float>(getWidth() - pad), lineY, 1.0f);
-    if (currentTab == 0 || currentTab == 1) {                // Spec S6.2: light grey around the panels, panels white
+    if (currentTab == 0 || currentTab == 1) {                // Spec S6.2: light grey around the rack view too
         const int top = juce::roundToInt(lineY) + 1;
         g.setColour(toJuce(palette.rack));
         g.fillRect(0, top, getWidth(), keyboardButton.getY() - 1 - top);   // down to the keyboard strip (S6.12)
-        // Spec S6.16: rack rails, a 2 px line in the gap under every row and on down at the row pitch, so the
-        // free space reads as empty rack rows.
-        {
-            const int bottom = keyboardButton.getY() - m.gap;
-            int y = currentTab == 0 ? (rowBounds.empty() ? top : rowBounds.front().getY())
-                                    : (effectGroups.empty() ? top : effectGroups.front().bounds.getY());
-            g.setColour(toJuce(palette.cable));
-            for (y += m.rowH + m.gap / 2; y < bottom; y += m.rowH + m.gap)
-                g.fillRect(0, y - 1, getWidth(), 2);
-        }
-        g.setColour(kBg);
-        if (currentTab == 0) for (const auto& grp : groups) g.fillRect(grp.bounds);
-        else for (const auto& grp : effectGroups) g.fillRect(grp.bounds);
-        g.setColour(kFg);
     }
+}
+
+// Spec S6.21: the rack surface (rack coordinates; it scrolls in rackView). Spec S6.2: light grey around the
+// panels, panels white; S6.16: rack rails at the row pitch over the whole surface.
+void LMWSynthEditor::paintRack(juce::Graphics& g) {
+    const auto& area = *rackArea;
+    g.fillAll(toJuce(palette.rack));
+    {
+        int y = currentTab == 0 ? (rowBounds.empty() ? 0 : rowBounds.front().getY())
+                                : (effectGroups.empty() ? 0 : effectGroups.front().bounds.getY());
+        g.setColour(toJuce(palette.cable));
+        for (y += m.rowH + m.gap / 2; y < area.getHeight(); y += m.rowH + m.gap)
+            g.fillRect(0, y - 1, area.getWidth(), 2);
+    }
+    g.setColour(kBg);
+    if (currentTab == 0) for (const auto& grp : groups) g.fillRect(grp.bounds);
+    else for (const auto& grp : effectGroups) g.fillRect(grp.bounds);
+    g.setColour(kFg);
 
     if (currentTab == 1) {                                   // Effects tab: fixed panels, titles drawn here
         g.setFont(juce::FontOptions(m.titleFont, juce::Font::bold));
@@ -1258,19 +1286,20 @@ void LMWSynthEditor::resized() {
     const int pad = m.gap + 2;
     auto area = getLocalBounds().reduced(pad);
     auto title = area.removeFromTop(m.titleH);
-    const bool wide = m.colW >= 80;                          // compact: shorter texts, no About button (S6.10)
+    // Compact, or a window narrower than the full header (S6.21: down to 1280 px): shorter texts and buttons.
+    const bool wide = m.colW >= 80 && getWidth() >= 1520;
     compactButton.setBounds(title.removeFromRight(wide ? 90 : 78).reduced(0, 2));
     title.removeFromRight(m.gap);
     resetLayoutButton.setButtonText(wide ? "Reset layout" : "Reset");
     resetLayoutButton.setBounds(title.removeFromRight(wide ? 110 : 56).reduced(0, 2));
     title.removeFromRight(m.gap);
-    saveButton.setBounds(title.removeFromRight(m.colW >= 80 ? 76 : 64).reduced(0, 2));
+    saveButton.setBounds(title.removeFromRight(wide ? 76 : 64).reduced(0, 2));
     title.removeFromRight(m.gap / 2);
-    loadButton.setBounds(title.removeFromRight(m.colW >= 80 ? 76 : 64).reduced(0, 2));
+    loadButton.setBounds(title.removeFromRight(wide ? 76 : 64).reduced(0, 2));
     title.removeFromRight(m.gap / 2);
-    instrumentButton.setBounds(title.removeFromRight(m.colW >= 80 ? 76 : 64).reduced(0, 2));   // Spec S7.7
+    instrumentButton.setBounds(title.removeFromRight(wide ? 76 : 64).reduced(0, 2));   // Spec S7.7
     title.removeFromRight(m.gap / 2);
-    menuButton.setBounds(title.removeFromRight(m.colW >= 80 ? 70 : 60).reduced(0, 2));       // Spec S6.11
+    menuButton.setBounds(title.removeFromRight(wide ? 70 : 60).reduced(0, 2));       // Spec S6.11
     title.removeFromRight(m.gap / 2);
     // Spec S6.14: "↶ Undo" / "Redo ↷"; compact view only the arrows (the hover text names the step).
     undoButton.setButtonText(juce::String::fromUTF8(wide ? "\xe2\x86\xb6 Undo" : "\xe2\x86\xb6"));
@@ -1281,13 +1310,13 @@ void LMWSynthEditor::resized() {
     titleButton.fontHeight = m.titleH * 0.6f;
     titleButton.setBounds(title.removeFromLeft(titleTextWidth()).reduced(0, 2));
     title.removeFromLeft(m.gap);
-    const int tabW = m.colW >= 80 ? 70 : 60;
+    const int tabW = wide ? 70 : 60;
     panelTab.setBounds(title.removeFromLeft(tabW).reduced(0, 2));
-    effectsTab.setBounds(title.removeFromLeft(tabW + (m.colW >= 80 ? 10 : 8)).reduced(0, 2));
+    effectsTab.setBounds(title.removeFromLeft(tabW + (wide ? 10 : 8)).reduced(0, 2));
     matrixTab.setBounds(title.removeFromLeft(tabW).reduced(0, 2));
-    schematicTab.setBounds(title.removeFromLeft(tabW + (m.colW >= 80 ? 22 : 18)).reduced(0, 2));
+    schematicTab.setBounds(title.removeFromLeft(tabW + (wide ? 22 : 18)).reduced(0, 2));
     notesTab.setBounds(title.removeFromLeft(tabW).reduced(0, 2));
-    if (assistant) assistantTab.setBounds(title.removeFromLeft(tabW + (m.colW >= 80 ? 22 : 18)).reduced(0, 2));   // Spec S12
+    if (assistant) assistantTab.setBounds(title.removeFromLeft(tabW + (wide ? 22 : 18)).reduced(0, 2));   // Spec S12
     title.removeFromLeft(m.gap);
     patchLabel.setBounds(title);
     area.removeFromTop(m.gap);
@@ -1312,12 +1341,32 @@ void LMWSynthEditor::resized() {
     if (matrix) { matrix->setBounds(area); matrix->setFontSize(m.labelFont - 2.0f); }   // Matrix tab
     if (schematic) schematic->setBounds(area);              // Schematic tab
     if (assistant) { assistant->setBounds(area); assistant->setFontSize(m.labelFont + 3.0f); }   // Assistant tab
-    {   // Effects tab: panels side by side; one that does not fit the width starts a second row (S7.11)
-        auto row = area.withHeight(m.rowH);
+    // Spec S6.21: the rack in rackView at `area`; the rack surface is as large as the rows need (at least the view),
+    // laid out in its own coordinates from (0, 0). A scroll bar appears where it is larger than the view.
+    rackView.setBounds(area);
+    {
+        int needW = 0, effectsW = 0;
+        for (const auto& row : rack->rows())
+            needW = std::max(needW, rack->rowColumns(row) * m.colW + (static_cast<int>(row.size()) - 1) * m.gap);
+        for (const auto& grp : effectGroups) effectsW = std::max(effectsW, grp.columns() * m.colW);   // wraps: one panel at least
+        needW = std::max(needW, effectsW);
+        const int rows = std::max(1, static_cast<int>(rack->rows().size()));
+        const int needH = rows * m.rowH + (rows - 1) * m.gap;
+        const int bar = rackView.getScrollBarThickness();
+        const bool horz = needW > area.getWidth();
+        const bool vert = needH > area.getHeight() - (horz ? bar : 0);
+        const bool horz2 = needW > area.getWidth() - (vert ? bar : 0);
+        rackArea->setSize(std::max(needW, area.getWidth() - (vert ? bar : 0)), std::max(needH, area.getHeight() - (horz2 ? bar : 0)));
+    }
+    const auto rackRect = rackArea->getLocalBounds();
+    const int viewW = area.getWidth();
+    const auto effectsMinW = [this] { int w = 0; for (const auto& grp : effectGroups) w = std::max(w, grp.columns() * m.colW); return w; };
+    {   // Effects tab: panels side by side; one that does not fit the view's width starts a second row (S7.11)
+        auto row = rackRect.withHeight(m.rowH).withWidth(std::max(viewW, effectsMinW()));
         for (auto& grp : effectGroups) {
             const int w = grp.columns() * m.colW;
-            if (w > row.getWidth() && row.getX() > area.getX())
-                row = area.withHeight(m.rowH).withY(row.getY() + m.rowH + m.gap);
+            if (w > row.getWidth() && row.getX() > rackRect.getX())
+                row = rackRect.withHeight(m.rowH).withWidth(viewW).withY(row.getY() + m.rowH + m.gap);
             grp.bounds = row.removeFromLeft(w);
             row.removeFromLeft(m.gap);
             if (const auto it = effectPresets.find(presetModuleOf(grp.title)); it != effectPresets.end())   // Spec S7.5
@@ -1332,9 +1381,10 @@ void LMWSynthEditor::resized() {
 
     // Spec S6.5: panels in the order of the rack layout.
     rowBounds.clear();
+    auto rackRows = rackRect;
     for (const auto& rowPanels : rack->rows()) {
-        if (!rowBounds.empty()) area.removeFromTop(m.gap);
-        auto row = area.removeFromTop(m.rowH);
+        if (!rowBounds.empty()) rackRows.removeFromTop(m.gap);
+        auto row = rackRows.removeFromTop(m.rowH);
         rowBounds.push_back(row);
         for (int index : rowPanels) {
             auto& grp = groups[static_cast<std::size_t>(index)];
@@ -1348,7 +1398,7 @@ void LMWSynthEditor::resized() {
             for (const auto& item : grp.items) layoutItem(item, inner.removeFromLeft(m.colW));
         }
     }
-    if (cables) cables->setBounds(getLocalBounds());
+    if (cables) cables->setBounds(rackArea->getLocalBounds());
 }
 
 // ---- Spec S6.6: patch points and cables ----
@@ -1375,7 +1425,7 @@ juce::Rectangle<float> LMWSynthEditor::Jack::socket() const {
 }
 
 juce::Point<float> LMWSynthEditor::Jack::centreInEditor() const {
-    return editor.getLocalPoint(this, socket().getCentre());
+    return editor.rackArea->getLocalPoint(this, socket().getCentre());   // S6.21: rack coordinates
 }
 
 void LMWSynthEditor::Jack::paint(juce::Graphics& g) {
@@ -1439,13 +1489,14 @@ void LMWSynthEditor::Jack::mouseDown(const juce::MouseEvent& e) {
 void LMWSynthEditor::Jack::mouseDrag(const juce::MouseEvent& e) {
     if (e.mods.isPopupMenu() || (!dragging && e.getDistanceFromDragStart() < 3)) return;
     dragging = true;
-    editor.cableDrag(*this, e.getEventRelativeTo(&editor).position);
+    editor.autoScrollRack(e.getEventRelativeTo(editor.rackArea.get()).getPosition());   // S6.21
+    editor.cableDrag(*this, e.getEventRelativeTo(editor.rackArea.get()).position);
 }
 
 void LMWSynthEditor::Jack::mouseUp(const juce::MouseEvent& e) {
     if (!dragging) return;
     dragging = false;
-    editor.cableDrop(*this, e.getEventRelativeTo(&editor).position);
+    editor.cableDrop(*this, e.getEventRelativeTo(editor.rackArea.get()).position);
 }
 
 bool LMWSynthEditor::Jack::keyPressed(const juce::KeyPress& key) {
@@ -1534,7 +1585,7 @@ LMWSynthEditor::Jack* LMWSynthEditor::jackFor(bool output, int port) const {
 
 LMWSynthEditor::Jack* LMWSynthEditor::findJack(juce::Point<float> where, const Jack& from) const {
     for (const auto& j : jacks)
-        if (j->output != from.output && j->isVisible() && getLocalArea(j.get(), j->getLocalBounds()).toFloat().expanded(4.0f).contains(where))
+        if (j->output != from.output && j->isVisible() && rackArea->getLocalArea(j.get(), j->getLocalBounds()).toFloat().expanded(4.0f).contains(where))
             return j.get();
     return nullptr;
 }
@@ -2468,13 +2519,19 @@ void LMWSynthEditor::showAbout() {
 }
 
 void LMWSynthEditor::showTab(int tab) {
+    if (currentTab == 0 || currentTab == 1) tabScroll[static_cast<std::size_t>(currentTab)] = rackView.getViewPosition();   // S6.21
     currentTab = tab;
     const juce::Component* alwaysShown[] = {&titleButton, &instrumentButton, &panelTab, &effectsTab, &matrixTab, &schematicTab, &notesTab, &patchLabel, &loadButton,
                                             &saveButton, &menuButton, &undoButton, &redoButton, &resetLayoutButton, &compactButton, &keyboard, &keyboardButton, &assistantTab};
     for (auto* child : getChildren()) {
         if (child == &notesEditor || child == matrix.get() || child == schematic.get() || child == assistant.get()
-            || std::find(std::begin(alwaysShown), std::end(alwaysShown), child) != std::end(alwaysShown))
+            || child == &rackView || std::find(std::begin(alwaysShown), std::end(alwaysShown), child) != std::end(alwaysShown))
             continue;
+        child->setVisible(false);
+    }
+    rackView.setVisible(tab == 0 || tab == 1);               // Spec S6.21: the rack scrolls in its view
+    for (auto* child : rackArea->getChildren()) {
+        if (child == cables.get()) continue;
         const bool effect = std::find(effectComponents.begin(), effectComponents.end(), child) != effectComponents.end();
         child->setVisible(effect ? tab == 1 : tab == 0);   // hidden controls take no Tab focus either
     }
@@ -2488,7 +2545,52 @@ void LMWSynthEditor::showTab(int tab) {
     if (tab == 3) notesEditor.grabKeyboardFocus();
     if (tab == 4) schematic->grabKeyboardFocus();
     if (tab == 5 && assistant) assistant->focusInput();
+    if (tab == 0 || tab == 1) rackView.setViewPosition(tabScroll[static_cast<std::size_t>(tab)]);   // S6.21
+    rackArea->repaint();
     repaint();
+}
+
+// ---- Spec S6.21 (Phase 38): panning the rack ----
+
+void LMWSynthEditor::RackArea::mouseDown(const juce::MouseEvent& e) {
+    // Only on the empty surface (the grey between and beside the panels): a hand that moves the view.
+    panning = e.eventComponent == this && !e.mods.isPopupMenu();
+    viewAtStart = editor.rackView.getViewPosition();
+    if (panning) setMouseCursor(juce::MouseCursor::DraggingHandCursor);
+}
+
+void LMWSynthEditor::RackArea::mouseDrag(const juce::MouseEvent& e) {
+    if (!panning) return;
+    // The view moves the other way than the hand; offsets on screen, as the surface itself moves under the mouse.
+    const auto moved = e.getScreenPosition() - e.getMouseDownScreenPosition();
+    editor.rackView.setViewPosition(viewAtStart - moved);
+}
+
+void LMWSynthEditor::RackArea::mouseUp(const juce::MouseEvent&) {
+    panning = false;
+    setMouseCursor(juce::MouseCursor::NormalCursor);
+}
+
+void LMWSynthEditor::scrollIntoView(const juce::Component& c) {
+    if (!rackView.isVisible() || !rackArea->isParentOf(&c)) return;
+    const auto r = rackArea->getLocalArea(&c, c.getLocalBounds());
+    const auto view = rackView.getViewArea();
+    if (view.contains(r)) return;
+    auto pos = view.getPosition();
+    if (r.getX() < view.getX()) pos.x = r.getX() - m.gap;
+    else if (r.getRight() > view.getRight()) pos.x = r.getRight() - view.getWidth() + m.gap;
+    if (r.getY() < view.getY()) pos.y = r.getY() - m.gap;
+    else if (r.getBottom() > view.getBottom()) pos.y = r.getBottom() - view.getHeight() + m.gap;
+    rackView.setViewPosition(pos);
+}
+
+void LMWSynthEditor::globalFocusChanged(juce::Component* focused) {
+    if (focused != nullptr && rackArea != nullptr && rackArea->isParentOf(focused)) scrollIntoView(*focused);
+}
+
+void LMWSynthEditor::autoScrollRack(juce::Point<int> inRack) {
+    const auto inView = inRack - rackView.getViewPosition();
+    rackView.autoScroll(inView.x, inView.y, 24, 12);
 }
 
 void LMWSynthEditor::refreshPatchInfo() {
@@ -3096,9 +3198,10 @@ std::string LMWSynthEditor::viewText() const {
     s += std::string("keyboard ") + (keyboardShown ? "on" : "off") + "\n";
     s += std::string("scales ") + (settings.showScales ? "on" : "off") + "\n";     // Spec S6.20
     s += std::string("rings ") + (settings.socketRings ? "on" : "off") + "\n";
+    s += "scroll " + std::to_string(rackView.getViewPositionX()) + " " + std::to_string(rackView.getViewPositionY()) + "\n";   // S6.21
     if (currentTab == 0 || currentTab == 1)
         for (const auto& g : currentTab == 0 ? groups : effectGroups)
-            s += "panel " + rect(g.bounds) + " " + g.title.toStdString() + "\n";
+            s += "panel " + rect(getLocalArea(rackArea.get(), g.bounds)) + " " + g.title.toStdString() + "\n";   // editor pixels (S6.21)
     if (currentTab == 4 && schematic != nullptr) {
         s += "area " + rect(schematic->getBounds()) + " schematic\n";
         for (const auto& [name, r] : schematic->blockAreas()) s += "panel " + rect(r + schematic->getPosition()) + " " + name + "\n";
@@ -3142,13 +3245,17 @@ std::string LMWSynthEditor::applyView(const std::string& text) {
             (key == "scales" ? settings.showScales : settings.socketRings) = value == "on";
             saveConfig();
             applyAids();
+        } else if (key == "scroll") {                             // Spec S6.21: the rack view position
+            int x = 0, y = 0;
+            if (std::sscanf(value.c_str(), "%d %d", &x, &y) != 2) return "bad scroll: " + value + " (x y)";
+            rackView.setViewPosition(x, y);
         } else if (key == "pointer" && value == "away") {
             // Pictures: no hover band, hover box or tooltip — the pointer just above the editor (a title bar).
             juce::Desktop::getInstance().setMousePosition(getScreenPosition() - juce::Point<int>(0, 8));
         } else if (key == "focus" && value == "none") {
             unfocusAllComponents();                       // no keyboard cursor (Matrix, Schematic) in a picture
         } else {
-            return "bad view line: " + line + " (tab, size, compact, keyboard, scales, rings, pointer away, focus none)";
+            return "bad view line: " + line + " (tab, size, compact, keyboard, scales, rings, scroll, pointer away, focus none)";
         }
     }
     return {};
