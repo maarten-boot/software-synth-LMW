@@ -163,6 +163,20 @@ public:
         pos[i] = snap(p);
         return true;
     }
+    // Spec S7.14: blocks of the same size take each other's places — their places, in reading order (left to
+    // right, then top to bottom), go to `order` in its order (the effects after a move on the Effects tab).
+    void arrange(const std::vector<std::size_t>& order) {
+        std::vector<Point> places;
+        for (const auto i : order) if (i < pos.size()) places.push_back(pos[i]);
+        if (places.size() != order.size()) return;
+        std::sort(places.begin(), places.end(), [](const Point& a, const Point& b) { return a.x != b.x ? a.x < b.x : a.y < b.y; });
+        for (std::size_t k = 0; k < order.size(); ++k) pos[order[k]] = places[k];
+    }
+    static std::size_t indexOf(std::string_view name) noexcept {   // blocks().size() when there is none
+        std::size_t i = 0;
+        while (i < blocks().size() && blocks()[i].name != name) ++i;
+        return i;
+    }
     bool isDefault() const { return *this == Layout(); }
     bool operator==(const Layout& o) const {
         for (std::size_t i = 0; i < pos.size(); ++i)

@@ -71,9 +71,74 @@ inline constexpr std::string_view sourceName(Out o) noexcept {
 // mix.out is normalled to vcf2.in too, and formant.in gets the average of the two VCFs (each at 50 %).
 // Only those two inputs change; a cable on them overrides it as usual.
 enum class VcfRouting : std::uint8_t { Serial, Parallel };
+
+// Spec S7.14 (Phase 42): the order of the four effects (0 COMB, 1 ENSEMBLE, 2 DELAY, 3 REVERB), one of the 24
+// orders numbered in lexicographic order: 0 = COMB, ENSEMBLE, DELAY, REVERB (the order before S7.14), 23 = reversed.
+inline constexpr int numEffects = 4, numEffectOrders = 24;
+using EffectOrder = std::array<int, numEffects>;
+inline constexpr std::array<std::string_view, numEffects> effectNames{"comb", "ensemble", "delay", "reverb"};
+inline constexpr EffectOrder effectOrder(int index) noexcept {
+    index = index < 0 ? 0 : index >= numEffectOrders ? numEffectOrders - 1 : index;
+    std::array<int, numEffects> pool{0, 1, 2, 3};
+    EffectOrder r{};
+    int left = numEffects, f = 6;                          // (left - 1)!
+    for (int i = 0; i < numEffects; ++i) {
+        const int k = index / f;
+        index %= f;
+        r[static_cast<std::size_t>(i)] = pool[static_cast<std::size_t>(k)];
+        for (int j = k; j + 1 < left; ++j) pool[static_cast<std::size_t>(j)] = pool[static_cast<std::size_t>(j + 1)];
+        --left;
+        if (left > 0) f /= left;
+    }
+    return r;
+}
+inline constexpr int effectOrderIndex(const EffectOrder& o) noexcept {   // -1: not an order of the four
+    for (int i = 0; i < numEffectOrders; ++i) if (effectOrder(i) == o) return i;
+    return -1;
+}
+// "comb ensemble delay reverb" (spaces and / or commas, any case) -> the order's index; -1 unless each effect once.
+inline int parseEffectOrder(std::string_view text) noexcept {
+    EffectOrder o{};
+    int n = 0;
+    std::size_t i = 0;
+    while (i < text.size()) {
+        while (i < text.size() && (text[i] == ' ' || text[i] == ',' || text[i] == '\t' || text[i] == '\n' || text[i] == '\r')) ++i;
+        std::size_t j = i;
+        while (j < text.size() && !(text[j] == ' ' || text[j] == ',' || text[j] == '\t' || text[j] == '\n' || text[j] == '\r')) ++j;
+        if (j == i) break;
+        int found = -1;
+        for (int e = 0; e < numEffects; ++e) {
+            const auto name = effectNames[static_cast<std::size_t>(e)];
+            if (j - i != name.size()) continue;
+            bool same = true;
+            for (std::size_t k = 0; k < name.size(); ++k) {
+                char c = text[i + k];
+                if (c >= 'A' && c <= 'Z') c = static_cast<char>(c - 'A' + 'a');
+                same = same && c == name[k];
+            }
+            if (same) found = e;
+        }
+        if (found < 0 || n >= numEffects) return -1;
+        o[static_cast<std::size_t>(n++)] = found;
+        i = j;
+    }
+    return n == numEffects ? effectOrderIndex(o) : -1;
+}
+inline constexpr In effectIn(int e) noexcept { return static_cast<In>(static_cast<int>(In::CombIn) + e); }
+inline constexpr Out effectOut(int e) noexcept { return static_cast<Out>(static_cast<int>(Out::CombOut) + e); }
+// The normalled source of an effect input or main.in: the effect left of it in the order (out.out for the first).
+inline constexpr Out effectNormal(In in, int orderIndex) noexcept {
+    const auto o = effectOrder(orderIndex);
+    if (in == In::MainIn) return effectOut(o[numEffects - 1]);
+    for (int p = 0; p < numEffects; ++p)
+        if (effectIn(o[static_cast<std::size_t>(p)]) == in) return p == 0 ? Out::OutOut : effectOut(o[static_cast<std::size_t>(p - 1)]);
+    return noSource;
+}
+
 struct Normal { Out source = noSource; float level = 1.0f; };
 struct Normals { std::array<Normal, 2> s{}; int n = 0; };   // the normalled sources of an input (0-2)
-inline Normals normals(In in, VcfRouting r) noexcept {
+inline Normals normals(In in, VcfRouting r, int effects = 0) noexcept {
+    if (in >= In::CombIn && in < In::Count) return {{{{effectNormal(in, effects), 1.0f}, {}}}, 1};   // S7.14
     if (r == VcfRouting::Parallel) {
         if (in == In::Vcf2In) return {{{{Out::Mix, 1.0f}, {}}}, 1};
         if (in == In::FormantIn) return {{{{Out::Vcf1, 0.5f}, {Out::Vcf2, 0.5f}}}, 2};
@@ -83,8 +148,8 @@ inline Normals normals(In in, VcfRouting r) noexcept {
     return {{{{o, 1.0f}, {}}}, 1};
 }
 // The level at which `o` is normalled to `in` (0 = not normalled from it).
-inline float normalLevel(In in, Out o, VcfRouting r) noexcept {
-    const auto ns = normals(in, r);
+inline float normalLevel(In in, Out o, VcfRouting r, int effects = 0) noexcept {
+    const auto ns = normals(in, r, effects);
     for (int k = 0; k < ns.n; ++k) if (ns.s[static_cast<std::size_t>(k)].source == o) return ns.s[static_cast<std::size_t>(k)].level;
     return 0.0f;
 }
@@ -177,8 +242,11 @@ public:
     // Spec S5.17: the VCF routing decides two inputs' normalled sources; not part of the pins or the cable text.
     void setRouting(VcfRouting r) noexcept { route = r; }
     VcfRouting routing() const noexcept { return route; }
-    Normals normals(In in) const noexcept { return lmw::dsp::normals(in, route); }
-    float normalLevel(In in, Out o) const noexcept { return lmw::dsp::normalLevel(in, o, route); }
+    // Spec S7.14: the effects order decides the effect inputs' normalled sources.
+    void setEffectOrder(int index) noexcept { fxOrder = index; }
+    int effectOrderIndex() const noexcept { return fxOrder; }
+    Normals normals(In in) const noexcept { return lmw::dsp::normals(in, route, fxOrder); }
+    float normalLevel(In in, Out o) const noexcept { return lmw::dsp::normalLevel(in, o, route, fxOrder); }
 
     bool isPatched(In in) const noexcept { return count[idx(in)] > 0; }
     int pinCount(In in) const noexcept { return count[idx(in)]; }
@@ -221,6 +289,7 @@ private:
     std::array<std::array<Pin, maxPins>, numInputs> pins{};
     std::array<std::uint8_t, numInputs> count{};
     VcfRouting route = VcfRouting::Serial;
+    int fxOrder = 0;                                 // S7.14
 };
 
 // A pin change sent from the GUI / 9P thread to the audio thread (Spec S5.4, S10.2): output none =

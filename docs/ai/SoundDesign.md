@@ -23,7 +23,8 @@ vcf1.in=vco1.out, vcf2.in=vco2.out, mix2.in1=vcf1.out (pan -0.7), mix2.in2=vcf2.
 ## Signal flow (normalled: connected without cables)
 
 KEYS (pitch, gate, velocity) → VCO 1-3 → MIXER → VCF 1 → VCF 2 → FORMANT → VCA → OUT → COMB → ENSEMBLE → DELAY →
-REVERB → MAIN (what is heard). ENV 1 opens the VCA (loudness over time), ENV 2 moves the VCF 1 and VCF 2
+REVERB → MAIN (what is heard; the effects order can be changed: effects.order or /effects, e.g.
+"reverb comb ensemble delay", and the normal connections follow). ENV 1 opens the VCA (loudness over time), ENV 2 moves the VCF 1 and VCF 2
 cutoff, LFO 1 → the VCOs' FM inputs (vibrato, depth = each VCO's FM fader), LFO 2 → the VCA's Mod input
 (tremolo, depth = VCA Tremolo). Every module is per voice up to the VCA; OUT and the effects are shared.
 

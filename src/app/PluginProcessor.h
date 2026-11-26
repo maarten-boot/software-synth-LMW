@@ -45,6 +45,7 @@ inline constexpr std::array<const char*, 2> vcfKey   {"vcf1.key",    "vcf2.key"}
 inline constexpr std::array<const char*, 2> vcfSlope {"vcf1.slope",  "vcf2.slope"};
 inline constexpr std::array<const char*, 2> vcfType  {"vcf1.type",   "vcf2.type"};
 inline constexpr const char* vcfRouting  = "vcf2.routing";   // Spec S5.17: Serial / Parallel
+inline constexpr const char* effectsOrder = "effects.order"; // Spec S7.14: one of the 24 orders of the four effects
 // Spec S5.16: FORMANT (vowel filter) after VCF 2.
 inline constexpr const char* formantVowel = "formant.vowel";
 inline constexpr const char* formantVoice = "formant.voice";
@@ -262,7 +263,18 @@ public:
     // Message thread: the patch as last requested (mirror of the engine's patch) and the latest
     // mod wheel value — for hover texts in the GUI.
     // Its VCF routing (Spec S5.17) is taken from the parameter at each call.
-    const lmw::dsp::Patch& currentPatch() const noexcept { guiPatch.setRouting(vcfRouting()); return guiPatch; }
+    // and its effects order (S7.14) too.
+    const lmw::dsp::Patch& currentPatch() const noexcept {
+        guiPatch.setRouting(vcfRouting());
+        guiPatch.setEffectOrder(effectOrder());
+        return guiPatch;
+    }
+    int effectOrder() const noexcept {                    // any thread; lmw::dsp::effectOrder(index)
+        return std::clamp(static_cast<int>(raw.effectsOrder->load() + 0.5f), 0, lmw::dsp::numEffectOrders - 1);
+    }
+    // Spec S7.14: sets effects.order as the user would (a host gesture, so it is an undo step); message thread.
+    void setEffectOrder(int index);
+    static juce::String effectOrderName(int index);       // "comb, ensemble, delay, reverb"
     lmw::dsp::VcfRouting vcfRouting() const noexcept {   // any thread
         return raw.vcfRouting->load() >= 0.5f ? lmw::dsp::VcfRouting::Parallel : lmw::dsp::VcfRouting::Serial;
     }
@@ -352,7 +364,7 @@ private:
             *lfo2Rate{}, *lfo2Wave{}, *lfoDelay{}, *lfo2Delay{}, *outPan{}, *outSpread{}, *spreadMode{}, *glide{}, *glideMode{}, *bendRange{}, *tremolo{}, *vcaVelocity{}, *revMix{}, *revSize{}, *revDamping{}, *revWidth{},
             *noiseColour{}, *noiseRate{}, *noiseSmooth{},
             *combFreq{}, *combKey{}, *combFeedback{}, *combDamping{}, *combMix{},
-            *delayTime{}, *delayFeedback{}, *delayDamping{}, *delaySpread{}, *delayMix{}, *ensembleDepth{}, *ensembleRate{}, *ensembleShimmer{}, *ensembleMix{}, *formantVowel{}, *formantVoice{}, *formantRes{}, *formantMix{}, *vcfRouting{};
+            *delayTime{}, *delayFeedback{}, *delayDamping{}, *delaySpread{}, *delayMix{}, *ensembleDepth{}, *ensembleRate{}, *ensembleShimmer{}, *ensembleMix{}, *formantVowel{}, *formantVoice{}, *formantRes{}, *formantMix{}, *vcfRouting{}, *effectsOrder{};
         std::array<std::atomic<float>*, 2> cutoff{}, resonance{}, vcfEnv{}, vcfKey{}, vcfSlope{}, vcfType{};
         std::array<std::atomic<float>*, 3> mix2Level{}, mix2Pan{};   // Spec S5.26
         std::array<std::atomic<float>*, 3> wave{}, fm{}, pm{}, octave{}, tune{}, mixVco{};

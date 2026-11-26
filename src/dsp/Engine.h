@@ -59,6 +59,7 @@ struct ModParams {
     float formantRes = 0.5f;                    // formant.res: 0.5 = the table's bandwidths
     float formantMix = 0.0f;                    // formant.mix: 0 = dry .. 1 = only the formants
     VcfRouting vcfRouting = VcfRouting::Serial;  // vcf2.routing (Spec S5.17)
+    int effectOrder = 0;                         // effects.order (Spec S7.14), lmw::dsp::effectOrder
     float vcaInitial = 0.0f;                    // vca.initial (base gain added to vca.cv)
     float lfoRate = 5.0f;                       // lfo1.rate (Hz)
     LfoWave lfoWave = LfoWave::Sine;            // lfo1.wave
@@ -443,6 +444,7 @@ public:
     void setModParams(const ModParams& p) noexcept {
         mod = p;
         patch.setRouting(p.vcfRouting);          // Spec S5.17
+        patch.setEffectOrder(p.effectOrder);     // Spec S7.14
         updateRouting();
         cutoffTarget = std::log2(std::clamp(static_cast<double>(p.cutoff), Ladder::minCutoff, Ladder::maxCutoff));
         cutoff2Target = std::log2(std::clamp(static_cast<double>(p.vcf2Cutoff), Ladder::minCutoff, Ladder::maxCutoff));

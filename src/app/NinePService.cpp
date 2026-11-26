@@ -269,6 +269,23 @@ void NinePService::build() {
             const std::string copy(text);
             return withEditor([copy](LMWSynthEditor& e) { return e.applyView(copy); }, "no window open").value_or("busy");
         });
+    // Spec S7.14: the effects order as one line ("comb ensemble delay reverb"); written the same way (also with
+    // commas): each of the four once. Sets effects.order (an undo step).
+    tree.file("effects",
+        [p = &proc] {
+            std::string s;
+            for (const int e : lmw::dsp::effectOrder(p->effectOrder())) {
+                if (!s.empty()) s += ' ';
+                s += lmw::dsp::effectNames[static_cast<std::size_t>(e)];
+            }
+            return s + "\n";
+        },
+        [this](std::string_view text) -> std::string {
+            const int index = lmw::dsp::parseEffectOrder(text);
+            if (index < 0) return "effects: the four effects comb, ensemble, delay, reverb, each once, in the new order";
+            return onMessageThread([index](LMWSynthProcessor& p) { p.setEffectOrder(index); return std::string(); })
+                .value_or("busy");
+        });
     tree.file("snapshot", [withEditor] { return withEditor([](LMWSynthEditor& e) { return e.snapshotPng(); }, "").value_or(""); });
 
     // /ports: inputs with their normalled source, then outputs (signal-flow order: source -> input); each line ends
@@ -277,9 +294,10 @@ void NinePService::build() {
     // ("vcf1.out@0.5+vcf2.out@0.5", as in /cables).
     tree.file("ports", [p = &proc] {
         const auto routing = p->vcfRouting();          // an atomic parameter: safe on the 9P thread
+        const int effects = p->effectOrder();          // S7.14
         std::string ports;
         for (int i = 0; i < lmw::dsp::numInputs; ++i) {
-            const auto ns = lmw::dsp::normals(static_cast<lmw::dsp::In>(i), routing);
+            const auto ns = lmw::dsp::normals(static_cast<lmw::dsp::In>(i), routing, effects);
             std::string src = ns.n == 0 ? std::string("none") : std::string();
             for (int k = 0; k < ns.n; ++k) {
                 const auto& x = ns.s[static_cast<std::size_t>(k)];

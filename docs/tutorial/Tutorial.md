@@ -228,7 +228,8 @@ that you hear new overtones instead of vibrato.
 
 The **Effects** tab: SYNTH (the instrument) → COMB → ENSEMBLE → DELAY → REVERB → MAIN (what you
 hear), connected by default; [Mix](../Terms.md#mix) 0 means an [effect](../Terms.md#effect) is off. In a narrow window REVERB and MAIN wrap to
-a second row.
+a second row. Drag an effect's title left or right to change the order: the connections follow (e.g. REVERB
+first, then COMB, rings the comb on the reverb's tail).
 
 ![The Effects tab with the Lesson 9 sound and the ENSEMBLE preset Solina: SYNTH, COMB, ENSEMBLE, DELAY, REVERB and MAIN](../images/lesson9-effects.png)
 

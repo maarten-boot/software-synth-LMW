@@ -72,3 +72,7 @@
 - User (mid-turn): on the Schematic move the effects to the bottom. Done: effects row at y 70, canvas 84 high (test_schematic needed 4 units for the legend). S6.5, S6.7, Changes, Tests T-S6.5-default-2.
 - User (mid-turn): could the effects be moved left and right, with the in / out chain re-arranged automatically? Spec proposal S7.14 written in the answer (to confirm).
 - User: commit and start S7.14 as proposed.
+- Committed fda7c5f (layout changes). S7.14 written, Plan 42. 42 done: effects.order (24 orders), normals follow the order (engine, GUI, /ports), processing in the order, Effects tab drag / arrows / menu, Schematic blocks swap (one undo step), /effects; tests/test_effectorder.cpp, host checks (89 parameters). Found: reverb first vs the cable chain is not bit-exact (the cable chain is one sample later and COMB's tuning / Mix smoothing follow the clock) → compared against the default order instead. Xvfb checked. 42 of 42.
+- User: the glide and wheels are lost after switching to Effects / Matrix / Schematic; they should always be visible with the keyboard. Cause: showTab() hid every child not on its always-shown list. Fixed; Xvfb: the strip the same on all six tabs.
+- User (mid-turn): Reset layout on the Effects tab should give the default effects order. Done (one step; rack layout and cables kept); Xvfb checked. S6.24, S7.14, Tests T-S6.24-tabs, Changes. 42 of 42.
+- User: commit and do the crosscheck.

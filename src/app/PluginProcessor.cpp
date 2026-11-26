@@ -94,6 +94,12 @@ APVTS::ParameterLayout LMWSynthProcessor::createLayout(std::map<std::string, Flo
     // Spec S5.17: VCF routing, on the VCF 2 panel.
     l.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{P::vcfRouting, 1}, "VCF Routing",
               juce::StringArray{"Serial", "Parallel"}, 0));
+    // Spec S7.14: the effects order (default: the order before S7.14).
+    {
+        juce::StringArray orders;
+        for (int i = 0; i < lmw::dsp::numEffectOrders; ++i) orders.add(LMWSynthProcessor::effectOrderName(i));
+        l.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{P::effectsOrder, 1}, "Effects Order", orders, 0));
+    }
     // Spec S5.16: FORMANT. Mix 0 = off (bypassed exactly).
     l.add(f(P::formantVowel, "Formant Vowel", Range(0.0f, 4.0f), 0.0f, vowels),
           std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{P::formantVoice, 1}, "Formant Voice",
@@ -185,6 +191,7 @@ LMWSynthProcessor::LMWSynthProcessor()
     raw.formantVowel = get(P::formantVowel); raw.formantVoice = get(P::formantVoice);
     raw.formantRes = get(P::formantRes); raw.formantMix = get(P::formantMix);
     raw.vcfRouting = get(P::vcfRouting);
+    raw.effectsOrder = get(P::effectsOrder);
     for (std::size_t n = 0; n < 3; ++n) {
         raw.wave[n] = get(P::vcoWave[n]); raw.fm[n] = get(P::vcoFm[n]); raw.pm[n] = get(P::vcoPm[n]); raw.octave[n] = get(P::vcoOctave[n]);
         raw.tune[n] = get(P::vcoTune[n]); raw.mixVco[n] = get(P::mixVco[n]);
@@ -337,8 +344,8 @@ LMWSynthProcessor::Stereo LMWSynthProcessor::delaySample(Stereo in) noexcept {
 
 // Spec S7.4, S7.6, S7.8, S7.11: the effects rack. Effect inputs read out.out (the synth after OUT), comb.out,
 // ensemble.out, delay.out and reverb.out: their normalled sources (out.out -> COMB -> ENSEMBLE -> DELAY -> REVERB
-// -> main.in) or their cables. Per sample in the order COMB, ENSEMBLE, DELAY, REVERB, main; a source later in that
-// order is its previous sample's value.
+// -> main.in; since S7.14 in the order of effects.order) or their cables. Per sample in the effects order, then main;
+// a source later in that order is its previous sample's value.
 void LMWSynthProcessor::processEffects(float* left, float* right, int n) noexcept {
     using lmw::dsp::In;
     using lmw::dsp::Out;
@@ -373,7 +380,7 @@ void LMWSynthProcessor::processEffects(float* left, float* right, int n) noexcep
         Sources r;
         const int k = patch.pinCount(in);
         if (k == 0) {                                 // normalled: one source at full level
-            r.s[0] = {lmw::dsp::normalled[static_cast<std::size_t>(in)], 1.0f}; r.n = 1; r.plain = true;
+            r.s[0] = {patch.normals(in).s[0].source, 1.0f}; r.n = 1; r.plain = true;   // S7.14: the effects order
         } else {
             for (int i = 0; i < k; ++i) r.s[static_cast<std::size_t>(i)] = {static_cast<Out>(patch.pin(in, i).source), patch.pin(in, i).level};
             r.n = k;
@@ -383,6 +390,7 @@ void LMWSynthProcessor::processEffects(float* left, float* right, int n) noexcep
     const Sources comb = sourcesOf(In::CombIn), ens = sourcesOf(In::EnsembleIn), dly = sourcesOf(In::DelayIn), rev = sourcesOf(In::ReverbIn),
                   mainIn = sourcesOf(In::MainIn);
     const bool stereo = right != nullptr;
+    const auto order = lmw::dsp::effectOrder(patch.effectOrderIndex());
     for (int i = 0; i < n; ++i) {
         const Stereo synth{left[i], stereo ? right[i] : left[i]};
         Stereo combOut = prevComb, ensOut = prevEnsemble, delayOut = prevDelay, revOut = prevReverb;   // until computed this sample
@@ -406,10 +414,14 @@ void LMWSynthProcessor::processEffects(float* left, float* right, int n) noexcep
             }
             return t;
         };
-        combOut = combSample(sum(comb));
-        ensOut = ensembleSample(sum(ens));
-        delayOut = delaySample(sum(dly));
-        revOut = reverbSample(sum(rev), stereo);
+        for (const int e : order) {                   // Spec S7.14: in the chain's order
+            switch (e) {
+                case 0:  combOut = combSample(sum(comb)); break;
+                case 1:  ensOut = ensembleSample(sum(ens)); break;
+                case 2:  delayOut = delaySample(sum(dly)); break;
+                default: revOut = reverbSample(sum(rev), stereo); break;
+            }
+        }
         const Stereo out = sum(mainIn);
         left[i] = lmw::dsp::MainLimiter::process(out.l);   // Spec S7.4 (2026-11-26): no clipping after the effects
         if (stereo) right[i] = lmw::dsp::MainLimiter::process(out.r);
@@ -455,6 +467,7 @@ void LMWSynthProcessor::pullParameters() noexcept {
     m.formantRes   = raw.formantRes->load();
     m.formantMix   = raw.formantMix->load();
     m.vcfRouting   = vcfRouting();                    // Spec S5.17
+    m.effectOrder  = effectOrder();                   // Spec S7.14
     m.vcaInitial  = raw.vcaInitial->load();
     m.lfoRate     = raw.lfoRate->load();
     m.lfoWave     = static_cast<lmw::dsp::LfoWave>(static_cast<int>(raw.lfoWave->load()));
@@ -940,4 +953,38 @@ void LMWSynthProcessor::parameterGestureChanged(int index, bool starting) {
     if (!starting) { endStep(); return; }
     const auto& params = getParameters();
     beginStep(index >= 0 && index < params.size() ? params[index]->getName(100).toStdString() : std::string("change"));
+}
+
+// Spec S7.14.
+juce::String LMWSynthProcessor::effectOrderName(int index) {
+    juce::String s;
+    for (const int e : lmw::dsp::effectOrder(index)) {
+        if (s.isNotEmpty()) s << ", ";
+        const auto n = lmw::dsp::effectNames[static_cast<std::size_t>(e)];
+        s << juce::String(n.data(), n.size());
+    }
+    return s;
+}
+
+// One step: the parameter, and on the Schematic the four effect blocks take each other's places (left to right in
+// the new order).
+void LMWSynthProcessor::setEffectOrder(int index) {
+    index = std::clamp(index, 0, lmw::dsp::numEffectOrders - 1);
+    auto* p = apvts.getParameter(lmw::param::effectsOrder);
+    if (p == nullptr || index == effectOrder()) return;
+    const ScopedStep step(*this, "Effects order");
+    p->beginChangeGesture();
+    p->setValueNotifyingHost(p->convertTo0to1(static_cast<float>(index)));
+    p->endChangeGesture();
+    namespace sc = lmw::ui::schematic;
+    const auto text = schematicLayout().toStdString();
+    auto layout = text.empty() ? std::optional<sc::Layout>(sc::Layout()) : sc::Layout::parse(text);
+    if (!layout) return;
+    std::vector<std::size_t> blocks;
+    for (const int e : lmw::dsp::effectOrder(index)) {
+        const auto n = lmw::dsp::effectNames[static_cast<std::size_t>(e)];
+        blocks.push_back(sc::Layout::indexOf(juce::String(n.data(), n.size()).toUpperCase().toStdString()));
+    }
+    layout->arrange(blocks);
+    setSchematicLayout(layout->isDefault() ? juce::String() : juce::String(layout->serialize()));
 }

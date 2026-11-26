@@ -373,7 +373,7 @@ int main(int argc, char* argv[]) {
         for (std::size_t at = 0; (at = info.find("{\"id\": ", at)) != std::string::npos; ++at) ++objects;
         std::printf("/info: %zu bytes, %d parameters\n", info.size(), objects);
         CHECK(info.rfind("[\n", 0) == 0 && info.size() > 2 && info.substr(info.size() - 2) == "]\n");
-        CHECK(objects == 88);   // 88 since S6.24 (keys.glide, keys.glidemode, keys.bendrange), 85 since S5.26 (mix2.level1-3, mix2.pan1-3), 79 since S5.25 (out.pan, out.spread, out.spreadmode), 76 since S5.24, 74 since S7.11 (ensemble.*), 70 with S5.22 (vca.velocity), 69 with S7.8 (delay.*), 64 with S7.6, 59 with S5.20
+        CHECK(objects == 89);   // 89 since S7.14 (effects.order), 88 since S6.24 (keys.glide, keys.glidemode, keys.bendrange), 85 since S5.26 (mix2.level1-3, mix2.pan1-3), 79 since S5.25 (out.pan, out.spread, out.spreadmode), 76 since S5.24, 74 since S7.11 (ensemble.*), 70 with S5.22 (vca.velocity), 69 with S7.8 (delay.*), 64 with S7.6, 59 with S5.20
         CHECK(info.find("{\"id\": \"vcf1.cutoff\", \"name\": \"VCF 1 Cutoff\", \"kind\": \"float\", \"min\": 20.0, "
                         "\"max\": 18000.0, \"default\": 18000.0, \"unit\": \"Hz\", \"centre\": 600.0, \"scale\": \"log\"}") != std::string::npos);
         CHECK(info.find("{\"id\": \"vco1.tune\", \"name\": \"VCO 1 Tune\", \"kind\": \"float\", \"min\": -7.0, \"max\": 7.0, "
@@ -548,6 +548,65 @@ int main(int argc, char* argv[]) {
             CHECK(ports.find("input  lfo1.out -> vco1.fm  cv+audio\n") != std::string::npos && ports.find("input  keys.gate -> env1.gate  gate\n") != std::string::npos
                   && ports.find("output keys.gate  gate\n") != std::string::npos && ports.find("output lfo1.out  cv\n") != std::string::npos
                   && ports.find("output vco1.out  audio\n") != std::string::npos);
+        }
+        // T-S7.14-order: /effects, the chain follows the order, undo; reverb first sounds as the same chain made with
+        // cables (one sample later: with cables in the old order COMB reads REVERB's previous sample).
+        {
+            CHECK(read9P(sock, {"effects"}) == "comb ensemble delay reverb\n");
+            CHECK(!write9P(sock, {"effects"}, "comb comb delay reverb").empty());
+            CHECK(!write9P(sock, {"effects"}, "comb ensemble delay").empty());
+            CHECK(write9P(sock, {"params", "comb", "mix"}, "0.5").empty());
+            CHECK(write9P(sock, {"params", "reverb", "mix"}, "0.4").empty());
+            const auto playFx = [&] {
+                a->releaseResources(); a->prepareToPlay(sampleRate, blockSize);
+                std::vector<float> out;
+                juce::AudioBuffer<float> buffer(2, blockSize);
+                for (int blk = 0; blk < 60; ++blk) {
+                    juce::MidiBuffer midi;
+                    if (blk == 0) midi.addEvent(juce::MidiMessage::noteOn(1, 57, static_cast<juce::uint8>(100)), 0);
+                    if (blk == 20) midi.addEvent(juce::MidiMessage::noteOff(1, 57), 0);
+                    buffer.clear();
+                    a->processBlock(buffer, midi);
+                    for (int i = 0; i < blockSize; ++i) out.push_back(buffer.getSample(0, i));
+                }
+                return out;
+            };
+            CHECK(write9P(sock, {"effects"}, "Reverb, comb, ensemble, delay").empty());
+            CHECK(read9P(sock, {"effects"}) == "reverb comb ensemble delay\n");
+            const auto ports = read9P(sock, {"ports"});
+            CHECK(ports.find("input  out.out -> reverb.in  audio\n") != std::string::npos
+                  && ports.find("input  reverb.out -> comb.in  audio\n") != std::string::npos
+                  && ports.find("input  delay.out -> main.in  audio\n") != std::string::npos);
+            const auto ordered = playFx();
+            {   // the patch file keeps the order and gives it back (S7.14)
+                const auto patchText = read9P(sock, {"patch"});
+                CHECK(patchText.find("effects.order = reverb, comb, ensemble, delay\n") != std::string::npos);
+                CHECK(write9P(sock, {"effects"}, "comb ensemble delay reverb").empty());
+                CHECK(write9P(sock, {"patch"}, patchText).empty());
+                CHECK(read9P(sock, {"effects"}) == "reverb comb ensemble delay\n");
+            }
+            CHECK(write9P(sock, {"undo"}, "").empty());                   // the patch load
+            CHECK(write9P(sock, {"undo"}, "").empty());                   // the order written
+            CHECK(read9P(sock, {"effects"}) == "reverb comb ensemble delay\n");
+            CHECK(write9P(sock, {"undo"}, "").empty());                   // one step: back to the default order
+            CHECK(read9P(sock, {"effects"}) == "comb ensemble delay reverb\n");
+            CHECK(write9P(sock, {"cables"}, "reverb.in=out.out\ncomb.in=reverb.out\nmain.in=delay.out").empty());
+            const auto cabled = playFx();
+            CHECK(write9P(sock, {"cables"}, "reverb.in=\ncomb.in=\nmain.in=").empty());
+            const auto plain = playFx();                                  // the default order, no cables
+            // Not bit-exact: COMB's tuning and the Mix smoothing follow the clock, not the signal; so the cable chain
+            // must be much closer to the moved order than the default order is.
+            double toCables = 0, toDefault = 0, level = 0;
+            for (std::size_t i = 0; i + 1 < ordered.size(); ++i) {
+                toCables += std::fabs(double(ordered[i]) - cabled[i + 1]);
+                toDefault += std::fabs(double(ordered[i]) - plain[i]);
+                level = (std::max)(level, std::fabs(double(ordered[i])));
+            }
+            std::printf("effects order: reverb first vs the cable chain %.3g, vs the default order %.3g (sum |difference|), peak %.4f\n",
+                        toCables, toDefault, level);
+            CHECK(level > 0.001 && toCables < 0.25 * toDefault);   // measured 0.72 vs 3.8; 2.9 at no shift or two
+            CHECK(write9P(sock, {"params", "comb", "mix"}, "0").empty());
+            CHECK(write9P(sock, {"params", "reverb", "mix"}, "0").empty());
         }
         CHECK(write9P(sock, {"notes"}, "serial test").empty());
         const auto s3 = serial();

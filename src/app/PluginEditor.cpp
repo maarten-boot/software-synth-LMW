@@ -425,6 +425,13 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
             rackArea->addChildComponent(*button);
             effectComponents.push_back(button.get());
         }
+    for (int e = 0; e < lmw::dsp::numEffects; ++e) {          // Spec S7.14: effect titles to move the effects
+        effectHeaders.push_back(std::make_unique<EffectHeader>(*this, e));
+        rackArea->addChildComponent(*effectHeaders.back());
+        effectHeaders.back()->toBack();                      // under the preset buttons
+        effectComponents.push_back(effectHeaders.back().get());
+    }
+    shownEffectOrder = processor.effectOrder();
     for (const auto& grp : effectGroups)
         for (const auto& item : grp.items)
             if (item.fader != nullptr) { effectComponents.push_back(&item.fader->slider); effectComponents.push_back(&item.fader->label);
@@ -659,9 +666,10 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     for (auto* c : effectComponents) c->setVisible(false);  // Effects tab not shown at start
 
     resetLayoutButton.setTooltip("Put all module panels back in their original places "
-                                 "(on the Schematic tab: all symbols)");
+                                 "(on the Schematic tab: all symbols; on the Effects tab: the effects order COMB, ENSEMBLE, DELAY, REVERB)");
     resetLayoutButton.onClick = [this] {
         if (currentTab == 4) { schematic->resetLayout(); return; }   // Spec S6.7: the schematic's blocks
+        if (currentTab == 1) { resetEffectOrder(); return; }         // Spec S7.14 (user 2026-11-26): the effects order
         rack->reset();
         layoutChanged(-1);
     };
@@ -754,6 +762,11 @@ void LMWSynthEditor::timerCallback() {
     if (!bendWheel.isMouseButtonDown()) bendWheel.setValue(processor.pitchBend(), juce::dontSendNotification);
     if (!modWheelCtl.isMouseButtonDown()) modWheelCtl.setValue(processor.modWheel(), juce::dontSendNotification);
     keyboard.followHeldKeys();                           // Spec S3.2: held computer keys across focus changes
+    if (const int o = processor.effectOrder(); o != shownEffectOrder) {   // Spec S7.14: moved here, over 9P, undo, a patch
+        shownEffectOrder = o;
+        resized();
+        repaint();
+    }
     if (processor.patchFileVersion() != shownPatchFile || (!notesEditor.hasKeyboardFocus(true)
             && notesEditor.getText() != processor.notes()))   // patch loaded, or state restored by the host
         refreshPatchInfo();
@@ -1107,6 +1120,152 @@ bool LMWSynthEditor::PanelHeader::keyPressed(const juce::KeyPress& key) {
     return false;                        // e.g. QWERTY note keys: handled by the editor
 }
 
+// Spec S7.14: moving the effects.
+LMWSynthEditor::EffectHeader::EffectHeader(LMWSynthEditor& e, int effectIndex) : editor(e), effect(effectIndex) {
+    const auto& title = editor.effectGroups[static_cast<std::size_t>(effect + 1)].title;
+    setWantsKeyboardFocus(true);
+    setMouseCursor(juce::MouseCursor::DraggingHandCursor);
+    setTitle(title + " panel");
+    setDescription("Drag left or right to move the effect in the chain. Left and Right arrow keys move it; Enter opens the move menu.");
+    setTooltip("Drag left or right to move " + title + " in the effects chain (the connections follow).\n"
+               "Arrow keys (when selected) or right-click: move menu.");
+}
+
+void LMWSynthEditor::EffectHeader::paint(juce::Graphics& g) {   // the tab draws the title; here only the frames
+    g.setColour(kFg);
+    if (editor.draggedEffect == effect || hasKeyboardFocus(false)) g.drawRect(getLocalBounds(), 2);
+}
+
+void LMWSynthEditor::EffectHeader::mouseDown(const juce::MouseEvent& e) {
+    grabKeyboardFocus();
+    if (e.mods.isPopupMenu()) editor.showEffectMenu(effect);
+}
+
+void LMWSynthEditor::EffectHeader::mouseDrag(const juce::MouseEvent& e) {
+    if (e.mods.isPopupMenu() || (!dragging && e.getDistanceFromDragStart() < 4)) return;
+    dragging = true;
+    editor.autoScrollRack(e.getEventRelativeTo(editor.rackArea.get()).getPosition());
+    editor.dragEffect(effect, e.getEventRelativeTo(editor.rackArea.get()).getPosition());
+}
+
+void LMWSynthEditor::EffectHeader::mouseUp(const juce::MouseEvent& e) {
+    if (!dragging) return;
+    dragging = false;
+    editor.dropEffect(effect, e.getEventRelativeTo(editor.rackArea.get()).getPosition());
+}
+
+bool LMWSynthEditor::EffectHeader::keyPressed(const juce::KeyPress& key) {
+    if (key == juce::KeyPress::escapeKey && dragging) {
+        dragging = false;
+        editor.draggedEffect = -1;
+        editor.effectDrop.reset();
+        editor.rackArea->repaint();
+        repaint();
+        return true;
+    }
+    if (key.getModifiers().isAnyModifierKeyDown() && !key.getModifiers().isShiftDown()) return false;
+    const int code = key.getKeyCode();
+    const int at = editor.effectPosition(effect);
+    if (code == juce::KeyPress::leftKey)  { editor.moveEffect(effect, at - 1); return true; }
+    if (code == juce::KeyPress::rightKey) { editor.moveEffect(effect, at + 1); return true; }
+    if (code == juce::KeyPress::returnKey || (code == juce::KeyPress::F10Key && key.getModifiers().isShiftDown())) {
+        editor.showEffectMenu(effect);
+        return true;
+    }
+    return false;                        // e.g. QWERTY note keys: handled by the editor
+}
+
+std::vector<int> LMWSynthEditor::effectPanelOrder() const {
+    std::vector<int> v{0};                                   // SYNTH
+    for (const int e : lmw::dsp::effectOrder(shownEffectOrder)) v.push_back(e + 1);
+    v.push_back(lmw::dsp::numEffects + 1);                    // MAIN
+    return v;
+}
+
+int LMWSynthEditor::effectPosition(int effect) const {
+    const auto o = lmw::dsp::effectOrder(shownEffectOrder);
+    for (int p = 0; p < lmw::dsp::numEffects; ++p) if (o[static_cast<std::size_t>(p)] == effect) return p;
+    return 0;
+}
+
+// The position the dragged effect would take at `where` (rack coordinates): before the first other effect whose
+// middle is right of it in its row (a later row counts as right); nothing when that is where it is.
+std::optional<int> LMWSynthEditor::findEffectDrop(int effect, juce::Point<int> where, juce::Rectangle<int>* marker) const {
+    const auto order = lmw::dsp::effectOrder(shownEffectOrder);
+    int position = 0;
+    juce::Rectangle<int> left = effectGroups.front().bounds;  // the panel the marker goes right of (SYNTH first)
+    for (const int e : order) {
+        if (e == effect) continue;
+        const auto& b = effectGroups[static_cast<std::size_t>(e + 1)].bounds;
+        const bool before = where.y >= b.getBottom() + m.gap
+                         || (where.y >= b.getY() - m.gap && where.x > b.getCentreX());
+        if (!before) break;
+        ++position;
+        left = b;
+    }
+    if (position == effectPosition(effect)) return std::nullopt;
+    if (marker != nullptr) *marker = {left.getRight() + m.gap / 2 - 2, left.getY(), 4, left.getHeight()};
+    return position;
+}
+
+void LMWSynthEditor::dragEffect(int effect, juce::Point<int> where) {
+    draggedEffect = effect;
+    juce::Rectangle<int> marker;
+    effectDrop.reset();
+    if (findEffectDrop(effect, where, &marker)) effectDrop = marker;
+    rackArea->repaint();
+    effectHeaders[static_cast<std::size_t>(effect)]->repaint();
+}
+
+void LMWSynthEditor::dropEffect(int effect, juce::Point<int> where) {
+    const auto position = findEffectDrop(effect, where, nullptr);
+    draggedEffect = -1;
+    effectDrop.reset();
+    rackArea->repaint();
+    effectHeaders[static_cast<std::size_t>(effect)]->repaint();
+    if (position) moveEffect(effect, *position);
+}
+
+bool LMWSynthEditor::moveEffect(int effect, int position) {
+    if (position < 0 || position >= lmw::dsp::numEffects || position == effectPosition(effect)) return false;
+    auto order = lmw::dsp::effectOrder(shownEffectOrder);
+    std::vector<int> v(order.begin(), order.end());
+    v.erase(std::find(v.begin(), v.end(), effect));
+    v.insert(v.begin() + position, effect);
+    std::copy(v.begin(), v.end(), order.begin());
+    processor.setEffectOrder(lmw::dsp::effectOrderIndex(order));   // one undo step, the Schematic follows
+    shownEffectOrder = processor.effectOrder();
+    resized();
+    repaint();
+    if (auto& h = *effectHeaders[static_cast<std::size_t>(effect)]; h.isShowing()) h.grabKeyboardFocus();
+    return true;
+}
+
+void LMWSynthEditor::resetEffectOrder() {                  // one undo step; the Schematic blocks go back too
+    processor.setEffectOrder(0);
+    shownEffectOrder = processor.effectOrder();
+    resized();
+    repaint();
+}
+
+void LMWSynthEditor::showEffectMenu(int effect) {
+    const int at = effectPosition(effect);
+    juce::PopupMenu menu;
+    menu.setLookAndFeel(&lookAndFeel);                         // black on white (Spec S6.2)
+    menu.addSectionHeader(effectGroups[static_cast<std::size_t>(effect + 1)].title);
+    if (at > 0) menu.addItem(1, "Move left");                  // only possible moves (greyed items: < 4.5:1)
+    if (at < lmw::dsp::numEffects - 1) menu.addItem(2, "Move right");
+    if (shownEffectOrder != 0) { menu.addSeparator(); menu.addItem(3, "Reset order"); }
+    menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(effectHeaders[static_cast<std::size_t>(effect)].get()),
+                       [safe = juce::Component::SafePointer<LMWSynthEditor>(this), effect, at, focus = focusNow()](int result) {
+                           if (safe == nullptr) return;
+                           safe->restoreFocus(focus);
+                           if (result == 1) safe->moveEffect(effect, at - 1);
+                           else if (result == 2) safe->moveEffect(effect, at + 1);
+                           else if (result == 3) safe->resetEffectOrder();
+                       });
+}
+
 std::optional<LMWSynthEditor::DropTarget> LMWSynthEditor::findDrop(int panel, juce::Point<int> p) const {
     if (rowBounds.empty()) return std::nullopt;
     const auto& rows = rack->rows();
@@ -1269,6 +1428,7 @@ void LMWSynthEditor::paintRack(juce::Graphics& g) {
             g.drawHorizontalLine(b.getY() + m.header - 3, static_cast<float>(b.getX()), static_cast<float>(b.getRight()));
             g.drawHorizontalLine(b.getBottom() - 3 - m.jackH, static_cast<float>(b.getX()), static_cast<float>(b.getRight()));   // S7.6
         }
+        if (effectDrop) { g.setColour(kFg); g.fillRect(*effectDrop); }   // S7.14: where the dragged effect lands
     }
     if (currentTab != 0) return;                             // other tabs: no rack panel frames
     for (std::size_t i = 0; i < groups.size(); ++i) {        // titles are drawn by the PanelHeaders
@@ -1408,7 +1568,8 @@ void LMWSynthEditor::resized() {
     const auto effectsMinW = [this] { int w = 0; for (const auto& grp : effectGroups) w = std::max(w, grp.columns() * m.colW); return w; };
     {   // Effects tab: panels side by side; one that does not fit the view's width starts a second row (S7.11)
         auto row = rackRect.withHeight(m.rowH).withWidth(std::max(viewW, effectsMinW()));
-        for (auto& grp : effectGroups) {
+        for (const int gi : effectPanelOrder()) {           // Spec S7.14: in the chain's order
+            auto& grp = effectGroups[static_cast<std::size_t>(gi)];
             const int w = grp.columns() * m.colW;
             if (w > row.getWidth() && row.getX() > rackRect.getX())
                 row = rackRect.withHeight(m.rowH).withWidth(viewW).withY(row.getY() + m.rowH + m.gap);
@@ -1417,6 +1578,8 @@ void LMWSynthEditor::resized() {
             if (const auto it = effectPresets.find(presetModuleOf(grp.title)); it != effectPresets.end())   // Spec S7.5
                 it->second->setBounds(grp.bounds.withHeight(m.header - 3).reduced(1)
                                           .removeFromRight(it->second->preferredWidth()).reduced(2));
+            if (gi >= 1 && gi <= lmw::dsp::numEffects)        // S7.14: the title, left of a preset button
+                effectHeaders[static_cast<std::size_t>(gi - 1)]->setBounds(grp.bounds.withHeight(m.header - 3));
             auto inner = grp.bounds.reduced(0, 3).withTrimmedTop(m.header);
             auto jackRow = inner.removeFromBottom(m.jackH).withTrimmedTop(2);   // same fader height as on the Synth tab
             layoutJacks(effectGroupJacks[static_cast<std::size_t>(&grp - effectGroups.data())], grp.columns(), jackRow);
@@ -2570,7 +2733,11 @@ void LMWSynthEditor::showTab(int tab) {
     if (currentTab == 0 || currentTab == 1) tabScroll[static_cast<std::size_t>(currentTab)] = rackView.getViewPosition();   // S6.21
     currentTab = tab;
     const juce::Component* alwaysShown[] = {&titleButton, &instrumentButton, &panelTab, &effectsTab, &matrixTab, &schematicTab, &notesTab, &patchLabel, &loadButton,
-                                            &saveButton, &menuButton, &undoButton, &redoButton, &resetLayoutButton, &compactButton, &keyboard, &keyboardButton, &assistantTab};
+                                            &saveButton, &menuButton, &undoButton, &redoButton, &resetLayoutButton, &compactButton, &keyboard, &keyboardButton, &assistantTab,
+                                            // Spec S6.24 (found 2026-11-26: they vanished on the other tabs): the playing controls follow
+                                            // the keyboard (shown / hidden in resized()), not the tab
+                                            &bendWheel, &modWheelCtl, &glideSlider, &glideModeBox, &bendRangeBox,
+                                            &bendLabel, &modLabel, &glideLabel, &bendRangeLabel};
     for (auto* child : getChildren()) {
         if (child == &notesEditor || child == matrix.get() || child == schematic.get() || child == assistant.get()
             || child == &rackView || child == &schematicView || std::find(std::begin(alwaysShown), std::end(alwaysShown), child) != std::end(alwaysShown))

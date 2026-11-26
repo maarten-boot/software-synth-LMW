@@ -157,6 +157,24 @@ private:
         bool dragging = false;
         std::unique_ptr<PresetButton> presets;   // Spec S7.5, for ENV, VCF and VCO panels
     };
+    // Spec S7.14: the title of an effect panel (COMB, ENSEMBLE, DELAY, REVERB) on the Effects tab, over the title the
+    // tab draws: drag it left / right to move the effect in the chain; when focused, Left / Right move it; right-click,
+    // Enter or Shift+F10 opens Move left / Move right / Reset order. Other keys (QWERTY notes) pass on to the editor.
+    class EffectHeader final : public juce::Component, public juce::SettableTooltipClient {
+    public:
+        EffectHeader(LMWSynthEditor& e, int effectIndex);
+        void paint(juce::Graphics&) override;
+        void mouseDown(const juce::MouseEvent&) override;
+        void mouseDrag(const juce::MouseEvent&) override;
+        void mouseUp(const juce::MouseEvent&) override;
+        bool keyPressed(const juce::KeyPress&) override;
+        void focusGained(FocusChangeType) override { repaint(); }
+        void focusLost(FocusChangeType) override { repaint(); }
+    private:
+        LMWSynthEditor& editor;
+        int effect;
+        bool dragging = false;
+    };
     // Spec S6.6: a patch point (socket). Inputs are white with a black ring (a black centre when a
     // cable is plugged in); outputs are black with a white ring. Drag from a socket to make a cable,
     // drag a plugged input's cable away to move or remove it; Enter, Shift+F10 or right-click opens
@@ -396,6 +414,18 @@ private:
     std::optional<lmw::ui::RackLayout> rack;              // panel order per row (Spec S6.5)
     std::vector<juce::Rectangle<int>> rowBounds;          // from resized()
     int draggedPanel = -1;
+    // Spec S7.14: the effects order on the Effects tab.
+    std::vector<std::unique_ptr<EffectHeader>> effectHeaders;   // COMB, ENSEMBLE, DELAY, REVERB
+    int draggedEffect = -1, shownEffectOrder = 0;
+    std::optional<juce::Rectangle<int>> effectDrop;             // the drop marker while dragging
+    std::vector<int> effectPanelOrder() const;                  // effectGroups indices left to right
+    int effectPosition(int effect) const;                       // 0..3 in the current order
+    std::optional<int> findEffectDrop(int effect, juce::Point<int> where, juce::Rectangle<int>* marker) const;
+    void dragEffect(int effect, juce::Point<int> where);
+    void dropEffect(int effect, juce::Point<int> where);
+    bool moveEffect(int effect, int position);                  // false: no change
+    void showEffectMenu(int effect);
+    void resetEffectOrder();                                    // the default order (Reset layout on the Effects tab)
     std::optional<DropTarget> drop;
     juce::TextButton resetLayoutButton{"Reset layout"};
     std::vector<std::unique_ptr<Jack>> jacks;
