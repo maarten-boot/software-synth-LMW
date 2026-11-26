@@ -82,3 +82,5 @@
 
 - Code vs S7.14, S6.24 (tabs fix), S6.5 / S6.7 (default rack, Schematic effects row): as built. Stale lines fixed: S7.6 (the normalled chain follows effects.order), S6.7 (Reset layout on the Effects tab). Plan header. 42 of 42. Open: push (60835b6 … this), CI; listening checks (glide presets, effect orders by ear).
 - User pushed; CI run 45905730832 (eec3a66) watched. User: what is next? Listed (small: L1, L2, L20; medium: L27, L18, L21, L5, L9/L16; large: L3/L4, L12, 19/L14, L17, L6, 20, 22e; or release 1.8.0). User: was L2 not done by the socket menu faders? Yes: L2 closed as covered by S6.18 / S5.21.
+- User: start the spec for L27. S7.15 proposed (FDN 8 lines, Householder, diffusers, early reflections, slow modulation; same four faders; level matched); choices asked: old sound (replace / Type Classic-Hall), Pre-delay fader, Mod fader. Plan 43.
+- User: 1b, 2b, 3a ok; commit the spec and start 43. S7.15 confirmed (Type Classic / Hall, older patches and states Classic; Pre-delay 0–200 ms; fixed modulation).
