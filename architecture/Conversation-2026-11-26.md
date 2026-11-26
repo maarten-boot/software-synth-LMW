@@ -68,3 +68,7 @@
 ## Crosscheck after Phase 41 and the Linux window fixes
 
 - Code vs S6.24 / S5.27 and S6.16: as built. Stale lines fixed: S6.11 (no Options button on Linux, its items in Menu), S6.2 (Linux title bar is the window manager's). Plan header. 41 of 41. Open: CI after the push; glide presets by ear (user).
+- User: on Reset layout move MIXER ("mix1") after NOISE and FORMANT after VCF 2. Done (both 4 columns: widths unchanged); Xvfb checked.
+- User (mid-turn): on the Schematic move the effects to the bottom. Done: effects row at y 70, canvas 84 high (test_schematic needed 4 units for the legend). S6.5, S6.7, Changes, Tests T-S6.5-default-2.
+- User (mid-turn): could the effects be moved left and right, with the in / out chain re-arranged automatically? Spec proposal S7.14 written in the answer (to confirm).
+- User: commit and start S7.14 as proposed.

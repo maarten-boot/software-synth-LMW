@@ -271,7 +271,7 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
                                                            "half of this time, then fades in to full at this time (0 = at once).");
                                    })}, {}});
     const std::size_t mixPanel = groups.size();
-    groups.push_back({"MIXER", 1,
+    groups.push_back({"MIXER", 0,   // user 2026-11-26: at the end of row 1 by default (after NOISE), FORMANT to row 2
         {addFader(P::mixVco[0], "VCO 1", inputTip(In::MixIn1, "Level of mixer input 1")),
          addFader(P::mixVco[1], "VCO 2", inputTip(In::MixIn2, "Level of mixer input 2")),
          addFader(P::mixVco[2], "VCO 3", inputTip(In::MixIn3, "Level of mixer input 3")),
@@ -355,7 +355,7 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     // Spec S5.16: FORMANT, after VCF 2 in row 2. Created last, so saved rack layouts keep their panel
     // numbers (S6.5: a stored layout without it gets it at the end of its default row).
     const std::size_t formantPanel = groups.size();
-    groups.push_back({"FORMANT", 0,   // S5.26: at the end of row 1 by default (room for MIX 2 in row 2)
+    groups.push_back({"FORMANT", 1,   // user 2026-11-26: after VCF 2 by default (S5.26: was at the end of row 1)
         // Voice first (user 2026-11-22): the In socket goes under it, on the left; Out stays right.
         {addChoice(P::formantVoice, "Voice", {"Bass", "Bari", "Tenor", "Alto", "Sopr", "Child"},
                    "Voice type: Bass, Baritone, Tenor, Alto, Soprano or Child (formants from low to high)"),

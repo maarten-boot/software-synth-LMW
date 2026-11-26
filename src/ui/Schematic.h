@@ -47,7 +47,7 @@ struct Block {
     theme::Unit unit() const noexcept { return theme::unitOf(name); }
 };
 
-inline constexpr float canvasWidth = 168.0f, canvasHeight = 72.0f;
+inline constexpr float canvasWidth = 168.0f, canvasHeight = 84.0f;   // 4 below for the legend; 72 before the effects moved to the bottom (2026-11-26)
 // Spec S6.22 (39b, user 2026-11-26: "allow elements to use the complete page"): blocks may be placed anywhere on the
 // page the view shows (at least the canvas above); stored layouts are accepted up to this size.
 inline constexpr float maxPageWidth = 1000.0f, maxPageHeight = 500.0f;   // 152 before the effects (S7.6), 136 before FORMANT (S5.16)
@@ -72,12 +72,13 @@ inline const std::vector<Block>& blocks() {
         {"ENV 1",  Shape::Adsr,     {50, 58, 12, 8},  {In::Env1Gate}, {Out::Env1}},
         {"ENV 2",  Shape::Adsr,     {50, 45, 12, 8},  {In::Env2Gate}, {Out::Env2}},
         {"LFO 2",  Shape::Triangle, {110, 50, 10, 9}, {In::Lfo2Rate}, {Out::Lfo2}},
-        // Spec S7.6: the effects rack; MAIN (what is heard) has the line-out symbol OUT had before.
-        {"COMB",   Shape::Triangle, {88, 40, 12, 10}, {In::CombIn}, {Out::CombOut}},
-        {"ENSEMBLE", Shape::Triangle, {104, 40, 12, 10}, {In::EnsembleIn}, {Out::EnsembleOut}},   // S7.11
-        {"DELAY",  Shape::Triangle, {120, 40, 12, 10}, {In::DelayIn}, {Out::DelayOut}},   // S7.8
-        {"REVERB", Shape::Triangle, {136, 40, 12, 10}, {In::ReverbIn}, {Out::ReverbOut}},
-        {"MAIN",   Shape::Out,      {152, 41, 8, 8}, {In::MainIn}, {}},
+        // Spec S7.6: the effects rack; MAIN (what is heard) has the line-out symbol OUT had before. At the bottom,
+        // under everything (user 2026-11-26; y 40 before).
+        {"COMB",   Shape::Triangle, {88, 70, 12, 10}, {In::CombIn}, {Out::CombOut}},
+        {"ENSEMBLE", Shape::Triangle, {104, 70, 12, 10}, {In::EnsembleIn}, {Out::EnsembleOut}},   // S7.11
+        {"DELAY",  Shape::Triangle, {120, 70, 12, 10}, {In::DelayIn}, {Out::DelayOut}},   // S7.8
+        {"REVERB", Shape::Triangle, {136, 70, 12, 10}, {In::ReverbIn}, {Out::ReverbOut}},
+        {"MAIN",   Shape::Out,      {152, 71, 8, 8}, {In::MainIn}, {}},
     };
     return b;
 }
