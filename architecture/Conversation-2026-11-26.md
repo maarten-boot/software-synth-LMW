@@ -44,3 +44,7 @@
 - User: commit the spec and start 40.
 - Committed 0f23655 (spec). 40 done: Layout fitsGroup / moveGroup / blocksIn, selection and rectangle in SchematicView, group drag and Shift + arrows, Ctrl + A, Escape, highlight boxes, one undo step; tests; Xvfb checked. Found: Ctrl + A came as 'a' (lowercase) → fixed. 40 of 40.
 - User: commit and do the crosscheck; looks good.
+
+## Crosscheck after 39b and Phase 40
+
+- Committed c3aba54. Code vs S6.22 (39b) and S6.23: as built (noted there). Stale line fixed: S6.7 Shift+arrows (the selection since S6.23). Plan header. 40 of 40. Open: CI after the push.
