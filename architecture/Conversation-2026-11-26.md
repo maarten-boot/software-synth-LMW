@@ -54,3 +54,5 @@
 
 - Upgrade check (T-S9.6-upgrade-1.7): 1.6.0 download on Xvfb → sound, slopes, cables, notes, OUT moved, closed → the 1.7.0 build: /patch identical but for the new parameters at their defaults, slopes kept, layout kept with MIX 2 at the end of row 2 (scrolls), round trip ok.
 - Prepared: CMakeLists 1.7.0, Changes "## 1.7.0 (2026-11-26)" with the upgrade note, Spec S6.10, Plan row 1.7.0, Tests; pictures retaken with the 1.7.0 title.
+- User pushed and tagged v1.7.0, went home. Release run 45853403777 green (tag check, four builds, publish): 1.7.0 released with six files. Build runs 45853397596 (ab3569c) and 45850150536 (e1663ee) green on all four.
+- After the release (CLAUDE.md rule): 4 releases (1.4.0–1.7.0) and 7 artifacts older than 14 days (2026-11-12) → cleanup proposed, waiting for the user.
