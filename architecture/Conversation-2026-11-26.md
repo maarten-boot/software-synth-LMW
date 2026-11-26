@@ -33,3 +33,7 @@
 - User: commit and start 39.
 - 39 done: Schematic at 15 / 13 px text with zoom steps (Ctrl + wheel, Ctrl + / − / 0), in its own view (centred or scrolling), /view lines in editor pixels, Terms. Xvfb checked; host test with a display passes. 40 of 40.
 - User: commit and do the crosscheck; looks great; on the Schematic let the blocks use the whole page (now limited to the old page size) → 39b.
+
+## Crosscheck after Phases 38–39
+
+- Committed 89b20f1. Code vs S6.21, S6.22: as built (noted there). Stale lines fixed: S6.5 (at most 6 rows, the rack scrolls), S6.7 (the view no longer fills the tab: text size and zoom), S6.16 (the window may be smaller than the rack). Plan header. 40 of 40. Open: CI after the push (38 mends macOS / Windows).
