@@ -56,3 +56,4 @@
 - Prepared: CMakeLists 1.7.0, Changes "## 1.7.0 (2026-11-26)" with the upgrade note, Spec S6.10, Plan row 1.7.0, Tests; pictures retaken with the 1.7.0 title.
 - User pushed and tagged v1.7.0, went home. Release run 45853403777 green (tag check, four builds, publish): 1.7.0 released with six files. Build runs 45853397596 (ab3569c) and 45850150536 (e1663ee) green on all four.
 - After the release (CLAUDE.md rule): 4 releases (1.4.0–1.7.0) and 7 artifacts older than 14 days (2026-11-12) → cleanup proposed, waiting for the user.
+- User: cleanup done (checked: releases 1.6.0 and 1.7.0 left, 0 artifacts older than 14 days, all tags kept); pushed 6407f5b (architecture only: no CI run).
