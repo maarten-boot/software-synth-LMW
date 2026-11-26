@@ -26,3 +26,5 @@
 ## Crosscheck after Phases 35–37
 
 - Committed a430c04. Code vs S7.4 (reverb fixes), S5.26, S7.13: as built (noted there). Stale lines fixed: S5a.1 (mix2.*, 85), S9.2 (85 / 2166 host parameters, measured), S6.5 (default rows with FORMANT in row 1 and MIX 2), S6.8 (39 rows, 23 columns), S6.16 (1834 px), S7.7 (33 instruments), S7.10 (84 terms), S7.12 (pictures 1834 wide). Plan header. 40 of 40. Open: listening (Choral flute, World presets, reverb), CI after the push.
+- User pushed 443665f (CI run 45810993062 watched); what is next → listed; user: start the spec for L28 and L29. Proposed S6.21 panning the view (bars, wheel, drag on empty space, focus follows, edge scroll; window down to 1280 × 720, up to 6 rows / 30 columns; /view scroll) and S6.22 Schematic at 15 / 13 px text with zoom steps; Plan 38, 39.
+- User: all ok (pan by bars, wheel and drag, Home / End; 1280 × 720, 6 rows / 30 columns; Schematic zoom steps), commit the spec and start 38.
