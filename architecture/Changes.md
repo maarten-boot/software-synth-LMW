@@ -3,6 +3,8 @@
 Changes between releases.
 
 ## Unreleased
+- 2026-11-26: Linux: the window uses the desktop's own frame — resizing is smooth and stops when you let go (it left grey lines and froze before), and maximised it leaves room for panels and task bars (the keyboard was half hidden under an XFCE bottom panel). Audio/MIDI Settings, Save / Load state and Reset are now at the top of Menu (there is no Options button on Linux).
+- 2026-11-26: Left of the keyboard: a pitch bend wheel (springs back), a mod wheel, Glide (portamento: time, Always or Legato) and the bend range (1, 2, 7 or 12 semitones). MIDI moves the wheels on screen. The mod wheel is also a patchable output (KEYS › Mod). The solo winds, brass and Violin presets have a short legato glide. The keys are back at their normal width.
 
 ## 1.7.0 (2026-11-26)
 - 2026-11-26: Patches and saved settings from 1.6.0 load unchanged — the same sound, cables, notes and slopes; the new controls (LFO Delay, OUT Pan / Spread, MIX 2) start where they change nothing. A panel layout you arranged is kept; MIX 2 joins the end of row 2 there (the rack scrolls, or use Reset layout for the new default with FORMANT in row 1).

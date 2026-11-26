@@ -118,7 +118,12 @@ APVTS::ParameterLayout LMWSynthProcessor::createLayout(std::map<std::string, Flo
           f(P::outPan, "Pan", Range(-1.0f, 1.0f), 0.0f, percent),          // Spec S5.25
           f(P::outSpread, "Spread", Range(0.0f, 1.0f), 0.0f, percent),
           std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{P::spreadMode, 1}, "Spread mode",
-              juce::StringArray{"Keys", "Voices"}, 0));
+              juce::StringArray{"Keys", "Voices"}, 0),
+          f(P::glide, "Glide", time(2.0f), 0.0f, seconds),                 // Spec S6.24, S5.27
+          std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{P::glideMode, 1}, "Glide mode",
+              juce::StringArray{"Always", "Legato"}, 0),
+          std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{P::bendRange, 1}, "Bend range",
+              juce::StringArray{"1", "2", "7", "12"}, 1));
     for (std::size_t k = 0; k < 3; ++k) {                                   // Spec S5.26: MIX 2
         const juce::String n = "MIX 2 Level " + juce::String(static_cast<int>(k) + 1), pn = "MIX 2 Pan " + juce::String(static_cast<int>(k) + 1);
         l.add(f(P::mix2Level[k], n.toRawUTF8(), Range(0.0f, 1.0f), k == 0 ? 1.0f : 0.0f, percent),
@@ -165,6 +170,7 @@ LMWSynthProcessor::LMWSynthProcessor()
     raw.lfo2Rate = get(P::lfo2Rate); raw.lfo2Wave = get(P::lfo2Wave);
     raw.lfoDelay = get(P::lfoDelay); raw.lfo2Delay = get(P::lfo2Delay);
     raw.outPan = get(P::outPan); raw.outSpread = get(P::outSpread); raw.spreadMode = get(P::spreadMode);
+    raw.glide = get(P::glide); raw.glideMode = get(P::glideMode); raw.bendRange = get(P::bendRange);
     for (std::size_t k = 0; k < 3; ++k) { raw.mix2Level[k] = get(P::mix2Level[k]); raw.mix2Pan[k] = get(P::mix2Pan[k]); } raw.tremolo = get(P::vcaTremolo);
     raw.vcaVelocity = get(P::vcaVelocity);
     raw.revMix = get(P::reverbMix); raw.revSize = get(P::reverbSize);
@@ -458,6 +464,8 @@ void LMWSynthProcessor::pullParameters() noexcept {
     m.pan         = raw.outPan->load();                                      // Spec S5.25
     m.spread      = raw.outSpread->load();
     m.spreadMode  = static_cast<lmw::dsp::SpreadMode>(static_cast<int>(raw.spreadMode->load()));
+    m.glide       = raw.glide->load();                                       // Spec S5.27
+    m.glideMode   = static_cast<lmw::dsp::GlideMode>(static_cast<int>(raw.glideMode->load()));
     for (std::size_t k = 0; k < 3; ++k) { m.mix2Level[k] = raw.mix2Level[k]->load(); m.mix2Pan[k] = raw.mix2Pan[k]->load(); }   // S5.26
     m.tremolo     = raw.tremolo->load();
     m.vcaVelocity = raw.vcaVelocity->load();
@@ -477,6 +485,13 @@ void LMWSynthProcessor::applyNoteEvent(const lmw::dsp::NoteEvent& e) noexcept {
     else                       engine.allNotesOff();
 }
 
+// Spec S3.4, S6.24: keys.bendrange 1 / 2 / 7 / 12 semitones.
+double LMWSynthProcessor::bendRangeSemitones() const noexcept {
+    static constexpr double ranges[] = {1.0, 2.0, 7.0, 12.0};
+    const int i = std::clamp(static_cast<int>(raw.bendRange->load()), 0, 3);
+    return ranges[i];
+}
+
 // External MIDI (host / MIDI device), audio thread: play it and queue notes for the keyboard display.
 // Raw bytes are decoded in place (no MidiMessage copy, which allocates for SysEx) — Spec S10.2.
 void LMWSynthProcessor::handleMidi(const juce::uint8* data, int size) noexcept {
@@ -491,7 +506,10 @@ void LMWSynthProcessor::handleMidi(const juce::uint8* data, int size) noexcept {
         case M::NoteOff:     e.kind = K::Off; break;
         case M::AllNotesOff: e.kind = K::AllOff; break;
         case M::Sustain:     engine.setSustain(m.value > 0.5f); return;                       // Spec S3.3
-        case M::PitchBend:   engine.setPitchBend(m.value * pitchBendRangeSemitones); return;   // Spec S3.4
+        case M::PitchBend:                                                                     // Spec S3.4, S6.24
+            bendValue.store(m.value, std::memory_order_relaxed);
+            engine.setPitchBend(m.value * bendRangeSemitones());
+            return;
         case M::ModWheel:                                                                       // Spec S3.5
             engine.setModWheel(m.value);
             modWheelValue.store(m.value, std::memory_order_relaxed);
@@ -512,6 +530,14 @@ void LMWSynthProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Mid
 
     lmw::dsp::NoteEvent e;                               // on-screen / QWERTY notes, lock-free
     while (guiToAudio.pop(e)) applyNoteEvent(e);
+    // Spec S6.24: the on-screen wheels (or 9P), then the bend at the current range (the range may have changed).
+    if (const float b = bendRequest.exchange(std::numeric_limits<float>::quiet_NaN(), std::memory_order_relaxed); !std::isnan(b))
+        bendValue.store(b, std::memory_order_relaxed);
+    if (const float w = modRequest.exchange(std::numeric_limits<float>::quiet_NaN(), std::memory_order_relaxed); !std::isnan(w)) {
+        engine.setModWheel(w);
+        modWheelValue.store(w, std::memory_order_relaxed);
+    }
+    engine.setPitchBend(static_cast<double>(bendValue.load(std::memory_order_relaxed)) * bendRangeSemitones());
 
     float* left  = buffer.getWritePointer(0);
     float* right = buffer.getNumChannels() > 1 ? buffer.getWritePointer(1) : nullptr;

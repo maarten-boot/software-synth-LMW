@@ -56,7 +56,7 @@ inline constexpr float maxPageWidth = 1000.0f, maxPageHeight = 500.0f;   // 152 
 inline const std::vector<Block>& blocks() {
     static const std::vector<Block> b{
         {"LFO 1",  Shape::Triangle, {2, 6, 10, 9},    {In::Lfo1Rate}, {Out::Lfo1}},   // rate input: S5.19
-        {"KEYS",   Shape::Keys,     {2, 23, 12, 9},   {}, {Out::KeysPitch, Out::KeysGate, Out::KeysVel}},
+        {"KEYS",   Shape::Keys,     {2, 23, 12, 11},  {}, {Out::KeysPitch, Out::KeysGate, Out::KeysVel, Out::KeysMod}},   // mod: S6.24
         // VCO 1-3: 12 x 14 like the VCFs since S5.20 (three inputs: pitch, fm, pm); 11 x 10 before
         {"VCO 1",  Shape::Triangle, {26, 2, 12, 14},  {In::Vco1Pitch, In::Vco1Fm, In::Vco1Pm}, {Out::Vco1}},
         {"VCO 2",  Shape::Triangle, {26, 17, 12, 14}, {In::Vco2Pitch, In::Vco2Fm, In::Vco2Pm}, {Out::Vco2}},

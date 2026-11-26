@@ -18,6 +18,7 @@
 #include <cmath>
 #include <cstdint>
 #include <numbers>
+#include <optional>
 
 namespace lmw::dsp {
 
@@ -27,6 +28,9 @@ struct VoiceParams {
     float attack = 0.01f, decay = 0.2f, sustain = 0.7f, release = 0.3f;              // ENV1 -> VCA
     float env2Attack = 0.01f, env2Decay = 0.3f, env2Sustain = 0.0f, env2Release = 0.3f; // ENV2 -> VCF
 };
+
+// Spec S5.27: glide on every new note, or only while another key is held (legato).
+enum class GlideMode : int { Always, Legato };
 
 // Spec S5.25: how Spread places the voices — by pitch (as on a piano) or by voice slot (alternating).
 enum class SpreadMode : int { Keys, Voices };
@@ -66,6 +70,8 @@ struct ModParams {
     SpreadMode spreadMode = SpreadMode::Keys;   // out.spreadmode
     std::array<float, 3> mix2Level{1.0f, 0.0f, 0.0f};   // mix2.level1..3 (Spec S5.26)
     std::array<float, 3> mix2Pan{};                      // mix2.pan1..3, -1 .. +1
+    float glide = 0.0f;                                  // keys.glide (s, Spec S5.27): 0 = off
+    GlideMode glideMode = GlideMode::Always;             // keys.glidemode
     bool mix2Panned() const noexcept {                   // a MIX 2 input off the centre: the voice is stereo
         for (std::size_t k = 0; k < 3; ++k) if (mix2Pan[k] != 0.0f && mix2Level[k] != 0.0f) return true;
         return false;
@@ -130,7 +136,16 @@ public:
     // continuous, so stealing a voice does not click. An envelope whose gate input is keys.gate
     // (normalled or by cable) follows the key events directly, so a repeated note retriggers it;
     // an envelope gated by another signal follows that signal's edges in process() (Spec S5.8).
-    void noteOn(int n, float vel, const Patch& patch) noexcept {
+    // Spec S5.27: glideFrom = the pitch (semitones from C4) to slide from over glideSeconds; none: start on the note.
+    void noteOn(int n, float vel, const Patch& patch, std::optional<double> glideFrom = std::nullopt, double glideSeconds = 0.0) noexcept {
+        const double target = static_cast<double>(n - keysPitchZeroNote);
+        if (glideFrom && glideSeconds > 0.0 && *glideFrom != target) {
+            glidePitch = *glideFrom;
+            glideStep = std::fabs(target - *glideFrom) / (glideSeconds * sampleRate);   // even in octaves (S5.27)
+        } else {
+            glidePitch = target;
+            glideStep = 0.0;
+        }
         if (!env1.isActive()) { for (auto& o : osc) o.reset(); vcf.reset(); vcf2.reset(); formant.reset(); }
         note = n; velocity = vel; gate = true; keyDown = true; played = true;
         sinceOn = 0;                              // Spec S5.24: the LFO delay starts again at every note-on
@@ -161,7 +176,14 @@ public:
             lfoGain[k] = !(d > 0.0) ? 1.0f : static_cast<float>(std::clamp((t - 0.5 * d) / (0.5 * d), 0.0, 1.0));
         }
         if (gate && sinceOn < (std::int64_t{1} << 40)) ++sinceOn;
-        const double keySemitones = static_cast<double>(note - keysPitchZeroNote) + bend;   // Spec S5.8
+        // Spec S5.27: the key pitch glides towards the note (exactly the note when there is no glide, as before).
+        const double noteSemitones = static_cast<double>(note - keysPitchZeroNote);
+        if (glidePitch != noteSemitones) {
+            if (glideStep <= 0.0) glidePitch = noteSemitones;
+            else if (glidePitch < noteSemitones) glidePitch = std::min(noteSemitones, glidePitch + glideStep);
+            else glidePitch = std::max(noteSemitones, glidePitch - glideStep);
+        }
+        const double keySemitones = glidePitch + bend;                                    // Spec S5.8
         out[o(Out::KeysPitch)] = static_cast<float>(keySemitones / 12.0);
         out[o(Out::KeysGate)] = gate ? 1.0f : 0.0f;
         out[o(Out::KeysVel)] = velocity;
@@ -317,6 +339,7 @@ private:
         if (src == Out::Lfo2)  return g.lfo2 * lfoGain[1];
         if (src == Out::Noise) return g.noise;
         if (src == Out::Rand)  return g.rand;
+        if (src == Out::KeysMod) return g.modWheel;           // Spec S6.24: the mod wheel, shared
         return out[o(src)];                    // computed earlier this sample, or previous sample (feedback)
     }
     // Spec S5.14: the normalled source, or the sum of level x output over the input's pins.
@@ -370,6 +393,7 @@ private:
     std::int64_t sinceOn = 0;                  // samples with the gate open since the last note-on (S5.24)
     std::array<float, 2> lfoGain{1.0f, 1.0f}; // this voice's share of LFO 1 / LFO 2 now (S5.24)
     float panInput = 0.0f;                     // out.pan read this sample (S5.25)
+    double glidePitch = 0.0, glideStep = 0.0;  // S5.27: the sliding key pitch (semitones from C4) and its step
     bool stereo = false;                       // S5.26: a stereo voice this sample (outL / outR)
     float outL = 0.0f, outR = 0.0f;
 
@@ -453,8 +477,17 @@ public:
     int getVoiceCount() const noexcept { return voiceCount; }
 
     void noteOn(int note, float velocity) noexcept {
+        // Spec S5.27: glide from the pitch of the newest note before this one — always, or (Legato) only while
+        // another key is still held.
+        std::optional<double> from;
+        if (mod.glide > 0.0f && lastNote) {
+            bool held = false;
+            for (const auto& v : voices) held = held || v.isKeyDown();
+            if (mod.glideMode == GlideMode::Always || held) from = *lastNote;
+        }
         const int i = allocate(note);
-        voices[static_cast<std::size_t>(i)].noteOn(note, velocity, patch);
+        voices[static_cast<std::size_t>(i)].noteOn(note, velocity, patch, from, static_cast<double>(mod.glide));
+        lastNote = static_cast<double>(note - keysPitchZeroNote);   // the next note glides from here
         order[static_cast<std::size_t>(i)] = ++counter;
         newestVoice = i;                                // Spec S5.19: per-voice sources of the LFO rate inputs
     }
@@ -576,6 +609,7 @@ private:
             if (src == Out::Lfo2)  return lastGlobal.lfo2;
             if (src == Out::Noise) return lastGlobal.noise;
             if (src == Out::Rand)  return lastGlobal.rand;
+            if (src == Out::KeysMod) return lastGlobal.modWheel;   // S6.24
             return v.output(src);
         };
         const int n = patch.pinCount(in);
@@ -596,7 +630,8 @@ private:
             const auto& p = patch.pin(In::OutIn, k);
             const Out src = static_cast<Out>(p.source);
             if (isGlobal(src))
-                s += (src == Out::Lfo1 ? g.lfo : src == Out::Lfo2 ? g.lfo2 : src == Out::Rand ? g.rand : g.noise) * p.level;
+                s += (src == Out::Lfo1 ? g.lfo : src == Out::Lfo2 ? g.lfo2 : src == Out::Rand ? g.rand
+                      : src == Out::KeysMod ? g.modWheel : g.noise) * p.level;
         }
         return s;
     }
@@ -632,6 +667,7 @@ private:
     static constexpr float minModulatedLfoRate = 0.01f, maxModulatedLfoRate = 50.0f;
     std::array<bool, numVcos> vcoUsed{true, false, false};
     float gain = 0.0f, targetGain = 1.0f, gainStep = 0.001f, modWheel = 0.0f;
+    std::optional<double> lastNote;                // S5.27: the newest note played (semitones from C4)
     float panNow = 0.0f, spreadNow = 0.0f, panStep = 0.001f;   // Spec S5.25: glided Pan and Spread
     bool panPatched = false;                                    // out.pan has a cable
     double cutoffLog2 = std::log2(18000.0), cutoffTarget = std::log2(18000.0), cutoffStep = 0.01;

@@ -183,6 +183,35 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     }
     addAndMakeVisible(rackView);
     juce::Desktop::getInstance().addFocusChangeListener(this);
+    {   // Spec S6.24: the playing controls left of the keyboard
+        namespace P = lmw::param;
+        bendWheel.setRange(-1.0, 1.0);
+        modWheelCtl.setRange(0.0, 1.0);
+        bendWheel.setTooltip("Pitch bend: drag up or down; it springs back to the centre (MIDI pitch bend moves it too).\n"
+                             "Range: the box on the right (semitones)");
+        modWheelCtl.setTooltip("Mod wheel: vibrato (VCO FM + wheel x 1 semitone) and the keys.mod output (KEYS panel);\n"
+                               "MIDI CC 1 moves it too");
+        bendWheel.onValueChange = [this] { processor.requestWheels(static_cast<float>(bendWheel.getValue()), std::nullopt); };
+        modWheelCtl.onValueChange = [this] { processor.requestWheels(std::nullopt, static_cast<float>(modWheelCtl.getValue())); };
+        glideSlider.setTooltip("Glide (portamento): how long a new note takes to slide in from the last one; 0 = none");
+        glideAttachment = std::make_unique<SliderAttachment>(processor.state(), P::glide, glideSlider);
+        glideModeBox.addItemList({"Always", "Legato"}, 1);
+        glideModeBox.setTooltip("Glide on every new note (Always), or only while another key is held (Legato)");
+        glideModeAttachment = std::make_unique<ComboAttachment>(processor.state(), P::glideMode, glideModeBox);
+        bendRangeBox.addItemList({juce::String::fromUTF8("\xc2\xb1" "1 st"), juce::String::fromUTF8("\xc2\xb1" "2 st"),
+                                  juce::String::fromUTF8("\xc2\xb1" "7 st"), juce::String::fromUTF8("\xc2\xb1" "12 st")}, 1);
+        bendRangeBox.setTooltip("Pitch bend range: how far the bend wheel (and MIDI pitch bend) bends at its ends");
+        bendRangeAttachment = std::make_unique<ComboAttachment>(processor.state(), P::bendRange, bendRangeBox);
+        for (auto* l : {&bendLabel, &modLabel, &glideLabel, &bendRangeLabel}) {
+            l->setJustificationType(juce::Justification::centred);
+            l->setColour(juce::Label::textColourId, kFg);
+            addAndMakeVisible(*l);
+        }
+        for (juce::Component* c : {static_cast<juce::Component*>(&bendWheel), static_cast<juce::Component*>(&modWheelCtl),
+                                   static_cast<juce::Component*>(&glideSlider), static_cast<juce::Component*>(&glideModeBox),
+                                   static_cast<juce::Component*>(&bendRangeBox)})
+            addAndMakeVisible(*c);
+    }
     namespace P = lmw::param;
     using lmw::dsp::In;
     const juce::String arrow = juce::String::fromUTF8("\xe2\x86\x92");
@@ -453,7 +482,7 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
         const auto out = [](Out o) { return static_cast<int>(o); };
         std::vector<PortDef> ports = {
             {keysPanel, 0, true, out(Out::KeysPitch), "Pitch"}, {keysPanel, 1, true, out(Out::KeysGate), "Gate"},
-            {keysPanel, 1, true, out(Out::KeysVel), "Vel"},
+            {keysPanel, 1, true, out(Out::KeysVel), "Vel"},     {keysPanel, 1, true, out(Out::KeysMod), "Mod"},   // S6.24
             {mixPanel, 0, false, in(In::MixIn1), "In 1"},       {mixPanel, 1, false, in(In::MixIn2), "In 2"},
             {mixPanel, 2, false, in(In::MixIn3), "In 3"},       {mixPanel, 3, false, in(In::MixIn4), "In 4"},
             {mixPanel, 3, true, out(Out::Mix), "Out"},
@@ -721,6 +750,9 @@ void LMWSynthEditor::updateUndoButtons() {
 
 void LMWSynthEditor::timerCallback() {
     processor.updateKeyboardFromMidiInput();
+    // Spec S6.24: the wheels follow MIDI (and 9P) while they are not being dragged.
+    if (!bendWheel.isMouseButtonDown()) bendWheel.setValue(processor.pitchBend(), juce::dontSendNotification);
+    if (!modWheelCtl.isMouseButtonDown()) modWheelCtl.setValue(processor.modWheel(), juce::dontSendNotification);
     keyboard.followHeldKeys();                           // Spec S3.2: held computer keys across focus changes
     if (processor.patchFileVersion() != shownPatchFile || (!notesEditor.hasKeyboardFocus(true)
             && notesEditor.getText() != processor.notes()))   // patch loaded, or state restored by the host
@@ -1330,14 +1362,19 @@ void LMWSynthEditor::resized() {
     // Spec S6.12, S6.16: the 88 keys (52 white) at their normal width — as wide as the default rack layout (in
     // compact view at least 16 px, then the keyboard scrolls) — at the right; the free space on the left is
     // kept for later controls (user 2026-11-24: a mod wheel, glissando / portamento).
+    // Spec S6.24: the keys at their normal width again (28 px, compact 21 px), the playing controls on the left.
+    for (juce::Component* c : {static_cast<juce::Component*>(&bendWheel), static_cast<juce::Component*>(&modWheelCtl),
+                               static_cast<juce::Component*>(&glideSlider), static_cast<juce::Component*>(&glideModeBox),
+                               static_cast<juce::Component*>(&bendRangeBox), static_cast<juce::Component*>(&bendLabel),
+                               static_cast<juce::Component*>(&modLabel), static_cast<juce::Component*>(&glideLabel),
+                               static_cast<juce::Component*>(&bendRangeLabel)})
+        c->setVisible(keyboardShown);
     if (keyboardShown) {
-        int rackW = 0;
-        for (const auto& row : rack->defaultRows())
-            rackW = std::max(rackW, rack->rowColumns(row) * m.colW + (static_cast<int>(row.size()) - 1) * m.gap);
-        const float keyW = std::max(16.0f, static_cast<float>(rackW) / 52.0f);
+        const float keyW = m.colW >= 80 ? 28.0f : 21.0f;
         auto keys = area.removeFromBottom(m.keysH);
         keyboard.setBounds(keys.removeFromRight(std::min(keys.getWidth(), juce::roundToInt(keyW * 52.0f))));
         keyboard.setKeyWidth(keyW);
+        layoutPlayStrip(keys.withTrimmedRight(m.gap));
     }
     {
         auto strip = area.removeFromBottom(keyStripH());
@@ -2347,13 +2384,16 @@ void LMWSynthEditor::editColours() {
 
 void LMWSynthEditor::showMainMenu() {
     juce::PopupMenu m;
+    if (addWindowItems) { addWindowItems(m); m.addSeparator(); }
     addMenuItems(m);
     const auto back = focusNow();
     m.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&menuButton),
                     [safe = juce::Component::SafePointer<LMWSynthEditor>(this), back](int result) {
                         if (safe == nullptr) return;
                         safe->restoreFocus(back);          // computer keys keep playing (S3.2)
-                        if (result > 0) safe->handleMenuItem(result);
+                        if (result <= 0) return;
+                        if (result >= menuFirstId) { safe->handleMenuItem(result); return; }
+                        if (auto chosen = safe->windowItemChosen) chosen(result);   // a copy: Reset deletes this editor
                     });
 }
 
@@ -2569,6 +2609,57 @@ void LMWSynthEditor::layoutSchematic() {
     const bool vert = need.y > area.getHeight() - (horz ? bar : 0);
     const bool horz2 = need.x > area.getWidth() - (vert ? bar : 0);
     schematic->setSize(std::max(need.x, area.getWidth() - (vert ? bar : 0)), std::max(need.y, area.getHeight() - (horz2 ? bar : 0)));
+}
+
+// ---- Spec S6.24 (Phase 41): playing controls left of the keyboard ----
+
+LMWSynthEditor::Wheel::Wheel(bool springsBack) : juce::Slider(juce::Slider::LinearVertical, juce::Slider::NoTextBox), springBack(springsBack) {
+    setTitle(springsBack ? "Pitch bend wheel" : "Mod wheel");
+    setVelocityBasedMode(false);
+}
+
+void LMWSynthEditor::Wheel::paint(juce::Graphics& g) {
+    // A wheel seen from the front: a rounded black frame, grey ridges, the position as a thick black bar (S6.2).
+    const auto r = getLocalBounds().toFloat().reduced(2.0f);
+    g.setColour(kBg);
+    g.fillRoundedRectangle(r, 6.0f);
+    g.setColour(juce::Colour(0xff7a7a7a));                     // ridges (decoration only)
+    for (float y = r.getY() + 6.0f; y < r.getBottom() - 4.0f; y += 6.0f)
+        g.drawHorizontalLine(juce::roundToInt(y), r.getX() + 6.0f, r.getRight() - 6.0f);
+    const double p = (getValue() - getMinimum()) / (getMaximum() - getMinimum());
+    const float y = r.getBottom() - 6.0f - static_cast<float>(p) * (r.getHeight() - 12.0f);
+    g.setColour(kFg);
+    if (springBack) g.fillRect(r.getX() + 2.0f, r.getCentreY() - 0.5f, r.getWidth() - 4.0f, 1.0f);   // the centre
+    g.fillRoundedRectangle(r.getX() + 3.0f, y - 3.0f, r.getWidth() - 6.0f, 6.0f, 2.0f);
+    g.drawRoundedRectangle(r, 6.0f, hasKeyboardFocus(false) ? 3.0f : 1.5f);
+}
+
+void LMWSynthEditor::Wheel::mouseUp(const juce::MouseEvent& e) {
+    juce::Slider::mouseUp(e);
+    if (springBack) setValue(0.0, juce::sendNotificationSync);   // a bend wheel returns to the centre
+}
+
+void LMWSynthEditor::layoutPlayStrip(juce::Rectangle<int> a) {
+    const int labelH = m.colW >= 80 ? 16 : 13, wheelW = m.colW >= 80 ? 34 : 28, gap = m.gap;
+    const auto column = [&](int w) { auto c = a.removeFromLeft(w); a.removeFromLeft(gap); return c; };
+    for (auto [wheel, label] : {std::pair<juce::Component*, juce::Label*>{&bendWheel, &bendLabel}, {&modWheelCtl, &modLabel}}) {
+        auto c = column(wheelW + 10);
+        label->setBounds(c.removeFromTop(labelH));
+        wheel->setBounds(c.withSizeKeepingCentre(wheelW, c.getHeight()));
+    }
+    {   // Glide: a horizontal slider with its time on the right, the mode box below
+        auto c = column(m.colW >= 80 ? 170 : 140);
+        glideLabel.setBounds(c.removeFromTop(labelH));
+        glideSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, m.colW >= 80 ? 64 : 54, m.boxH - 4);
+        glideSlider.setBounds(c.removeFromTop(m.boxH));
+        c.removeFromTop(4);
+        glideModeBox.setBounds(c.removeFromTop(m.boxH).withWidth(m.colW >= 80 ? 90 : 76));
+    }
+    {
+        auto c = column(m.colW >= 80 ? 72 : 60);
+        bendRangeLabel.setBounds(c.removeFromTop(labelH));
+        bendRangeBox.setBounds(c.removeFromTop(m.boxH));
+    }
 }
 
 // ---- Spec S6.21 (Phase 38): panning the rack ----

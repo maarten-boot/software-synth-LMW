@@ -221,6 +221,23 @@ private:
     void scrollIntoView(const juce::Component&);           // S6.21: a focused control out of view comes into view
     void autoScrollRack(juce::Point<int> inRack);          // S6.21: near the edge while dragging, pan on
     void globalFocusChanged(juce::Component*) override;
+    // Spec S6.24 (Phase 41): playing controls left of the keyboard — the bend wheel (springs back), the mod wheel,
+    // Glide (time and Always / Legato) and the bend range. The wheels drive MIDI-like values in the processor (not
+    // parameters); Glide, its mode and the range are parameters.
+    class Wheel final : public juce::Slider {
+    public:
+        explicit Wheel(bool springsBack);
+        void paint(juce::Graphics&) override;
+        void mouseUp(const juce::MouseEvent&) override;
+        const bool springBack;
+    };
+    Wheel bendWheel{true}, modWheelCtl{false};
+    juce::Slider glideSlider{juce::Slider::LinearHorizontal, juce::Slider::TextBoxRight};   // horizontal: the strip is low
+    juce::Label bendLabel{{}, "Bend"}, modLabel{{}, "Mod"}, glideLabel{{}, "Glide"}, bendRangeLabel{{}, "Range"};
+    juce::ComboBox glideModeBox, bendRangeBox;
+    std::unique_ptr<SliderAttachment> glideAttachment;
+    std::unique_ptr<ComboAttachment> glideModeAttachment, bendRangeAttachment;
+    void layoutPlayStrip(juce::Rectangle<int> area);
     const Jack* hoverJack = nullptr;    // the socket under the mouse (its cables are drawn black)
     struct CableDrag {                  // a cable being drawn or moved with the mouse
         Jack* fixed = nullptr;          // the end that stays where it is
@@ -257,6 +274,11 @@ public:
     // menu (StandaloneApp.cpp). Ids from menuFirstId up; handleMenuItem() acts on one.
     static constexpr int menuFirstId = 6000;
     void addMenuItems(juce::PopupMenu& m) const;
+    // Spec S6.16 (user 2026-11-26): with the window manager's own frame (Linux) the standalone window has no Options
+    // button; it sets these so its items (Audio/MIDI Settings, Save / Load state, Reset; ids below menuFirstId) head
+    // Menu. windowItemChosen may delete this editor (Reset).
+    std::function<void(juce::PopupMenu&)> addWindowItems;
+    std::function<void(int)> windowItemChosen;
     void handleMenuItem(int id);
     // Spec S7.12 (Phase 31), for 9P /preset, /view, /snapshot (message thread). runPreset: an instrument preset
     // name, "Tutorial <n>" or "<module> <preset>" as the Presets menus; error text or empty. viewText: "tab",

@@ -373,7 +373,7 @@ int main(int argc, char* argv[]) {
         for (std::size_t at = 0; (at = info.find("{\"id\": ", at)) != std::string::npos; ++at) ++objects;
         std::printf("/info: %zu bytes, %d parameters\n", info.size(), objects);
         CHECK(info.rfind("[\n", 0) == 0 && info.size() > 2 && info.substr(info.size() - 2) == "]\n");
-        CHECK(objects == 85);   // 85 since S5.26 (mix2.level1-3, mix2.pan1-3), 79 since S5.25 (out.pan, out.spread, out.spreadmode), 76 since S5.24, 74 since S7.11 (ensemble.*), 70 with S5.22 (vca.velocity), 69 with S7.8 (delay.*), 64 with S7.6, 59 with S5.20
+        CHECK(objects == 88);   // 88 since S6.24 (keys.glide, keys.glidemode, keys.bendrange), 85 since S5.26 (mix2.level1-3, mix2.pan1-3), 79 since S5.25 (out.pan, out.spread, out.spreadmode), 76 since S5.24, 74 since S7.11 (ensemble.*), 70 with S5.22 (vca.velocity), 69 with S7.8 (delay.*), 64 with S7.6, 59 with S5.20
         CHECK(info.find("{\"id\": \"vcf1.cutoff\", \"name\": \"VCF 1 Cutoff\", \"kind\": \"float\", \"min\": 20.0, "
                         "\"max\": 18000.0, \"default\": 18000.0, \"unit\": \"Hz\", \"centre\": 600.0, \"scale\": \"log\"}") != std::string::npos);
         CHECK(info.find("{\"id\": \"vco1.tune\", \"name\": \"VCO 1 Tune\", \"kind\": \"float\", \"min\": -7.0, \"max\": 7.0, "
@@ -557,6 +557,10 @@ int main(int argc, char* argv[]) {
                     static_cast<unsigned long long>(s2), static_cast<unsigned long long>(s3));
         CHECK(s1 > s0 && s2 > s1 && s3 > s2);
 
+        // Spec S6.24: the wheels over /keys
+        CHECK(write9P(sock, {"keys"}, "bend 0.5\nmod 0.3\n").empty() && write9P(sock, {"keys"}, "bend 0\nmod 0\n").empty());
+        CHECK(write9P(sock, {"keys"}, "bend 2").find("bend -1 .. 1") != std::string::npos);
+        CHECK(write9P(sock, {"keys"}, "mod -0.1").find("mod 0 .. 1") != std::string::npos);
         for (const char* bad : {"on 200", "on 60 128", "press 60", "off", "on 60 100 7", "off 60 100", "on -1"})
             CHECK(write9P(sock, {"keys"}, bad) == std::string("bad key line: ") + bad);
         // Defaults again after 4d: a patch without parameters sets every one to its default (S7.1).

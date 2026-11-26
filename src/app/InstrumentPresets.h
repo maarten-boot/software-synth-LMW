@@ -89,21 +89,25 @@ inline const std::vector<Instrument>& builtIn() {
         const auto byKeys = std::pair<std::string, std::string>{"out.spreadmode", "Keys"};
         const auto vibrato = std::pair<std::string, std::string>{"lfo1.rate", "5.5"};
         const auto delayed = std::pair<std::string, std::string>{"lfo1.delay", "0.4"};   // S5.24: vibrato after the attack
+        // S6.24 (S5.27): a short legato glide on the solo winds and brass, a little longer on the violin (by ear).
+        const auto glideShort = std::pair<std::string, std::string>{"keys.glide", "0.04"};
+        const auto glideViolin = std::pair<std::string, std::string>{"keys.glide", "0.06"};
+        const auto legato = std::pair<std::string, std::string>{"keys.glidemode", "Legato"};
         std::vector<Instrument> v;
         // Winds: one voice; breath noise; a comb body that follows the notes (the COMB preset of the name: Key 100 %, from C4).
-        v.push_back(fromModules("Flute", join({solo, soloSpread, byVoices, vibrato, delayed, {"mix.noise", "0.06"}, {"noise.colour", "Pink"}},
+        v.push_back(fromModules("Flute", join({solo, glideShort, legato, soloSpread, byVoices, vibrato, delayed, {"mix.noise", "0.06"}, {"noise.colour", "Pink"}},
                                               join(comb("Flute"), reverb("Chamber")))));
-        v.push_back(fromModules("Recorder", join({solo, soloSpread, byVoices, {"mix.noise", "0.04"}, {"noise.colour", "Pink"}}, reverb("Small room"))));
-        v.push_back(fromModules("Oboe", join({solo, soloSpread, byVoices, vibrato, delayed}, join(comb("Oboe"), reverb("Chamber")))));
-        v.push_back(fromModules("Clarinet", join({solo, soloSpread, byVoices, vibrato, delayed}, join(comb("Clarinet"), reverb("Chamber")))));
-        v.push_back(fromModules("Bassoon", join({solo, soloSpread, byVoices, vibrato, delayed}, join(comb("Bassoon"), reverb("Chamber")))));
+        v.push_back(fromModules("Recorder", join({solo, glideShort, legato, soloSpread, byVoices, {"mix.noise", "0.04"}, {"noise.colour", "Pink"}}, reverb("Small room"))));
+        v.push_back(fromModules("Oboe", join({solo, glideShort, legato, soloSpread, byVoices, vibrato, delayed}, join(comb("Oboe"), reverb("Chamber")))));
+        v.push_back(fromModules("Clarinet", join({solo, glideShort, legato, soloSpread, byVoices, vibrato, delayed}, join(comb("Clarinet"), reverb("Chamber")))));
+        v.push_back(fromModules("Bassoon", join({solo, glideShort, legato, soloSpread, byVoices, vibrato, delayed}, join(comb("Bassoon"), reverb("Chamber")))));
         // Brass: one voice; VCO 2 slightly detuned for width.
-        v.push_back(fromModules("Trumpet", join({solo, soloSpread, byVoices, vibrato, delayed, {"vco2.wave", "Saw"}, {"vco2.tune", "0.06"}, {"mix.vco2", "0.5"}},
+        v.push_back(fromModules("Trumpet", join({solo, glideShort, legato, soloSpread, byVoices, vibrato, delayed, {"vco2.wave", "Saw"}, {"vco2.tune", "0.06"}, {"mix.vco2", "0.5"}},
                                                 reverb("Concert hall"))));
-        v.push_back(fromModules("French horn", join({solo, soloSpread, byVoices, vibrato, delayed, {"vco2.wave", "Saw"}, {"vco2.octave", "-1"},
+        v.push_back(fromModules("French horn", join({solo, glideShort, legato, soloSpread, byVoices, vibrato, delayed, {"vco2.wave", "Saw"}, {"vco2.octave", "-1"},
                                                      {"vco2.tune", "0.04"}, {"mix.vco2", "0.4"}}, reverb("Concert hall"))));
         // Strings.
-        v.push_back(fromModules("Violin", join({solo, soloSpread, byVoices, vibrato, delayed, {"vco2.wave", "Saw"}, {"vco2.tune", "0.05"}, {"mix.vco2", "0.4"}},
+        v.push_back(fromModules("Violin", join({solo, glideViolin, legato, soloSpread, byVoices, vibrato, delayed, {"vco2.wave", "Saw"}, {"vco2.tune", "0.05"}, {"mix.vco2", "0.4"}},
                                                reverb("Concert hall"))));
         v.push_back(fromModules("String section", join({{"voice.count", "12"}, {"out.spread", "0.5"}, byVoices, {"lfo1.rate", "5"}, {"vco1.fm", "0.12"},
                                                         {"vco2.wave", "Saw"}, {"vco2.tune", "0.1"}, {"vco2.fm", "0.12"}, {"mix.vco2", "0.8"},

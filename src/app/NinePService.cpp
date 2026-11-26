@@ -93,6 +93,7 @@ void NinePService::build() {
         [this](std::string_view text) -> std::string {
             struct Key { bool on; int note; int velocity; };
             std::vector<Key> keys;
+            std::optional<float> bend, mod;                             // Spec S6.24: "bend -1..1", "mod 0..1"
             while (!text.empty()) {
                 const auto nl = text.find('\n');
                 const auto line = trimmed(text.substr(0, nl));
@@ -111,13 +112,23 @@ void NinePService::build() {
                     const int v = std::stoi(w);
                     return v >= lo && v <= hi ? std::optional<int>(v) : std::nullopt;
                 };
+                if (words.size() == 2 && (words[0] == "bend" || words[0] == "mod")) {   // the wheels (S6.24)
+                    char* end = nullptr;
+                    const float v = std::strtof(words[1].c_str(), &end);
+                    const bool isBend = words[0] == "bend";
+                    if (end == words[1].c_str() || *end != 0 || !std::isfinite(v) || v < (isBend ? -1.0f : 0.0f) || v > 1.0f)
+                        return "bad key line: " + line + (isBend ? " (bend -1 .. 1)" : " (mod 0 .. 1)");
+                    (isBend ? bend : mod) = v;
+                    continue;
+                }
                 const bool on = !words.empty() && words[0] == "on", off = !words.empty() && words[0] == "off";
                 const auto note = words.size() >= 2 ? number(words[1], 0, 127) : std::nullopt;
                 const auto velocity = words.size() == 3 ? number(words[2], 0, 127) : std::optional<int>(100);
                 if (!(on || off) || !note || !velocity || words.size() > (on ? 3u : 2u)) return "bad key line: " + line;
                 keys.push_back({on && *velocity > 0, *note, *velocity});
             }
-            return onMessageThread([keys](LMWSynthProcessor& p) {
+            return onMessageThread([keys, bend, mod](LMWSynthProcessor& p) {
+                p.requestWheels(bend, mod);
                 for (const auto& k : keys) p.playKey(k.on, k.note, k.velocity);
                 return std::string();
             }).value_or("busy");

@@ -571,14 +571,23 @@ See also: [Keyboard](#keyboard), [Mod wheel](#mod-wheel), [Velocity](#velocity)
 
 ### Mod wheel
 The wheel next to a MIDI keyboard's keys: here it adds vibrato (more FM depth on every VCO).
-
+ The Mod wheel left of the keyboard does the same; KEYS › Mod is its output, to patch it anywhere.
 Where: a MIDI keyboard; the VCO hover texts.
 
 See also: [Vibrato](#vibrato), [FM](#fm)
 
+
+### Glide
+Portamento: a new note slides in from the pitch of the last one instead of jumping. Glide sets how long
+the slide takes (0 = none); Always slides on every note, Legato only while another key is still held —
+play smoothly to slide, detached to jump.
+
+Where: left of the keyboard (Glide and its box).
+
+See also: [Note](#note), [Pitch bend](#pitch-bend), [Voice](#voice)
 ### Pitch bend
 The other wheel on a MIDI keyboard: bends the pitch of the notes up or down.
-
+ The Bend wheel left of the keyboard does the same and springs back; the Range box sets how far (1, 2, 7 or 12 semitones).
 Where: a MIDI keyboard.
 
 See also: [MIDI](#midi)

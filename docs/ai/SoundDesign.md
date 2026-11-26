@@ -12,6 +12,8 @@ Patch audio into audio inputs and CV into modulation inputs unless you want an e
 Stereo: `out.pan` -1..1 [0] (centre), `out.spread` 0-1 [0] with `out.spreadmode` Keys (by pitch, piano-like) or
 Voices (alternating; one voice stays centred); a cable into `out.pan` (e.g. lfo2.out at 50 %) pans each voice.
 Width before the effects makes ENSEMBLE, DELAY and REVERB sound wider; keep solo instruments centred.
+Glide: `keys.glide` 0-2 s [0] with `keys.glidemode` Always / Legato (portamento; 30-80 ms Legato for solo winds,
+strings and voices); `keys.bendrange` 1 / 2 / 7 / 12 semitones; `keys.mod` is the mod wheel as a patchable output.
 World presets (`list_presets`, `apply_instrument_preset`): Shakuhachi, Bansuri, Pan flute, Duduk, Erhu, Shamisen, Koto,
 Sitar, Oud, Kalimba, Gamelan, Steel pan, Didgeridoo — good starting points for non-western timbres.
 MIX 2 (after FORMANT, before the VCA): `mix2.level1-3` [1, 0, 0], `mix2.pan1-3` -1..1 [0]; `mix2.in1` is

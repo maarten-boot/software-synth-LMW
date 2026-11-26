@@ -10,7 +10,7 @@
 namespace lmw::dsp {
 
 // Order = order in menus: roughly signal flow. Saved patches use the names, not the numbers.
-enum class Out : std::uint8_t { KeysPitch, KeysGate, KeysVel, Vco1, Vco2, Vco3, Noise, Rand, Lfo1, Lfo2, Env1, Env2, Mix,
+enum class Out : std::uint8_t { KeysPitch, KeysGate, KeysVel, KeysMod, Vco1, Vco2, Vco3, Noise, Rand, Lfo1, Lfo2, Env1, Env2, Mix,   // KeysMod: the mod wheel (S6.24)
                                 Vcf1, Vcf2, Formant, Mix2, Vca,           // Mix2: Spec S5.26
                                 OutOut, CombOut, EnsembleOut, DelayOut, ReverbOut,   // effects (Spec S7.6, S7.8, S7.11): after OUT
                                 Count };
@@ -36,7 +36,7 @@ inline constexpr int numInputs  = static_cast<int>(In::Count);
 
 // Port names, as used in cable text, patch files and the 9P /cables file (Spec S5.3, S10.10).
 inline constexpr std::array<std::string_view, numOutputs> outputNames{
-    "keys.pitch", "keys.gate", "keys.vel", "vco1.out", "vco2.out", "vco3.out",
+    "keys.pitch", "keys.gate", "keys.vel", "keys.mod", "vco1.out", "vco2.out", "vco3.out",
     "noise.out", "noise.rand", "lfo1.out", "lfo2.out", "env1.out", "env2.out", "mix.out", "vcf1.out", "vcf2.out", "formant.out", "mix2.out", "vca.out",
     "out.out", "comb.out", "ensemble.out", "delay.out", "reverb.out"};
 inline constexpr std::array<std::string_view, numInputs> inputNames{
@@ -120,7 +120,7 @@ inline constexpr SignalType typeOf(In i) noexcept {
 inline constexpr SignalType typeOf(Out o) noexcept {
     switch (o) {
         case Out::KeysGate: return SignalType::Gate;
-        case Out::KeysPitch: case Out::KeysVel: case Out::Rand: case Out::Lfo1: case Out::Lfo2: case Out::Env1: case Out::Env2:
+        case Out::KeysPitch: case Out::KeysVel: case Out::KeysMod: case Out::Rand: case Out::Lfo1: case Out::Lfo2: case Out::Env1: case Out::Env2:
             return SignalType::Cv;
         default: return SignalType::Audio;
     }
@@ -137,7 +137,7 @@ inline constexpr std::string_view typeName(SignalType t) noexcept {
 inline constexpr float removePin = -2.0f;
 inline constexpr bool removes(float level) noexcept { return level < -1.0f; }
 
-inline constexpr bool isGlobal(Out o) noexcept { return o == Out::Lfo1 || o == Out::Lfo2 || o == Out::Noise || o == Out::Rand; }
+inline constexpr bool isGlobal(Out o) noexcept { return o == Out::Lfo1 || o == Out::Lfo2 || o == Out::Noise || o == Out::Rand || o == Out::KeysMod; }
 
 // Spec S5.14 (Phase 10): a patch is a pin matrix. Every input has up to maxPins pins, each an output
 // with a level 0..1 (a cable is a pin at 1; -1..1 on modulation inputs, S5.21); the input reads the sum of

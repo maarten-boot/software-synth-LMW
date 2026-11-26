@@ -71,6 +71,9 @@ inline constexpr const char* lfo2Delay   = "lfo2.delay";
 inline constexpr const char* gain        = "out.gain";
 inline constexpr const char* outPan      = "out.pan";        // Spec S5.25: stereo per voice
 inline constexpr const char* outSpread   = "out.spread";
+inline constexpr const char* glide       = "keys.glide";      // Spec S6.24, S5.27
+inline constexpr const char* glideMode   = "keys.glidemode";
+inline constexpr const char* bendRange   = "keys.bendrange";
 inline constexpr const char* spreadMode  = "out.spreadmode";
 inline constexpr std::array<const char*, 3> mix2Level{"mix2.level1", "mix2.level2", "mix2.level3"};   // Spec S5.26
 inline constexpr std::array<const char*, 3> mix2Pan{"mix2.pan1", "mix2.pan2", "mix2.pan3"};
@@ -264,6 +267,14 @@ public:
         return raw.vcfRouting->load() >= 0.5f ? lmw::dsp::VcfRouting::Parallel : lmw::dsp::VcfRouting::Serial;
     }
     float modWheel() const noexcept { return modWheelValue.load(std::memory_order_relaxed); }
+    // Spec S6.24: the bend wheel's position (-1 .. +1) as last set by MIDI or the on-screen wheel; the on-screen
+    // wheels (and 9P /keys bend / mod) ask for a position here, applied at the start of the next block.
+    float pitchBend() const noexcept { return bendValue.load(std::memory_order_relaxed); }
+    void requestWheels(std::optional<float> bend, std::optional<float> mod) noexcept {
+        if (bend) bendRequest.store(std::clamp(*bend, -1.0f, 1.0f), std::memory_order_relaxed);
+        if (mod) modRequest.store(std::clamp(*mod, 0.0f, 1.0f), std::memory_order_relaxed);
+    }
+    double bendRangeSemitones() const noexcept;
 
 private:
     // What a float's NormalisableRange does not keep (for /info): the unit its text shows ("%" = value x 100,
@@ -330,13 +341,15 @@ private:
     mutable lmw::dsp::Patch guiPatch;                 // message thread only (routing refreshed by currentPatch())
     std::uint32_t patchSerial = 0;                    // message thread only
     std::atomic<float> modWheelValue{0.0f};           // written by the audio thread
+    std::atomic<float> bendValue{0.0f};               // S6.24: -1 .. +1, written by the audio thread
+    std::atomic<float> bendRequest{std::numeric_limits<float>::quiet_NaN()}, modRequest{std::numeric_limits<float>::quiet_NaN()};   // from the GUI
     bool applyingMidiInput = false;   // message thread only: don't echo displayed notes back
-    static constexpr double pitchBendRangeSemitones = 2.0;   // Spec S3.4
+    // Spec S3.4: was a fixed 2 semitones; since S6.24 the parameter keys.bendrange (bendRangeSemitones()).
 
     struct RawParams {                 // atomics owned by apvts, read on the audio thread
         std::atomic<float> *voices{}, *mixNoise{}, *vcaInitial{},
             *e1a{}, *e1d{}, *e1s{}, *e1r{}, *e2a{}, *e2d{}, *e2s{}, *e2r{}, *lfoRate{}, *lfoWave{}, *gain{},
-            *lfo2Rate{}, *lfo2Wave{}, *lfoDelay{}, *lfo2Delay{}, *outPan{}, *outSpread{}, *spreadMode{}, *tremolo{}, *vcaVelocity{}, *revMix{}, *revSize{}, *revDamping{}, *revWidth{},
+            *lfo2Rate{}, *lfo2Wave{}, *lfoDelay{}, *lfo2Delay{}, *outPan{}, *outSpread{}, *spreadMode{}, *glide{}, *glideMode{}, *bendRange{}, *tremolo{}, *vcaVelocity{}, *revMix{}, *revSize{}, *revDamping{}, *revWidth{},
             *noiseColour{}, *noiseRate{}, *noiseSmooth{},
             *combFreq{}, *combKey{}, *combFeedback{}, *combDamping{}, *combMix{},
             *delayTime{}, *delayFeedback{}, *delayDamping{}, *delaySpread{}, *delayMix{}, *ensembleDepth{}, *ensembleRate{}, *ensembleShimmer{}, *ensembleMix{}, *formantVowel{}, *formantVoice{}, *formantRes{}, *formantMix{}, *vcfRouting{};
