@@ -48,3 +48,9 @@
 ## Crosscheck after 39b and Phase 40
 
 - Committed c3aba54. Code vs S6.22 (39b) and S6.23: as built (noted there). Stale line fixed: S6.7 Shift+arrows (the selection since S6.23). Plan header. 40 of 40. Open: CI after the push.
+- User: what is next? Listed; user: let's make a release (1.7.0).
+
+## Release 1.7.0
+
+- Upgrade check (T-S9.6-upgrade-1.7): 1.6.0 download on Xvfb → sound, slopes, cables, notes, OUT moved, closed → the 1.7.0 build: /patch identical but for the new parameters at their defaults, slopes kept, layout kept with MIX 2 at the end of row 2 (scrolls), round trip ok.
+- Prepared: CMakeLists 1.7.0, Changes "## 1.7.0 (2026-11-26)" with the upgrade note, Spec S6.10, Plan row 1.7.0, Tests; pictures retaken with the 1.7.0 title.

@@ -3,6 +3,9 @@
 Changes between releases.
 
 ## Unreleased
+
+## 1.7.0 (2026-11-26)
+- 2026-11-26: Patches and saved settings from 1.6.0 load unchanged — the same sound, cables, notes and slopes; the new controls (LFO Delay, OUT Pan / Spread, MIX 2) start where they change nothing. A panel layout you arranged is kept; MIX 2 joins the end of row 2 there (the rack scrolls, or use Reset layout for the new default with FORMANT in row 1).
 - 2026-11-26: Schematic: select several symbols (drag a rectangle on empty space, Ctrl / Shift-click, Ctrl + A) and move them together by dragging one of them or with Shift + arrows; one Ctrl + Z takes the move back.
 - 2026-11-26: Schematic symbols can be moved anywhere on the whole page (it starts at the top-left and grows as you move a symbol to the edge).
 - 2026-11-26: The Schematic uses the Synth tab's text size (it filled the tab before, with larger text): Ctrl + wheel or Ctrl + / − zooms in steps (75–150 %), Ctrl 0 back to 100 %; in a small window it scrolls.
