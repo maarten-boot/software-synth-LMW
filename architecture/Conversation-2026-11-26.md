@@ -37,3 +37,5 @@
 ## Crosscheck after Phases 38–39
 
 - Committed 89b20f1. Code vs S6.21, S6.22: as built (noted there). Stale lines fixed: S6.5 (at most 6 rows, the rack scrolls), S6.7 (the view no longer fills the tab: text size and zoom), S6.16 (the window may be smaller than the rack). Plan header. 40 of 40. Open: CI after the push (38 mends macOS / Windows).
+- Committed 89b20f1 (39) and eb5d74a (crosscheck). 39b done: the Schematic page as large as the view (top-left), blocks anywhere on it, the page grows 20 units beyond the furthest block, the legend at the page's bottom, stored layouts up to 1000 × 500; test_schematic; Xvfb (LFO 2 to the far right). 40 of 40.
+- User: commit.

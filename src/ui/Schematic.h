@@ -47,7 +47,10 @@ struct Block {
     theme::Unit unit() const noexcept { return theme::unitOf(name); }
 };
 
-inline constexpr float canvasWidth = 168.0f, canvasHeight = 72.0f;   // 152 before the effects (S7.6), 136 before FORMANT (S5.16)
+inline constexpr float canvasWidth = 168.0f, canvasHeight = 72.0f;
+// Spec S6.22 (39b, user 2026-11-26: "allow elements to use the complete page"): blocks may be placed anywhere on the
+// page the view shows (at least the canvas above); stored layouts are accepted up to this size.
+inline constexpr float maxPageWidth = 1000.0f, maxPageHeight = 500.0f;   // 152 before the effects (S7.6), 136 before FORMANT (S5.16)
 // Names are drawn inside the symbols (user 2026-11-13), so a block needs no room above it.
 
 inline const std::vector<Block>& blocks() {
@@ -88,7 +91,8 @@ inline std::string blockId(std::string_view name) {
 }
 
 // Phase 12c: where each block is (its top-left corner, canvas units, on a 1-unit grid). The default is the
-// drawing of Phase 12a. A block may be moved anywhere on the canvas where it does not overlap another block and stays clear of the legend at the bottom.
+// drawing of Phase 12a. A block may be moved anywhere on the page where it does not overlap another block and stays clear
+// of the legend at the bottom. The page is the canvas, or larger: the part of the view the Schematic shows (S6.22, 39b).
 class Layout {
 public:
     Layout() { for (const auto& b : blocks()) pos.push_back({b.box.x, b.box.y}); }
@@ -109,10 +113,19 @@ public:
         Rect r = blocks()[i].box;
         r.x = p.x;
         r.y = p.y;
-        if (r.x < 0 || r.right() > canvasWidth || r.y < 0 || r.bottom() > canvasHeight - 4) return false;
+        if (r.x < 0 || r.right() > pageW || r.y < 0 || r.bottom() > pageH - 4) return false;
         for (std::size_t j = 0; j < pos.size(); ++j)
             if (j != i && room(r).intersects(room(box(j)))) return false;
         return true;
+    }
+    // S6.22 (39b): the page the blocks may use (canvas units), at least the canvas; and how far the blocks reach.
+    void setPage(float w, float h) { pageW = std::clamp(w, canvasWidth, maxPageWidth); pageH = std::clamp(h, canvasHeight, maxPageHeight); }
+    float pageWidth() const noexcept { return pageW; }
+    float pageHeight() const noexcept { return pageH; }
+    Point extent() const {
+        Point e{0, 0};
+        for (std::size_t i = 0; i < pos.size(); ++i) { const auto r = box(i); e.x = std::max(e.x, r.right()); e.y = std::max(e.y, r.bottom()); }
+        return e;
     }
     // Moves block i to `p` (snapped) if it fits there.
     bool move(std::size_t i, Point p) {
@@ -144,6 +157,7 @@ public:
     // entry, or a result where a block does not fit.
     static std::optional<Layout> parse(std::string_view text) {
         Layout l;
+        l.setPage(maxPageWidth, maxPageHeight);   // S6.22 (39b): a stored layout may use a large page
         std::vector<bool> named(l.pos.size(), false);
         while (!text.empty()) {
             const auto semi = text.find(';');
@@ -169,7 +183,7 @@ public:
         for (std::size_t i = 0; i < l.pos.size(); ++i) {           // the others: inside, not on each other
             if (!named[i] && later(blocks()[i].name)) continue;
             const Rect r = l.box(i);
-            if (r.x < 0 || r.right() > canvasWidth || r.y < 0 || r.bottom() > canvasHeight - 4) return std::nullopt;
+            if (r.x < 0 || r.right() > maxPageWidth || r.y < 0 || r.bottom() > maxPageHeight - 4) return std::nullopt;
             for (std::size_t j = 0; j < l.pos.size(); ++j)
                 if (j != i && (named[j] || !later(blocks()[j].name)) && r.intersects(l.box(j))) return std::nullopt;
         }
@@ -196,6 +210,7 @@ private:
         return r.ec == std::errc{} && r.ptr == s.data() + s.size() && v >= 0 && v <= 1000;
     }
     std::vector<Point> pos;
+    float pageW = canvasWidth, pageH = canvasHeight;
 };
 
 inline const Layout& defaultLayout() {

@@ -38,9 +38,19 @@ float SchematicView::scale() const noexcept {
     return textPx / 1.7f * zoomFactor();
 }
 
+// Spec S6.22 (39b, user 2026-11-26: "allow elements to use the complete page"): the drawing starts at the top-left
+// (12 px margin) on a page as large as the view; it is at least the canvas, and reaches 20 units beyond the furthest
+// block (8 below it, for the legend), so a block moved to the edge always has room to go on (the view then scrolls).
 juce::Point<int> SchematicView::drawingSize() const noexcept {
     const float s = scale();
-    return {juce::roundToInt(sc::canvasWidth * s) + 24, juce::roundToInt(sc::canvasHeight * s) + 24};
+    const auto e = layout.extent();
+    const float w = std::max(sc::canvasWidth, e.x + 20.0f), h = std::max(sc::canvasHeight, e.y + 8.0f);
+    return {juce::roundToInt(w * s) + 24, juce::roundToInt(h * s) + 24};
+}
+
+void SchematicView::updatePage() {
+    const float s = scale();
+    layout.setPage((static_cast<float>(getWidth()) - 24.0f) / s, (static_cast<float>(getHeight()) - 24.0f) / s);
 }
 
 // Spec S6.22: Ctrl (Cmd) + wheel zooms in steps; the wheel alone goes to the view around it (it scrolls).
@@ -53,18 +63,14 @@ void SchematicView::mouseWheelMove(const juce::MouseEvent& e, const juce::MouseW
     juce::Component::mouseWheelMove(e, w);
 }
 
-juce::Point<float> SchematicView::toScreen(sc::Point p) const noexcept {
+juce::Point<float> SchematicView::toScreen(sc::Point p) const noexcept {   // S6.22 (39b): from the top-left
     const float s = scale();
-    const float ox = (static_cast<float>(getWidth()) - sc::canvasWidth * s) / 2;
-    const float oy = (static_cast<float>(getHeight()) - sc::canvasHeight * s) / 2;
-    return {ox + p.x * s, oy + p.y * s};
+    return {12.0f + p.x * s, 12.0f + p.y * s};
 }
 
 sc::Point SchematicView::toCanvas(juce::Point<float> p) const noexcept {
     const float s = scale();
-    const float ox = (static_cast<float>(getWidth()) - sc::canvasWidth * s) / 2;
-    const float oy = (static_cast<float>(getHeight()) - sc::canvasHeight * s) / 2;
-    return {(p.x - ox) / s, (p.y - oy) / s};
+    return {(p.x - 12.0f) / s, (p.y - 12.0f) / s};
 }
 
 juce::Rectangle<float> SchematicView::toScreen(const sc::Rect& r) const noexcept {
@@ -403,7 +409,7 @@ void SchematicView::paint(juce::Graphics& g) {
 
     // Legend.
     g.setFont(juce::FontOptions(1.7f * s));
-    const auto l0 = toScreen(sc::Point{2, sc::canvasHeight - 2.5f});
+    const auto l0 = toScreen(sc::Point{2, layout.pageHeight() - 2.5f});   // S6.22 (39b): at the page's bottom
     juce::Path dashedSample, sample;
     sample.startNewSubPath(l0.x, l0.y);
     sample.lineTo(l0.x + 5 * s, l0.y);
@@ -623,6 +629,8 @@ bool SchematicView::keyPressed(const juce::KeyPress& key) {
 void SchematicView::setLayout(const juce::String& text) {
     shownLayout = text;
     layout = sc::Layout::parse(text.toStdString()).value_or(sc::Layout());
+    updatePage();
+    if (onSizeChange) onSizeChange();                      // a stored layout may reach further (39b)
     repaint();
 }
 
@@ -633,6 +641,7 @@ void SchematicView::poll(const juce::String& layoutText) {
 
 void SchematicView::resetLayout() {
     layout = sc::Layout();
+    updatePage();
     layoutChanged();
     repaint();
 }
@@ -640,6 +649,7 @@ void SchematicView::resetLayout() {
 void SchematicView::layoutChanged() {
     shownLayout = layout.isDefault() ? juce::String() : juce::String(layout.serialize());
     if (onLayoutChange) onLayoutChange(shownLayout);
+    if (onSizeChange) onSizeChange();                      // S6.22 (39b): the page grows with the blocks
 }
 
 void SchematicView::mouseExit(const juce::MouseEvent&) {

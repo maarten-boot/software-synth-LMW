@@ -65,12 +65,14 @@ public:
     // Spec S6.22 (Phase 39): drawn at the Synth tab's text size — names and port labels 15 px (compact 13 px) at
     // zoom 100 % — instead of filling the tab; zoom steps 75 / 100 / 125 / 150 % (Ctrl + wheel, Ctrl + / − / 0).
     // The editor shows it in a view: centred when smaller, scrolling when larger (drawingSize()).
-    void setCompact(bool compact) { textPx = compact ? 13.0f : 15.0f; if (onSizeChange) onSizeChange(); repaint(); }
+    void setCompact(bool compact) { textPx = compact ? 13.0f : 15.0f; if (onSizeChange) onSizeChange(); updatePage(); repaint(); }
     static constexpr std::array<float, 4> zoomSteps{0.75f, 1.0f, 1.25f, 1.5f};
-    void setZoom(int step) { zoomStep = std::clamp(step, 0, static_cast<int>(zoomSteps.size()) - 1); if (onSizeChange) onSizeChange(); repaint(); }
+    void setZoom(int step) { zoomStep = std::clamp(step, 0, static_cast<int>(zoomSteps.size()) - 1); if (onSizeChange) onSizeChange(); updatePage(); repaint(); }
     int zoomIndex() const noexcept { return zoomStep; }
     float zoomFactor() const noexcept { return zoomSteps[static_cast<std::size_t>(zoomStep)]; }
     juce::Point<int> drawingSize() const noexcept;        // the drawing with a margin, at the current scale
+    void resized() override { updatePage(); }
+    void updatePage();                                     // 39b: the page the blocks may use = this component's size
     std::function<void()> onSizeChange;                    // the editor lays out the view again
     void mouseWheelMove(const juce::MouseEvent&, const juce::MouseWheelDetails&) override;
     void setRings(bool on) { rings = on; repaint(); }                             // Spec S6.20

@@ -232,6 +232,19 @@ int main() {
         CHECK(!sc::Layout::parse("lfo2:110"));                  // malformed
         CHECK(!sc::Layout::parse("lfo2:-5,3"));                 // negative
         CHECK(!sc::Layout::parse("vcf2:68,20"));                // on top of VCF 1
+        {   // S6.22 (39b): the page — at least the canvas; beyond it only on a larger page; stored layouts may use a large page
+            sc::Layout big;
+            const auto vco1 = *sc::findBlock("VCO 1");
+            CHECK(!big.fits(vco1, {200, 30}));                  // the canvas page: no room at x 200
+            big.setPage(300, 150);
+            CHECK(big.fits(vco1, {200, 30}) && big.move(vco1, {200, 30}) && big.extent().x >= 212);
+            CHECK(!big.fits(vco1, {290, 30}));                  // beyond the page
+            const auto far = sc::Layout::parse("vco1:400,200");
+            CHECK(far && far->position(vco1).x == 400);
+            CHECK(!sc::Layout::parse("vco1:2000,10"));          // beyond the largest page
+            big.setPage(10, 10);
+            CHECK(big.pageWidth() == sc::canvasWidth && big.pageHeight() == sc::canvasHeight);   // never below the canvas
+        }
         // S5.16: a layout saved before FORMANT existed (the old places of VCF 2, VCA, OUT, LFO 2): the
         // named blocks stay where they were; FORMANT, whose default place is taken by the VCA, gets a free one.
         {
