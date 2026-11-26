@@ -2,6 +2,7 @@
 // T-S5.25-pan: stereo and pan per voice in OUT. Defaults give the mono sum on both sides exactly; Pan +-1 puts a
 // voice on one side at the same power (equal power, centre = 1 on both sides); Spread by Keys and by Voices;
 // out.pan moves a voice; global sources on out.in stay centred; ENSEMBLE keeps a one-sided input on its side.
+// T-S5.26-mix2: MIX 2 after the filters, pan per input (stereo voice), VCO spread, mono with another vca.in source.
 #include "dsp/Engine.h"
 #include "dsp/Ensemble.h"
 #include <cmath>
@@ -122,6 +123,48 @@ int main() {
             same = same && std::isfinite(l1) && std::isfinite(r1);
         }
         CHECK(same && lb > 0.0 && rb == 0.0);
+    }
+    // T-S5.26-mix2: MIX 2 after the filters. In 1 panned left: the voice is left only through the VCA and OUT.
+    {
+        ModParams m; m.mix2Pan[0] = -1.0f;
+        Engine e = makeEngine(m);
+        e.noteOn(57, 0.9f);
+        const auto o = render(e, 9600);
+        double r = 0; for (size_t i = 1000; i < o.r.size(); ++i) r = std::fmax(r, std::fabs(o.r[i]));
+        CHECK(r == 0.0 && energy(o.l, 1000) > 0.0);
+    }
+    // VCO spread by patching: VCO 1 -> VCF 1 -> In 1 left, VCO 2 -> VCF 2 -> In 2 right (FORMANT on In 1 replaced).
+    {
+        auto spread = [](float level1, float level2) {
+            ModParams m; m.mix2Level = {level1, level2, 0.0f}; m.mix2Pan = {-1.0f, 1.0f, 0.0f}; m.mixVco = {1.0f, 1.0f, 0.0f};
+            Engine e = makeEngine(m);
+            e.connect(In::Vcf1In, Out::Vco1); e.connect(In::Vcf2In, Out::Vco2);
+            e.connect(In::Mix2In1, Out::Vcf1); e.connect(In::Mix2In2, Out::Vcf2);
+            e.noteOn(57, 0.9f);
+            return render(e, 9600);
+        };
+        const auto a = spread(1.0f, 0.0f), b = spread(0.0f, 1.0f), both = spread(1.0f, 1.0f);
+        double ra = 0, lb = 0; for (size_t i = 1000; i < 9600; ++i) { ra = std::fmax(ra, std::fabs(a.r[i])); lb = std::fmax(lb, std::fabs(b.l[i])); }
+        CHECK(ra == 0.0 && lb == 0.0 && energy(a.l, 1000) > 0.0 && energy(b.r, 1000) > 0.0);
+        CHECK(energy(both.l, 1000) > 0.0 && energy(both.r, 1000) > 0.0 && both.l != both.r);
+    }
+    // A cable on vca.in from another source makes the voice mono from the VCA on.
+    {
+        ModParams m; m.mix2Pan[0] = -1.0f;
+        Engine e = makeEngine(m);
+        e.connect(In::VcaIn, Out::Formant);
+        e.noteOn(57, 0.9f);
+        const auto o = render(e, 9600);
+        CHECK(o.l == o.r && energy(o.l, 1000) > 0.0);
+    }
+    // OUT Pan on a stereo voice: a balance — Pan +1 keeps only its right side (here: nothing, it is all left).
+    {
+        ModParams m; m.mix2Pan[0] = -1.0f; m.pan = 1.0f;
+        Engine e = makeEngine(m);
+        e.noteOn(57, 0.9f);
+        const auto o = render(e, 9600);
+        double peak = 0; for (size_t i = 2000; i < 9600; ++i) peak = std::fmax(peak, std::fabs(o.l[i]) + std::fabs(o.r[i]));
+        CHECK(peak == 0.0);
     }
     if (failures == 0) std::printf("T-S5.25-pan: all passed\n");
     return failures == 0 ? 0 : 1;

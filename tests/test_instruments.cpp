@@ -27,7 +27,7 @@ int main() {
         if (!i.cables.empty()) CHECK(dsp::patchFromText(i.cables).has_value());
     }
     for (const auto& p : presets::builtIn(presets::Kind::Env)) CHECK(names.count(p.name) == 1);   // the same names (user)
-    for (const char* extra : {"Choir (aah)", "Male voice (ooo)", "Violin (PM vibrato)", "Electric piano (FM)"})
+    for (const char* extra : {"Choir (aah)", "Male voice (ooo)", "Violin (PM vibrato)", "Electric piano (FM)", "Choral flute"})
         CHECK(names.count(extra) == 1);
     // Flute: its module presets on ENV 1, ENV 2, VCF 1 and VCO 1, one voice.
     for (const auto& i : list)
@@ -41,7 +41,7 @@ int main() {
         }
     // S5.24: the solo instruments with vibrato start it after the attack (lfo1.delay 0.4 s); the others have none.
     {
-        const std::set<std::string> delayed{"Flute", "Oboe", "Clarinet", "Bassoon", "Trumpet", "French horn", "Violin", "Male voice (ooo)"};
+        const std::set<std::string> delayed{"Flute", "Oboe", "Clarinet", "Bassoon", "Trumpet", "French horn", "Violin", "Male voice (ooo)", "Choral flute"};
         for (const auto& i : list) {
             std::string d;
             for (const auto& [id, value] : i.values) if (id == "lfo1.delay") d = value;
@@ -49,7 +49,7 @@ int main() {
         }
     }
     std::printf("%zu built-in instrument presets\n", list.size());
-    CHECK(list.size() == 19);
+    CHECK(list.size() == 20);   // + Choral flute (S5.26)
     std::printf(failures ? "%d FAILED\n" : "T-S7.7-instruments: all passed\n", failures);
     return failures ? 1 : 0;
 }

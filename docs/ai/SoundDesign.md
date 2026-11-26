@@ -12,6 +12,9 @@ Patch audio into audio inputs and CV into modulation inputs unless you want an e
 Stereo: `out.pan` -1..1 [0] (centre), `out.spread` 0-1 [0] with `out.spreadmode` Keys (by pitch, piano-like) or
 Voices (alternating; one voice stays centred); a cable into `out.pan` (e.g. lfo2.out at 50 %) pans each voice.
 Width before the effects makes ENSEMBLE, DELAY and REVERB sound wider; keep solo instruments centred.
+MIX 2 (after FORMANT, before the VCA): `mix2.level1-3` [1, 0, 0], `mix2.pan1-3` -1..1 [0]; `mix2.in1` is
+normalled from formant.out, in2 / in3 take cables. Panning an input makes the voice stereo, e.g. cables
+vcf1.in=vco1.out, vcf2.in=vco2.out, mix2.in1=vcf1.out (pan -0.7), mix2.in2=vcf2.out (pan 0.7): see "Choral flute".
 
 ## Signal flow (normalled: connected without cables)
 

@@ -32,7 +32,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-Xvfb "$display" -screen 0 1600x1000x24 >/dev/null 2>&1 &
+Xvfb "$display" -screen 0 1920x1080x24 >/dev/null 2>&1 &   # the smallest supported screen (user 2026-11-26)
 xvfb=$!
 sleep 1
 kill -0 "$xvfb" 2>/dev/null || { xvfb=""; echo "pictures.sh: Xvfb could not start on $display (in use? set LMW_PICTURES_DISPLAY)"; exit 1; }

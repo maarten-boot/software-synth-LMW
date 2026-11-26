@@ -119,6 +119,11 @@ APVTS::ParameterLayout LMWSynthProcessor::createLayout(std::map<std::string, Flo
           f(P::outSpread, "Spread", Range(0.0f, 1.0f), 0.0f, percent),
           std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{P::spreadMode, 1}, "Spread mode",
               juce::StringArray{"Keys", "Voices"}, 0));
+    for (std::size_t k = 0; k < 3; ++k) {                                   // Spec S5.26: MIX 2
+        const juce::String n = "MIX 2 Level " + juce::String(static_cast<int>(k) + 1), pn = "MIX 2 Pan " + juce::String(static_cast<int>(k) + 1);
+        l.add(f(P::mix2Level[k], n.toRawUTF8(), Range(0.0f, 1.0f), k == 0 ? 1.0f : 0.0f, percent),
+              f(P::mix2Pan[k], pn.toRawUTF8(), Range(-1.0f, 1.0f), 0.0f, percent));
+    }
     // Spec S7.4: reverb on the Effects tab. Mix 0 = off (bypassed exactly).
     l.add(f(P::reverbMix,     "Reverb Mix",     Range(0.0f, 1.0f), 0.0f, percent),
           f(P::reverbSize,    "Reverb Size",    Range(0.0f, 1.0f), 0.5f, percent),
@@ -159,7 +164,8 @@ LMWSynthProcessor::LMWSynthProcessor()
     raw.lfoRate = get(P::lfoRate); raw.lfoWave = get(P::lfoWave); raw.gain = get(P::gain);
     raw.lfo2Rate = get(P::lfo2Rate); raw.lfo2Wave = get(P::lfo2Wave);
     raw.lfoDelay = get(P::lfoDelay); raw.lfo2Delay = get(P::lfo2Delay);
-    raw.outPan = get(P::outPan); raw.outSpread = get(P::outSpread); raw.spreadMode = get(P::spreadMode); raw.tremolo = get(P::vcaTremolo);
+    raw.outPan = get(P::outPan); raw.outSpread = get(P::outSpread); raw.spreadMode = get(P::spreadMode);
+    for (std::size_t k = 0; k < 3; ++k) { raw.mix2Level[k] = get(P::mix2Level[k]); raw.mix2Pan[k] = get(P::mix2Pan[k]); } raw.tremolo = get(P::vcaTremolo);
     raw.vcaVelocity = get(P::vcaVelocity);
     raw.revMix = get(P::reverbMix); raw.revSize = get(P::reverbSize);
     raw.revDamping = get(P::reverbDamping); raw.revWidth = get(P::reverbWidth);
@@ -452,6 +458,7 @@ void LMWSynthProcessor::pullParameters() noexcept {
     m.pan         = raw.outPan->load();                                      // Spec S5.25
     m.spread      = raw.outSpread->load();
     m.spreadMode  = static_cast<lmw::dsp::SpreadMode>(static_cast<int>(raw.spreadMode->load()));
+    for (std::size_t k = 0; k < 3; ++k) { m.mix2Level[k] = raw.mix2Level[k]->load(); m.mix2Pan[k] = raw.mix2Pan[k]->load(); }   // S5.26
     m.tremolo     = raw.tremolo->load();
     m.vcaVelocity = raw.vcaVelocity->load();
     m.noiseColour = static_cast<lmw::dsp::NoiseColour>(static_cast<int>(raw.noiseColour->load()));

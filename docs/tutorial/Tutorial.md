@@ -251,6 +251,9 @@ a second row.
    own place before the effects, so the reverb and delay sound wider ([spread](../Terms.md#spread)). Set the box to
    Voices with *KEYS › Voices* 6: even one note played twice moves. *OUT › Pan* moves the whole sound
    ([pan](../Terms.md#pan)); a cable from *LFO 2 › Out* to *OUT › Pan* makes it wander (auto-pan).
+   One voice can be stereo too: **MIX 2** (after the filters) has a Pan for each input — *Presets › Choral
+   flute* sends VCO 1 through VCF 1 to the left and VCO 2 through VCF 2 to the right
+   ([MIX 2](../Terms.md#mix-2)).
 
 Each effect has its own **Presets** in its title bar, e.g. *DELAY › Presets › Ping-pong* or
 *COMB › Presets › Hollow tube*.

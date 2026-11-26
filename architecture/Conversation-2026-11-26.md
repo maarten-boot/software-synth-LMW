@@ -16,3 +16,6 @@
 - Spec S5.26 MIX 2 proposed (to confirm): after FORMANT, 3 inputs with Level and Pan, stereo voice from there through the VCA to OUT, VCO spread by patching, default rack row 1 gets FORMANT (window about 1834 px wide), a "Choral flute" preset; Plan Phase 36.
 - CI run 45788970152 (fa48ad7) green on all four.
 - User: commit; FORMANT in row 1 ok, MIX 2 ok, add Choral flute; perhaps now add more native non-western instrument presets (Plan L13).
+- Committed 0d0ee20 (Phase 35). 36 done: MIX 2 (3 inputs, level + pan, stereo voice through the VCA and OUT), FORMANT in row 1, Schematic block, Choral flute, Terms MIX 2, Lesson 9, AI guide; tests (test_pan, counts); Xvfb on 1920 × 1080. 40 of 40.
+- Spec S7.13 world instruments proposed (to confirm): Presets ▸ World with 13 presets (Shakuhachi, Bansuri, Pan flute, Duduk, Erhu, Shamisen, Koto, Sitar, Oud, Kalimba, Gamelan, Steel pan, Didgeridoo), limits noted (resonators L12). Plan Phase 37.
+- User: commit 36; World submenu ok, start 37; idea for later: keyboards spread by octave, low left, high right (as the natural sound). Answered: that is OUT › Spread, mode Keys (Piano, Harpsichord, Marimba at 40 %); offered it for Organ and Electric piano too.

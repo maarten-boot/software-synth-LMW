@@ -314,7 +314,7 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     // Spec S5.16: FORMANT, after VCF 2 in row 2. Created last, so saved rack layouts keep their panel
     // numbers (S6.5: a stored layout without it gets it at the end of its default row).
     const std::size_t formantPanel = groups.size();
-    groups.push_back({"FORMANT", 1,
+    groups.push_back({"FORMANT", 0,   // S5.26: at the end of row 1 by default (room for MIX 2 in row 2)
         // Voice first (user 2026-11-22): the In socket goes under it, on the left; Out stays right.
         {addChoice(P::formantVoice, "Voice", {"Bass", "Bari", "Tenor", "Alto", "Sopr", "Child"},
                    "Voice type: Bass, Baritone, Tenor, Alto, Soprano or Child (formants from low to high)"),
@@ -325,6 +325,23 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
          }),
          addFader(P::formantMix, "Mix", inputTip(In::FormantIn,
              "0 = off (the input passes unchanged), 100 % = only the formants"))}, {}});
+    // Spec S5.26: MIX 2 after FORMANT, before the VCA: three inputs with level and pan; the voice is stereo from
+    // here while an input is panned. Created last: saved layouts keep their panel numbers (it joins row 2).
+    const std::size_t mix2Panel = groups.size();
+    {
+        std::vector<Item> items;
+        for (int k = 0; k < 3; ++k) {
+            const auto i = static_cast<std::size_t>(k);
+            const auto in = static_cast<In>(static_cast<int>(In::Mix2In1) + k);
+            items.push_back(addFader(P::mix2Level[i], "Level " + juce::String(k + 1),
+                inputTip(in, k == 0 ? "Level of input 1 (normally FORMANT, so 100 % = as before)" : "Level of this input (0 % = off)")));
+            items.push_back(addFader(P::mix2Pan[i], "Pan " + juce::String(k + 1), [k] {
+                return "Where input " + juce::String(k + 1) + " sits: -100 % left, 0 centre, +100 % right (equal power).\n"
+                       "While an input is off the centre the voice is stereo from here through the VCA to OUT.";
+            }));
+        }
+        groups.push_back({"MIX 2", 1, std::move(items), {}});
+    }
     // Spec S7.4, S7.6: Effects tab: SYNTH (out.out, the synth after OUT) | COMB | REVERB | MAIN (main.in, what
     // is heard); normalled SYNTH -> COMB -> REVERB -> MAIN, cables change the order.
     effectGroups.push_back({"SYNTH", 0, {}, {}, 1});
@@ -443,6 +460,8 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
             {env2Panel, 0, false, in(In::Env2Gate), "Gate"},    {env2Panel, 3, true, out(Out::Env2), "Out"},
             {formantPanel, 0, false, in(In::FormantIn), "In"}, {formantPanel, 1, false, in(In::FormantVowel), "Vowel"},
             {formantPanel, 3, true, out(Out::Formant), "Out"},
+            {mix2Panel, 0, false, in(In::Mix2In1), "In 1"},   {mix2Panel, 2, false, in(In::Mix2In2), "In 2"},   // S5.26
+            {mix2Panel, 4, false, in(In::Mix2In3), "In 3"},   {mix2Panel, 5, true, out(Out::Mix2), "Out"},
         };
         for (int n = 0; n < 3; ++n) {                         // FM under FM, Pitch under Tune, Out last
             const auto g = vcoPanel[static_cast<std::size_t>(n)];

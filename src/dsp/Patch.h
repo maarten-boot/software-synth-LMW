@@ -11,13 +11,13 @@ namespace lmw::dsp {
 
 // Order = order in menus: roughly signal flow. Saved patches use the names, not the numbers.
 enum class Out : std::uint8_t { KeysPitch, KeysGate, KeysVel, Vco1, Vco2, Vco3, Noise, Rand, Lfo1, Lfo2, Env1, Env2, Mix,
-                                Vcf1, Vcf2, Formant, Vca,
+                                Vcf1, Vcf2, Formant, Mix2, Vca,           // Mix2: Spec S5.26
                                 OutOut, CombOut, EnsembleOut, DelayOut, ReverbOut,   // effects (Spec S7.6, S7.8, S7.11): after OUT
                                 Count };
 enum class In  : std::uint8_t { Vco1Pitch, Vco1Fm, Vco1Pm, Vco2Pitch, Vco2Fm, Vco2Pm, Vco3Pitch, Vco3Fm, Vco3Pm,   // PM: S5.20
                                 Env1Gate, Env2Gate,
                                 MixIn1, MixIn2, MixIn3, MixIn4, Vcf1In, Vcf1Cutoff, Vcf1Res, Vcf2In, Vcf2Cutoff, Vcf2Res,
-                                FormantIn, FormantVowel, VcaIn, VcaCv,
+                                FormantIn, FormantVowel, Mix2In1, Mix2In2, Mix2In3, VcaIn, VcaCv,   // MIX 2: Spec S5.26
                                 VcaMod, VcaVel,                          // velocity input: Spec S5.22
                                 OutIn, Lfo1Rate, Lfo2Rate,               // LFO rate inputs: Spec S5.19
                                 OutPan,                                  // pan per voice: Spec S5.25
@@ -37,13 +37,13 @@ inline constexpr int numInputs  = static_cast<int>(In::Count);
 // Port names, as used in cable text, patch files and the 9P /cables file (Spec S5.3, S10.10).
 inline constexpr std::array<std::string_view, numOutputs> outputNames{
     "keys.pitch", "keys.gate", "keys.vel", "vco1.out", "vco2.out", "vco3.out",
-    "noise.out", "noise.rand", "lfo1.out", "lfo2.out", "env1.out", "env2.out", "mix.out", "vcf1.out", "vcf2.out", "formant.out", "vca.out",
+    "noise.out", "noise.rand", "lfo1.out", "lfo2.out", "env1.out", "env2.out", "mix.out", "vcf1.out", "vcf2.out", "formant.out", "mix2.out", "vca.out",
     "out.out", "comb.out", "ensemble.out", "delay.out", "reverb.out"};
 inline constexpr std::array<std::string_view, numInputs> inputNames{
     "vco1.pitch", "vco1.fm", "vco1.pm", "vco2.pitch", "vco2.fm", "vco2.pm", "vco3.pitch", "vco3.fm", "vco3.pm",
     "env1.gate", "env2.gate",
     "mix.in1", "mix.in2", "mix.in3", "mix.in4", "vcf1.in", "vcf1.cutoff", "vcf1.res", "vcf2.in", "vcf2.cutoff", "vcf2.res",
-    "formant.in", "formant.vowel", "vca.in", "vca.cv",
+    "formant.in", "formant.vowel", "mix2.in1", "mix2.in2", "mix2.in3", "vca.in", "vca.cv",
     "vca.mod", "vca.vel", "out.in", "lfo1.rate", "lfo2.rate", "out.pan", "comb.in", "ensemble.in", "delay.in", "reverb.in", "main.in"};
 
 // An input without a normalled source reads 0 until a cable is plugged in (Spec S5.13: vcfN.res).
@@ -55,7 +55,8 @@ inline constexpr std::array<Out, numInputs> normalled{
     Out::KeysPitch, Out::Lfo1, noSource, Out::KeysPitch, Out::Lfo1, noSource, Out::KeysPitch, Out::Lfo1, noSource,
     Out::KeysGate, Out::KeysGate,
     Out::Vco1, Out::Vco2, Out::Vco3, Out::Noise, Out::Mix, Out::Env2, noSource, Out::Vcf1, Out::Env2, noSource,
-    Out::Vcf2, noSource, Out::Formant, Out::Env1, Out::Lfo2,
+    Out::Vcf2, noSource, Out::Formant, noSource, noSource,       // S5.26: FORMANT -> MIX 2 in 1
+    Out::Mix2, Out::Env1, Out::Lfo2,                              // S5.26: MIX 2 -> VCA (was FORMANT -> VCA)
     Out::KeysVel,                                                 // S5.22: velocity -> VCA, as before but patchable
     Out::Vca, noSource, noSource,
     noSource,                                                     // S5.25: out.pan, no normalled source

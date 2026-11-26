@@ -47,7 +47,7 @@ struct Block {
     theme::Unit unit() const noexcept { return theme::unitOf(name); }
 };
 
-inline constexpr float canvasWidth = 160.0f, canvasHeight = 72.0f;   // 152 before the effects (S7.6), 136 before FORMANT (S5.16)
+inline constexpr float canvasWidth = 168.0f, canvasHeight = 72.0f;   // 152 before the effects (S7.6), 136 before FORMANT (S5.16)
 // Names are drawn inside the symbols (user 2026-11-13), so a block needs no room above it.
 
 inline const std::vector<Block>& blocks() {
@@ -63,8 +63,9 @@ inline const std::vector<Block>& blocks() {
         {"VCF 1",  Shape::Triangle, {68, 20, 12, 14}, {In::Vcf1In, In::Vcf1Cutoff, In::Vcf1Res}, {Out::Vcf1}},
         {"VCF 2",  Shape::Triangle, {86, 20, 12, 14}, {In::Vcf2In, In::Vcf2Cutoff, In::Vcf2Res}, {Out::Vcf2}},
         {"FORMANT", Shape::Triangle, {104, 20, 12, 14}, {In::FormantIn, In::FormantVowel}, {Out::Formant}},   // S5.16
-        {"VCA",    Shape::Triangle, {122, 20, 12, 14},{In::VcaIn, In::VcaCv, In::VcaMod, In::VcaVel}, {Out::Vca}},
-        {"OUT",    Shape::Triangle, {140, 22, 10, 10}, {In::OutIn, In::OutPan}, {Out::OutOut}},   // S7.6: feeds the effects; S5.25: pan
+        {"MIX 2",  Shape::Triangle, {121, 19, 10, 16}, {In::Mix2In1, In::Mix2In2, In::Mix2In3}, {Out::Mix2}},   // S5.26
+        {"VCA",    Shape::Triangle, {136, 20, 12, 14},{In::VcaIn, In::VcaCv, In::VcaMod, In::VcaVel}, {Out::Vca}},
+        {"OUT",    Shape::Triangle, {154, 22, 10, 10}, {In::OutIn, In::OutPan}, {Out::OutOut}},   // S7.6: feeds the effects; S5.25: pan
         {"ENV 1",  Shape::Adsr,     {50, 58, 12, 8},  {In::Env1Gate}, {Out::Env1}},
         {"ENV 2",  Shape::Adsr,     {50, 45, 12, 8},  {In::Env2Gate}, {Out::Env2}},
         {"LFO 2",  Shape::Triangle, {110, 50, 10, 9}, {In::Lfo2Rate}, {Out::Lfo2}},
@@ -162,7 +163,8 @@ public:
             named[i] = true;
         }
         const auto later = [](std::string_view name) {   // blocks added after Phase 12c
-            return name == "FORMANT" || name == "COMB" || name == "ENSEMBLE" || name == "DELAY" || name == "REVERB" || name == "MAIN";
+            return name == "FORMANT" || name == "COMB" || name == "ENSEMBLE" || name == "DELAY" || name == "REVERB" || name == "MAIN"
+                || name == "MIX 2";                                   // S5.26
         };
         for (std::size_t i = 0; i < l.pos.size(); ++i) {           // the others: inside, not on each other
             if (!named[i] && later(blocks()[i].name)) continue;

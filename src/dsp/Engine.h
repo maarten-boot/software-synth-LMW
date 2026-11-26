@@ -64,6 +64,12 @@ struct ModParams {
     float pan = 0.0f;                           // out.pan, -1 (left) .. +1 (right) (Spec S5.25)
     float spread = 0.0f;                        // out.spread, 0 .. 1
     SpreadMode spreadMode = SpreadMode::Keys;   // out.spreadmode
+    std::array<float, 3> mix2Level{1.0f, 0.0f, 0.0f};   // mix2.level1..3 (Spec S5.26)
+    std::array<float, 3> mix2Pan{};                      // mix2.pan1..3, -1 .. +1
+    bool mix2Panned() const noexcept {                   // a MIX 2 input off the centre: the voice is stereo
+        for (std::size_t k = 0; k < 3; ++k) if (mix2Pan[k] != 0.0f && mix2Level[k] != 0.0f) return true;
+        return false;
+    }
     float tremolo = 0.0f;                       // vca.tremolo: depth of vca.mod, 0..1 (0 = off)
     float vcaVelocity = 1.0f;                   // vca.velocity (S5.22): how much vca.vel sets the gain, 0..1
     NoiseColour noiseColour = NoiseColour::White;   // noise.colour (Spec S5.15)
@@ -84,6 +90,18 @@ inline constexpr float modWheelFmSemitones = 1.0f;
 struct GlobalSignals {
     float lfo = 0.0f, lfo2 = 0.0f, noise = 0.0f, modWheel = 0.0f, rand = 0.0f;
 };
+
+// Spec S5.25: equal-power pan, scaled so the centre is exactly 1 on both sides (today's level); a voice fully
+// to one side is sqrt(2) there and 0 on the other side (the same power).
+inline void panGains(float position, float& left, float& right) noexcept {
+    if (position == 0.0f) { left = right = 1.0f; return; }
+    if (position <= -1.0f) { left = std::numbers::sqrt2_v<float>; right = 0.0f; return; }   // exactly one side
+    if (position >= 1.0f)  { left = 0.0f; right = std::numbers::sqrt2_v<float>; return; }
+    const double p = static_cast<double>(position);
+    const double theta = (p + 1.0) * std::numbers::pi / 4.0;
+    left = static_cast<float>(std::cos(theta) * std::numbers::sqrt2);
+    right = static_cast<float>(std::sin(theta) * std::numbers::sqrt2);
+}
 
 class Voice {
 public:
@@ -218,6 +236,20 @@ public:
             out[o(Out::Formant)] = formantWet >= 1.0f ? wet : inF + (wet - inF) * formantWet;
         }
 
+        // MIX 2 (Spec S5.26): three inputs with a level each; while one with a level is panned off the centre the
+        // voice is stereo from here (a left and a right sum, equal power, centre = 1 on both sides); mix2.out is
+        // their average. With the defaults (In 1 100 %, the others 0 %) it is exactly formant.out, as before.
+        float mono = 0.0f, mixL = 0.0f, mixR = 0.0f;
+        const bool panned = mp.mix2Panned();
+        for (int k = 0; k < 3; ++k) {
+            const auto i = static_cast<std::size_t>(k);
+            if (mp.mix2Level[i] == 0.0f) continue;
+            const float x = read(static_cast<In>(static_cast<int>(In::Mix2In1) + k), g, patch) * mp.mix2Level[i];
+            mono += x;
+            if (panned) { float gl = 1.0f, gr = 1.0f; panGains(mp.mix2Pan[i], gl, gr); mixL += x * gl; mixR += x * gr; }
+        }
+        out[o(Out::Mix2)] = panned ? 0.5f * (mixL + mixR) : mono;
+
         float vcaGain = std::clamp(mp.vcaInitial + read(In::VcaCv, g, patch), 0.0f, 1.0f);   // Spec S5.5
         // Spec S5.12: tremolo. vca.mod (+-1) scales the gain between 1 (mod +1) and 1 - depth (mod -1);
         // depth 0 leaves the gain exactly as it is.
@@ -228,12 +260,27 @@ public:
         const float a = mp.vcaVelocity;
         const float velGain = std::clamp(1.0f - a + a * read(In::VcaVel, g, patch), 0.0f, 1.0f);
         out[o(Out::Vca)] = read(In::VcaIn, g, patch) * vcaGain * velGain;
+        // S5.26: the stereo voice goes on through the VCA to OUT while vca.in reads only mix2.out and out.in only
+        // vca.out (normalled, or one cable from them at its level); otherwise it is mono from that point.
+        stereo = false;
+        if (panned) {
+            const float inLevel = singleSource(In::VcaIn, Out::Mix2, patch), outLevel = singleSource(In::OutIn, Out::Vca, patch);
+            if (inLevel > 0.0f && outLevel > 0.0f) {
+                const float k = inLevel * vcaGain * velGain * outLevel;
+                outL = mixL * k;
+                outR = mixR * k;
+                stereo = true;
+            }
+        }
 
         // Spec S5.25: this voice's out.pan input (per voice), read only while patched.
         panInput = patch.isPatched(In::OutPan) ? read(In::OutPan, g, patch) : 0.0f;
         return readPerVoice(In::OutIn, g, patch);           // global pins are added once by the engine
     }
     float panIn() const noexcept { return panInput; }
+    bool isStereo() const noexcept { return stereo; }           // S5.26: this sample's left / right below
+    float left() const noexcept { return outL; }
+    float right() const noexcept { return outR; }
 
     bool isActive() const noexcept { return env1.isActive(); }
     bool isHeld() const noexcept { return gate && env1.isActive(); }   // key down or sustained by pedal
@@ -323,6 +370,17 @@ private:
     std::int64_t sinceOn = 0;                  // samples with the gate open since the last note-on (S5.24)
     std::array<float, 2> lfoGain{1.0f, 1.0f}; // this voice's share of LFO 1 / LFO 2 now (S5.24)
     float panInput = 0.0f;                     // out.pan read this sample (S5.25)
+    bool stereo = false;                       // S5.26: a stereo voice this sample (outL / outR)
+    float outL = 0.0f, outR = 0.0f;
+
+    // S5.26: the level at which `in` reads only `src` — 1 when normalled from it and unpatched, the cable's level
+    // when its one cable comes from it; 0 otherwise.
+    static float singleSource(In in, Out src, const Patch& patch) noexcept {
+        const int n = patch.pinCount(in);
+        if (n == 0) return patch.normalLevel(in, src) > 0.0f && patch.normals(in).n == 1 ? 1.0f : 0.0f;
+        if (n == 1 && static_cast<Out>(patch.pin(in, 0).source) == src) return patch.pin(in, 0).level;
+        return 0.0f;
+    }
 };
 
 // Spec S5.25: the Voices spread term of a voice slot — alternating left / right, wider first; 0 with one voice.
@@ -330,17 +388,6 @@ inline float voiceSlotPan(int slot, int voiceCount) noexcept {
     if (voiceCount <= 1) return 0.0f;
     static constexpr float pattern[8] = {-1.0f, 1.0f, -0.5f, 0.5f, -0.75f, 0.75f, -0.25f, 0.25f};
     return pattern[slot % 8];
-}
-// Spec S5.25: equal-power pan, scaled so the centre is exactly 1 on both sides (today's level); a voice fully
-// to one side is sqrt(2) there and 0 on the other side (the same power).
-inline void panGains(float position, float& left, float& right) noexcept {
-    if (position == 0.0f) { left = right = 1.0f; return; }
-    if (position <= -1.0f) { left = std::numbers::sqrt2_v<float>; right = 0.0f; return; }   // exactly one side
-    if (position >= 1.0f)  { left = 0.0f; right = std::numbers::sqrt2_v<float>; return; }
-    const double p = static_cast<double>(position);
-    const double theta = (p + 1.0) * std::numbers::pi / 4.0;
-    left = static_cast<float>(std::cos(theta) * std::numbers::sqrt2);
-    right = static_cast<float>(std::sin(theta) * std::numbers::sqrt2);
 }
 
 // Polyphonic engine (Spec S4). Voice count 1..maxVoices, changeable at runtime.
@@ -448,13 +495,14 @@ public:
             else if (panNow > mod.pan)    panNow = std::fmax(panNow - panStep, mod.pan);
             if (spreadNow < mod.spread)      spreadNow = std::fmin(spreadNow + panStep, mod.spread);
             else if (spreadNow > mod.spread) spreadNow = std::fmax(spreadNow - panStep, mod.spread);
-            const bool panning = right != nullptr && (panNow != 0.0f || spreadNow != 0.0f || panPatched);
+            const bool panning = right != nullptr && (panNow != 0.0f || spreadNow != 0.0f || panPatched || mod.mix2Panned());
             float sum = 0.0f, sumL = 0.0f, sumR = 0.0f;
             for (std::size_t k = 0; k < voices.size(); ++k) {   // includes voices ringing out after a count reduction
                 auto& v = voices[k];
                 if (!(v.isActive() || (drone && v.hasPlayed()))) continue;
                 const float x = v.process(g, patch, mod, cutoffLog2, cutoff2Log2, vcoUsed);
                 if (!panning) { sum += x; continue; }
+                const float xl = v.isStereo() ? v.left() : x, xr = v.isStereo() ? v.right() : x;   // S5.26
                 float term = 0.0f;
                 if (spreadNow != 0.0f)
                     term = mod.spreadMode == SpreadMode::Voices
@@ -463,8 +511,8 @@ public:
                 const float pos = std::clamp(panNow + spreadNow * term + v.panIn(), -1.0f, 1.0f);
                 float gl = 1.0f, gr = 1.0f;
                 panGains(pos, gl, gr);
-                sumL += x * gl;
-                sumR += x * gr;
+                sumL += xl * gl;
+                sumR += xr * gr;
             }
             const float globals = globalOnOut ? globalOut(g) : 0.0f;   // a global source is output once (S5.5), centred
 

@@ -158,7 +158,16 @@ Adds the three VCOs and the noise together, each at its own level, before the fi
 
 Where: the MIXER panel.
 
-See also: [VCO](#vco), [Noise](#noise), [VCF](#vcf)
+See also: [VCO](#vco), [Noise](#noise), [VCF](#vcf), [MIX 2](#mix-2)
+
+### MIX 2
+A second mixer after the filters (and FORMANT), with a level and a pan for each of its three inputs. In 1
+gets FORMANT; In 2 and In 3 take cables, e.g. VCF 1 left and VCF 2 right, so the VCOs of one voice can sit
+apart. While an input is off the centre the voice is stereo from here through the VCA to OUT.
+
+Where: the MIX 2 panel; Presets › Choral flute uses it.
+
+See also: [Mixer](#mixer), [Pan](#pan), [Stereo](#stereo)
 
 ## Filters
 

@@ -133,6 +133,21 @@ inline const std::vector<Instrument>& builtIn() {
                                                   {"env1.attack", "0.002"}, {"env1.decay", "2.5"}, {"env1.sustain", "0"}, {"env1.release", "0.4"}},
                                                  reverb("Small room")),
                      "vco1.pm=vco2.out"});
+        // Spec S5.26 (user 2026-11-26: "add choral flute"; the user's way: 6 voices, two hands, three VCOs with
+        // different PM): the Flute modules, VCO 1 through VCF 1 to the left, VCO 2 through VCF 2 to the right and VCO 3
+        // unfiltered in the centre (MIX 2), each VCO with its own PM from LFO 1; the voices spread too. By ear.
+        {
+            auto i = fromModules("Choral flute", join({{"voice.count", "6"}, soloSpread, byVoices, vibrato, delayed,
+                                                       {"vco1.pm", "0.3"}, {"vco2.wave", "Triangle"}, {"vco2.tune", "0.07"},
+                                                       {"vco2.fm", "0.1"}, {"vco2.pm", "0.6"}, {"vco3.wave", "Sine"},
+                                                       {"vco3.tune", "-0.05"}, {"vco3.fm", "0.1"}, {"vcf2.cutoff", "2500"},
+                                                       {"mix2.level1", "1"}, {"mix2.pan1", "-0.7"}, {"mix2.level2", "0.9"},
+                                                       {"mix2.pan2", "0.7"}, {"mix2.level3", "0.6"}, {"mix2.pan3", "0"}},
+                                                      join(ensemble("Subtle chorus"), reverb("Concert hall"))));
+            i.cables = "vco1.pm=lfo1.out;vco2.pm=lfo1.out;vcf1.in=vco1.out;vcf2.in=vco2.out;"
+                       "mix2.in1=vcf1.out;mix2.in2=vcf2.out;mix2.in3=vco3.out";
+            v.push_back(std::move(i));
+        }
         return v;
     }();
     return list;
