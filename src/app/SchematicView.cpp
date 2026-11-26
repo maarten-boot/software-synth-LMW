@@ -32,9 +32,25 @@ void SchematicView::poll() {
     }
 }
 
-// Fits the tab; Compact (user 2026-11-24) draws it at 75 % of that, centred, as the panels shrink 80 -> 60 px.
+// Spec S6.22: the scale gives names and port labels (1.7 units) the Synth tab's text size, times the zoom step.
+// (Before: it filled the tab, about 19 px at 1920 x 1080; Compact 75 % of that.)
 float SchematicView::scale() const noexcept {
-    return zoom * std::min(static_cast<float>(getWidth()) / sc::canvasWidth, static_cast<float>(getHeight()) / sc::canvasHeight);
+    return textPx / 1.7f * zoomFactor();
+}
+
+juce::Point<int> SchematicView::drawingSize() const noexcept {
+    const float s = scale();
+    return {juce::roundToInt(sc::canvasWidth * s) + 24, juce::roundToInt(sc::canvasHeight * s) + 24};
+}
+
+// Spec S6.22: Ctrl (Cmd) + wheel zooms in steps; the wheel alone goes to the view around it (it scrolls).
+void SchematicView::mouseWheelMove(const juce::MouseEvent& e, const juce::MouseWheelDetails& w) {
+    if (e.mods.isCommandDown() || e.mods.isCtrlDown()) {
+        if (w.deltaY > 0.0f) setZoom(zoomStep + 1);
+        else if (w.deltaY < 0.0f) setZoom(zoomStep - 1);
+        return;
+    }
+    juce::Component::mouseWheelMove(e, w);
 }
 
 juce::Point<float> SchematicView::toScreen(sc::Point p) const noexcept {
@@ -463,7 +479,7 @@ juce::String SchematicView::getTooltip() {
                 t += "\n" + juce::String::fromUTF8(bn.c_str());
             return t + "\nDrag the symbol to move it (keyboard: Shift+arrows on one of its ports).";
     }
-    return {};
+    return "Zoom " + juce::String(juce::roundToInt(zoomFactor() * 100.0f)) + juce::String::fromUTF8(" % \xe2\x80\x94 Ctrl + wheel or Ctrl + / \xe2\x88\x92 to zoom, Ctrl 0 back to 100 %");   // S6.22
 }
 
 // ---- Phase 12b: editing, same rules as the Synth tab (ui/CableEdit.h) ----
@@ -558,6 +574,12 @@ bool SchematicView::keyPressed(const juce::KeyPress& key) {
     const int code = key.getKeyCode();
     if (code == juce::KeyPress::escapeKey && (grab || moving)) { cancelDrag(); return true; }
     const auto mods = key.getModifiers();
+    if ((mods.isCommandDown() || mods.isCtrlDown()) && !mods.isAltDown()) {   // Spec S6.22: zoom keys
+        const auto c = key.getTextCharacter();
+        if (c == '+' || c == '=' || code == juce::KeyPress::numberPadAdd) { setZoom(zoomStep + 1); return true; }
+        if (c == '-' || code == juce::KeyPress::numberPadSubtract) { setZoom(zoomStep - 1); return true; }
+        if (c == '0' || code == juce::KeyPress::numberPad0) { setZoom(1); return true; }
+    }
     if (mods.isCommandDown() || mods.isCtrlDown() || mods.isAltDown()) return false;
     const auto order = sc::portOrder();
     if (order.empty()) return false;

@@ -201,6 +201,7 @@ S6.22 Schematic at the Synth tab's text size (Plan L29 → Phase 39, user 2026-1
 - A drawing smaller than the tab is centred (as now); larger (a small window) it pans as the rack does (S6.21) instead of shrinking the text.
 - Zoom: Ctrl + wheel and Ctrl + / Ctrl − change the scale in steps (75 %, 100 %, 125 %, 150 % of the text size; Ctrl 0 back to 100 %), shown in the hover text; not saved.
 - The room this frees (about a fifth of the width, a quarter of the height) is for later: more blocks (MIX 2 has one already), a side panel with the selected block's controls.
+- As built (Phase 39): SchematicView::scale = text size / 1.7 × zoom (15 px, compact 13 px; zoom steps 75 / 100 / 125 / 150 %), drawingSize = the canvas at that scale + 24 px; the editor shows it in schematicView (a Viewport that passes keys on), the surface the drawing or the view, whichever is larger (layoutSchematic; centred inside). Ctrl (Cmd) + wheel and Ctrl + / − / 0 when the Schematic has the focus; the wheel alone scrolls the view; the empty space's hover text says the zoom and the keys. /view's Schematic panel lines in editor pixels. At 1920 × 1080: the drawing about 1490 × 650 px (VCO 1 107 × 125 px at 100 %, 160 × 186 at 150 %).
 - Tests: the scale gives 15 px labels at 100 % in normal view, 13 px compact; centred at 1920 × 1080; zoom steps; panning when the window is small.
 
 ## S7 Persistence

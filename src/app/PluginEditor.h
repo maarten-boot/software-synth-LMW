@@ -214,6 +214,8 @@ private:
     // Home / End / arrows for up and down only).
     struct RackViewport final : juce::Viewport { bool keyPressed(const juce::KeyPress&) override { return false; } };
     RackViewport rackView;
+    RackViewport schematicView;                          // S6.22: the Schematic, centred or scrolling
+    void layoutSchematic();
     std::array<juce::Point<int>, 2> tabScroll{};          // S6.21: the view position of the Synth / Effects tab
     void paintRack(juce::Graphics&);
     void scrollIntoView(const juce::Component&);           // S6.21: a focused control out of view comes into view

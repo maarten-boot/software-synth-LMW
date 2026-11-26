@@ -62,13 +62,24 @@ private:
     using PortRef = lmw::ui::cables::PortRef;
     float scale() const noexcept;
 public:
-    void setCompact(bool compact) { zoom = compact ? 0.75f : 1.0f; repaint(); }   // Spec S6.7, S6.4
+    // Spec S6.22 (Phase 39): drawn at the Synth tab's text size — names and port labels 15 px (compact 13 px) at
+    // zoom 100 % — instead of filling the tab; zoom steps 75 / 100 / 125 / 150 % (Ctrl + wheel, Ctrl + / − / 0).
+    // The editor shows it in a view: centred when smaller, scrolling when larger (drawingSize()).
+    void setCompact(bool compact) { textPx = compact ? 13.0f : 15.0f; if (onSizeChange) onSizeChange(); repaint(); }
+    static constexpr std::array<float, 4> zoomSteps{0.75f, 1.0f, 1.25f, 1.5f};
+    void setZoom(int step) { zoomStep = std::clamp(step, 0, static_cast<int>(zoomSteps.size()) - 1); if (onSizeChange) onSizeChange(); repaint(); }
+    int zoomIndex() const noexcept { return zoomStep; }
+    float zoomFactor() const noexcept { return zoomSteps[static_cast<std::size_t>(zoomStep)]; }
+    juce::Point<int> drawingSize() const noexcept;        // the drawing with a margin, at the current scale
+    std::function<void()> onSizeChange;                    // the editor lays out the view again
+    void mouseWheelMove(const juce::MouseEvent&, const juce::MouseWheelDetails&) override;
     void setRings(bool on) { rings = on; repaint(); }                             // Spec S6.20
     bool rings = true;
     // Spec S7.12: every block's name and its area in this component's pixels (for 9P /view).
     std::vector<std::pair<std::string, juce::Rectangle<int>>> blockAreas() const;
 private:
-    float zoom = 1.0f;
+    float textPx = 15.0f;                              // S6.22: label size at 100 %
+    int zoomStep = 1;                                  // index into zoomSteps (100 %)
     juce::Point<float> toScreen(lmw::ui::schematic::Point p) const noexcept;
     lmw::ui::schematic::Point toCanvas(juce::Point<float> p) const noexcept;
     juce::Rectangle<float> toScreen(const lmw::ui::schematic::Rect& r) const noexcept;

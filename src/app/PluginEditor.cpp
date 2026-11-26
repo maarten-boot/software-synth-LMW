@@ -619,7 +619,14 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
         const LMWSynthProcessor::ScopedStep step(processor, "Schematic layout");   // Spec S6.14
         processor.setSchematicLayout(text);
     };
-    addChildComponent(*schematic);
+    schematicView.setViewedComponent(schematic.get(), false);   // Spec S6.22
+    schematicView.setScrollBarThickness(10);
+    for (auto* bar : {&schematicView.getVerticalScrollBar(), &schematicView.getHorizontalScrollBar()}) {
+        bar->setColour(juce::ScrollBar::thumbColourId, kFg);
+        bar->setColour(juce::ScrollBar::trackColourId, kBg);
+    }
+    schematic->onSizeChange = [this] { layoutSchematic(); };
+    addChildComponent(schematicView);
     for (auto* c : effectComponents) c->setVisible(false);  // Effects tab not shown at start
 
     resetLayoutButton.setTooltip("Put all module panels back in their original places "
@@ -1339,7 +1346,8 @@ void LMWSynthEditor::resized() {
     area.removeFromBottom(m.gap);
     notesEditor.setBounds(area);                             // Notes tab: the area of the panels
     if (matrix) { matrix->setBounds(area); matrix->setFontSize(m.labelFont - 2.0f); }   // Matrix tab
-    if (schematic) schematic->setBounds(area);              // Schematic tab
+    schematicView.setBounds(area);                          // Schematic tab (S6.22: in its view)
+    layoutSchematic();
     if (assistant) { assistant->setBounds(area); assistant->setFontSize(m.labelFont + 3.0f); }   // Assistant tab
     // Spec S6.21: the rack in rackView at `area`; the rack surface is as large as the rows need (at least the view),
     // laid out in its own coordinates from (0, 0). A scroll bar appears where it is larger than the view.
@@ -2525,7 +2533,7 @@ void LMWSynthEditor::showTab(int tab) {
                                             &saveButton, &menuButton, &undoButton, &redoButton, &resetLayoutButton, &compactButton, &keyboard, &keyboardButton, &assistantTab};
     for (auto* child : getChildren()) {
         if (child == &notesEditor || child == matrix.get() || child == schematic.get() || child == assistant.get()
-            || child == &rackView || std::find(std::begin(alwaysShown), std::end(alwaysShown), child) != std::end(alwaysShown))
+            || child == &rackView || child == &schematicView || std::find(std::begin(alwaysShown), std::end(alwaysShown), child) != std::end(alwaysShown))
             continue;
         child->setVisible(false);
     }
@@ -2537,7 +2545,7 @@ void LMWSynthEditor::showTab(int tab) {
     }
     if (cables) cables->setVisible(tab == 0 || tab == 1);   // Spec S7.6: cables on the Effects tab too
     matrix->setVisible(tab == 2);
-    schematic->setVisible(tab == 4);
+    schematicView.setVisible(tab == 4);
     notesEditor.setVisible(tab == 3);
     if (assistant) assistant->setVisible(tab == 5);
     resetLayoutButton.setEnabled(true);
@@ -2548,6 +2556,19 @@ void LMWSynthEditor::showTab(int tab) {
     if (tab == 0 || tab == 1) rackView.setViewPosition(tabScroll[static_cast<std::size_t>(tab)]);   // S6.21
     rackArea->repaint();
     repaint();
+}
+
+// Spec S6.22: the Schematic surface is its drawing (with a margin) or the view, whichever is larger: centred
+// when it fits, scroll bars when it does not.
+void LMWSynthEditor::layoutSchematic() {
+    if (!schematic) return;
+    const auto need = schematic->drawingSize();
+    const auto area = schematicView.getBounds();
+    const int bar = schematicView.getScrollBarThickness();
+    const bool horz = need.x > area.getWidth();
+    const bool vert = need.y > area.getHeight() - (horz ? bar : 0);
+    const bool horz2 = need.x > area.getWidth() - (vert ? bar : 0);
+    schematic->setSize(std::max(need.x, area.getWidth() - (vert ? bar : 0)), std::max(need.y, area.getHeight() - (horz2 ? bar : 0)));
 }
 
 // ---- Spec S6.21 (Phase 38): panning the rack ----
@@ -3203,8 +3224,8 @@ std::string LMWSynthEditor::viewText() const {
         for (const auto& g : currentTab == 0 ? groups : effectGroups)
             s += "panel " + rect(getLocalArea(rackArea.get(), g.bounds)) + " " + g.title.toStdString() + "\n";   // editor pixels (S6.21)
     if (currentTab == 4 && schematic != nullptr) {
-        s += "area " + rect(schematic->getBounds()) + " schematic\n";
-        for (const auto& [name, r] : schematic->blockAreas()) s += "panel " + rect(r + schematic->getPosition()) + " " + name + "\n";
+        s += "area " + rect(schematicView.getBounds()) + " schematic\n";
+        for (const auto& [name, r] : schematic->blockAreas()) s += "panel " + rect(getLocalArea(schematic.get(), r)) + " " + name + "\n";
     }
     if (currentTab == 2 && matrix != nullptr) s += "area " + rect(matrix->getBounds()) + " matrix\n";
     if (keyboardShown) s += "area " + rect(keyboard.getBounds()) + " keyboard\n";

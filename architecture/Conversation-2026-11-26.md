@@ -31,3 +31,5 @@
 - CI run 45810993062 (443665f): macOS and Windows red in the host test's window check (size 1600 × 900 refused: since MIX 2 the smallest editor was 1834 wide; Linux CI has no display so it ran only there). Mended by Phase 38's smaller minimum.
 - 38 done: RackArea in a Viewport, all rack components its children, rack coordinates, scroll bars / wheel / drag / Home / End / focus / autoScroll, window down to 1280 × 720, 6 rows, header short texts below 1520 px, /view scroll. Found: JUCE's Viewport took Home / End (vertical only) → a viewport that passes keys on. 40 of 40; host test with a display passes.
 - User: commit and start 39.
+- 39 done: Schematic at 15 / 13 px text with zoom steps (Ctrl + wheel, Ctrl + / − / 0), in its own view (centred or scrolling), /view lines in editor pixels, Terms. Xvfb checked; host test with a display passes. 40 of 40.
+- User: commit and do the crosscheck; looks great; on the Schematic let the blocks use the whole page (now limited to the old page size) → 39b.
