@@ -680,6 +680,7 @@ int main(int argc, char* argv[]) {
                 CHECK(view.rfind("tab Synth\nsize ", 0) == 0);
                 CHECK(view.find("\npanel ") != std::string::npos && view.find(" VCF 1\n") != std::string::npos);
                 CHECK(view.find("keyboard off") != std::string::npos || view.find(" keyboard\n") != std::string::npos);   // "area x y w h keyboard"
+                CHECK(view.find("\nscales ") != std::string::npos && view.find("\nrings ") != std::string::npos);   // S6.20 (not changed here: config)
                 // (keyboard and compact are not changed here: they are also written to the user's config file)
                 CHECK(write9P(sockA, {"view"}, "tab schematic\nsize 1600 900\npointer away\nfocus none\n").empty());
                 const auto view2 = read9P(sockA, {"view"});

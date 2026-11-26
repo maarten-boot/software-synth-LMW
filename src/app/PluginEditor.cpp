@@ -111,7 +111,7 @@ void LMWLookAndFeel::drawLinearSlider(juce::Graphics& g, int x, int y, int width
     }
     // Spec S6.17: scale ticks left of the track (majors longer), value texts at the majors right of it (normal
     // view); their spacing shows the curve. Black on white, under the thumb.
-    if (const auto* scaled = dynamic_cast<const ScaleSlider*>(&s)) {
+    if (const auto* scaled = dynamic_cast<const ScaleSlider*>(&s); scaled != nullptr && scaled->showTicks) {   // S6.20
         g.setFont(juce::FontOptions(9.0f));
         const float textX = cx + 17.0f, textW = static_cast<float>(x + width) - textX + 2.0f;
         for (const auto& t : scaled->ticks) {
@@ -301,12 +301,13 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     const std::size_t outPanel = groups.size();
     groups.push_back({"OUT", 2, {addFader(P::gain, "Volume", inputTip(In::OutIn, "All voices summed, then soft limiter (per side)")),
         // Spec S5.25: each voice placed left-right before the sum.
-        addFader(P::outPan, "Pan", inputTip(In::OutPan,
-            "Where the sound sits: -100 % left, 0 centre, +100 % right (equal power).\n"
-            "Pan input: added per voice, e.g. LFO 2 for auto-pan, noise.rand for a random place per note")),
-        withBox(addFader(P::outSpread, "Spread", [] {
+        addFader(P::outPan, "Pan", [this] {
+            return describeInput(In::OutPan) + "\nWhere the sound sits: -100 % left, 0 centre, +100 % right (equal power).\n"
+                   "Pan input: added per voice, e.g. LFO 2 for auto-pan, noise.rand for a random place per note" + monoNote();
+        }),
+        withBox(addFader(P::outSpread, "Spread", [this] {
                     return juce::String("How far the notes spread around Pan: by pitch (Keys: low left, high right, as on a piano)\n"
-                                        "or by voice (Voices: alternating; one voice stays in the centre). The box below chooses.");
+                                        "or by voice (Voices: alternating; one voice stays in the centre). The box below chooses.") + monoNote();
                 }),
                 addChoice(P::spreadMode, "Spread mode", {"Keys", "Voices"},
                           "Spread by Keys (pitch: C4 in the centre, +-3 octaves to the sides) or by Voices (alternating left / right)"))}, {}});
@@ -581,6 +582,7 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
         [this](int in, int out, float level) { return connect(in, out, level); },   // Phase 12b: editing
         [this](bool output, int port, juce::Rectangle<int> area) { showPortMenu(output, port, area); });
     schematic->setPalette(palette);
+    schematic->setRings(settings.socketRings);           // Spec S6.20
     schematic->setLayout(processor.schematicLayout());     // Phase 12c: moved symbols, saved with the state
     schematic->onLayoutChange = [this](const juce::String& text) {
         const LMWSynthProcessor::ScopedStep step(processor, "Schematic layout");   // Spec S6.14
@@ -775,6 +777,26 @@ bool LMWSynthEditor::keyStateChanged(bool isKeyDown) {
     return !isTypingText() && keyboard.keyStateChanged(isKeyDown);
 }
 
+// Spec S5.25 (2026-11-26): with a mono output (one active output channel in the audio settings, or a mono track
+// in a DAW) the host gives one channel and there is nothing to pan: Pan and Spread say so in their hover text.
+// Spec S6.20: show or hide the fader scale marks and the socket rings (the layout stays; hover texts keep them).
+void LMWSynthEditor::applyAids() {
+    for (auto& f : faders) {
+        f.slider.showTicks = settings.showScales;
+        f.tag.setText(settings.showScales ? f.tagText : juce::String(), juce::dontSendNotification);
+        f.slider.repaint();
+    }
+    if (schematic) schematic->setRings(settings.socketRings);
+    for (auto& j : jacks) j->repaint();
+    repaint();
+}
+
+juce::String LMWSynthEditor::monoNote() const {
+    return processor.getMainBusNumOutputChannels() < 2
+        ? juce::String("\nThe output is mono now (one output channel in the audio settings or the host): Pan and Spread do nothing.")
+        : juce::String();
+}
+
 // Spec S5.24: the LFO 1 / LFO 2 Delay faders, for the hover notes (Schematic.h lfoDelayNote).
 lmw::ui::schematic::LfoDelays LMWSynthEditor::lfoDelays() const {
     auto& s = processor.state();
@@ -828,8 +850,9 @@ LMWSynthEditor::Item LMWSynthEditor::addFader(const char* paramId, const juce::S
         const auto* p = processor.state().getParameter(paramId);
         scale = juce::String(fs::describe(s->kind, p->getText(0.5f, 32).toStdString()));
         k.slider.ticks = fs::ticks(s->kind, s->unit, s->lo, s->hi, centre);
-        k.tag.setText(juce::String::fromUTF8(fs::tag(s->kind).data(), static_cast<int>(fs::tag(s->kind).size())),
-                      juce::dontSendNotification);
+        k.tagText = juce::String::fromUTF8(fs::tag(s->kind).data(), static_cast<int>(fs::tag(s->kind).size()));
+        k.tag.setText(settings.showScales ? k.tagText : juce::String(), juce::dontSendNotification);   // S6.20
+        k.slider.showTicks = settings.showScales;
     }
     k.slider.tip = [inner = std::move(tip), scale] {
         const auto t = inner ? inner() : juce::String();
@@ -1362,7 +1385,7 @@ void LMWSynthEditor::Jack::paint(juce::Graphics& g) {
         g.drawEllipse(c.reduced(1.0f), 2.0f);
         if (patch.isPatched(static_cast<lmw::dsp::In>(port))) g.fillEllipse(c.reduced(4.0f));
     }
-    {   // Spec S6.19: the type ring (audio solid, CV double, gate dashed)
+    if (editor.settings.socketRings) {   // Spec S6.19: the type ring (audio solid, CV double, gate dashed); S6.20: on / off
         const auto t = output ? lmw::dsp::typeOf(static_cast<lmw::dsp::Out>(port)) : lmw::dsp::typeOf(static_cast<lmw::dsp::In>(port));
         const auto col = editor.palette.socket[static_cast<std::size_t>(t)];
         lmw::ui::drawTypeRing(g, c.getCentre(), c.getWidth() * 0.5f + 2.0f, 2.0f, t, toJuce(col));
@@ -2090,6 +2113,8 @@ void LMWSynthEditor::addMenuItems(juce::PopupMenu& m) const {
     keys.isTicked = keyboardShown;
     keys.shortcutKeyDescription = juce::KeyPress('k', juce::ModifierKeys::commandModifier, 0).getTextDescriptionWithIcons();
     m.addItem(keys);
+    m.addItem(menuFirstId + 22, "Show fader scales", true, settings.showScales);   // Spec S6.20: beginner aids
+    m.addItem(menuFirstId + 23, "Show socket rings", true, settings.socketRings);
     if (assistant) m.addItem(menuFirstId + 41, "Assistant settings...");   // Spec S12.6 (standalone)
 }
 
@@ -2104,6 +2129,8 @@ void LMWSynthEditor::handleMenuItem(int id) {
             break;
         case 14: askCustomRatio(); break;
         case 21: setKeyboardShown(!keyboardShown); break;
+        case 22: settings.showScales = !settings.showScales; saveConfig(); applyAids(); break;   // Spec S6.20
+        case 23: settings.socketRings = !settings.socketRings; saveConfig(); applyAids(); break;
         case 51: undoStep(); break;
         case 52: redoStep(); break;
         case 41: showAssistantSettings(); break;
@@ -3042,6 +3069,8 @@ std::string LMWSynthEditor::viewText() const {
     s += "size " + std::to_string(getWidth()) + " " + std::to_string(getHeight()) + "\n";
     s += std::string("compact ") + (compactButton.getToggleState() ? "on" : "off") + "\n";
     s += std::string("keyboard ") + (keyboardShown ? "on" : "off") + "\n";
+    s += std::string("scales ") + (settings.showScales ? "on" : "off") + "\n";     // Spec S6.20
+    s += std::string("rings ") + (settings.socketRings ? "on" : "off") + "\n";
     if (currentTab == 0 || currentTab == 1)
         for (const auto& g : currentTab == 0 ? groups : effectGroups)
             s += "panel " + rect(g.bounds) + " " + g.title.toStdString() + "\n";
@@ -3083,13 +3112,18 @@ std::string LMWSynthEditor::applyView(const std::string& text) {
                 compactButton.setToggleState(on, juce::dontSendNotification);
                 if (compactButton.onClick) compactButton.onClick();
             }
+        } else if (key == "scales" || key == "rings") {             // Spec S6.20 (also saved to config.ini)
+            if (value != "on" && value != "off") return "bad " + key + ": " + value + " (on or off)";
+            (key == "scales" ? settings.showScales : settings.socketRings) = value == "on";
+            saveConfig();
+            applyAids();
         } else if (key == "pointer" && value == "away") {
             // Pictures: no hover band, hover box or tooltip — the pointer just above the editor (a title bar).
             juce::Desktop::getInstance().setMousePosition(getScreenPosition() - juce::Point<int>(0, 8));
         } else if (key == "focus" && value == "none") {
             unfocusAllComponents();                       // no keyboard cursor (Matrix, Schematic) in a picture
         } else {
-            return "bad view line: " + line + " (tab, size, compact, keyboard, pointer away, focus none)";
+            return "bad view line: " + line + " (tab, size, compact, keyboard, scales, rings, pointer away, focus none)";
         }
     }
     return {};

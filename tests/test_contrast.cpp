@@ -178,6 +178,16 @@ int main() {
         // Spec S6.12: keyboard shown / hidden (unset by default; shown|hidden and yes/no forms).
         CHECK(!parseConfig("").keyboard && parseConfig("keyboard = hidden").keyboard == false
               && parseConfig("keyboard=Shown").keyboard == true && !parseConfig("keyboard = maybe").keyboard);
+        // Spec S6.20: show_scales / socket_rings, default yes; yes/no/on/off forms; anything else keeps the default.
+        CHECK(parseConfig("").showScales && parseConfig("").socketRings);
+        CHECK(!parseConfig("show_scales = no").showScales && !parseConfig("socket_rings=off").socketRings
+              && parseConfig("show_scales = maybe").showScales && parseConfig("socket_rings = yes").socketRings);
+        {
+            Settings a; a.showScales = false; a.socketRings = false;
+            const auto t = writeConfig(a);
+            CHECK(t.find("show_scales = no") != std::string::npos && !parseConfig(t).showScales && !parseConfig(t).socketRings);
+            CHECK(parseConfig(writeConfig(Settings{})).showScales && parseConfig(writeConfig(Settings{})).socketRings);
+        }
         Settings k; k.keyboard = false;
         CHECK(parseConfig(writeConfig(k)).keyboard == false && writeConfig(k).find("keyboard = hidden") != std::string::npos);
         // Spec S10.4: 9P over TCP, off by default.

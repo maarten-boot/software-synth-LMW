@@ -22,6 +22,7 @@ struct ScaleSlider : juce::Slider {
     ScaleSlider() : juce::Slider(juce::Slider::LinearVertical, juce::Slider::TextBoxBelow) {}
     std::vector<lmw::ui::scale::Tick> ticks;
     bool tickLabels = true;              // value texts at the major ticks (normal view)
+    bool showTicks = true;               // Spec S6.20: Menu > Show fader scales
 };
 
 // Spec S6.2: black-on-white look; every colour pair is 21:1.
@@ -88,6 +89,7 @@ private:
         TipSlider slider;
         juce::Label label;
         juce::Label tag;                    // Spec S6.17: lin / ± / log / curve under the name
+        juce::String tagText;               // its text (shown while Show fader scales is on, S6.20)
         std::unique_ptr<SliderAttachment> attachment;
     };
     struct Choice {
@@ -331,6 +333,8 @@ private:
     juce::String describeInput(lmw::dsp::In) const;   // "<source> → <input> (normalled|cable)"
     juce::String describeInputOnly(lmw::dsp::In) const;   // without the LFO Delay note (S5.24)
     lmw::ui::schematic::LfoDelays lfoDelays() const;     // lfo1.delay, lfo2.delay (s)
+    juce::String monoNote() const;                        // S5.25: "output is mono" line, or empty
+    void applyAids();                                     // S6.20: settings.showScales / socketRings to the view
 
     LMWSynthProcessor& processor;
     LMWLookAndFeel lookAndFeel;

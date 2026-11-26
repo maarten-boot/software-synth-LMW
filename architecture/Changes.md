@@ -3,6 +3,7 @@
 Changes between releases.
 
 ## Unreleased
+- 2026-11-26: Menu (and Options) ▸ Show fader scales and Show socket rings: both on for beginners; switch them off for a quieter screen (the hover texts keep the scale and the socket type). Remembered for new windows. Pan and Spread now say so in their hover text when the output is mono (one output channel), where they cannot do anything.
 - 2026-11-25: Stereo: OUT has Pan and Spread (by Keys, as on a piano, or by Voices, alternating) and a Pan input (e.g. LFO 2 for auto-pan); each voice gets its own place before the effects, and ENSEMBLE keeps the sides. Piano, Harpsichord and Marimba spread by keys, String section, Pad and Choir by voices; solo instruments stay centred until you give them more voices. Older patches sound the same (centre). The window is now at least 1594 px wide.
 - 2026-11-25: Every socket has a ring that shows its kind of signal: solid blue for audio, double orange for control voltages (LFOs, envelopes, key pitch and velocity), dashed magenta for gates; the hover text names it (VCO FM and PM: "also takes audio"), the Schematic has a legend, and Theme ▸ Edit colours has the three colours. Over 9P /ports ends each line with the type.
 - 2026-11-25: The tutorial pictures show each lesson's own settings (Lessons 1, 3, 4, 5, 6, 7, 8 and 9), taken by scripts/pictures.sh. Over 9P: /preset chooses a preset as the Presets menus do, /view shows or sets the tab, size and view, /snapshot gives the window as a PNG; lmw9p cat copies binary files unchanged.

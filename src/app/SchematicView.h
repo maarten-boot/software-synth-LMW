@@ -63,6 +63,8 @@ private:
     float scale() const noexcept;
 public:
     void setCompact(bool compact) { zoom = compact ? 0.75f : 1.0f; repaint(); }   // Spec S6.7, S6.4
+    void setRings(bool on) { rings = on; repaint(); }                             // Spec S6.20
+    bool rings = true;
     // Spec S7.12: every block's name and its area in this component's pixels (for 9P /view).
     std::vector<std::pair<std::string, juce::Rectangle<int>>> blockAreas() const;
 private:

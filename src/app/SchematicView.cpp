@@ -328,7 +328,7 @@ void SchematicView::paint(juce::Graphics& g) {
         const auto c = toScreen(sc::outputPoint(static_cast<lmw::dsp::Out>(o), layout));
         g.fillEllipse(c.x - pr, c.y - pr, 2 * pr, 2 * pr);
     }
-    {   // Spec S6.19: type rings around the ports (audio solid, CV double, gate dashed)
+    if (rings) {   // Spec S6.19: type rings around the ports (audio solid, CV double, gate dashed); S6.20: on / off
         const float rr = pr + std::max(2.0f, 0.3f * s), rw = std::max(1.5f, 0.2f * s);
         for (int i = 0; i < lmw::dsp::numInputs; ++i) {
             const auto in = static_cast<lmw::dsp::In>(i);
@@ -411,7 +411,8 @@ void SchematicView::paint(juce::Graphics& g) {
     g.fillPath(dottedSample);
     g.drawText("internal (set by a fader)", juce::Rectangle<float>(l0.x + 64 * s, l0.y - s, 30 * s, 2 * s),
                juce::Justification::centredLeft, false);
-    // Spec S6.19: the socket type rings.
+    // Spec S6.19: the socket type rings (S6.20: not while they are switched off).
+    if (!rings) return;
     const std::pair<lmw::dsp::SignalType, const char*> kinds[] = {
         {lmw::dsp::SignalType::Audio, "audio"}, {lmw::dsp::SignalType::Cv, "CV (modulation)"}, {lmw::dsp::SignalType::Gate, "gate"}};
     float x = l0.x + 98 * s;

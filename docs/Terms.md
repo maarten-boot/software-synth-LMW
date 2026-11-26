@@ -338,6 +338,7 @@ A round connection point at the bottom of a panel. White sockets are inputs, bla
 plugged input has a black centre. The ring around it tells the type of signal: a solid ring (blue) for
 audio, a double ring (orange) for a control voltage, a dashed ring (magenta) for a gate. Any output can
 still go to any input; the ring says what the input is made for, and its hover text names the type.
+Menu › Show socket rings switches the rings off (the hover text keeps the type).
 
 Where: the bottom row of every panel; the ports on the Schematic (its legend shows the rings).
 
@@ -677,8 +678,9 @@ See also: [Socket](#socket), [Theme](#theme)
 
 ### Scale
 How a fader's travel maps to its value, shown by its tag and ticks: lin (even steps), ± (around 0),
-log (frequencies and rates), curve (more travel at small values, e.g. times).
+log (frequencies and rates), curve (more travel at small values, e.g. times). Menu › Show fader scales
+switches the ticks and tags off (the hover text keeps the line).
 
-Where: under each fader's name; the hover text.
+Where: under each fader's name; the hover text; Menu › Show fader scales.
 
 See also: [Fader](#fader)

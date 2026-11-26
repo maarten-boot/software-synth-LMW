@@ -6,6 +6,8 @@
 //   compact        = true | false       (default view for a new window; a saved state overrides it)
 //   ninep_tcp      = [host:]port        (also serve 9P over TCP; empty = off; host default 127.0.0.1)
 //   keyboard       = shown | hidden     (on-screen keyboard for a new window, Spec S6.12; a saved state overrides it)
+//   show_scales    = yes | no           (Spec S6.20: fader tick lines, numbers and lin / log / ± / curve tags; default yes)
+//   socket_rings   = yes | no           (Spec S6.20: the socket type rings; default yes)
 //   theme          = Default | Soft | Vivid | Monochrome | Custom   (Spec S6.13)
 //   color_<item>   = #RRGGBB            (Custom: vco, noise, vcf, vca, env, lfo, mixer, effects, background, band, cable, highlight,
 //                                     socket_audio, socket_cv, socket_gate)
@@ -34,6 +36,8 @@ struct Settings {
     double customRatio = 7.0;
     std::optional<bool> compact;
     std::optional<bool> keyboard;              // Spec S6.12: shown (true) / hidden
+    bool showScales = true;                    // Spec S6.20: fader scale marks (S6.17)
+    bool socketRings = true;                   // Spec S6.20: socket type rings (S6.19)
     std::string ninepTcp;                      // Spec S10.4: "" = no TCP
     theme::ThemePreset theme = theme::ThemePreset::Default;   // Spec S6.13
     std::array<std::optional<Rgb>, theme::themeItems.size()> custom{};   // Custom: the user's colours
@@ -178,6 +182,11 @@ inline Settings parseConfig(std::string_view text) {
             const auto v = detail::lower(value);
             if (v == "shown" || v == "show" || v == "true" || v == "yes" || v == "1") s.keyboard = true;
             else if (v == "hidden" || v == "hide" || v == "false" || v == "no" || v == "0") s.keyboard = false;
+        } else if (key == "show_scales" || key == "socket_rings") {   // Spec S6.20; anything else keeps the default
+            const auto v = detail::lower(value);
+            bool& b = key == "show_scales" ? s.showScales : s.socketRings;
+            if (v == "yes" || v == "true" || v == "on" || v == "1") b = true;
+            else if (v == "no" || v == "false" || v == "off" || v == "0") b = false;
         }
     }
     return s;
@@ -198,6 +207,9 @@ inline std::string writeConfig(const Settings& s) {
                         + (*s.compact ? "true" : "false") + "\n";
     if (s.keyboard) out += std::string("# keyboard: on-screen keyboard shown or hidden in a new window (a saved state overrides it)\nkeyboard = ")
                          + (*s.keyboard ? "shown" : "hidden") + "\n";
+    out += "# show_scales, socket_rings: the beginner aids (fader scale marks, socket type rings), yes or no\n";
+    out += std::string("show_scales = ") + (s.showScales ? "yes" : "no") + "\n";
+    out += std::string("socket_rings = ") + (s.socketRings ? "yes" : "no") + "\n";
     out += "# theme: Default, Soft, Vivid, Monochrome or Custom (Custom uses the color_ lines below; every colour\n"
            "# is still raised to the contrast above)\n";
     out += "theme = " + std::string(theme::themeNames[static_cast<std::size_t>(s.theme)]) + "\n";
