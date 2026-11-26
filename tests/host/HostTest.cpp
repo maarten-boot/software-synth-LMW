@@ -606,6 +606,45 @@ int main(int argc, char* argv[]) {
             }
             CHECK(write9P(sock, {"params", "out", "pan"}, "0").empty());
         }
+        // Spec S7.4 (2026-11-26): the reverb is about as loud at Size 95 % as at 50 % (it built up 6 dB more before),
+        // Damping 100 % takes the highs out of the tail, and MAIN never goes over its ceiling.
+        {
+            auto played = [&](const char* size, const char* damping, double& peak) {
+                CHECK(write9P(sock, {"params", "reverb", "size"}, size).empty());
+                CHECK(write9P(sock, {"params", "reverb", "damping"}, damping).empty());
+                CHECK(write9P(sock, {"keys"}, "on 48 127\non 55 127\non 60 127\non 64 127\n").empty());
+                juce::AudioBuffer<float> buffer(2, blockSize);
+                double sum = 0, diff = 0; float prev = 0; peak = 0;
+                for (int blk = 0; blk < 300; ++blk) {
+                    juce::MidiBuffer midi;
+                    buffer.clear();
+                    a->processBlock(buffer, midi);
+                    for (int i = 0; i < blockSize; ++i) {
+                        const float x = buffer.getSample(0, i);
+                        peak = std::max(peak, double(std::fabs(x)));
+                        if (blk >= 100) { sum += double(x) * x; diff += double(x - prev) * (x - prev); }   // diff: the highs
+                        prev = x;
+                    }
+                }
+                CHECK(write9P(sock, {"keys"}, "off 48\noff 55\noff 60\noff 64\n").empty());
+                for (int blk = 0; blk < 400; ++blk) { juce::MidiBuffer midi; buffer.clear(); a->processBlock(buffer, midi); }
+                return std::pair<double, double>{std::sqrt(sum / (200.0 * blockSize)), std::sqrt(diff / (200.0 * blockSize))};
+            };
+            CHECK(write9P(sock, {"params", "reverb", "mix"}, "1").empty());
+            CHECK(write9P(sock, {"params", "vca", "velocity"}, "0").empty());
+            double p50 = 0, p95 = 0, pd = 0;
+            const auto [r50, h50] = played("0.5", "0", p50);
+            const auto [r95, h95] = played("0.95", "0", p95);
+            const auto [rd, hd] = played("0.5", "1", pd);
+            std::printf("reverb rms: size 50 %% %.4f, 95 %% %.4f (%.1f dB); highs damping 0 %.4f, 100 %% %.4f; peaks %.3f %.3f %.3f\n",
+                        r50, r95, 20 * std::log10(r95 / r50), h50 / r50, hd / rd, p50, p95, pd);
+            CHECK(std::fabs(20 * std::log10(r95 / r50)) < 2.5);
+            CHECK(hd / rd < 0.5 * (h50 / r50));
+            CHECK(p50 <= 0.995 && p95 <= 0.995 && pd <= 0.995);
+            for (const auto& [file, value] : std::vector<std::pair<const char*, const char*>>{{"mix", "0"}, {"size", "0.5"}, {"damping", "0.5"}})
+                CHECK(write9P(sock, {"params", "reverb", file}, value).empty());
+            CHECK(write9P(sock, {"params", "vca", "velocity"}, "1").empty());
+        }
 
         // 4j. Undo / redo over 9P (Spec S6.14, T-S6.14-9p): every write is a step; undo puts back only what
         // that step changed, so a value moved in between by the host (automation) stays.

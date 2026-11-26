@@ -170,7 +170,7 @@ inline const std::vector<Preset>& builtIn(Kind k) {
         make("Ambience", Kind::Reverb, {"0.1", "0.4", "0.7", "0.5"}),
         make("Chamber", Kind::Reverb, {"0.2", "0.5", "0.5", "1"}),
         make("Concert hall", Kind::Reverb, {"0.25", "0.8", "0.4", "1"}),
-        make("Cathedral", Kind::Reverb, {"0.35", "0.95", "0.3", "1"}),
+        make("Cathedral", Kind::Reverb, {"0.35", "0.85", "0.5", "1"}),   // 2026-11-26: was 0.95 / 0.3 (overloaded, metallic)
         make("Plate", Kind::Reverb, {"0.25", "0.6", "0.1", "1"}),
     };
     // COMB (S7.6): frequency Hz, key tracking 0-1 (1: follows the note, Freq at C4), feedback -0.95..0.95

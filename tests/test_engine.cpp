@@ -169,6 +169,17 @@ int main() {
         CHECK(mono); CHECK(bounded);
         CHECK(SoftLimiter::process(1e9f) <= SoftLimiter::ceiling); CHECK(SoftLimiter::ceiling < 1.0f);
     }
+    {   // Spec S7.4 (2026-11-26): MAIN's limiter after the effects — transparent up to 0.9, bounded, monotonic, symmetric.
+        for (float x : {0.0f, 0.3f, -0.6f, 0.9f, -0.9f}) CHECK(MainLimiter::process(x) == x);
+        float prev = 0.0f; bool mono = true, bounded = true;
+        for (int i = 1; i <= 100000; ++i) {
+            const float x = static_cast<float>(i) * 0.001f, y = MainLimiter::process(x);
+            mono &= y >= prev; bounded &= y <= MainLimiter::ceiling; prev = y;
+            if (MainLimiter::process(-x) != -y) { CHECK(false); break; }
+            if (!mono || !bounded) break;
+        }
+        CHECK(mono && bounded && MainLimiter::process(4.0f) > 0.99f);
+    }
 
     // T-S3.3: sustain pedal keeps released notes sounding until the pedal goes up.
     {

@@ -264,10 +264,16 @@ LMWSynthProcessor::Stereo LMWSynthProcessor::reverbSample(Stereo in, bool stereo
     Stereo wet = in;
     if (stereo) reverb.processStereo(&wet.l, &wet.r, 1);
     else        { reverb.processMono(&wet.l, 1); wet.r = wet.l; }
+    // Spec S7.4 (2026-11-26): the same loudness at every Size, and Damping darkens the tail audibly.
+    const float k = reverbLpCoeff;
+    reverbLp.l = wet.l * reverbSizeGain * (1.0f - k) + reverbLp.l * k;
+    reverbLp.r = wet.r * reverbSizeGain * (1.0f - k) + reverbLp.r * k;
+    wet = reverbLp;
     const float m = reverbMix.getNextValue();
     const Stereo out{in.l * (1.0f - m) + wet.l * m, in.r * (1.0f - m) + wet.r * m};
     if (!reverbMix.isSmoothing() && reverbMix.getCurrentValue() <= 0.0f) {
         reverb.reset();                            // RT-safe: clears the delay lines
+        reverbLp = {};
         reverbRunning = false;
     }
     return out;
@@ -330,7 +336,19 @@ void LMWSynthProcessor::processEffects(float* left, float* right, int n) noexcep
     ensembleMix.setTargetValue(raw.ensembleMix->load());
     ensembleFx.setParameters(raw.ensembleDepth->load(), raw.ensembleRate->load(), raw.ensembleShimmer->load());
     delayFx.setParameters(raw.delayTime->load(), raw.delayFeedback->load(), raw.delayDamping->load(), raw.delaySpread->load());
-    if (reverbRunning || reverbMix.isSmoothing() || reverbMix.getTargetValue() > 0.0f) reverb.setParameters(reverbParameters());
+    if (reverbRunning || reverbMix.isSmoothing() || reverbMix.getTargetValue() > 0.0f) {
+        reverb.setParameters(reverbParameters());
+        // Spec S7.4 (2026-11-26). Size: Freeverb's combs feed back g = 0.7 + 0.28 x Size, so a held note builds up
+        // up to 1 / (1 - g^2) in energy (in practice about half that in dB, measured: +3 dB at 95 %): above Size 50 %
+        // the wet level is scaled down by the fourth root of that ratio (never up), so a
+        // cathedral is as loud as a hall instead of overloading. Damping: a one-pole lowpass on the wet signal,
+        // 20 kHz at 0 down to 1.2 kHz at 100 % (cutoff = 20 kHz x 0.06^(Damping^2)), on top of Freeverb's own.
+        const double g = 0.7 + 0.28 * static_cast<double>(raw.revSize->load()), gRef = 0.84;
+        reverbSizeGain = static_cast<float>(std::min(1.0, std::pow((1.0 - g * g) / (1.0 - gRef * gRef), 0.25)));   // measured: half the theory in dB
+        const double d = static_cast<double>(raw.revDamping->load());
+        const double fc = 20000.0 * std::pow(0.06, d * d);
+        reverbLpCoeff = static_cast<float>(std::exp(-2.0 * juce::MathConstants<double>::pi * std::min(fc, 0.45 * getSampleRate()) / getSampleRate()));
+    }
     {   // COMB frequency with key tracking (newest note), feedback, damping
         const double hz = static_cast<double>(raw.combFreq->load())
                         * std::exp2(static_cast<double>(raw.combKey->load() * engine.newestKeyOctaves()));
@@ -381,8 +399,8 @@ void LMWSynthProcessor::processEffects(float* left, float* right, int n) noexcep
         delayOut = delaySample(sum(dly));
         revOut = reverbSample(sum(rev), stereo);
         const Stereo out = sum(mainIn);
-        left[i] = out.l;
-        if (stereo) right[i] = out.r;
+        left[i] = lmw::dsp::MainLimiter::process(out.l);   // Spec S7.4 (2026-11-26): no clipping after the effects
+        if (stereo) right[i] = lmw::dsp::MainLimiter::process(out.r);
         prevComb = combOut;
         prevEnsemble = ensOut;
         prevDelay = delayOut;

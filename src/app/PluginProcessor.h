@@ -347,6 +347,9 @@ private:
     juce::Reverb reverb;
     juce::SmoothedValue<float> reverbMix;
     bool reverbRunning = false;
+    float reverbSizeGain = 1.0f;                   // S7.4: wet level compensated for Size
+    float reverbLpCoeff = 0.0f;                    // S7.4: Damping's lowpass on the wet signal (one pole)
+    Stereo reverbLp;                               // its state
     // Spec S7.6: COMB, one comb line per channel; Mix 0 = not run, the input passes exactly.
     lmw::dsp::Comb combL, combR;
     juce::SmoothedValue<float> combMix;

@@ -19,4 +19,18 @@ struct SoftLimiter {
     }
 };
 
+// Spec S7.4 (2026-11-26): the limiter after the effects (MAIN): transparent up to -0.9 dBFS, so the synth
+// (already limited in OUT) passes unchanged and only the effects' build-up (a long reverb, delay feedback) is
+// caught before it clips at the output.
+struct MainLimiter {
+    static constexpr float threshold = 0.9f;
+    static constexpr float ceiling   = 0.995f;
+    static float process(float x) noexcept {
+        const float a = std::fabs(x);
+        if (a <= threshold) return x;
+        const float range = ceiling - threshold;
+        return std::copysign(threshold + range * std::tanh((a - threshold) / range), x);
+    }
+};
+
 } // namespace lmw::dsp
