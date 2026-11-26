@@ -19,3 +19,6 @@
 - Committed 0d0ee20 (Phase 35). 36 done: MIX 2 (3 inputs, level + pan, stereo voice through the VCA and OUT), FORMANT in row 1, Schematic block, Choral flute, Terms MIX 2, Lesson 9, AI guide; tests (test_pan, counts); Xvfb on 1920 × 1080. 40 of 40.
 - Spec S7.13 world instruments proposed (to confirm): Presets ▸ World with 13 presets (Shakuhachi, Bansuri, Pan flute, Duduk, Erhu, Shamisen, Koto, Sitar, Oud, Kalimba, Gamelan, Steel pan, Didgeridoo), limits noted (resonators L12). Plan Phase 37.
 - User: commit 36; World submenu ok, start 37; idea for later: keyboards spread by octave, low left, high right (as the natural sound). Answered: that is OUT › Spread, mode Keys (Piano, Harpsichord, Marimba at 40 %); offered it for Organ and Electric piano too.
+- User: add the keys spread to Organ and the E-piano, finish 37; the Schematic text size becomes a Plan item (L29). Answered the measurement: Schematic about 11.2 px per unit at 1920 × 1080, labels about 19 px vs the Synth tab's 15 / 12 px: 22 % smaller at 15 px, 37 % at 12 px; compact already about 14 px.
+- 37 done: 13 World presets (Instrument::group, detail::like), Presets ▸ World submenu, Organ / E-piano Spread 40 % Keys, AI guide; tests; Xvfb (submenu, Gamelan). 40 of 40.
+- User: commit and do the crosscheck.

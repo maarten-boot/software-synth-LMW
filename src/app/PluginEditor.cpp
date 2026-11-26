@@ -2903,8 +2903,14 @@ void LMWSynthEditor::showInstrumentMenu() {
     menu.setLookAndFeel(&lookAndFeel);              // black on white (Spec S6.2)
     menu.addSectionHeader("Instrument presets");
     menu.addItem(1, "Default");
-    for (std::size_t i = 0; i < builtIn.size(); ++i)
-        menu.addItem(100 + static_cast<int>(i), juce::String::fromUTF8(builtIn[i].name.c_str()));
+    juce::PopupMenu world;                           // Spec S7.13: Presets > World
+    world.setLookAndFeel(&lookAndFeel);
+    for (std::size_t i = 0; i < builtIn.size(); ++i) {
+        const auto item = juce::String::fromUTF8(builtIn[i].name.c_str());
+        if (builtIn[i].group == "World") world.addItem(100 + static_cast<int>(i), item);
+        else menu.addItem(100 + static_cast<int>(i), item);
+    }
+    menu.addSubMenu("World", world);
     if (!own.isEmpty()) {
         menu.addSectionHeader("Your presets");
         for (int i = 0; i < own.size(); ++i) menu.addItem(1000 + i, own[i].getFileNameWithoutExtension());

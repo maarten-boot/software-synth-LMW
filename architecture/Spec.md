@@ -242,6 +242,7 @@ S7.13 World instruments (Plan L13 → Phase 37, user 2026-11-24: "native instrum
   - Steel pan (Trinidad): sine with PM from VCO 2 at 2× and a quick envelope on the PM, medium decay; 8 voices.
   - Didgeridoo (Australia): a drone — low pulse, FORMANT vowel moved by LFO 2 (the "wah" of the mouth), noise, held with the sustain; 1 voice; best played on one low key (D2).
 - Limits, noted: true inharmonic metal bells and drums need resonators (Plan L12); a sitar's moving jawari buzz and the didgeridoo's circular-breathing rhythm are approximated. The tutorial and Terms are not changed; the AI guide lists them.
+- As built (Phase 37): Instrument::group ("World"), detail::like(name, base, ...) takes the ENV / VCF / VCO module presets of a base instrument (Flute, Recorder, Oboe, Violin, Guitar (plucked), Marimba, or Default for the Didgeridoo); the 13 presets as listed (Kalimba, Gamelan, Steel pan: VCO 2 on VCO 1's PM; Didgeridoo: formant.vowel = lfo2.out @ 30 %); the Presets menu lists the main ones, then World ▸ (ids unchanged, so /preset and lmw-mcp find them by name). Also (user 2026-11-26): Organ and Electric piano (FM) Spread 40 % Keys, as Piano.
 - Tests: test_instruments (the World list: names unique, every value a valid parameter, voice counts, cables parse); host test 4h sets every value over 9P; Xvfb: the submenu.
 
 ## S8 Licence

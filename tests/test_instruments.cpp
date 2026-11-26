@@ -45,11 +45,19 @@ int main() {
         for (const auto& i : list) {
             std::string d;
             for (const auto& [id, value] : i.values) if (id == "lfo1.delay") d = value;
-            CHECK(delayed.count(i.name) ? d == "0.4" : d.empty());
+            if (i.group.empty()) CHECK(delayed.count(i.name) ? d == "0.4" : d.empty());   // (World: their own)
         }
     }
     std::printf("%zu built-in instrument presets\n", list.size());
-    CHECK(list.size() == 20);   // + Choral flute (S5.26)
+    CHECK(list.size() == 33);   // + Choral flute (S5.26), + 13 world instruments (S7.13)
+    {   // S7.13: the World group, 13 instruments
+        int world = 0;
+        for (const auto& i : list) world += i.group == "World" ? 1 : 0;
+        CHECK(world == 13);
+        for (const char* n : {"Shakuhachi", "Bansuri", "Pan flute", "Duduk", "Erhu", "Shamisen", "Koto", "Sitar", "Oud",
+                              "Kalimba", "Gamelan", "Steel pan", "Didgeridoo"})
+            CHECK(names.count(n) == 1);
+    }
     std::printf(failures ? "%d FAILED\n" : "T-S7.7-instruments: all passed\n", failures);
     return failures ? 1 : 0;
 }

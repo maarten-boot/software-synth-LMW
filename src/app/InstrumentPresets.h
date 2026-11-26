@@ -17,6 +17,7 @@ struct Instrument {
     std::string name;
     std::vector<std::pair<std::string, std::string>> values;   // parameter id -> value text (as in patch files)
     std::string cables;                                         // cable text (PatchText.h); empty = none
+    std::string group = {};                                     // "" = the main list, "World" = Presets > World (S7.13)
 };
 
 namespace detail {
@@ -34,6 +35,17 @@ inline Instrument fromModules(const std::string& name, std::vector<std::pair<std
     addModule(i, "env2", presets::Kind::Env, name);
     addModule(i, "vcf1", presets::Kind::Vcf, name);
     addModule(i, "vco1", presets::Kind::Vco, name);
+    for (auto& v : extra) i.values.push_back(std::move(v));
+    return i;
+}
+// Spec S7.13: an instrument from the module presets of another one (`base`: ENV 1 and ENV 2, VCF 1, VCO 1).
+inline Instrument like(const std::string& name, std::string_view base, std::vector<std::pair<std::string, std::string>> extra,
+                       std::string cables = {}, std::string group = "World") {
+    Instrument i{name, {}, std::move(cables), std::move(group)};
+    addModule(i, "env1", presets::Kind::Env, base);
+    addModule(i, "env2", presets::Kind::Env, base);
+    addModule(i, "vcf1", presets::Kind::Vcf, base);
+    addModule(i, "vco1", presets::Kind::Vco, base);
     for (auto& v : extra) i.values.push_back(std::move(v));
     return i;
 }
@@ -98,7 +110,7 @@ inline const std::vector<Instrument>& builtIn() {
                                                         {"vco3.wave", "Saw"}, {"vco3.tune", "-0.08"}, {"vco3.fm", "0.12"}, {"mix.vco3", "0.6"}},
                                                        join(ensemble("Solina"), reverb("Concert hall")))));   // S7.11
         // Keyboards and plucked.
-        v.push_back(fromModules("Organ", join({{"voice.count", "16"}, {"vco2.wave", "Sine"}, {"vco2.octave", "+1"}, {"mix.vco2", "0.5"},
+        v.push_back(fromModules("Organ", join({{"voice.count", "16"}, {"out.spread", "0.4"}, byKeys, {"vco2.wave", "Sine"}, {"vco2.octave", "+1"}, {"mix.vco2", "0.5"},
                                                {"vco3.wave", "Sine"}, {"vco3.octave", "-1"}, {"mix.vco3", "0.5"},
                                                {"lfo2.rate", "6"}, {"vca.tremolo", "0.15"}}, reverb("Cathedral"))));
         v.push_back(fromModules("Piano", join({{"voice.count", "16"}, {"out.spread", "0.4"}, byKeys, {"vco2.wave", "Triangle"}, {"vco2.tune", "0.03"},
@@ -128,7 +140,7 @@ inline const std::vector<Instrument>& builtIn() {
                                                   {"vcf1.cutoff", "3000"}, {"vcf1.res", "0.2"}, {"vcf1.slope", "12 dB"}, {"vcf1.key", "0.5"}},
                                                  reverb("Concert hall")),
                      "vco1.pm=lfo1.out;vco2.pm=lfo1.out;vco3.pm=lfo1.out"});
-        v.push_back({"Electric piano (FM)", join({{"voice.count", "12"}, {"vco1.wave", "Sine"}, {"vco1.pm", "1.5"},
+        v.push_back({"Electric piano (FM)", join({{"voice.count", "12"}, {"out.spread", "0.4"}, byKeys, {"vco1.wave", "Sine"}, {"vco1.pm", "1.5"},
                                                   {"vco2.wave", "Sine"}, {"mix.vco2", "0"},
                                                   {"env1.attack", "0.002"}, {"env1.decay", "2.5"}, {"env1.sustain", "0"}, {"env1.release", "0.4"}},
                                                  reverb("Small room")),
@@ -148,6 +160,56 @@ inline const std::vector<Instrument>& builtIn() {
                        "mix2.in1=vcf1.out;mix2.in2=vcf2.out;mix2.in3=vco3.out";
             v.push_back(std::move(i));
         }
+        // Spec S7.13 (Phase 37, user 2026-11-26): world instruments, Presets > World. Starting points from the
+        // existing modules (a flute, reed, bowed or plucked base); values to be set by ear. Each has its voices
+        // and a reverb as the others; one-voice ones spread only when given more voices (S5.25).
+        using detail::like;
+        using P = std::vector<std::pair<std::string, std::string>>;
+        const P breath{{"noise.colour", "Pink"}};
+        const P keysSpread{{"out.spread", "0.4"}, byKeys};
+        v.push_back(like("Shakuhachi", "Flute", join(P{solo, soloSpread, byVoices, {"vco1.wave", "Sine"}, {"vco2.wave", "Triangle"},
+            {"vco2.tune", "0.05"}, {"mix.vco2", "0.3"}, {"mix.noise", "0.18"}, {"env1.attack", "0.12"}, {"env1.release", "0.25"},
+            {"lfo1.rate", "5"}, {"vco1.fm", "0.15"}, {"vco2.fm", "0.15"}, {"lfo1.delay", "0.5"},
+            {"formant.voice", "Tenor"}, {"formant.vowel", "3"}, {"formant.mix", "0.35"}}, join(breath, reverb("Concert hall")))));
+        v.push_back(like("Bansuri", "Flute", join(P{solo, soloSpread, byVoices, {"vco1.wave", "Sine"}, {"mix.noise", "0.1"},
+            {"lfo1.rate", "6"}, {"vco1.fm", "0.12"}, {"lfo1.delay", "0.3"}}, join(breath, reverb("Chamber")))));
+        v.push_back(like("Pan flute", "Recorder", join(P{{"voice.count", "4"}, {"vco1.wave", "Sine"}, {"mix.noise", "0.08"},
+            {"env1.attack", "0.03"}, {"env1.release", "0.4"}, {"env2.attack", "0.001"}, {"env2.decay", "0.08"}, {"env2.sustain", "0"},
+            {"vcf1.env", "2"}}, join(breath, reverb("Concert hall")))));
+        v.push_back(like("Duduk", "Oboe", join(P{solo, soloSpread, byVoices, {"vco1.wave", "Pulse"}, {"vcf1.cutoff", "1800"},
+            {"formant.voice", "Tenor"}, {"formant.vowel", "3"}, {"formant.mix", "0.6"}, {"env1.attack", "0.15"},
+            {"lfo1.rate", "4.5"}, {"vco1.fm", "0.1"}, {"lfo1.delay", "0.6"}}, reverb("Chamber"))));
+        v.push_back(like("Erhu", "Violin", join(P{solo, soloSpread, byVoices, {"vco1.wave", "Saw"}, {"formant.voice", "Alto"},
+            {"formant.vowel", "1"}, {"formant.mix", "0.5"}, {"env1.attack", "0.08"}, {"lfo1.rate", "6.5"}, {"vco1.fm", "0.25"},
+            {"lfo1.delay", "0.25"}}, reverb("Concert hall"))));
+        v.push_back(like("Shamisen", "Guitar (plucked)", join(P{{"voice.count", "3"}, {"vco1.wave", "Saw"}, {"env1.attack", "0.001"},
+            {"env1.decay", "0.9"}, {"env1.sustain", "0"}, {"env1.release", "0.25"}, {"env2.decay", "0.15"}, {"env2.sustain", "0"},
+            {"vcf1.cutoff", "1500"}, {"vcf1.env", "3"}, {"vcf1.res", "0.3"}, {"comb.freq", "261.6"}, {"comb.key", "1"},
+            {"comb.feedback", "0.8"}, {"comb.damping", "0.1"}, {"comb.mix", "0.35"}}, reverb("Small room"))));
+        v.push_back(like("Koto", "Guitar (plucked)", join(join(P{{"voice.count", "8"}, {"vco1.wave", "Triangle"}, {"vco2.wave", "Saw"},
+            {"mix.vco2", "0.3"}, {"env1.decay", "1.8"}, {"env1.sustain", "0"}, {"env1.release", "0.6"}}, keysSpread),
+            join(comb("Guitar (plucked)"), reverb("Chamber")))));
+        v.push_back(like("Sitar", "Guitar (plucked)", join(P{{"voice.count", "6"}, {"vco1.wave", "Saw"}, {"vco3.wave", "Saw"},
+            {"vco3.octave", "-1"}, {"mix.vco3", "0.25"}, {"env1.decay", "3"}, {"env1.sustain", "0"}, {"env1.release", "1"},
+            {"vcf1.cutoff", "3000"}, {"vcf1.res", "0.3"}, {"comb.freq", "261.6"}, {"comb.key", "1"}, {"comb.feedback", "0.9"},
+            {"comb.damping", "0.05"}, {"comb.mix", "0.4"}}, reverb("Chamber"))));
+        v.push_back(like("Oud", "Guitar (plucked)", join(P{{"voice.count", "4"}, {"vco1.wave", "Saw"}, {"vcf1.cutoff", "1200"},
+            {"env1.decay", "1.2"}, {"env1.sustain", "0"}}, join(comb("Guitar (plucked)"), reverb("Small room")))));
+        v.push_back(like("Kalimba", "Marimba", join(join(P{{"voice.count", "8"}, {"vco1.wave", "Sine"}, {"vco1.pm", "1.2"},
+            {"vco2.wave", "Sine"}, {"vco2.octave", "+2"}, {"vco2.tune", "0.84"}, {"mix.vco2", "0"}, {"env1.attack", "0.001"},
+            {"env1.decay", "0.6"}, {"env1.sustain", "0"}, {"env1.release", "0.3"}}, keysSpread), reverb("Small room")),
+            "vco1.pm=vco2.out"));
+        v.push_back(like("Gamelan", "Marimba", join(join(P{{"voice.count", "12"}, {"vco1.wave", "Sine"}, {"vco1.pm", "1"},
+            {"vco2.wave", "Sine"}, {"vco2.octave", "+2"}, {"vco2.tune", "-2.6"}, {"mix.vco2", "0.3"}, {"env1.attack", "0.001"},
+            {"env1.decay", "4"}, {"env1.sustain", "0"}, {"env1.release", "2"}, {"out.spread", "0.5"}, byKeys}, ensemble("Subtle chorus")),
+            reverb("Concert hall")), "vco1.pm=vco2.out"));
+        v.push_back(like("Steel pan", "Marimba", join(join(P{{"voice.count", "8"}, {"vco1.wave", "Sine"}, {"vco1.pm", "0.8"},
+            {"vco2.wave", "Sine"}, {"vco2.octave", "+1"}, {"mix.vco2", "0"}, {"env1.attack", "0.002"}, {"env1.decay", "1.2"},
+            {"env1.sustain", "0.1"}, {"env1.release", "0.5"}}, keysSpread), reverb("Chamber")), "vco1.pm=vco2.out"));
+        v.push_back(like("Didgeridoo", "Default", join(P{solo, {"vco1.wave", "Pulse"}, {"vco1.octave", "-1"}, {"vcf1.cutoff", "600"},
+            {"vcf1.res", "0.4"}, {"formant.voice", "Bass"}, {"formant.vowel", "3"}, {"formant.mix", "0.8"}, {"lfo2.rate", "1.5"},
+            {"mix.noise", "0.05"}, {"noise.colour", "Brown"}, {"env1.attack", "0.08"}, {"env1.sustain", "1"}, {"env1.release", "0.3"}},
+            reverb("Small room")), "formant.vowel=lfo2.out@0.3"));
         return v;
     }();
     return list;
