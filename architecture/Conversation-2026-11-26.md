@@ -81,3 +81,4 @@
 ## Crosscheck after Phase 42
 
 - Code vs S7.14, S6.24 (tabs fix), S6.5 / S6.7 (default rack, Schematic effects row): as built. Stale lines fixed: S7.6 (the normalled chain follows effects.order), S6.7 (Reset layout on the Effects tab). Plan header. 42 of 42. Open: push (60835b6 … this), CI; listening checks (glide presets, effect orders by ear).
+- User pushed; CI run 45905730832 (eec3a66) watched. User: what is next? Listed (small: L1, L2, L20; medium: L27, L18, L21, L5, L9/L16; large: L3/L4, L12, 19/L14, L17, L6, 20, 22e; or release 1.8.0). User: was L2 not done by the socket menu faders? Yes: L2 closed as covered by S6.18 / S5.21.
