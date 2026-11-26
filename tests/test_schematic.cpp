@@ -245,6 +245,24 @@ int main() {
             big.setPage(10, 10);
             CHECK(big.pageWidth() == sc::canvasWidth && big.pageHeight() == sc::canvasHeight);   // never below the canvas
         }
+        {   // T-S6.23-group: a group keeps its blocks' places to each other; refused on overlap or off the page.
+            sc::Layout l;
+            l.setPage(300, 150);
+            const auto vco1 = *sc::findBlock("VCO 1"), vco2 = *sc::findBlock("VCO 2"), lfo1 = *sc::findBlock("LFO 1");
+            const auto a1 = l.position(vco1), a2 = l.position(vco2);
+            CHECK(l.moveGroup({vco1, vco2}, {180, 20}));
+            CHECK(l.position(vco1).x == a1.x + 180 && l.position(vco2).y == a2.y + 20
+                  && l.position(vco2).x - l.position(vco1).x == a2.x - a1.x);
+            CHECK(!l.fitsGroup({vco1, vco2}, {200, 0}));        // off the page
+            const auto before = l.position(lfo1);
+            CHECK(!l.moveGroup({lfo1}, {l.position(vco1).x - before.x, l.position(vco1).y - before.y}));   // onto VCO 1
+            CHECK(l.position(lfo1).x == before.x);              // unchanged
+            const auto picked = sc::Layout{}.blocksIn({0, 0}, {40, 12});   // the top-left corner: LFO 1, VCO 1
+            CHECK(std::find(picked.begin(), picked.end(), lfo1) != picked.end()
+                  && std::find(picked.begin(), picked.end(), vco1) != picked.end()
+                  && std::find(picked.begin(), picked.end(), *sc::findBlock("MAIN")) == picked.end());
+            CHECK(sc::Layout{}.blocksIn({40, 12}, {0, 0}) == picked);   // any corner order
+        }
         // S5.16: a layout saved before FORMANT existed (the old places of VCF 2, VCA, OUT, LFO 2): the
         // named blocks stay where they were; FORMANT, whose default place is taken by the VCA, gets a free one.
         {

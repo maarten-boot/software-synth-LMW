@@ -118,6 +118,35 @@ public:
             if (j != i && room(r).intersects(room(box(j)))) return false;
         return true;
     }
+    // Spec S6.23 (Phase 40): a group of blocks moved together by `delta` (whole grid steps). It fits when every
+    // block stays on the page, clear of the legend, and off every block outside the group.
+    bool fitsGroup(const std::vector<std::size_t>& group, Point delta) const {
+        delta = snap(delta);
+        const auto inGroup = [&](std::size_t j) { return std::find(group.begin(), group.end(), j) != group.end(); };
+        for (const auto i : group) {
+            if (i >= pos.size()) return false;
+            Rect r = box(i);
+            r.x += delta.x;
+            r.y += delta.y;
+            if (r.x < 0 || r.right() > pageW || r.y < 0 || r.bottom() > pageH - 4) return false;
+            for (std::size_t j = 0; j < pos.size(); ++j)
+                if (!inGroup(j) && room(r).intersects(room(box(j)))) return false;
+        }
+        return true;
+    }
+    bool moveGroup(const std::vector<std::size_t>& group, Point delta) {
+        if (group.empty() || !fitsGroup(group, delta)) return false;
+        delta = snap(delta);
+        for (const auto i : group) pos[i] = {pos[i].x + delta.x, pos[i].y + delta.y};
+        return true;
+    }
+    // The blocks a selection rectangle (canvas units, any corner order) touches, in block order.
+    std::vector<std::size_t> blocksIn(Point a, Point b) const {
+        const Rect r{std::min(a.x, b.x), std::min(a.y, b.y), std::fabs(b.x - a.x), std::fabs(b.y - a.y)};
+        std::vector<std::size_t> out;
+        for (std::size_t i = 0; i < pos.size(); ++i) if (r.intersects(box(i))) out.push_back(i);
+        return out;
+    }
     // S6.22 (39b): the page the blocks may use (canvas units), at least the canvas; and how far the blocks reach.
     void setPage(float w, float h) { pageW = std::clamp(w, canvasWidth, maxPageWidth); pageH = std::clamp(h, canvasHeight, maxPageHeight); }
     float pageWidth() const noexcept { return pageW; }

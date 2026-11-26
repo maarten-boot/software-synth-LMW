@@ -42,3 +42,5 @@
 - User pushed 7a60ac9 (CI run 45839776544 watched: Ubuntu, Fedora, Windows green so far). User: multi-select on the Schematic to move a group? Proposed: rectangle on empty space, Ctrl / Shift-click, Ctrl + A, Escape; highlight box; group drag with preview; Shift + arrows; one undo step. User: all ok, both ways and undo; start the spec. S6.23 written; Plan 40; Tests planned. (Schematic moves were already undo steps.)
 - CI run 45839776544 (7a60ac9) green on all four: macOS and Windows back to green (Phase 38 mended the host window check).
 - User: commit the spec and start 40.
+- Committed 0f23655 (spec). 40 done: Layout fitsGroup / moveGroup / blocksIn, selection and rectangle in SchematicView, group drag and Shift + arrows, Ctrl + A, Escape, highlight boxes, one undo step; tests; Xvfb checked. Found: Ctrl + A came as 'a' (lowercase) → fixed. 40 of 40.
+- User: commit and do the crosscheck; looks good.

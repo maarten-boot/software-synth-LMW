@@ -111,8 +111,19 @@ private:
     // Moving blocks (Phase 12c).
     lmw::ui::schematic::Layout layout;
     juce::String shownLayout;                        // the text `layout` came from / was saved as
-    struct BlockMove { std::size_t block; lmw::ui::schematic::Point from, to; };
+    // Phase 12c, S6.23: the block under the mouse and the group that moves with it (the selection, or the block).
+    struct BlockMove { std::size_t block; std::vector<std::size_t> group; lmw::ui::schematic::Point from, to; };
     std::optional<BlockMove> moving;                 // block being dragged
+    // Spec S6.23 (Phase 40): the selected blocks; a selection rectangle being drawn (canvas units) and whether it
+    // adds to the selection (Ctrl / Shift held at its start).
+    std::vector<std::size_t> selected;
+    std::optional<std::pair<lmw::ui::schematic::Point, lmw::ui::schematic::Point>> band;
+    bool bandAdds = false;
+    bool isSelected(std::size_t b) const { return std::find(selected.begin(), selected.end(), b) != selected.end(); }
+public:
+    void visibilityChanged() override { if (!isVisible()) selected.clear(); }   // S6.23: not kept across tabs
+    std::size_t selectionSize() const noexcept { return selected.size(); }
+private:
     bool moved = false;                              // dragged far enough to count as a move
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SchematicView)

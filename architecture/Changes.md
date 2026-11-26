@@ -3,6 +3,7 @@
 Changes between releases.
 
 ## Unreleased
+- 2026-11-26: Schematic: select several symbols (drag a rectangle on empty space, Ctrl / Shift-click, Ctrl + A) and move them together by dragging one of them or with Shift + arrows; one Ctrl + Z takes the move back.
 - 2026-11-26: Schematic symbols can be moved anywhere on the whole page (it starts at the top-left and grows as you move a symbol to the edge).
 - 2026-11-26: The Schematic uses the Synth tab's text size (it filled the tab before, with larger text): Ctrl + wheel or Ctrl + / − zooms in steps (75–150 %), Ctrl 0 back to 100 %; in a small window it scrolls.
 - 2026-11-26: The rack scrolls when it is larger than the window: scroll bars, the mouse wheel (Shift + wheel sideways), dragging the empty space, Home / End, and Tab brings a control into view. The window can now be as small as 1280 × 720 (the header gets shorter texts); a first window still shows the whole rack.

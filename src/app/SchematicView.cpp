@@ -260,6 +260,17 @@ void SchematicView::paint(juce::Graphics& g) {
         head.addTriangle(tip.x, tip.y, tip.x - 0.6f * s, tip.y + 1.3f * s, tip.x + 0.6f * s, tip.y + 1.3f * s);
         g.fillPath(head);
     }
+    // Spec S6.23: the selected blocks on a box in the highlight colour with a black edge (at Max: white, 3 px edge).
+    if (!selected.empty()) {
+        const bool edgeOnly = palette.highlight == lmw::ui::Rgb{255, 255, 255};
+        for (const auto b : selected) {
+            const auto r = toScreen(layout.box(b)).expanded(0.6f * s);
+            g.setColour(juce::Colour(palette.highlight.r, palette.highlight.g, palette.highlight.b));
+            g.fillRect(r);
+            g.setColour(kFg);
+            g.drawRect(r, std::max(edgeOnly ? 3.0f : 2.0f, 0.2f * s));
+        }
+    }
     for (std::size_t i = 0; i < sc::blocks().size(); ++i) drawBlock(g, i);
     // Cables grey at rest; black, thicker and on top for the port under the mouse or the keyboard cursor
     // (user 2026-11-22, as on the Synth tab).
@@ -379,19 +390,34 @@ void SchematicView::paint(juce::Graphics& g) {
         g.setColour(kFg);
         g.strokePath(path, juce::PathStrokeType(lineW * 1.8f));
     }
-    if (moving && moved) {                                 // Phase 12c: where the dragged block would land
-        const auto& b = sc::blocks()[moving->block];
-        const auto r = toScreen(sc::Rect{moving->to.x, moving->to.y, b.box.w, b.box.h});
+    if (moving && moved) {                                 // Phase 12c: where the dragged block(s) would land (S6.23)
+        const sc::Point delta{moving->to.x - moving->from.x, moving->to.y - moving->from.y};
+        const bool fits = layout.fitsGroup(moving->group, delta);
         g.setColour(kFg);
-        if (layout.fits(moving->block, moving->to)) {
-            g.drawRect(r, std::max(2.0f, 0.25f * s));
-        } else {                                           // does not fit: dashed outline, the drop is refused
-            juce::Path outline, dashedOutline;
-            outline.addRectangle(r);
-            const float d[] = {0.6f * s, 0.5f * s};
-            juce::PathStrokeType(std::max(2.0f, 0.25f * s)).createDashedStroke(dashedOutline, outline, d, 2);
-            g.fillPath(dashedOutline);
+        for (const auto b : moving->group) {
+            auto box = layout.box(b);
+            box.x += std::round(delta.x);
+            box.y += std::round(delta.y);
+            const auto r = toScreen(box);
+            if (fits) {
+                g.drawRect(r, std::max(2.0f, 0.25f * s));
+            } else {                                       // does not fit: dashed outlines, the drop is refused
+                juce::Path outline, dashedOutline;
+                outline.addRectangle(r);
+                const float d[] = {0.6f * s, 0.5f * s};
+                juce::PathStrokeType(std::max(2.0f, 0.25f * s)).createDashedStroke(dashedOutline, outline, d, 2);
+                g.fillPath(dashedOutline);
+            }
         }
+    }
+    if (band) {                                            // S6.23: the selection rectangle, dashed
+        const auto a = toScreen(band->first), b = toScreen(band->second);
+        juce::Path outline, dashedOutline;
+        outline.addRectangle(juce::Rectangle<float>(a, b));
+        const float d[] = {6.0f, 4.0f};
+        juce::PathStrokeType(1.5f).createDashedStroke(dashedOutline, outline, d, 2);
+        g.setColour(kFg);
+        g.fillPath(dashedOutline);
     }
 
     // Cable levels below 100 %, black on a white box at the middle of the cable.
@@ -485,7 +511,9 @@ juce::String SchematicView::getTooltip() {
                 t += "\n" + juce::String::fromUTF8(bn.c_str());
             return t + "\nDrag the symbol to move it (keyboard: Shift+arrows on one of its ports).";
     }
-    return "Zoom " + juce::String(juce::roundToInt(zoomFactor() * 100.0f)) + juce::String::fromUTF8(" % \xe2\x80\x94 Ctrl + wheel or Ctrl + / \xe2\x88\x92 to zoom, Ctrl 0 back to 100 %");   // S6.22
+    return (selected.empty() ? juce::String() : juce::String(static_cast<int>(selected.size())) + (selected.size() == 1 ? " block" : " blocks")
+                                                + " selected: drag one to move them; Escape: none\n")   // S6.23
+         + "Zoom " + juce::String(juce::roundToInt(zoomFactor() * 100.0f)) + juce::String::fromUTF8(" % \xe2\x80\x94 Ctrl + wheel or Ctrl + / \xe2\x88\x92 to zoom, Ctrl 0 back to 100 %");   // S6.22
 }
 
 // ---- Phase 12b: editing, same rules as the Synth tab (ui/CableEdit.h) ----
@@ -519,9 +547,26 @@ void SchematicView::mouseDown(const juce::MouseEvent& e) {
     pressed = portUnder(e.position);
     moving.reset();
     moved = false;
-    if (!pressed) {                                        // Phase 12c: on a symbol's body: move it
-        if (const auto bi = sc::blockAt(toCanvas(e.position), layout); bi && !e.mods.isPopupMenu())
-            moving = BlockMove{*bi, layout.position(*bi), layout.position(*bi)};
+    band.reset();
+    if (!pressed) {                                        // Phase 12c: on a symbol's body: move it (S6.23: its group)
+        if (e.mods.isPopupMenu()) return;
+        const bool adding = e.mods.isCommandDown() || e.mods.isCtrlDown() || e.mods.isShiftDown();
+        if (const auto bi = sc::blockAt(toCanvas(e.position), layout)) {
+            if (adding) {                                  // S6.23: Ctrl / Shift-click adds or takes out
+                if (isSelected(*bi)) selected.erase(std::find(selected.begin(), selected.end(), *bi));
+                else selected.push_back(*bi);
+                repaint();
+                return;
+            }
+            if (!isSelected(*bi)) selected = {*bi};
+            moving = BlockMove{*bi, selected, layout.position(*bi), layout.position(*bi)};
+            repaint();
+            return;
+        }
+        if (!adding) selected.clear();                     // S6.23: empty space: a selection rectangle
+        band = std::make_pair(toCanvas(e.position), toCanvas(e.position));
+        bandAdds = adding;
+        repaint();
         return;
     }
     const auto order = sc::portOrder();
@@ -535,6 +580,7 @@ void SchematicView::mouseDown(const juce::MouseEvent& e) {
 }
 
 void SchematicView::mouseDrag(const juce::MouseEvent& e) {
+    if (band) { band->second = toCanvas(e.position); repaint(); return; }   // S6.23
     if (moving) {
         if (!moved && e.getDistanceFromDragStart() < 3) return;
         moved = true;
@@ -556,12 +602,23 @@ void SchematicView::mouseDrag(const juce::MouseEvent& e) {
 
 void SchematicView::mouseUp(const juce::MouseEvent& e) {
     pressed.reset();
+    if (band) {                                            // S6.23: select what the rectangle touches
+        if (e.getDistanceFromDragStart() >= 3) {
+            for (const auto b : layout.blocksIn(band->first, band->second))
+                if (!isSelected(b)) selected.push_back(b);
+        }
+        band.reset();
+        repaint();
+        return;
+    }
     if (moving) {
         const auto m = *moving;
         const bool wasMoved = moved;
         moving.reset();
         moved = false;
-        if (wasMoved && layout.move(m.block, m.to)) layoutChanged();
+        // S6.23: the whole group by the grabbed block's step; one change of the layout, one undo step.
+        if (wasMoved && layout.moveGroup(m.group, {m.to.x - m.from.x, m.to.y - m.from.y})) layoutChanged();
+        else if (!wasMoved) selected = {m.block};          // a plain click: that block alone
         repaint();
         return;
     }
@@ -578,13 +635,20 @@ void SchematicView::mouseUp(const juce::MouseEvent& e) {
 
 bool SchematicView::keyPressed(const juce::KeyPress& key) {
     const int code = key.getKeyCode();
-    if (code == juce::KeyPress::escapeKey && (grab || moving)) { cancelDrag(); return true; }
+    if (code == juce::KeyPress::escapeKey && (grab || moving || band)) { band.reset(); cancelDrag(); return true; }
+    if (code == juce::KeyPress::escapeKey && !selected.empty()) { selected.clear(); repaint(); return true; }   // S6.23
     const auto mods = key.getModifiers();
     if ((mods.isCommandDown() || mods.isCtrlDown()) && !mods.isAltDown()) {   // Spec S6.22: zoom keys
         const auto c = key.getTextCharacter();
         if (c == '+' || c == '=' || code == juce::KeyPress::numberPadAdd) { setZoom(zoomStep + 1); return true; }
         if (c == '-' || code == juce::KeyPress::numberPadSubtract) { setZoom(zoomStep - 1); return true; }
         if (c == '0' || code == juce::KeyPress::numberPad0) { setZoom(1); return true; }
+        if (c == 'a' || c == 'A' || code == 'a' || code == 'A') {   // S6.23: Ctrl + A selects every block
+            selected.clear();
+            for (std::size_t i = 0; i < sc::blocks().size(); ++i) selected.push_back(i);
+            repaint();
+            return true;
+        }
     }
     if (mods.isCommandDown() || mods.isCtrlDown() || mods.isAltDown()) return false;
     const auto order = sc::portOrder();
@@ -594,10 +658,11 @@ bool SchematicView::keyPressed(const juce::KeyPress& key) {
                                || code == juce::KeyPress::upKey || code == juce::KeyPress::downKey)) {
         // Phase 12c: Shift+arrow moves the block that holds the port cursor one grid step (if it fits).
         const auto bi = sc::blockOf(order[cursor]);
-        auto at = layout.position(bi);
-        at.x += code == juce::KeyPress::leftKey ? -1.0f : code == juce::KeyPress::rightKey ? 1.0f : 0.0f;
-        at.y += code == juce::KeyPress::upKey ? -1.0f : code == juce::KeyPress::downKey ? 1.0f : 0.0f;
-        if (layout.move(bi, at)) layoutChanged();
+        const sc::Point d{code == juce::KeyPress::leftKey ? -1.0f : code == juce::KeyPress::rightKey ? 1.0f : 0.0f,
+                          code == juce::KeyPress::upKey ? -1.0f : code == juce::KeyPress::downKey ? 1.0f : 0.0f};
+        // S6.23: the whole selection when the cursor's block is in it, else that block alone.
+        const std::vector<std::size_t> group = isSelected(bi) ? selected : std::vector<std::size_t>{bi};
+        if (layout.moveGroup(group, d)) layoutChanged();
         repaint();
         return true;
     }
@@ -629,6 +694,7 @@ bool SchematicView::keyPressed(const juce::KeyPress& key) {
 void SchematicView::setLayout(const juce::String& text) {
     shownLayout = text;
     layout = sc::Layout::parse(text.toStdString()).value_or(sc::Layout());
+    selected.clear();                                      // S6.23: a new layout (a patch loaded): no selection
     updatePage();
     if (onSizeChange) onSizeChange();                      // a stored layout may reach further (39b)
     repaint();

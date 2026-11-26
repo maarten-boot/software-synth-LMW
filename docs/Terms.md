@@ -464,7 +464,7 @@ See also: [Cable](#cable), [Normalled](#normalled), [Level](#level)
 The whole instrument drawn as a diagram, the sound flowing left to right: every module a block, every
 connection a line. You can patch and move blocks there too.
 
-It is drawn at the Synth tab's text size; Ctrl + wheel or Ctrl + / − zooms (Ctrl 0: 100 %).
+It is drawn at the Synth tab's text size; Ctrl + wheel or Ctrl + / − zooms (Ctrl 0: 100 %). Drag on empty space (or Ctrl / Shift-click, Ctrl + A) to select several symbols and drag one of them to move them all.
 Where: the Schematic tab.
 
 See also: [Module](#module), [Cable](#cable)
