@@ -22,3 +22,7 @@
 - User: add the keys spread to Organ and the E-piano, finish 37; the Schematic text size becomes a Plan item (L29). Answered the measurement: Schematic about 11.2 px per unit at 1920 × 1080, labels about 19 px vs the Synth tab's 15 / 12 px: 22 % smaller at 15 px, 37 % at 12 px; compact already about 14 px.
 - 37 done: 13 World presets (Instrument::group, detail::like), Presets ▸ World submenu, Organ / E-piano Spread 40 % Keys, AI guide; tests; Xvfb (submenu, Gamelan). 40 of 40.
 - User: commit and do the crosscheck.
+
+## Crosscheck after Phases 35–37
+
+- Committed a430c04. Code vs S7.4 (reverb fixes), S5.26, S7.13: as built (noted there). Stale lines fixed: S5a.1 (mix2.*, 85), S9.2 (85 / 2166 host parameters, measured), S6.5 (default rows with FORMANT in row 1 and MIX 2), S6.8 (39 rows, 23 columns), S6.16 (1834 px), S7.7 (33 instruments), S7.10 (84 terms), S7.12 (pictures 1834 wide). Plan header. 40 of 40. Open: listening (Choral flute, World presets, reverb), CI after the push.
