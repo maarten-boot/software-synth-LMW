@@ -63,3 +63,8 @@
 - User: the keyboard is half hidden on XFCE by the bottom panel. Cause: JUCE on Linux gives the whole monitor as user area. Fixed: the work area from _NET_WORKAREA (libX11 loaded at run time); Xvfb with a set work area 1920 × 1040 → window 1920 × 1040.
 - User: resizing leaves grey lines and freezes for about 2 minutes; the resize goes on after mouse release. Measured: layout about 1 ms, a frame 10–20 ms; cause: JUCE's own title bar resizes per mouse move, queued. Fixed: on Linux the window manager's frame (resize, maximise to its work area, opens maximised, restore 5 % smaller); Options items now at the top of Menu. Xvfb + xfwm4: maximised under the frame, corner drag stops at release, Menu items and Reset work; no WM: fills the screen. S6.16 note, Changes, Tests T-S6.16-workarea / -frame. 41 of 41, u24 built. Open: user check on XFCE.
 - User: commit and do the crosscheck; resize is now behaving perfect.
+- Committed 8314f6a (Phase 41 + Linux window fixes; Tests: the user's XFCE check passed).
+
+## Crosscheck after Phase 41 and the Linux window fixes
+
+- Code vs S6.24 / S5.27 and S6.16: as built. Stale lines fixed: S6.11 (no Options button on Linux, its items in Menu), S6.2 (Linux title bar is the window manager's). Plan header. 41 of 41. Open: CI after the push; glide presets by ear (user).
