@@ -165,3 +165,5 @@
 
 - Code vs S5.28: as built; old patches and states load with Shape 0 (the default) — the same sound, no migration needed; the S6.26 rule counts the Shape inputs (gain 1 when cabled); vcoUsed counts a VCO read by a Shape input. Stale and fixed: Spec S6.5 (default layout), S6.6 (VCO and LFO socket lists), docs/ai/SoundDesign.md (vcoN.shape, lfoN.shape, a PWM recipe), the LFO Shape hover (per-voice sources: newest note). Plan header.
 - User: yes, commit and start the preset review spec. Committed (crosscheck 49).
+- Committed 710d2da. S7.16 preset review proposed (groups, improvements, 6 new Synth presets, loudness); choices A-D.
+- User: all recommended; commit the spec and start 50; also add each type of world instrument to its class (typo "windwood" noted). Read as: World stays, each world instrument also in its family. S7.16 confirmed; Plan 50, L32; Tests planned.
