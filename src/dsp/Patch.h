@@ -5,6 +5,7 @@
 #pragma once
 #include <array>
 #include <cstdint>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -325,5 +326,100 @@ struct PatchCommand {
     std::int8_t output = Patch::none;
     float level = 1.0f;
 };
+
+// Spec S6.26 (Phase 45): which units have an effect on what is heard. Followed back from main.in: an input counts
+// when it is reached and its gain (the fader that scales it, e.g. a MIXER level) is not 0; its sources count through
+// connections (cables, or the normalled ones while it has none) whose level is not 0; a source output reached that
+// way makes every input of its unit reached. KEYS always counts.
+enum class Use : std::uint8_t { Used, Passing, Unused };
+struct UseParams {
+    std::array<float, numInputs> gain{};                  // 0 = this input changes nothing (set by the caller)
+    std::array<bool, numOutputs> passing{};               // FORMANT or an effect at Mix 0: passes its input unchanged
+    UseParams() { gain.fill(1.0f); }
+};
+// The unit of a port: its name before the dot ("vcf1.cutoff" -> "vcf1").
+inline std::string_view portUnit(std::string_view port) noexcept { return port.substr(0, port.find('.')); }
+inline std::string_view portUnit(Out o) noexcept { return portUnit(outputNames[static_cast<std::size_t>(o)]); }
+inline std::string_view portUnit(In i) noexcept { return portUnit(inputNames[static_cast<std::size_t>(i)]); }
+
+struct UseResult {
+    std::array<bool, numOutputs> output{};               // reaches main.in with a level
+    std::array<bool, numInputs> input{};                 // reached and its gain not 0
+    std::array<bool, numOutputs> passing{};
+    // A unit (any of its outputs): Used, Passing (reached, but passes its input unchanged) or Unused. MAIN (no
+    // outputs) and KEYS are always Used.
+    Use unit(std::string_view u) const noexcept {
+        if (u == "keys" || u == "main") return Use::Used;
+        bool any = false, pass = false, has = false;
+        for (int o = 0; o < numOutputs; ++o)
+            if (portUnit(static_cast<Out>(o)) == u) {
+                has = true;
+                if (output[static_cast<std::size_t>(o)]) { any = true; pass = pass || passing[static_cast<std::size_t>(o)]; }
+            }
+        return !has || (any && !pass) ? Use::Used : any ? Use::Passing : Use::Unused;
+    }
+    bool operator==(const UseResult&) const = default;
+};
+
+inline UseResult unitUse(const Patch& p, const UseParams& up) {
+    UseResult r;
+    r.passing = up.passing;
+    std::array<bool, numInputs> reached{};
+    reached[static_cast<std::size_t>(In::MainIn)] = true;
+    bool changed = true;
+    while (changed) {
+        changed = false;
+        for (int i = 0; i < numInputs; ++i) {
+            const auto in = static_cast<In>(i);
+            const auto ii = static_cast<std::size_t>(i);
+            if (!reached[ii] || up.gain[ii] == 0.0f) continue;
+            r.input[ii] = true;
+            auto reach = [&](Out o) {
+                const auto oi = static_cast<std::size_t>(o);
+                if (r.output[oi]) return;
+                r.output[oi] = true;
+                changed = true;
+                for (int k = 0; k < numInputs; ++k)
+                    if (portUnit(static_cast<In>(k)) == portUnit(o)) reached[static_cast<std::size_t>(k)] = true;
+            };
+            if (p.isPatched(in)) {
+                for (int k = 0; k < p.pinCount(in); ++k)
+                    if (p.pin(in, k).level != 0.0f) reach(static_cast<Out>(p.pin(in, k).source));
+            } else {
+                const auto ns = p.normals(in);
+                for (int k = 0; k < ns.n; ++k)
+                    if (ns.s[static_cast<std::size_t>(k)].level != 0.0f) reach(ns.s[static_cast<std::size_t>(k)].source);
+            }
+        }
+    }
+    return r;
+}
+
+// Why a unit has no effect, for the hover text: where its outputs go and why that does not count, e.g.
+// "goes to mix.in2 (MIXER level 0)", "vcf1.in (cable at 0 %)", "vco2.fm (vco2 has no effect)"; or "not connected
+// to MAIN". `gainName(in)` names the fader of an input with gain 0.
+inline std::string unusedReason(const Patch& p, const UseParams& up, const UseResult& r, std::string_view unit,
+                                std::string (*gainName)(In)) {
+    std::string out;
+    int shown = 0;
+    auto add = [&](const std::string& t) { if (shown++ < 3) out += (out.empty() ? "" : "; ") + t; else if (shown == 4) out += "; ..."; };
+    for (int i = 0; i < numInputs; ++i) {
+        const auto in = static_cast<In>(i);
+        const std::string name(inputNames[static_cast<std::size_t>(i)]);
+        auto check = [&](Out o, float level, bool cable) {
+            if (portUnit(o) != unit) return;
+            if (level == 0.0f) add(name + " (" + (cable ? "cable" : "connection") + " at 0 %)");
+            else if (up.gain[static_cast<std::size_t>(i)] == 0.0f) add(name + " (" + gainName(in) + " 0)");
+            else if (!r.input[static_cast<std::size_t>(i)]) add(name + " (" + std::string(portUnit(in)) + " has no effect)");
+        };
+        if (p.isPatched(in)) {
+            for (int k = 0; k < p.pinCount(in); ++k) check(static_cast<Out>(p.pin(in, k).source), p.pin(in, k).level, true);
+        } else {
+            const auto ns = p.normals(in);
+            for (int k = 0; k < ns.n; ++k) check(ns.s[static_cast<std::size_t>(k)].source, ns.s[static_cast<std::size_t>(k)].level, false);
+        }
+    }
+    return out.empty() ? std::string("not connected to MAIN") : "goes to " + out;
+}
 
 } // namespace lmw::dsp

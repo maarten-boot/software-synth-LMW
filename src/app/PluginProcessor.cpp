@@ -1042,3 +1042,32 @@ void LMWSynthProcessor::setEffectOrder(int index) {
     layout->arrange(blocks);
     setSchematicLayout(layout->isDefault() ? juce::String() : juce::String(layout->serialize()));
 }
+
+// Spec S6.26: each input's gain is the fader that scales it in the engine (Engine.h Voice::process); 0 = no effect.
+lmw::dsp::UseParams LMWSynthProcessor::useParams() const {
+    using lmw::dsp::In;
+    using lmw::dsp::Out;
+    lmw::dsp::UseParams u;
+    const auto v = [](const std::atomic<float>* a) { return a->load(std::memory_order_relaxed); };
+    const auto set = [&](In i, float g) { u.gain[static_cast<std::size_t>(i)] = g; };
+    for (int n = 0; n < lmw::dsp::numVcos; ++n) {
+        const auto k = static_cast<std::size_t>(n);
+        set(lmw::dsp::vcoFmIn(n), v(raw.fm[k]) + modWheel() * lmw::dsp::modWheelFmSemitones);   // S3.5: the wheel adds depth
+        set(lmw::dsp::vcoPmIn(n), v(raw.pm[k]));
+        set(static_cast<In>(static_cast<int>(In::MixIn1) + n), v(raw.mixVco[k]));
+        set(static_cast<In>(static_cast<int>(In::Mix2In1) + n), v(raw.mix2Level[k]));
+    }
+    set(In::MixIn4, v(raw.mixNoise));
+    set(In::Vcf1Cutoff, v(raw.vcfEnv[0]));
+    set(In::Vcf2Cutoff, v(raw.vcfEnv[1]));
+    set(In::FormantVowel, v(raw.formantMix));
+    set(In::VcaMod, v(raw.tremolo));
+    set(In::VcaVel, v(raw.vcaVelocity));
+    const auto pass = [&](Out o, const std::atomic<float>* mix) { u.passing[static_cast<std::size_t>(o)] = v(mix) <= 0.0f; };
+    pass(Out::Formant, raw.formantMix);
+    pass(Out::CombOut, raw.combMix);
+    pass(Out::EnsembleOut, raw.ensembleMix);
+    pass(Out::DelayOut, raw.delayMix);
+    pass(Out::ReverbOut, raw.revMix);
+    return u;
+}

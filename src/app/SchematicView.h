@@ -79,6 +79,9 @@ public:
     bool rings = true;
     // Spec S7.12: every block's name and its area in this component's pixels (for 9P /view).
     std::vector<std::pair<std::string, juce::Rectangle<int>>> blockAreas() const;
+    // Spec S6.26: units without effect (outline and lines dashed) or passing their input unchanged (long dashes);
+    // the hover note says why. The editor sets them when they change.
+    void setUse(const lmw::dsp::UseResult& r, std::function<juce::String(std::string_view)> note) { use = r; useNote = std::move(note); repaint(); }
 private:
     float textPx = 15.0f;                              // S6.22: label size at 100 %
     int zoomStep = 1;                                  // index into zoomSteps (100 %)
@@ -97,6 +100,9 @@ private:
     std::function<bool(int, int, float)> connect;
     std::function<void(bool, int, juce::Rectangle<int>)> showMenu;
     std::array<float, 4> shownKeys{};                 // VCF 1 / 2 Key, LFO 1 / 2 Delay
+    std::optional<lmw::dsp::UseResult> use;           // S6.26 (none: all drawn solid)
+    std::function<juce::String(std::string_view)> useNote;
+    lmw::dsp::Use useOf(std::size_t block) const noexcept;
     lmw::ui::schematic::LfoDelays delays() const noexcept { return {shownKeys[2], shownKeys[3]}; }
     lmw::ui::theme::Palette palette = lmw::ui::theme::palette(4.5);
 

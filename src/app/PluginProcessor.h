@@ -290,6 +290,8 @@ public:
         return raw.vcfRouting->load() >= 0.5f ? lmw::dsp::VcfRouting::Parallel : lmw::dsp::VcfRouting::Serial;
     }
     float modWheel() const noexcept { return modWheelValue.load(std::memory_order_relaxed); }
+    // Spec S6.26: the input gains (faders) and the units passing their input unchanged, for unitUse().
+    lmw::dsp::UseParams useParams() const;
     // Spec S6.24: the bend wheel's position (-1 .. +1) as last set by MIDI or the on-screen wheel; the on-screen
     // wheels (and 9P /keys bend / mod) ask for a position here, applied at the start of the next block.
     float pitchBend() const noexcept { return bendValue.load(std::memory_order_relaxed); }

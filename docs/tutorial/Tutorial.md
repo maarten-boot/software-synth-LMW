@@ -37,6 +37,8 @@ The keys work whichever control you used last, except while you type a value.
 3. *OUT › Volume*: the overall level. The output never clips hard: a soft limiter catches peaks.
 4. Look at the tabs: **Synth** (the panels you see), **Matrix**, **Schematic**, **Effects**, **Notes**.
    Open **Schematic**: the whole instrument as a drawing, the sound flowing from left to right.
+   A dashed outline marks a unit that has [no effect](../Terms.md#no-effect) on the sound yet (VCO 2 and
+   3 while their MIXER levels are 0); long dashes: it passes the sound unchanged (an effect at Mix 0).
 
 ![The Schematic tab: the sound flows from the keys and oscillators on the left to MAIN on the right](../images/lesson1-schematic.png)
 

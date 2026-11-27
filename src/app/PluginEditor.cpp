@@ -680,6 +680,7 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
         bar->setColour(juce::ScrollBar::trackColourId, kBg);
     }
     schematic->onSizeChange = [this] { layoutSchematic(); };
+    updateUse(true);                                       // Spec S6.26: before the first paint
     addChildComponent(schematicView);
     for (auto* c : effectComponents) c->setVisible(false);  // Effects tab not shown at start
 
@@ -780,6 +781,7 @@ void LMWSynthEditor::timerCallback() {
     if (!bendWheel.isMouseButtonDown()) bendWheel.setValue(processor.pitchBend(), juce::dontSendNotification);
     if (!modWheelCtl.isMouseButtonDown()) modWheelCtl.setValue(processor.modWheel(), juce::dontSendNotification);
     keyboard.followHeldKeys();                           // Spec S3.2: held computer keys across focus changes
+    updateUse();                                         // Spec S6.26
     if (const int o = processor.effectOrder(); o != shownEffectOrder) {   // Spec S7.14: moved here, over 9P, undo, a patch
         shownEffectOrder = o;
         resized();
@@ -1074,7 +1076,8 @@ LMWSynthEditor::PanelHeader::PanelHeader(LMWSynthEditor& e, int panelIndex) : ed
     setMouseCursor(juce::MouseCursor::DraggingHandCursor);
     setTitle(title + " panel");
     setDescription("Drag to move. Arrow keys move the panel; Enter opens the move menu.");
-    setTooltip("Drag to move this panel.\nArrow keys (when selected) or right-click: move menu.");
+    baseTip = "Drag to move this panel.\nArrow keys (when selected) or right-click: move menu.";
+    setTooltip(baseTip);
     const auto module = presetModuleOf(title);
     if (module.isNotEmpty()) {
         presets = std::make_unique<PresetButton>(editor, module, title);
@@ -1148,8 +1151,9 @@ LMWSynthEditor::EffectHeader::EffectHeader(LMWSynthEditor& e, int effectIndex) :
     setMouseCursor(juce::MouseCursor::DraggingHandCursor);
     setTitle(title + " panel");
     setDescription("Drag left or right to move the effect in the chain. Left and Right arrow keys move it; Enter opens the move menu.");
-    setTooltip("Drag left or right to move " + title + " in the effects chain (the connections follow).\n"
-               "Arrow keys (when selected) or right-click: move menu.");
+    baseTip = "Drag left or right to move " + title + " in the effects chain (the connections follow).\n"
+              "Arrow keys (when selected) or right-click: move menu.";
+    setTooltip(baseTip);
 }
 
 void LMWSynthEditor::EffectHeader::paint(juce::Graphics& g) {   // the tab draws the title; here only the frames
@@ -1435,7 +1439,7 @@ void LMWSynthEditor::paintRack(juce::Graphics& g) {
             g.setColour(toJuce(palette.unitColour(lmw::ui::theme::unitOf(grp.title.toStdString()))));   // S6.9
             g.fillRect(b.withHeight(m.header - 3));
             g.setColour(kFg);
-            g.drawRect(b, 1);
+            drawPanelFrame(g, b, effectGroupJacks[static_cast<std::size_t>(&grp - effectGroups.data())], 1);   // S6.26
             g.drawText(grp.title, b.getX(), b.getY(), b.getWidth(), m.header - 3, juce::Justification::centred);
             if (const auto label = presetLabel(presetModuleOf(grp.title)); label.isNotEmpty()) {   // Spec S7.5
                 const juce::FontOptions titleFont(m.titleFont, juce::Font::bold);
@@ -1454,7 +1458,7 @@ void LMWSynthEditor::paintRack(juce::Graphics& g) {
     if (currentTab != 0) return;                             // other tabs: no rack panel frames
     for (std::size_t i = 0; i < groups.size(); ++i) {        // titles are drawn by the PanelHeaders
         const auto& b = groups[i].bounds;
-        g.drawRect(b, static_cast<int>(i) == draggedPanel ? 3 : 1);
+        drawPanelFrame(g, b, groupJacks[i], static_cast<int>(i) == draggedPanel ? 3 : 1);   // S6.26: dashed without effect
         if (!groupJacks[i].empty())                          // line above the patch points
             g.drawHorizontalLine(b.getBottom() - 3 - m.jackH, static_cast<float>(b.getX()), static_cast<float>(b.getRight()));
     }
@@ -3594,4 +3598,72 @@ std::string LMWSynthEditor::snapshotPng() {
     juce::PNGImageFormat png;
     if (!png.writeImageToStream(image, out)) return {};
     return std::string(static_cast<const char*>(out.getData()), out.getDataSize());
+}
+
+// ---- Spec S6.26: units without effect ----
+
+namespace {
+std::string gainName(lmw::dsp::In i) {                     // the fader that scales an input (PluginProcessor::useParams)
+    using lmw::dsp::In;
+    switch (i) {
+        case In::MixIn1: case In::MixIn2: case In::MixIn3: case In::MixIn4: return "MIXER level";
+        case In::Mix2In1: case In::Mix2In2: case In::Mix2In3: return "MIX 2 level";
+        case In::Vco1Fm: case In::Vco2Fm: case In::Vco3Fm: return "FM";
+        case In::Vco1Pm: case In::Vco2Pm: case In::Vco3Pm: return "PM";
+        case In::Vcf1Cutoff: case In::Vcf2Cutoff: return "Env";
+        case In::FormantVowel: return "FORMANT Mix";
+        case In::VcaMod: return "Tremolo";
+        case In::VcaVel: return "Velocity";
+        default: return "level";
+    }
+}
+}
+
+std::string LMWSynthEditor::panelUnit(const std::vector<Jack*>& jacks) {
+    for (const auto* j : jacks)
+        if (j->output) return std::string(lmw::dsp::portUnit(static_cast<lmw::dsp::Out>(j->port)));
+    for (const auto* j : jacks) return std::string(lmw::dsp::portUnit(static_cast<lmw::dsp::In>(j->port)));
+    return {};
+}
+
+juce::String LMWSynthEditor::useNote(std::string_view unit) const {
+    switch (shownUse.unit(unit)) {
+        case lmw::dsp::Use::Unused:
+            return juce::String::fromUTF8(("No effect on the sound: " + lmw::dsp::unusedReason(processor.currentPatch(), shownUseParams,
+                                                                                      shownUse, unit, gainName) + ".").c_str());
+        case lmw::dsp::Use::Passing: return "Passes the sound unchanged: Mix 0.";
+        case lmw::dsp::Use::Used: break;
+    }
+    return {};
+}
+
+void LMWSynthEditor::updateUse(bool force) {
+    auto up = processor.useParams();
+    const auto r = lmw::dsp::unitUse(processor.currentPatch(), up);
+    bool same = r == shownUse && processor.patchVersion() == shownPatchVersion;
+    for (std::size_t i = 0; same && i < up.gain.size(); ++i) same = (up.gain[i] == 0.0f) == (shownUseParams.gain[i] == 0.0f);
+    if (same && !force) return;
+    const bool repaintNeeded = force || !(r == shownUse);
+    shownUse = r;
+    shownUseParams = up;
+    for (std::size_t i = 0; i < headers.size(); ++i) headers[i]->setNote(useNote(panelUnit(groupJacks[i])));
+    for (std::size_t e = 0; e < effectHeaders.size(); ++e) effectHeaders[e]->setNote(useNote(panelUnit(effectGroupJacks[e + 1])));
+    if (schematic) schematic->setUse(shownUse, [this](std::string_view u) { return useNote(u); });
+    if (repaintNeeded) rackArea->repaint();
+}
+
+// A panel's frame: solid when its unit has an effect, short dashes without effect, long dashes while it passes its
+// input unchanged (S6.26). 2 px when dashed, so the gaps show.
+void LMWSynthEditor::drawPanelFrame(juce::Graphics& g, juce::Rectangle<int> b, const std::vector<Jack*>& jacks, int thickness) const {
+    const auto use = shownUse.unit(panelUnit(jacks));
+    g.setColour(kFg);
+    if (use == lmw::dsp::Use::Used) { g.drawRect(b, thickness); return; }
+    const float shortDash[] = {6.0f, 5.0f}, longDash[] = {16.0f, 6.0f};
+    const float* dash = use == lmw::dsp::Use::Unused ? shortDash : longDash;
+    const float t = static_cast<float>(std::max(2, thickness)), h = t / 2;
+    const auto r = b.toFloat();
+    g.drawDashedLine({r.getX(), r.getY() + h, r.getRight(), r.getY() + h}, dash, 2, t);
+    g.drawDashedLine({r.getRight() - h, r.getY(), r.getRight() - h, r.getBottom()}, dash, 2, t);
+    g.drawDashedLine({r.getRight(), r.getBottom() - h, r.getX(), r.getBottom() - h}, dash, 2, t);
+    g.drawDashedLine({r.getX() + h, r.getBottom(), r.getX() + h, r.getY()}, dash, 2, t);
 }

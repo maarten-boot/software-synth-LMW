@@ -151,7 +151,9 @@ private:
         void focusGained(FocusChangeType) override { repaint(); }
         void focusLost(FocusChangeType) override { repaint(); }
         void resized() override;
+        void setNote(const juce::String& n) { setTooltip(n.isEmpty() ? baseTip : n + "\n" + baseTip); }   // S6.26
     private:
+        juce::String baseTip;
         LMWSynthEditor& editor;
         int panel;
         bool dragging = false;
@@ -170,7 +172,9 @@ private:
         bool keyPressed(const juce::KeyPress&) override;
         void focusGained(FocusChangeType) override { repaint(); }
         void focusLost(FocusChangeType) override { repaint(); }
+        void setNote(const juce::String& n) { setTooltip(n.isEmpty() ? baseTip : n + "\n" + baseTip); }   // S6.26
     private:
+        juce::String baseTip;
         LMWSynthEditor& editor;
         int effect;
         bool dragging = false;
@@ -417,6 +421,13 @@ private:
     // Spec S7.14: the effects order on the Effects tab.
     std::vector<std::unique_ptr<EffectHeader>> effectHeaders;   // COMB, ENSEMBLE, DELAY, REVERB
     int draggedEffect = -1, shownEffectOrder = 0;
+    // Spec S6.26: which units have an effect (followed by the timer); the unit a panel shows (its first socket's).
+    lmw::dsp::UseResult shownUse;
+    lmw::dsp::UseParams shownUseParams;
+    void updateUse(bool force = false);
+    juce::String useNote(std::string_view unit) const;
+    static std::string panelUnit(const std::vector<Jack*>& jacks);
+    void drawPanelFrame(juce::Graphics& g, juce::Rectangle<int> b, const std::vector<Jack*>& jacks, int thickness) const;
     std::optional<juce::Rectangle<int>> effectDrop;             // the drop marker while dragging
     std::vector<int> effectPanelOrder() const;                  // effectGroups indices left to right
     int effectPosition(int effect) const;                       // 0..3 in the current order

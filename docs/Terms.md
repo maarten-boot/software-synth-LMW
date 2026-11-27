@@ -425,7 +425,16 @@ replaces it; removing the cable brings it back.
 
 Where: the dashed lines on the Schematic, the rings in the Matrix.
 
-See also: [Cable](#cable), [Semi-modular](#semi-modular)
+See also: [Cable](#cable), [Semi-modular](#semi-modular), [No effect](#no-effect)
+
+### No effect
+A unit whose output does not reach MAIN, or only through a level of 0 (e.g. VCO 2 while MIXER's In 2 is
+at 0), changes nothing in the sound. Its outline is drawn with short dashes and the lines from it dotted;
+FORMANT or an effect at Mix 0 passes the sound unchanged: long dashes. Its hover text says why.
+
+Where: the Schematic, the Synth and Effects tabs.
+
+See also: [Normalled](#normalled), [Level](#level), [Mix](#mix)
 
 ### Level
 How much of a cable's signal arrives, 0–100 % (−100 … +100 % on modulation inputs). Set it in a

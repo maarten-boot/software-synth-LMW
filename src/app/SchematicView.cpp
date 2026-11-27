@@ -20,7 +20,8 @@ SchematicView::SchematicView(std::function<const lmw::dsp::Patch&()> p, std::fun
     setWantsKeyboardFocus(true);
     setTitle("Schematic");
     setDescription("The instrument as a schematic: dashed lines are normalled connections, solid lines cables, "
-                   "dotted arrows internal links set by a fader. Drag between ports to patch a cable; Left/Right "
+                   "dotted arrows internal links set by a fader; a dashed outline marks a unit without effect on the sound "
+                   "(long dashes: it passes the sound unchanged) and sparse dots its lines. Drag between ports to patch a cable; Left/Right "
                    "move a port cursor, Up/Down jump to the next or previous symbol, Enter opens its cable menu, "
                    "Delete removes an input's cables.");
 }
@@ -78,12 +79,29 @@ juce::Rectangle<float> SchematicView::toScreen(const sc::Rect& r) const noexcept
     return {a.x, a.y, r.w * scale(), r.h * scale()};
 }
 
+lmw::dsp::Use SchematicView::useOf(std::size_t index) const noexcept {
+    const auto& b = sc::blocks()[index];
+    if (!use || b.outputs.empty()) return lmw::dsp::Use::Used;          // MAIN
+    return use->unit(lmw::dsp::portUnit(b.outputs.front()));
+}
+
 void SchematicView::drawBlock(juce::Graphics& g, std::size_t index) const {
     const auto& b = sc::blocks()[index];
     const float s = scale();
     const auto r = toScreen(layout.box(index));
     const auto fill = colour(palette.unitColour(b.unit()));
     const float stroke = std::max(1.0f, 0.18f * s);
+    // Spec S6.26: the outline solid, short dashes without effect, long dashes while it passes its input unchanged.
+    const auto blockUse = useOf(index);
+    auto outline = [&](const juce::Path& shape, float width) {
+        if (blockUse == lmw::dsp::Use::Used) { g.strokePath(shape, juce::PathStrokeType(width)); return; }
+        const float shortDash[] = {0.7f * s, 0.6f * s}, longDash[] = {2.0f * s, 0.7f * s};
+        juce::Path dashed;
+        juce::PathStrokeType(std::max(2.0f, width * 1.4f)).createDashedStroke(dashed, shape,
+            blockUse == lmw::dsp::Use::Unused ? shortDash : longDash, 2);
+        g.fillPath(dashed);
+    };
+    auto outlineRect = [&](juce::Rectangle<float> box, float width) { juce::Path p; p.addRectangle(box); outline(p, width); };
     const juce::FontOptions label(1.7f * s);
 
     auto innerLabels = [&](float labelLeft) {   // output labels inside the right edge, for several outputs
@@ -118,7 +136,7 @@ void SchematicView::drawBlock(juce::Graphics& g, std::size_t index) const {
         g.setColour(fill);
         g.fillPath(t);
         g.setColour(kFg);
-        g.strokePath(t, juce::PathStrokeType(stroke));
+        outline(t, stroke);
         if (b.inputs.size() > 1) {                    // input labels inside the left edge
             g.setFont(label);
             for (auto in : b.inputs) {
@@ -149,7 +167,7 @@ void SchematicView::drawBlock(juce::Graphics& g, std::size_t index) const {
         g.setColour(fill);
         g.fillRect(r);
         g.setColour(kFg);
-        g.drawRect(r, stroke);
+        outlineRect(r, stroke);
         drawName(juce::Rectangle<float>(r.getX() + 0.8f * s, r.getY() + 0.2f * s, r.getWidth() - 1.6f * s, 2.0f * s),
                  juce::Justification::centredLeft);   // name in a strip at the top
         const auto at = [&](float fx, float fy) { return juce::Point<float>(r.getX() + fx * r.getWidth(), r.getY() + fy * r.getHeight()); };
@@ -166,7 +184,7 @@ void SchematicView::drawBlock(juce::Graphics& g, std::size_t index) const {
         g.setColour(kBg);
         g.fillRect(r);
         g.setColour(kFg);
-        g.drawRect(r, stroke);
+        outlineRect(r, stroke);
         // Name at the top; four white keys and one black key (between the first two) below it, in the
         // left part of the block.
         drawName(juce::Rectangle<float>(r.getX() + 0.8f * s, r.getY() + 0.2f * s, r.getWidth() * 0.55f - 0.8f * s, 2.0f * s),
@@ -182,7 +200,7 @@ void SchematicView::drawBlock(juce::Graphics& g, std::size_t index) const {
         g.setColour(fill);
         g.fillRect(r);
         g.setColour(kFg);
-        g.drawRect(r, stroke);
+        outlineRect(r, stroke);
         // A white-noise trace: fixed pseudo-random samples (the same picture every time).
         drawName(juce::Rectangle<float>(r.getX() + 0.8f * s, r.getY() + 0.2f * s, r.getWidth() * 0.6f - 0.8f * s, 2.0f * s),
                  juce::Justification::centredLeft);   // name at the top, the trace below it
@@ -233,12 +251,17 @@ void SchematicView::paint(juce::Graphics& g) {
         path.cubicTo(toScreen(cv[1]), toScreen(cv[2]), toScreen(cv[3]));
         return path;
     };
+    // Spec S6.26: a line from a unit without effect is dotted (normalled and cables).
+    auto fromUnused = [&](const sc::Connection& c) {
+        return use && use->unit(lmw::dsp::portUnit(c.from)) == lmw::dsp::Use::Unused;
+    };
+    const float sparse[] = {0.25f * s, 0.7f * s};
     g.setColour(kFg);
     for (const auto& c : conns) {
         if (!c.normalled) continue;
         juce::Path dashed;
         const float dash[] = {0.8f * s, 0.6f * s};
-        juce::PathStrokeType(lineW).createDashedStroke(dashed, pathOf(c), dash, 2);
+        juce::PathStrokeType(lineW).createDashedStroke(dashed, pathOf(c), fromUnused(c) ? sparse : dash, 2);
         g.fillPath(dashed);
     }
     // Internal links (fader-set): thin, dotted, behind the blocks; the arrow ends on the block's edge.
@@ -297,7 +320,14 @@ void SchematicView::paint(juce::Graphics& g) {
             g.setColour(kBg);
             g.strokePath(path, juce::PathStrokeType(w + 2.0f * std::max(1.0f, 0.12f * s)));
             g.setColour(pass == 1 ? kFg : colour(palette.cableDrawn()));
-            g.strokePath(path, juce::PathStrokeType(w));
+            if (fromUnused(c)) {                               // S6.26: dotted, as thick as a cable
+                juce::Path dotted;
+                const float dots[] = {0.5f * s, 0.6f * s};
+                juce::PathStrokeType(w).createDashedStroke(dotted, path, dots, 2);
+                g.fillPath(dotted);
+            } else {
+                g.strokePath(path, juce::PathStrokeType(w));
+            }
         }
         if (pass == 0 && alpha < 1.0f) g.endTransparencyLayer();
     }
@@ -505,6 +535,8 @@ juce::String SchematicView::getTooltip() {
     if (const auto bi = sc::blockAt(c, layout)) {
             const auto& b = sc::blocks()[*bi];
             juce::String t = text(b.name);
+            if (useNote && !b.outputs.empty())                    // S6.26: why it has no effect
+                if (const auto n = useNote(lmw::dsp::portUnit(b.outputs.front())); n.isNotEmpty()) t += "\n" + n;
             for (auto in : b.inputs) t += "\n" + juce::String::fromUTF8(sc::describeInput(p, in).c_str());
             for (auto out : b.outputs) t += "\n" + juce::String::fromUTF8(sc::describeOutput(p, out).c_str());
             if (const auto bn = sc::blockNote(b.name, shownKeys[0], shownKeys[1], delays()); !bn.empty())

@@ -3,6 +3,7 @@
 Changes between releases.
 
 ## Unreleased
+- 2026-11-27: Units that have no effect on the sound (e.g. VCO 2 while MIXER's level for it is 0, LFO 1 while FM is 0) are drawn with a dashed outline on the Schematic, the Synth and the Effects tab, their lines dotted; FORMANT or an effect at Mix 0 (passing the sound unchanged) has long dashes. The hover text says why.
 - 2026-11-27: The effects have their own small matrix on the Effects tab (next to MAIN), in the effects' order; the Matrix tab shows only the synth (34 × 19, larger cells, no struck-through cells). Tabs now in the order Synth, Matrix, Schematic, Effects, Notes. A DAW is now told the longest tail of the effects in use (DELAY's was hidden by a short Hall reverb).
 - 2026-11-27: REVERB has a new engine, Hall: a smooth, dense tail without the metallic ring, from a small room (0.3 s) to a cathedral (12 s) at the same loudness; Damping darkens clearly. New: Pre-delay (0–200 ms, a gap before the tail) and Type (Hall / Classic). Your older patches and saved settings keep the old reverb (Classic) and sound as before; the REVERB presets use Hall.
 - 2026-11-26: Effects order: drag COMB, ENSEMBLE, DELAY or REVERB left or right by its title (or Left / Right on a selected title, or its right-click menu with Reset order; Reset layout on the Effects tab also gives the default order); the connections, the sound and the Schematic follow. Saved with patches; older patches keep the old order. Over 9P: /effects.
