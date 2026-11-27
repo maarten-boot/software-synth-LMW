@@ -172,3 +172,5 @@
 - User: stop here, continue at home. Open: re-measure Duduk, docs (Spec as built, Tests, Plan 50 + L17 split, Changes, Terms?), pictures, host test on display, u24, commit.
 - (Continued at home on the same VM.) User: ok continue. Duduk: opening the filter alone gave −5.6 dB; the cause was its 12.5 % pulse — now a square at Shape 40 % (a 32 % pulse), −1.8 dB: 40 of 40 within ±2 dB. Tutorial menu paths and Terms updated; Spec S7.16 as built; Tests; Plan 50 done, L17 with the split keyboard (layer / split / channel); Changes. 49 of 49 pass.
 - Host test on display passes; pictures retaken; u24 build 49 of 49. User: yes, commit and do the crosscheck. Committed Phase 50; crosscheck next.
+- Crosscheck after Phase 50: code matched the Spec (families, menu, list_presets, OUT Volume). Stale docs fixed: Spec S7.7 count / menu, S7.13 menu note, S11 list_presets; MCP list_presets text; Terms Instrument preset; AI guide (families, Synth presets, velocity cable, levels). 49 of 49 pass.
+- User: yes, commit; I will push and wait for CI. Committed the crosscheck fixes.

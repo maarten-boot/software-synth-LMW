@@ -140,7 +140,8 @@ private:
                          "the last 5 s, voices playing, overruns (blocks that took too long: dropouts likely), the audio "
                          "device's dropouts (standalone) and memory in MB. Above about 70 % lower keys.voices or switch off effects.",
              R"({"type":"object","properties":{}})"},
-            {"list_presets", "The built-in instrument presets and the module presets per module kind.",
+            {"list_presets", "The built-in instrument presets by family (Woodwinds, Brass, Strings, Keyboards, Plucked & mallets, "
+                             "Voices, Synth; world ones marked) and the module presets per module kind.",
              R"({"type":"object","properties":{}})"},
             {"apply_instrument_preset", "Set the whole sound to a built-in instrument preset (all parameters, cables "
                                         "and the patch name; the notes stay).",

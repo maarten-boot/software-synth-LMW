@@ -653,8 +653,9 @@ Where: header › Save..., Load...; Documents/LMW-Synth Patches.
 See also: [Patch](#patch)
 
 ### Instrument preset
-A whole sound in the header's Presets menu: the built-in instruments (Flute, String section, ...) and
-your own (Save as instrument preset...).
+A whole sound in the header's Presets menu: the built-in instruments, grouped by family (Woodwinds,
+Brass, Strings, Keyboards, Plucked & mallets, Voices, Synth; the world instruments also under World),
+and your own (Save as instrument preset...).
 
 Where: header › Presets.
 

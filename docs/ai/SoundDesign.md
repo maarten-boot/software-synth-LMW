@@ -16,6 +16,10 @@ Glide: `keys.glide` 0-2 s [0] with `keys.glidemode` Always / Legato (portamento;
 strings and voices); `keys.bendrange` 1 / 2 / 7 / 12 semitones; `keys.mod` is the mod wheel as a patchable output.
 World presets (`list_presets`, `apply_instrument_preset`): Shakuhachi, Bansuri, Pan flute, Duduk, Erhu, Shamisen, Koto,
 Sitar, Oud, Kalimba, Gamelan, Steel pan, Didgeridoo — good starting points for non-western timbres.
+`list_presets` gives every preset by family (Woodwinds, Brass, Strings, Keyboards, Plucked & mallets, Voices, Synth).
+Synth presets: Pad (slow), PWM strings, Acid bass, Filter sine (a self-oscillating VCF), Hollow lead, Ping-pong pluck,
+Wobble pad, Shimmer space. Velocity to brightness: `vcf1.cutoff=env2.out+keys.vel@0.4` (keeps ENV 2, adds velocity).
+The presets are levelled to within ±2 dB with `out.gain`; keep a new sound near that level.
 MIX 2 (after FORMANT, before the VCA): `mix2.level1-3` [1, 0, 0], `mix2.pan1-3` -1..1 [0]; `mix2.in1` is
 normalled from formant.out, in2 / in3 take cables. Panning an input makes the voice stereo, e.g. cables
 vcf1.in=vco1.out, vcf2.in=vco2.out, mix2.in1=vcf1.out (pan -0.7), mix2.in2=vcf2.out (pan 0.7): see "Choral flute".
