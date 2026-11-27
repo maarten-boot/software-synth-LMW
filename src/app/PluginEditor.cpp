@@ -2689,9 +2689,9 @@ void LMWSynthEditor::Keyboard::drawWhiteNote(int note, juce::Graphics& g, juce::
     if (isDown) {
         g.setColour(toJuce(pal.whiteKeyDown));
         g.fillRect(area);
-        textColour = toJuce(lmw::ui::theme::textOn(pal.whiteKeyDown));
+        textColour = toJuce(lmw::ui::theme::textOn(pal.whiteKeyDown, pal.keyText, pal.whiteKey));   // as Palette::pairs (S6.29)
     } else if (isOver) {
-        g.setColour(kFg);
+        g.setColour(toJuce(pal.keyText));                // S6.29: dark on the light grey keys in Dark too
         g.drawRect(area.reduced(2.0f), 1.0f);
     }
     // Base class: note name and the separator lines (no fill: not down, not over).
@@ -2703,10 +2703,10 @@ void LMWSynthEditor::Keyboard::drawBlackNote(int, juce::Graphics& g, juce::Recta
     g.setColour(isDown ? toJuce(pal.blackKeyDown) : noteFillColour);
     g.fillRect(area);
     if (isDown) {
-        g.setColour(kFg);                               // keeps its edge where it meets white keys
+        g.setColour(toJuce(pal.blackKey));              // keeps its edge where it meets white keys (S6.29)
         g.drawRect(area, 1.0f);
     } else if (isOver) {
-        g.setColour(kBg);
+        g.setColour(toJuce(pal.whiteKey));               // S6.29: the white keys' colour (the page is near-black in Dark)
         g.drawRect(area.reduced(2.0f), 1.0f);
     }
 }

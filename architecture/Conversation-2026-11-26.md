@@ -146,3 +146,9 @@
 - Committed 11926c0 (spec 48). Release run 46007508534: LMW-Synth 1.8.0 published (6 files). Cleanup check: 3 releases but no release and no artifact older than 14 days (331 artifacts) — nothing to clean, no warning.
 - 48 done: Theme.h foreground / background / keyboard in the palette, Dark and DarkHC presets, System, current(); ThemeInk.h (kFg / kBg / kQuiet read the current theme, smallFont, retintDesktop); LookAndFeel applyTheme; Config base / color_text / color_page; Theme menu; Follow system poll; ThemeDialog contrasts against the theme; placeholders refreshed (found on Xvfb); Max detection by page colour; scan test. test_contrast extended. Xvfb: all tabs in Dark, live switches, Edit colours. Terms Theme / Contrast; Spec as built; Tests; Plan; Changes. 48 of 48 pass.
 - User: yes, commit and do the crosscheck.
+- Committed 845dfd2 (Phase 48).
+
+## Crosscheck after Phase 48
+
+- Code vs S6.29, S6.13, S6.15, S6.28: as built. Found: keyboard details (pressed white key note name, hover rings, pressed black key edge) drawn with black / white or the page colour, not the keyboard's own colours that Palette::pairs checks — in Dark the black-key hover ring was invisible → keyText / whiteKey / blackKey. Spec S6.13 note, as built; Plan header.
+- User: yes, commit; will push and wait for CI. Committed (crosscheck 48).
