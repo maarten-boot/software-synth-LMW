@@ -152,3 +152,5 @@
 
 - Code vs S6.29, S6.13, S6.15, S6.28: as built. Found: keyboard details (pressed white key note name, hover rings, pressed black key edge) drawn with black / white or the page colour, not the keyboard's own colours that Palette::pairs checks — in Dark the black-key hover ring was invisible → keyText / whiteKey / blackKey. Spec S6.13 note, as built; Plan header.
 - User: yes, commit; will push and wait for CI. Committed (crosscheck 48).
+- User: what is next? Listed. User: start the spec for L21. S5.28 proposed (Shape per VCO, per wave, band-limited, panel, presets); choices A-D.
+- User: all recommended; commit the spec and start 49; should we also allow that on the LFO? Answer: yes, it makes sense, but a 4th LFO column would not fit 1920 with LFO 1 in row 3; open choice E (fader under the Wave box / own column / VCOs only). S5.28 confirmed (A a, B a, C a, D a); Plan 49, L21; Tests T-S5.28-shape planned.
