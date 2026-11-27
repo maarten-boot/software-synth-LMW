@@ -413,9 +413,16 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
          addFader(P::delayMix, "Mix", [] { return juce::String("Dry/wet: 0 = off (the input passes unchanged), 100 % = only the echoes"); })}, {}});
     effectGroups.push_back({"REVERB", 0,
         // Mix on the right as on every other effect (user 2026-11-24; it was first).
-        {addFader(P::reverbSize, "Size", [] { return juce::String("Room size: longer decay when larger"); }),
+        // Spec S7.15: Type (Classic = Freeverb as before, Hall = the new engine) and Pre-delay.
+        {addChoice(P::reverbType, "Type", {"Classic", "Hall"},
+                   "Reverb engine. Hall: smooth, dense tail without a metallic ring (new sounds).\n"
+                   "Classic: the reverb of LMW-Synth 1.7 and before (older patches keep it)."),
+         addFader(P::reverbSize, "Size", [] { return juce::String("Room size: longer decay when larger (Hall: about 0.3 s to 12 s)"); }),
          addFader(P::reverbDamping, "Damping", [] { return juce::String("High-frequency damping of the reflections: darker when higher"); }),
          addFader(P::reverbWidth, "Width", [] { return juce::String("Stereo width of the reverb: 0 = mono, 100 % = widest"); }),
+         addFader(P::reverbPredelay, "Pre-delay", [] {
+             return juce::String("A gap before the reverb starts (0-200 ms): voices and solo instruments stay clear");
+         }),
          addFader(P::reverbMix, "Mix", [] { return juce::String("Dry/wet balance: 0 = off (no reverb at all), 100 % = only reverb"); })}, {}});
     effectGroups.push_back({"MAIN", 0, {}, {}, 1});
     for (const auto& grp : effectGroups)                     // Spec S7.5: COMB, DELAY and REVERB have presets
@@ -436,6 +443,8 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
         for (const auto& item : grp.items)
             if (item.fader != nullptr) { effectComponents.push_back(&item.fader->slider); effectComponents.push_back(&item.fader->label);
                                          effectComponents.push_back(&item.fader->tag); }
+            else for (auto* c : {item.choice, item.choice2, item.choice3})   // S7.15: REVERB Type
+                if (c != nullptr) { effectComponents.push_back(&c->box); effectComponents.push_back(&c->label); }
     jassert(usedFaders == faders.size() && usedChoices == choices.size());
 
     // Spec S6.5, S6.16: rack. A row holds as many columns as fit on the widest screen (at least the widest
@@ -532,7 +541,7 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
             {1, 0, false, in(In::CombIn), "In"}, {1, 4, true, out(Out::CombOut), "Out"},
             {2, 0, false, in(In::EnsembleIn), "In"}, {2, 3, true, out(Out::EnsembleOut), "Out"},   // S7.11
             {3, 0, false, in(In::DelayIn), "In"}, {3, 4, true, out(Out::DelayOut), "Out"},   // S7.8
-            {4, 0, false, in(In::ReverbIn), "In"}, {4, 3, true, out(Out::ReverbOut), "Out"},
+            {4, 0, false, in(In::ReverbIn), "In"}, {4, 5, true, out(Out::ReverbOut), "Out"},   // S7.15: 6 columns
             {5, 0, false, in(In::MainIn), "In"},
         };
         effectGroupJacks.resize(effectGroups.size());
@@ -929,6 +938,7 @@ juce::String LMWSynthEditor::describeInputOnly(lmw::dsp::In in) const {
 
 LMWSynthEditor::Item LMWSynthEditor::addFader(const char* paramId, const juce::String& text,
                                               std::function<juce::String()> tip) {
+    if (usedFaders >= faders.size()) { std::fprintf(stderr, "LMW-Synth: faders[] too small\n"); std::abort(); }   // found 2026-11-27
     Fader& k = faders[usedFaders++];
     k.slider.setSliderSnapsToMousePosition(false);   // drag moves relative; a click does not jump the value
     // Spec S6.1, S6.17: every fader's hover text ends with its scale (linear, linear around 0, logarithmic or
@@ -962,6 +972,7 @@ LMWSynthEditor::Item LMWSynthEditor::addFader(const char* paramId, const juce::S
 
 LMWSynthEditor::Item LMWSynthEditor::addChoice(const char* paramId, const juce::String& text,
                                                const juce::StringArray& options, const juce::String& tip) {
+    if (usedChoices >= choices.size()) { std::fprintf(stderr, "LMW-Synth: choices[] too small\n"); std::abort(); }
     Choice& c = choices[usedChoices++];
     c.box.addItemList(options, 1);
     c.box.setTooltip(tip);

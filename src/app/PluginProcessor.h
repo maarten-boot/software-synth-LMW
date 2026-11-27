@@ -11,6 +11,7 @@
 #include "dsp/Comb.h"
 #include "dsp/Ensemble.h"
 #include "dsp/Delay.h"
+#include "dsp/Reverb.h"
 #include "dsp/SpscQueue.h"
 #include "dsp/MidiParse.h"
 #include <array>
@@ -83,6 +84,8 @@ inline constexpr const char* reverbMix     = "reverb.mix";
 inline constexpr const char* reverbSize    = "reverb.size";
 inline constexpr const char* reverbDamping = "reverb.damping";
 inline constexpr const char* reverbWidth   = "reverb.width";
+inline constexpr const char* reverbType    = "reverb.type";       // Spec S7.15: Classic / Hall
+inline constexpr const char* reverbPredelay = "reverb.predelay";  // Spec S7.15: 0-0.2 s
 // Spec S7.6: COMB on the Effects tab.
 inline constexpr const char* combFreq     = "comb.freq";
 inline constexpr const char* combKey      = "comb.key";
@@ -125,6 +128,8 @@ public:
     // The reverb rings on after the last note (Spec S7.4); without it the sound stops with the notes.
     // Spec S7.6: the comb rings on too (high feedback).
     double getTailLengthSeconds() const override {
+        if (raw.revMix->load() > 0.0f && raw.revType->load() >= 0.5f)   // S7.15: the Hall's decay + 1 s, + Pre-delay
+            return lmw::dsp::HallReverb::rt60(raw.revSize->load()) + 1.0 + raw.revPredelay->load();
         return raw.revMix->load() > 0.0f || raw.delayMix->load() > 0.0f ? 10.0
              : (raw.combMix->load() > 0.0f ? 2.0 : (raw.ensembleMix->load() > 0.0f ? 0.05 : 0.0));
     }
@@ -308,6 +313,7 @@ private:
     Stereo delaySample(Stereo in) noexcept;           // Spec S7.8
     Stereo ensembleSample(Stereo in) noexcept;        // Spec S7.11
     Stereo reverbSample(Stereo in, bool stereo) noexcept;
+    Stereo predelay(Stereo in) noexcept;           // Spec S7.15
     juce::Reverb::Parameters reverbParameters() const noexcept;
 
     // MidiKeyboardState::Listener — called on the message thread by on-screen / QWERTY keys.
@@ -361,7 +367,7 @@ private:
     struct RawParams {                 // atomics owned by apvts, read on the audio thread
         std::atomic<float> *voices{}, *mixNoise{}, *vcaInitial{},
             *e1a{}, *e1d{}, *e1s{}, *e1r{}, *e2a{}, *e2d{}, *e2s{}, *e2r{}, *lfoRate{}, *lfoWave{}, *gain{},
-            *lfo2Rate{}, *lfo2Wave{}, *lfoDelay{}, *lfo2Delay{}, *outPan{}, *outSpread{}, *spreadMode{}, *glide{}, *glideMode{}, *bendRange{}, *tremolo{}, *vcaVelocity{}, *revMix{}, *revSize{}, *revDamping{}, *revWidth{},
+            *lfo2Rate{}, *lfo2Wave{}, *lfoDelay{}, *lfo2Delay{}, *outPan{}, *outSpread{}, *spreadMode{}, *glide{}, *glideMode{}, *bendRange{}, *tremolo{}, *vcaVelocity{}, *revType{}, *revPredelay{}, *revMix{}, *revSize{}, *revDamping{}, *revWidth{},
             *noiseColour{}, *noiseRate{}, *noiseSmooth{},
             *combFreq{}, *combKey{}, *combFeedback{}, *combDamping{}, *combMix{},
             *delayTime{}, *delayFeedback{}, *delayDamping{}, *delaySpread{}, *delayMix{}, *ensembleDepth{}, *ensembleRate{}, *ensembleShimmer{}, *ensembleMix{}, *formantVowel{}, *formantVoice{}, *formantRes{}, *formantMix{}, *vcfRouting{}, *effectsOrder{};
@@ -372,7 +378,12 @@ private:
 
     // Spec S7.4: reverb (JUCE's Freeverb), wet only, mixed in with our own 20 ms Mix smoothing. While Mix
     // is 0 it is not run at all, so the output is exactly the synth's. Buffers sized in prepareToPlay.
-    juce::Reverb reverb;
+    juce::Reverb reverb;                           // S7.15: Type Classic
+    lmw::dsp::HallReverb hall;                     // S7.15: Type Hall
+    bool hallShown = true;                         // the type the reverb ran last block (a switch clears the other)
+    std::vector<Stereo> predelayBuf;               // S7.15: Pre-delay on the reverb input (0.2 s)
+    std::size_t predelayPos = 0;
+    double predelayNow = 0.0, predelayTarget = 0.0; // samples; glides
     juce::SmoothedValue<float> reverbMix;
     bool reverbRunning = false;
     float reverbSizeGain = 1.0f;                   // S7.4: wet level compensated for Size

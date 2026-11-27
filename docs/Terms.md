@@ -530,7 +530,9 @@ See also: [Feedback](#feedback), [Effect](#effect)
 
 ### REVERB
 The sound of a room: many reflections blending into a tail. Size sets the room, Damping how dark,
-Width how wide.
+Width how wide, Pre-delay the gap before the tail starts (clarity for voices and solo instruments).
+Type: Hall (a smooth, dense tail; new sounds) or Classic (the reverb of version 1.7 and before; older
+patches keep it, so they sound as they did).
 
 Where: Effects tab › REVERB.
 

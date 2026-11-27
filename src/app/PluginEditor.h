@@ -406,8 +406,8 @@ private:
     LMWSynthProcessor& processor;
     LMWLookAndFeel lookAndFeel;
     Metrics m = normalMetrics;
-    std::array<Fader, 69> faders;
-    std::array<Choice, 16> choices;
+    std::array<Fader, 70> faders;                          // exactly the faders made (70 since S7.15: reverb Pre-delay)
+    std::array<Choice, 17> choices;                        // 17 since S7.15 (reverb Type)
     std::size_t usedFaders = 0, usedChoices = 0;
     std::vector<Group> groups;
     std::vector<std::unique_ptr<PanelHeader>> headers;    // one per group, same index

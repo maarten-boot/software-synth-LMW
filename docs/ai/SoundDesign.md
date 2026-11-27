@@ -81,7 +81,9 @@ envelope is up. Audio and gate inputs take 0 to 1 only. A level of 0 keeps a cab
   pads into a string ensemble; "Subtle chorus", "Wide", "Vibrato strings".
 - **DELAY** (`delay.time` 0.001-2 s, `delay.feedback` 0-0.95, `delay.damping` 0-1, `delay.spread` 0-1
   where 1 = ping-pong, `delay.mix` 0-1, 0 = off): echoes; 0.03 s doubling, 0.09 s slapback, 0.3-0.5 s echo.
-- **REVERB** (`reverb.mix` 0-1, 0 = off; `reverb.size`, `reverb.damping`, `reverb.width` 0-1): the room.
+- **REVERB** (`reverb.mix` 0-1, 0 = off; `reverb.size`, `reverb.damping`, `reverb.width` 0-1; `reverb.predelay`
+  0-0.2 s; `reverb.type` Hall (smooth, the default) or Classic (older patches)): the room. Hall Size: about 0.3 s
+  to 12 s of decay at the same loudness; Pre-delay 20-40 ms keeps a voice or solo instrument clear.
   Mix 0.1-0.15 small room, 0.25 hall (size 0.8), 0.35 cathedral (size 0.95).
 
 ## Recipes

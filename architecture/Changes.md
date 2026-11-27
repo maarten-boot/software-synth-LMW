@@ -3,6 +3,7 @@
 Changes between releases.
 
 ## Unreleased
+- 2026-11-27: REVERB has a new engine, Hall: a smooth, dense tail without the metallic ring, from a small room (0.3 s) to a cathedral (12 s) at the same loudness; Damping darkens clearly. New: Pre-delay (0–200 ms, a gap before the tail) and Type (Hall / Classic). Your older patches and saved settings keep the old reverb (Classic) and sound as before; the REVERB presets use Hall.
 - 2026-11-26: Effects order: drag COMB, ENSEMBLE, DELAY or REVERB left or right by its title (or Left / Right on a selected title, or its right-click menu with Reset order; Reset layout on the Effects tab also gives the default order); the connections, the sound and the Schematic follow. Saved with patches; older patches keep the old order. Over 9P: /effects.
 - 2026-11-26: Reset layout now puts MIXER at the end of the first row (after NOISE) and FORMANT after VCF 2, in signal order. On the Schematic the effects (COMB … MAIN) sit in a row at the bottom. Layouts you arranged are kept.
 - 2026-11-26: Linux: the window uses the desktop's own frame — resizing is smooth and stops when you let go (it left grey lines and froze before), and maximised it leaves room for panels and task bars (the keyboard was half hidden under an XFCE bottom panel). Audio/MIDI Settings, Save / Load state and Reset are now at the top of Menu (there is no Options button on Linux).

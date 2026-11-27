@@ -77,7 +77,7 @@ inline const std::vector<std::string_view>& keys(Kind k) {
     static const std::vector<std::string_view> env{"attack", "decay", "sustain", "release"};
     static const std::vector<std::string_view> vcf{"cutoff", "res", "env", "key", "slope", "type"};
     static const std::vector<std::string_view> vco{"wave", "octave", "tune", "fm", "pm"};   // pm: S5.20
-    static const std::vector<std::string_view> reverb{"mix", "size", "damping", "width"};
+    static const std::vector<std::string_view> reverb{"mix", "size", "damping", "width", "predelay", "type"};   // S7.15: + predelay, type
     static const std::vector<std::string_view> formant{"vowel", "voice", "res", "mix"};
     static const std::vector<std::string_view> comb{"freq", "key", "feedback", "damping", "mix"};
     static const std::vector<std::string_view> delay{"time", "feedback", "damping", "spread", "mix"};
@@ -164,14 +164,14 @@ inline const std::vector<Preset>& builtIn(Kind k) {
         make("Fifth above", Kind::Vco, {"Saw", "0", "7", "0", "0"}),
         make("Sub bass", Kind::Vco, {"Square", "-2", "0", "0", "0"}),
     };
-    // mix 0-1, size 0-1, damping 0-1, width 0-1
+    // mix 0-1, size 0-1, damping 0-1, width 0-1, pre-delay 0-0.2 s, type (S7.15: the presets are the Hall's; by ear, user)
     static const std::vector<Preset> reverb{
-        make("Small room", Kind::Reverb, {"0.15", "0.3", "0.6", "0.7"}),
-        make("Ambience", Kind::Reverb, {"0.1", "0.4", "0.7", "0.5"}),
-        make("Chamber", Kind::Reverb, {"0.2", "0.5", "0.5", "1"}),
-        make("Concert hall", Kind::Reverb, {"0.25", "0.8", "0.4", "1"}),
-        make("Cathedral", Kind::Reverb, {"0.35", "0.85", "0.5", "1"}),   // 2026-11-26: was 0.95 / 0.3 (overloaded, metallic)
-        make("Plate", Kind::Reverb, {"0.25", "0.6", "0.1", "1"}),
+        make("Small room", Kind::Reverb, {"0.15", "0.3", "0.6", "0.7", "0.005", "Hall"}),
+        make("Ambience", Kind::Reverb, {"0.1", "0.4", "0.7", "0.5", "0", "Hall"}),
+        make("Chamber", Kind::Reverb, {"0.2", "0.5", "0.5", "1", "0.01", "Hall"}),
+        make("Concert hall", Kind::Reverb, {"0.25", "0.8", "0.4", "1", "0.025", "Hall"}),
+        make("Cathedral", Kind::Reverb, {"0.35", "0.85", "0.5", "1", "0.04", "Hall"}),   // 2026-11-26: was 0.95 / 0.3 (overloaded, metallic)
+        make("Plate", Kind::Reverb, {"0.25", "0.6", "0.1", "1", "0", "Hall"}),
     };
     // COMB (S7.6): frequency Hz, key tracking 0-1 (1: follows the note, Freq at C4), feedback -0.95..0.95
     // (negative: odd harmonics, clarinet-like), damping 0-1, mix 0-1. The wind and guitar bodies are the

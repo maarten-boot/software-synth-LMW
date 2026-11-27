@@ -373,7 +373,7 @@ int main(int argc, char* argv[]) {
         for (std::size_t at = 0; (at = info.find("{\"id\": ", at)) != std::string::npos; ++at) ++objects;
         std::printf("/info: %zu bytes, %d parameters\n", info.size(), objects);
         CHECK(info.rfind("[\n", 0) == 0 && info.size() > 2 && info.substr(info.size() - 2) == "]\n");
-        CHECK(objects == 89);   // 89 since S7.14 (effects.order), 88 since S6.24 (keys.glide, keys.glidemode, keys.bendrange), 85 since S5.26 (mix2.level1-3, mix2.pan1-3), 79 since S5.25 (out.pan, out.spread, out.spreadmode), 76 since S5.24, 74 since S7.11 (ensemble.*), 70 with S5.22 (vca.velocity), 69 with S7.8 (delay.*), 64 with S7.6, 59 with S5.20
+        CHECK(objects == 91);   // 91 since S7.15 (reverb.type, reverb.predelay), 89 since S7.14 (effects.order), 88 since S6.24 (keys.glide, keys.glidemode, keys.bendrange), 85 since S5.26 (mix2.level1-3, mix2.pan1-3), 79 since S5.25 (out.pan, out.spread, out.spreadmode), 76 since S5.24, 74 since S7.11 (ensemble.*), 70 with S5.22 (vca.velocity), 69 with S7.8 (delay.*), 64 with S7.6, 59 with S5.20
         CHECK(info.find("{\"id\": \"vcf1.cutoff\", \"name\": \"VCF 1 Cutoff\", \"kind\": \"float\", \"min\": 20.0, "
                         "\"max\": 18000.0, \"default\": 18000.0, \"unit\": \"Hz\", \"centre\": 600.0, \"scale\": \"log\"}") != std::string::npos);
         CHECK(info.find("{\"id\": \"vco1.tune\", \"name\": \"VCO 1 Tune\", \"kind\": \"float\", \"min\": -7.0, \"max\": 7.0, "
@@ -608,6 +608,20 @@ int main(int argc, char* argv[]) {
             CHECK(write9P(sock, {"params", "comb", "mix"}, "0").empty());
             CHECK(write9P(sock, {"params", "reverb", "mix"}, "0").empty());
         }
+        // T-S7.15-reverb: a patch file from before S7.15 (state_version 5, no reverb.type) loads as Classic; one of
+        // version 6 without the line gets the default, Hall; the line is written.
+        {
+            CHECK(read9P(sock, {"params", "reverb", "type"}) == "Hall\n");
+            auto text = read9P(sock, {"patch"});
+            CHECK(text.find("reverb.type = Hall\n") != std::string::npos && text.find("state_version = 6\n") != std::string::npos);
+            const auto drop = [](std::string t, const std::string& line) { const auto at = t.find(line); if (at != std::string::npos) t.erase(at, line.size()); return t; };
+            auto old = drop(text, "reverb.type = Hall\n");
+            old.replace(old.find("state_version = 6"), 17, "state_version = 5");
+            CHECK(write9P(sock, {"patch"}, old).empty());
+            CHECK(read9P(sock, {"params", "reverb", "type"}) == "Classic\n");
+            CHECK(write9P(sock, {"patch"}, drop(text, "reverb.type = Hall\n")).empty());
+            CHECK(read9P(sock, {"params", "reverb", "type"}) == "Hall\n");
+        }
         CHECK(write9P(sock, {"notes"}, "serial test").empty());
         const auto s3 = serial();
         CHECK(serial() == s3);                                        // nothing changed: the same number
@@ -695,15 +709,19 @@ int main(int argc, char* argv[]) {
             };
             CHECK(write9P(sock, {"params", "reverb", "mix"}, "1").empty());
             CHECK(write9P(sock, {"params", "vca", "velocity"}, "0").empty());
+            for (const char* type : {"Classic", "Hall"}) {           // S7.15: both engines
+            CHECK(write9P(sock, {"params", "reverb", "type"}, type).empty());
             double p50 = 0, p95 = 0, pd = 0;
             const auto [r50, h50] = played("0.5", "0", p50);
             const auto [r95, h95] = played("0.95", "0", p95);
             const auto [rd, hd] = played("0.5", "1", pd);
-            std::printf("reverb rms: size 50 %% %.4f, 95 %% %.4f (%.1f dB); highs damping 0 %.4f, 100 %% %.4f; peaks %.3f %.3f %.3f\n",
-                        r50, r95, 20 * std::log10(r95 / r50), h50 / r50, hd / rd, p50, p95, pd);
+            std::printf("%s reverb rms: size 50 %% %.4f, 95 %% %.4f (%.1f dB); highs damping 0 %.4f, 100 %% %.4f; peaks %.3f %.3f %.3f\n",
+                        type, r50, r95, 20 * std::log10(r95 / r50), h50 / r50, hd / rd, p50, p95, pd);
             CHECK(std::fabs(20 * std::log10(r95 / r50)) < 2.5);
             CHECK(hd / rd < 0.5 * (h50 / r50));
             CHECK(p50 <= 0.995 && p95 <= 0.995 && pd <= 0.995);
+            }
+            CHECK(write9P(sock, {"params", "reverb", "type"}, "Hall").empty());
             for (const auto& [file, value] : std::vector<std::pair<const char*, const char*>>{{"mix", "0"}, {"size", "0.5"}, {"damping", "0.5"}})
                 CHECK(write9P(sock, {"params", "reverb", file}, value).empty());
             CHECK(write9P(sock, {"params", "vca", "velocity"}, "1").empty());

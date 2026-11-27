@@ -6,6 +6,8 @@
 //   3 -> 4 (LFO 1-2):  lfo.* -> lfo1.*
 //   4 -> 5 (S5.23, 36 dB slope): the slope choices became 36 / 24 / 12 / 6 dB, so a saved slope index moves up
 //                      one (0 = 24 dB -> 1); patch files store the name and need nothing
+//   5 -> 6 (S7.15, Hall reverb): reverb.type is new with Hall as the default; a state or patch file from before
+//                      it has none and gets Classic (classicReverb), so it sounds exactly as it did
 // A state without "stateVersion" is version 1. Pure C++ so it can be unit-tested.
 #pragma once
 #include <array>
@@ -15,7 +17,7 @@
 
 namespace lmw::migration {
 
-inline constexpr int currentStateVersion = 5;
+inline constexpr int currentStateVersion = 6;
 
 namespace detail {
 template <std::size_t N>
@@ -54,6 +56,10 @@ inline float parameterValue(int from, std::string_view id, float value) {
     if (from < 5 && (id == "vcf1.slope" || id == "vcf2.slope")) return value + 1.0f;
     return value;
 }
+
+// S7.15: a state or patch file of version `from` that does not name reverb.type gets this one (Classic, index 0);
+// none for version 6 on (the parameter's default, Hall).
+inline constexpr bool needsClassicReverb(int from) noexcept { return from < 6; }
 
 // Port name saved by state version `from` -> current name.
 inline std::string portName(int from, std::string_view name) {

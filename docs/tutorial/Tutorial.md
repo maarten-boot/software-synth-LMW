@@ -233,7 +233,8 @@ first, then COMB, rings the comb on the reverb's tail).
 
 ![The Effects tab with the Lesson 9 sound and the ENSEMBLE preset Solina: SYNTH, COMB, ENSEMBLE, DELAY, REVERB and MAIN](../images/lesson9-effects.png)
 
-1. *REVERB › Mix* 25 %, *Size* 80 %: a hall. *Damping* darker, *Width* narrower or wider.
+1. *REVERB › Mix* 25 %, *Size* 80 %: a hall. *Damping* darker, *Width* narrower or wider, *Pre-delay*
+   30 ms: the flute stays clear in front of the hall. *Type* Classic is the reverb of older versions.
 2. *COMB › Mix* 30 %, *Key* 100 %, *Freq* 262 Hz (C4), *Feedback* 40 %: a resonant body that
    follows the notes — the breathy flute gets a tube.
 3. *COMB › Feedback* −50 %: odd harmonics, clarinet-like. *Damping* softens it. Back to *COMB › Mix* 0.

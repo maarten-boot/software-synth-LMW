@@ -139,7 +139,11 @@ APVTS::ParameterLayout LMWSynthProcessor::createLayout(std::map<std::string, Flo
     l.add(f(P::reverbMix,     "Reverb Mix",     Range(0.0f, 1.0f), 0.0f, percent),
           f(P::reverbSize,    "Reverb Size",    Range(0.0f, 1.0f), 0.5f, percent),
           f(P::reverbDamping, "Reverb Damping", Range(0.0f, 1.0f), 0.5f, percent),
-          f(P::reverbWidth,   "Reverb Width",   Range(0.0f, 1.0f), 1.0f, percent));
+          f(P::reverbWidth,   "Reverb Width",   Range(0.0f, 1.0f), 1.0f, percent),
+          f(P::reverbPredelay, "Reverb Pre-delay", Range(0.0f, 0.2f), 0.0f, seconds));   // Spec S7.15
+    // Spec S7.15: the reverb engine; new sounds Hall, older patches and states Classic (StateMigration v6).
+    l.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{P::reverbType, 1}, "Reverb Type",
+              juce::StringArray{"Classic", "Hall"}, 1));
     // Spec S7.6: COMB on the Effects tab. Mix 0 = off (bypassed exactly).
     l.add(f(P::combFreq,     "Comb Frequency", logRange(20.0f, 5000.0f, 440.0f), 440.0f, hertz),
           f(P::combKey,      "Comb Key",       Range(0.0f, 1.0f), 0.0f, percent),
@@ -181,6 +185,7 @@ LMWSynthProcessor::LMWSynthProcessor()
     raw.vcaVelocity = get(P::vcaVelocity);
     raw.revMix = get(P::reverbMix); raw.revSize = get(P::reverbSize);
     raw.revDamping = get(P::reverbDamping); raw.revWidth = get(P::reverbWidth);
+    raw.revType = get(P::reverbType); raw.revPredelay = get(P::reverbPredelay);
     raw.combFreq = get(P::combFreq); raw.combKey = get(P::combKey); raw.combFeedback = get(P::combFeedback);
     raw.combDamping = get(P::combDamping); raw.combMix = get(P::combMix);
     raw.delayTime = get(P::delayTime); raw.delayFeedback = get(P::delayFeedback); raw.delayDamping = get(P::delayDamping);
@@ -247,6 +252,12 @@ void LMWSynthProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
     reverb.setParameters(reverbParameters());      // before setSampleRate, which makes them current (no glide)
     reverb.setSampleRate(sampleRate);              // allocates: here, not on the audio thread
     reverb.reset();
+    hall.setParameters(raw.revSize->load(), raw.revDamping->load(), raw.revWidth->load());
+    hall.prepare(sampleRate);                      // allocates: Spec S7.15
+    hallShown = raw.revType->load() >= 0.5f;
+    predelayBuf.assign(static_cast<std::size_t>(std::ceil(0.2 * sampleRate)) + 4, Stereo{});
+    predelayPos = 0;
+    predelayNow = predelayTarget = static_cast<double>(raw.revPredelay->load()) * sampleRate;
     reverbMix.reset(sampleRate, 0.02);
     reverbMix.setCurrentAndTargetValue(raw.revMix->load());
     reverbRunning = false;
@@ -280,21 +291,49 @@ juce::Reverb::Parameters LMWSynthProcessor::reverbParameters() const noexcept {
 LMWSynthProcessor::Stereo LMWSynthProcessor::reverbSample(Stereo in, bool stereo) noexcept {
     if (!reverbRunning && !reverbMix.isSmoothing() && reverbMix.getCurrentValue() <= 0.0f) return in;
     reverbRunning = true;
-    Stereo wet = in;
-    if (stereo) reverb.processStereo(&wet.l, &wet.r, 1);
-    else        { reverb.processMono(&wet.l, 1); wet.r = wet.l; }
-    // Spec S7.4 (2026-11-26): the same loudness at every Size, and Damping darkens the tail audibly.
-    const float k = reverbLpCoeff;
-    reverbLp.l = wet.l * reverbSizeGain * (1.0f - k) + reverbLp.l * k;
-    reverbLp.r = wet.r * reverbSizeGain * (1.0f - k) + reverbLp.r * k;
-    wet = reverbLp;
+    Stereo wet = predelay(in);                    // Spec S7.15: 0 = exactly the input
+    if (hallShown) {                              // S7.15: Hall (the engine has its own level and damping)
+        hall.process(wet.l, stereo ? wet.r : wet.l, wet.l, wet.r);
+        if (!stereo) wet.r = wet.l;
+    } else {
+        if (stereo) reverb.processStereo(&wet.l, &wet.r, 1);
+        else        { reverb.processMono(&wet.l, 1); wet.r = wet.l; }
+        // Spec S7.4 (2026-11-26): the same loudness at every Size, and Damping darkens the tail audibly.
+        const float k = reverbLpCoeff;
+        reverbLp.l = wet.l * reverbSizeGain * (1.0f - k) + reverbLp.l * k;
+        reverbLp.r = wet.r * reverbSizeGain * (1.0f - k) + reverbLp.r * k;
+        wet = reverbLp;
+    }
     const float m = reverbMix.getNextValue();
     const Stereo out{in.l * (1.0f - m) + wet.l * m, in.r * (1.0f - m) + wet.r * m};
     if (!reverbMix.isSmoothing() && reverbMix.getCurrentValue() <= 0.0f) {
         reverb.reset();                            // RT-safe: clears the delay lines
+        hall.reset();
+        std::fill(predelayBuf.begin(), predelayBuf.end(), Stereo{});
         reverbLp = {};
         reverbRunning = false;
     }
+    return out;
+}
+
+// Spec S7.15: Pre-delay on the reverb input; a change glides (about 50 ms), 0 is exactly the input.
+LMWSynthProcessor::Stereo LMWSynthProcessor::predelay(Stereo in) noexcept {
+    const auto n = predelayBuf.size();
+    if (n == 0) return in;
+    predelayBuf[predelayPos] = in;
+    predelayNow += (predelayTarget - predelayNow) * 0.0005;
+    if (std::fabs(predelayTarget - predelayNow) < 0.01) predelayNow = predelayTarget;
+    Stereo out = in;
+    if (predelayNow > 0.0) {
+        double rp = static_cast<double>(predelayPos) - std::min(predelayNow, static_cast<double>(n - 2));
+        if (rp < 0) rp += static_cast<double>(n);
+        const auto i0 = static_cast<std::size_t>(rp);
+        const auto i1 = i0 + 1 == n ? 0 : i0 + 1;
+        const float f = static_cast<float>(rp - static_cast<double>(i0));
+        out = {predelayBuf[i0].l + (predelayBuf[i1].l - predelayBuf[i0].l) * f,
+               predelayBuf[i0].r + (predelayBuf[i1].r - predelayBuf[i0].r) * f};
+    }
+    predelayPos = predelayPos + 1 == n ? 0 : predelayPos + 1;
     return out;
 }
 
@@ -355,6 +394,13 @@ void LMWSynthProcessor::processEffects(float* left, float* right, int n) noexcep
     ensembleMix.setTargetValue(raw.ensembleMix->load());
     ensembleFx.setParameters(raw.ensembleDepth->load(), raw.ensembleRate->load(), raw.ensembleShimmer->load());
     delayFx.setParameters(raw.delayTime->load(), raw.delayFeedback->load(), raw.delayDamping->load(), raw.delaySpread->load());
+    predelayTarget = static_cast<double>(raw.revPredelay->load()) * getSampleRate();   // Spec S7.15
+    if (const bool h = raw.revType->load() >= 0.5f; h != hallShown) {   // S7.15: a switch starts the other engine clean
+        hallShown = h;
+        if (h) hall.reset(); else reverb.reset();
+        reverbLp = {};
+    }
+    if (hallShown) hall.setParameters(raw.revSize->load(), raw.revDamping->load(), raw.revWidth->load());
     if (reverbRunning || reverbMix.isSmoothing() || reverbMix.getTargetValue() > 0.0f) {
         reverb.setParameters(reverbParameters());
         // Spec S7.4 (2026-11-26). Size: Freeverb's combs feed back g = 0.7 + 0.28 x Size, so a held note builds up
@@ -598,6 +644,12 @@ void LMWSynthProcessor::setStateInformation(const void* data, int size) {
                     }
                 }
             text = lmw::migration::cables(version, text);
+            if (lmw::migration::needsClassicReverb(version) && !tree.getChildWithProperty("id", lmw::param::reverbType).isValid()) {
+                juce::ValueTree classic("PARAM");          // S7.15: older states keep Freeverb (index 0)
+                classic.setProperty("id", lmw::param::reverbType, nullptr);
+                classic.setProperty("value", 0.0f, nullptr);
+                tree.appendChild(classic, nullptr);
+            }
         }
         tree.removeProperty(kPatchProp, nullptr);
         tree.removeProperty(kVersionProp, nullptr);
@@ -826,6 +878,8 @@ bool LMWSynthProcessor::loadPatchText(const juce::String& text, juce::String& er
     }
     std::map<std::string, std::string> values;
     for (const auto& prm : p->parameters) values[lmw::migration::parameterId(version, prm.id)] = prm.value;
+    if (lmw::migration::needsClassicReverb(version) && values.count(lmw::param::reverbType) == 0)
+        values[lmw::param::reverbType] = "Classic";              // S7.15: older patch files keep Freeverb
     if (!applySound(juce::String::fromUTF8(p->name.c_str()), values, lmw::migration::cables(version, cableText), error))
         return false;
     // Spec S6.7: the schematic as saved; without a [schematic] section (or an unreadable one) the default. An own

@@ -73,7 +73,8 @@ int main() {
         CHECK(parameterValue(4, "vcf1.slope", 0.0f) == 1.0f && parameterValue(4, "vcf2.slope", 2.0f) == 3.0f);
         CHECK(parameterValue(2, parameterId(2, "vcf.slope"), 1.0f) == 2.0f);   // 12 dB of a version-2 state
         CHECK(parameterValue(4, "vcf1.type", 1.0f) == 1.0f && parameterValue(5, "vcf1.slope", 0.0f) == 0.0f);
-        CHECK(currentStateVersion == 5);
+        CHECK(currentStateVersion == 6);
+        CHECK(needsClassicReverb(5) && needsClassicReverb(1) && !needsClassicReverb(6));   // S7.15
         // new ports by name; vca.mod is normalled from lfo2.out
         const auto q4 = patchFromText("vca.mod=lfo1.out");
         CHECK(q4.has_value() && q4->source(In::VcaMod) == Out::Lfo1);
