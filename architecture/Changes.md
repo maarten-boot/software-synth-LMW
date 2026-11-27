@@ -3,6 +3,10 @@
 Changes between releases.
 
 ## Unreleased
+
+## 1.9.0 (2026-11-27)
+- 2026-11-27: Presets › All lists every built-in instrument preset A–Z.
+- 2026-11-27: Patches and saved settings from 1.8.0 load unchanged: Shape starts at 0 % (the waves exactly as before) and the theme stays as chosen. The built-in instrument presets now set their own OUT Volume, so they are about equally loud; choose one again to get its new level (your own presets and patches keep theirs).
 - 2026-11-27: Presets reviewed: the instruments are grouped by family (Woodwinds, Brass, Strings, Keyboards, Plucked & mallets, Voices, Synth, World — each world instrument also in its family); every instrument now sounds about equally loud (so switching presets no longer jumps — they are a little quieter than before, turn up once); brass and keyboards get brighter when played harder; reeds a little breath; Organ a chorus; Electric piano and Guitar a short echo. New Synth presets: Acid bass, Filter sine, Hollow lead, Ping-pong pluck, Wobble pad, Shimmer space.
 - 2026-11-27: Shape: every VCO and LFO has a Shape fader (and socket) that bends its wave — a square narrows to a pulse (an LFO on Shape gives pulse-width modulation), a triangle leans to a saw, a saw doubles, a sine gets brighter. New presets: VCO › PWM (Shape 50 %) and the instrument PWM strings. LFO 1 now sits beside LFO 2 in the default layout (Reset layout) to make room.
 - 2026-11-27: Dark themes: Menu › Theme › Dark (light text on dark grey), Dark high contrast and Follow system (dark while your computer is). Everything follows: panels, Matrix, Schematic, menus, hover texts, dialogs, the Assistant; the keyboard still looks like a piano; small texts are bold in the dark themes. Edit colours works on a dark base too. The contrast setting still applies.

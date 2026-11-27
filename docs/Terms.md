@@ -654,7 +654,8 @@ See also: [Patch](#patch)
 
 ### Instrument preset
 A whole sound in the header's Presets menu: the built-in instruments, grouped by family (Woodwinds,
-Brass, Strings, Keyboards, Plucked & mallets, Voices, Synth; the world instruments also under World),
+Brass, Strings, Keyboards, Plucked & mallets, Voices, Synth; the world instruments also under World;
+all of them A–Z under All),
 and your own (Save as instrument preset...).
 
 Where: header › Presets.

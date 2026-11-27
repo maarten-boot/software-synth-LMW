@@ -174,3 +174,7 @@
 - Host test on display passes; pictures retaken; u24 build 49 of 49. User: yes, commit and do the crosscheck. Committed Phase 50; crosscheck next.
 - Crosscheck after Phase 50: code matched the Spec (families, menu, list_presets, OUT Volume). Stale docs fixed: Spec S7.7 count / menu, S7.13 menu note, S11 list_presets; MCP list_presets text; Terms Instrument preset; AI guide (families, Synth presets, velocity cable, levels). 49 of 49 pass.
 - User: yes, commit; I will push and wait for CI. Committed the crosscheck fixes.
+- User: lets go for v1.9.0; listen test all ok. Version 1.9.0, Changes 1.9.0 with the upgrade note, Spec S6.10 version list (1.8.0 and 1.9.0 added), Tests / Plan listening pass.
+- User: can we add one alphabetical list of All presets under All? (typos noted: alpabetical, undr). Proposed A a (after World), B a (built-ins only, A–Z ignoring case), C a (in 1.9.0); user: all recommended. Built: Presets › All; test names unique ignoring case; Spec S7.7 / S7.16, Terms, Changes, Tests.
+- Presets › All checked on Xvfb (40 A–Z, fits 1080 px, Kalimba applies); pictures retaken (1.9.0 in the header); 49 of 49 pass.
+- User: yes, commit; I will push and tag after CI. Committed Release 1.9.0.

@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <map>
 #include <set>
+#include <cctype>
 
 static int failures = 0;
 #define CHECK(cond) do { if (!(cond)) { std::printf("FAIL %s:%d: %s\n", __FILE__, __LINE__, #cond); ++failures; } } while (0)
@@ -60,6 +61,16 @@ int main() {
             ++perFamily[i.family];
         }
         for (const auto& [f, n] : perFamily) std::printf("  %s: %d\n", f.c_str(), n);
+        // Presets > All (user 2026-11-27): every built-in once, A-Z ignoring case — names unique ignoring case
+        {
+            std::set<std::string> lower;
+            for (const auto& i : list) {
+                std::string l = i.name;
+                for (auto& ch : l) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+                lower.insert(l);
+            }
+            CHECK(lower.size() == list.size());
+        }
         CHECK(perFamily["Woodwinds"] == 10 && perFamily["Brass"] == 3 && perFamily["Strings"] == 4 && perFamily["Keyboards"] == 4
               && perFamily["Plucked & mallets"] == 9 && perFamily["Voices"] == 2 && perFamily["Synth"] == 8);
         auto value = [&](const std::string& name, const std::string& id) {

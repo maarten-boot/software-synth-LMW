@@ -3412,6 +3412,17 @@ void LMWSynthEditor::showInstrumentMenu() {
     for (std::size_t i = 0; i < builtIn.size(); ++i)
         if (builtIn[i].group == "World") world.addItem(100 + static_cast<int>(i), juce::String::fromUTF8(builtIn[i].name.c_str()));
     menu.addSubMenu("World", world);
+    {   // Spec S7.16 (user 2026-11-27): Presets > All, every built-in once, A-Z ignoring case (same ids)
+        std::vector<std::size_t> order(builtIn.size());
+        for (std::size_t i = 0; i < order.size(); ++i) order[i] = i;
+        std::sort(order.begin(), order.end(), [&](std::size_t a, std::size_t b) {
+            return juce::String::fromUTF8(builtIn[a].name.c_str()).compareIgnoreCase(juce::String::fromUTF8(builtIn[b].name.c_str())) < 0;
+        });
+        juce::PopupMenu all;
+        all.setLookAndFeel(&lookAndFeel);
+        for (const auto i : order) all.addItem(100 + static_cast<int>(i), juce::String::fromUTF8(builtIn[i].name.c_str()));
+        menu.addSubMenu("All", all);
+    }
     if (!own.isEmpty()) {
         menu.addSectionHeader("Your presets");
         for (int i = 0; i < own.size(); ++i) menu.addItem(1000 + i, own[i].getFileNameWithoutExtension());
