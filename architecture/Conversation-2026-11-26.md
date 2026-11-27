@@ -109,3 +109,9 @@
 - User: 1b, 2b, 3b, 4a ok; commit the spec and start 45. S6.26 confirmed; Plan 45, L31; Tests T-S6.26-unused planned. Committed with the crosscheck fixes after 44.
 - Committed 3dcd7bd (crosscheck 44 + spec 45). 45 done: Patch.h unitUse / unusedReason, processor useParams (faders, mod wheel, Mix 0 passing), editor updateUse each tick, dashed panel frames and title hover notes, Schematic dashed outlines, dotted lines, block hover note. test_unused (T-S6.26-unused). Xvfb :141 checked (default sound, live change, hover). Pictures retaken; Terms "No effect"; Tutorial lesson 1; Spec S6.7, S6.26 as built; Plan 45 done; Tests; Changes. 45 of 45 pass.
 - User: yes, commit and do the crosscheck.
+- Committed d25a007 (Phase 45).
+
+## Crosscheck after Phase 45
+
+- Code vs S6.26: the gains in useParams match Engine.h Voice::process (FM depth + mod wheel, PM index, MIXER / MIX 2 levels, VCF Env on any cutoff source, FORMANT Mix on vowel, Tremolo, Velocity; Res, CV, Pan, Rate, gates count when connected); effects and FORMANT at Mix 0 pass exactly (Spec S7.4, S5.16). Found: the Schematic legend had no sample of the new outlines → "no effect" and "Mix 0" boxes after the rings (Xvfb checked). Pictures retaken. Spec as built, Tests, Plan header. 45 of 45 pass.
+- User: yes, commit; will push and wait for CI. Committed (crosscheck 45).

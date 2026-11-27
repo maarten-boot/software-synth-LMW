@@ -489,6 +489,19 @@ void SchematicView::paint(juce::Graphics& g) {
     g.fillPath(dottedSample);
     g.drawText("internal (set by a fader)", juce::Rectangle<float>(l0.x + 64 * s, l0.y - s, 30 * s, 2 * s),
                juce::Justification::centredLeft, false);
+    // Spec S6.26: the outlines of a unit without effect and of one passing the sound unchanged (after the rings).
+    {
+        const float shortDash[] = {0.7f * s, 0.6f * s}, longDash[] = {2.0f * s, 0.7f * s};
+        float x = l0.x + 140 * s;
+        for (const auto& [dash, label] : {std::pair{shortDash, "no effect"}, std::pair{longDash, "Mix 0"}}) {
+            juce::Path box, dashed;
+            box.addRectangle(x, l0.y - 0.9f * s, 5.0f * s, 1.8f * s);
+            juce::PathStrokeType(std::max(2.0f, 0.25f * s)).createDashedStroke(dashed, box, dash, 2);
+            g.fillPath(dashed);
+            g.drawText(label, juce::Rectangle<float>(x + 5.6f * s, l0.y - s, 9 * s, 2 * s), juce::Justification::centredLeft, false);
+            x += 15.5f * s;
+        }
+    }
     // Spec S6.19: the socket type rings (S6.20: not while they are switched off).
     if (!rings) return;
     const std::pair<lmw::dsp::SignalType, const char*> kinds[] = {
