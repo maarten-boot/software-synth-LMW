@@ -86,7 +86,9 @@ section from three oscillators.
    VCF 2 the bottom. The box under *VCF 2 › Type* says Serial; set it to Parallel: both filters get the mixer and are mixed 50/50.
 
 **Listen for:** the cutoff decides "bright or dark", resonance "neutral or vocal".
-**Try yourself:** VCF 1 Low 24 dB at 500 Hz, Reso 75 %: a squelchy acid bass (play low notes).
+**Try yourself:** VCF 1 Low 24 dB at 500 Hz, Reso 75 %: a squelchy acid bass (play low notes). Then
+*MIXER › VCO 1* 0 %, *Reso* 100 %, *Key* 100 %: no oscillator at all — the filter itself sings a sine
+that follows the keys.
 
 ---
 

@@ -188,8 +188,10 @@ Where: VCF › Cutoff; the Cut socket.
 See also: [VCF](#vcf), [Resonance](#resonance), [Envelope](#envelope), [Key tracking](#key-tracking)
 
 ### Resonance
-Makes a filter ring at its cutoff: a peak that sounds nasal or whistling; near the top the filter
-sings on its own.
+Makes a filter ring at its cutoff: a peak that sounds nasal or whistling; above about 91 % the filter
+sings on its own — a sine at the cutoff, even with nothing at its input (set MIXER's levels to 0 and
+play: Key 100 % makes it follow the keys). Its own output patched back into its input lowers the
+resonance (at 100 % Reso a loop above about 40 % stops it).
 
 Where: VCF › Reso; the Res socket.
 

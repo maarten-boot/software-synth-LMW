@@ -1069,5 +1069,14 @@ lmw::dsp::UseParams LMWSynthProcessor::useParams() const {
     pass(Out::EnsembleOut, raw.ensembleMix);
     pass(Out::DelayOut, raw.delayMix);
     pass(Out::ReverbOut, raw.revMix);
+    // S6.27 choice C: a VCF above the self-oscillation threshold sounds on its own (Ladder.h: feedback k = 4.4 x Res,
+    // threshold 4). Its own output cabled into its input at level L takes about L off (u = x - k tanh(y4), x ~ L y4):
+    // measured 2026-11-27, Res 100 % rings with a loop up to ~40 %, not at 50 %. A cable on Res may take it there.
+    const auto& patch = currentPatch();
+    const auto self = [&](int n, In in, In res, Out out) {
+        return 4.4f * v(raw.resonance[static_cast<std::size_t>(n)]) - patch.level(in, out) > 4.0f || patch.isPatched(res);
+    };
+    u.selfSounding[static_cast<std::size_t>(Out::Vcf1)] = self(0, In::Vcf1In, In::Vcf1Res, Out::Vcf1);
+    u.selfSounding[static_cast<std::size_t>(Out::Vcf2)] = self(1, In::Vcf2In, In::Vcf2Res, Out::Vcf2);
     return u;
 }

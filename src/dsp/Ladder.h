@@ -75,7 +75,12 @@ public:
         G = g / (1.0 + g);
     }
 
+    // Spec S6.27 choice C (user 2026-11-27): above the self-oscillation threshold (k > 4, Res above ~91 %) a filter at
+    // rest gets a tiny start value, as an analog ladder starts from its own noise — so it rings without any input.
+    // Below the threshold nothing changes (the default sound stays exactly as it was).
+    static constexpr double selfStart = 1e-3;          // -60 dB: at Res 100 % and 1 kHz it reaches 0.05 after ~40 ms
     float process(float in) noexcept {
+        if (k > 4.0 && s[0] == 0.0 && s[1] == 0.0 && s[2] == 0.0 && s[3] == 0.0) s[0] = selfStart;
         // Contribution of the stage states to the 4th output: y4 = G^4 u + S.
         const double b = 1.0 - G;                  // = 1 / (1 + g)
         const double S = G * G * G * b * s[0] + G * G * b * s[1] + G * b * s[2] + b * s[3];

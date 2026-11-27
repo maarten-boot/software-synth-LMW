@@ -533,6 +533,44 @@ int main(int argc, char* argv[]) {
         }
 #endif
 
+        // 4d-2. Spec S6.27 choice C: VCF 1 with no input (MIXER VCO 1 at 0) is silent at Res 50 % and rings on its own
+        // at 100 %; its own output cabled into its input at 100 % takes the resonance below the threshold: silent again.
+        {
+            const auto mixBefore = read9P(sock, {"params", "mix", "vco2"}), mix3 = read9P(sock, {"params", "mix", "vco3"}),
+                       noiseBefore = read9P(sock, {"params", "mix", "noise"});
+            for (const char* m : {"vco1", "vco2", "vco3", "noise"}) CHECK(write9P(sock, {"params", "mix", m}, "0").empty());
+            const auto playLoop = [&] {
+                a->releaseResources(); a->prepareToPlay(sampleRate, blockSize);
+                double e = 0.0;
+                juce::AudioBuffer<float> buffer(2, blockSize);
+                for (int blk = 0; blk < 60; ++blk) {
+                    juce::MidiBuffer midi;
+                    if (blk == 0) midi.addEvent(juce::MidiMessage::noteOn(1, 60, static_cast<juce::uint8>(100)), 0);
+                    buffer.clear();
+                    a->processBlock(buffer, midi);
+                    if (blk >= 30)                                   // after the glides (mix level, cutoff)
+                        for (int i = 0; i < blockSize; ++i) e += double(buffer.getSample(0, i)) * buffer.getSample(0, i);
+                }
+                return std::sqrt(e / (30.0 * blockSize));
+            };
+            CHECK(write9P(sock, {"params", "vcf1", "res"}, "0.5").empty());
+            const double quiet = playLoop();
+            CHECK(write9P(sock, {"params", "vcf1", "res"}, "1").empty());
+            CHECK(write9P(sock, {"params", "vcf1", "cutoff"}, "1000").empty());
+            const double rings = playLoop();
+            CHECK(write9P(sock, {"cables"}, "vcf1.in=vcf1.out").empty());
+            const double loop = playLoop();
+            std::printf("VCF 1 with no input: Res 50 %% rms %.6f, Res 100 %% (1 kHz) rms %.4f; vcf1.out -> vcf1.in at 100 %%: rms %.6f\n",
+                        quiet, rings, loop);
+            CHECK(quiet < 1e-5 && rings > 0.002 && loop < 1e-5);
+            CHECK(write9P(sock, {"cables"}, "vcf1.in=").empty());
+            CHECK(write9P(sock, {"params", "mix", "vco1"}, "1").empty());
+            CHECK(write9P(sock, {"params", "mix", "vco2"}, mixBefore).empty() && write9P(sock, {"params", "mix", "vco3"}, mix3).empty()
+                  && write9P(sock, {"params", "mix", "noise"}, noiseBefore).empty());
+            CHECK(write9P(sock, {"params", "vcf1", "res"}, "0").empty());
+            CHECK(write9P(sock, {"params", "vcf1", "cutoff"}, "18000").empty());
+        }
+
         // 4e. /serial goes up with every change (parameters, cables, notes); /keys plays notes (Spec S10.10).
         auto serial = [&] { return std::strtoull(read9P(sock, {"serial"}).c_str(), nullptr, 10); };
         const auto s0 = serial();

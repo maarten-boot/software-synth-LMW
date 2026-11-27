@@ -3,6 +3,7 @@
 Changes between releases.
 
 ## Unreleased
+- 2026-11-27: VCF 1 and VCF 2 now sing on their own above about 91 % Reso, even with nothing at their input (as an analog filter does): with MIXER's levels at 0 the filter is a sine source that follows the keys with Key 100 %. Patches with high Reso and an input sound as before.
 - 2026-11-27: When a cable replaces an input's normal connection, the hover text of the socket (and of the Schematic port) says which one and how to keep it; the Matrix marks it with a dashed ring. A unit that no sound reaches (e.g. VCF 1 fed only by its own output) is shown as silent, with everything after it.
 - 2026-11-27: Units that have no effect on the sound (e.g. VCO 2 while MIXER's level for it is 0, LFO 1 while FM is 0) are drawn with a dashed outline on the Schematic, the Synth and the Effects tab, their lines dotted; FORMANT or an effect at Mix 0 (passing the sound unchanged) has long dashes. The hover text says why.
 - 2026-11-27: The effects have their own small matrix on the Effects tab (next to MAIN), in the effects' order; the Matrix tab shows only the synth (34 × 19, larger cells, no struck-through cells). Tabs now in the order Synth, Matrix, Schematic, Effects, Notes. A DAW is now told the longest tail of the effects in use (DELAY's was hidden by a short Hall reverb).

@@ -121,3 +121,9 @@
 - Committed 008487f (spec 46). CI run 45982288039 (cbd9d73): all four green.
 - 46 A and B done: Patch.h replacedNormals / replacedNote (socket and Schematic port hover), Matrix dashed ring + hover; soundingOutputs, silent units as no effect (followed through their audio inputs), "Silent: no sound reaches it (…)". test_hint (T-S6.27-hint, incl. the selfSounding hook for C). Xvfb :141: loop vcf1.in = vcf1.out — chain dashed, hovers, dashed ring. Pictures retaken (Lesson 6 shows the dashed ring); Tutorial Lesson 6, Terms No effect; Spec as built; Tests; Plan; Changes. 46 of 46 pass. Choice C still open.
 - User: Cb ok; commit and do the crosscheck. Committed 46 A and B; C (seed) next, then the crosscheck.
+- Committed 32fc9f3 (46 A and B). C done: Ladder start value 1e-3 from rest above k 4 (measured start times); engine test showed vcf1.out → vcf1.in at 100 % stays silent even at Res 100 % (the loop takes ~L off the feedback; rings up to ~40 % at Res 100 %); rule counts 4.4 × Res − loop > 4 or a Res cable; host check (no input: 50 % silent, 100 % rings, loop 100 % silent); test_hint Ladder checks. Terms Resonance, Tutorial Lesson 3, Spec S5.7 and S6.27 as built, Tests, Plan, Changes.
+
+## Crosscheck after Phase 46
+
+- Code vs S6.27 and S6.26: hover via Patch.h replacedNote in both describeInput paths (sockets on both tabs, Schematic ports), Matrix and effects matrix ring (same view), sounding through audio inputs with gains, selfSounding from the processor. The answer to the user's question refined by measurement (own loop lowers resonance) — in Spec as built. 46 of 46 pass.
+- User: yes, commit; will push and wait for CI. Committed (46 C + crosscheck).

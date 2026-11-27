@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // T-S6.27-hint (unit): the hover line naming the normal connection a cable replaced (src/dsp/Patch.h replacedNote)
 // and silent loops in the unit rule (S6.26): vcf1.out -> vcf1.in alone carries no sound, nor does the chain after it.
+#include "dsp/Ladder.h"
 #include "dsp/Patch.h"
+#include <cmath>
 #include <cstdio>
 #include <string>
 
@@ -61,6 +63,30 @@ int main() {
     auto self = u;
     self.selfSounding[static_cast<std::size_t>(Out::Vcf1)] = true;
     CHECK(unitUse(p, self).unit("vcf1") == Use::Used && unitUse(p, self).unit("vca") == Use::Used);
+    // Choice C (Ladder.h): with no input at all, a VCF above the threshold starts ringing on its own; below it, and at
+    // the default (Res 0), it stays exactly 0.
+    for (const float res : {1.0f, 0.95f, 0.9f, 0.0f}) {
+        lmw::dsp::Ladder f;
+        f.setSampleRate(48000.0);
+        f.setResonance(res);
+        f.setCutoff(1000.0);
+        float peak = 0.0f; int at = -1;
+        for (int i = 0; i < 48000; ++i) { const float y = f.process(0.0f); peak = std::max(peak, std::fabs(y)); if (at < 0 && std::fabs(y) > 0.05f) at = i; }
+        std::printf("VCF alone, Res %3.0f %%, 1 kHz: peak %.3f, 0.05 after %.1f ms\n", res * 100.0, double(peak), at < 0 ? -1.0 : at / 48.0);
+        if (res > 0.91f) CHECK(peak > 0.3f && at >= 0 && at < 48 * 150);
+        else CHECK(peak == 0.0f);
+    }
+    // Its own output back into its input at level L takes about L off the feedback: Res 100 % rings with L 0.3, not 0.5.
+    for (const float L : {0.3f, 0.5f}) {
+        lmw::dsp::Ladder f;
+        f.setSampleRate(48000.0);
+        f.setResonance(1.0f);
+        f.setCutoff(1000.0);
+        float y = 0.0f, peak = 0.0f;
+        for (int i = 0; i < 48000; ++i) { y = f.process(L * y); if (i > 24000) peak = std::max(peak, std::fabs(y)); }
+        std::printf("VCF loop at %.0f %%, Res 100 %%: peak %.3f\n", L * 100.0, double(peak));
+        CHECK(L < 0.4f ? peak > 0.05f : peak < 1e-3f);
+    }
     if (failures == 0) std::printf("T-S6.27-hint: all passed\n");
     return failures == 0 ? 0 : 1;
 }
