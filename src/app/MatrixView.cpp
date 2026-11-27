@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "MatrixView.h"
 #include "ui/Theme.h"
+#include <algorithm>
 #include <cmath>
 
 namespace {
@@ -78,29 +79,67 @@ bool MatrixView::isGate(int input) noexcept {
     return input == static_cast<int>(lmw::dsp::In::Env1Gate) || input == static_cast<int>(lmw::dsp::In::Env2Gate);
 }
 
+// Spec S6.25: the ports a view shows.
+std::vector<int> MatrixView::synthInputs() { return lmw::dsp::synthMatrixInputs(); }
+std::vector<int> MatrixView::synthOutputs() { return lmw::dsp::synthMatrixOutputs(); }
+std::vector<int> MatrixView::effectInputs(int order) { return lmw::dsp::effectsMatrixInputs(order); }
+std::vector<int> MatrixView::effectOutputs(int order) { return lmw::dsp::effectsMatrixOutputs(order); }
+
+void MatrixView::setPorts(std::vector<int> inputs, std::vector<int> outputs) {
+    if (inputs.empty() || outputs.empty() || (inputs == rows && outputs == columns)) return;
+    rows = std::move(inputs);
+    columns = std::move(outputs);
+    if (rowOf(cursor.input) < 0) cursor.input = rows.front();
+    if (columnOf(cursor.output) < 0) cursor.output = columns.front();
+    hoverRow = hoverColumn = pinnedRow = pinnedColumn = -1;   // display positions: no longer the same ports
+    syncSlider();
+    repaint();
+}
+
+int MatrixView::rowOf(int input) const {
+    const auto it = std::find(rows.begin(), rows.end(), input);
+    return it == rows.end() ? -1 : static_cast<int>(it - rows.begin());
+}
+int MatrixView::columnOf(int output) const {
+    const auto it = std::find(columns.begin(), columns.end(), output);
+    return it == columns.end() ? -1 : static_cast<int>(it - columns.begin());
+}
+
+int MatrixView::crossedCells() const {
+    int n = 0;
+    for (const int i : rows) for (const int o : columns)
+        if (!lmw::dsp::canConnect(static_cast<lmw::dsp::In>(i), static_cast<lmw::dsp::Out>(o))) ++n;
+    return n;
+}
+
+juce::Point<int> MatrixView::preferredSize(float cw, float ch) const {
+    return {2 * labelWidth() + sliderWidth() + 1 + numColumns() * juce::roundToInt(fontSize * cw),
+            2 * headerHeight() + 1 + numRows() * juce::roundToInt(fontSize * ch)};
+}
+
 // User 2026-11-24: the labels on all four sides (inputs left and right, outputs top and bottom).
-int MatrixView::cellWidth() const { return std::max(24, (getWidth() - 2 * labelWidth() - sliderWidth() - 1) / lmw::dsp::numOutputs); }
-int MatrixView::cellHeight() const { return std::max(14, (getHeight() - 2 * headerHeight() - 1) / lmw::dsp::numInputs); }
+int MatrixView::cellWidth() const { return std::max(24, (getWidth() - 2 * labelWidth() - sliderWidth() - 1) / std::max(1, numColumns())); }
+int MatrixView::cellHeight() const { return std::max(14, (getHeight() - 2 * headerHeight() - 1) / std::max(1, numRows())); }
 
 juce::Rectangle<int> MatrixView::cellBounds(Cell c) const {
-    return {labelWidth() + c.output * cellWidth(), headerHeight() + c.input * cellHeight(), cellWidth(), cellHeight()};
+    return {labelWidth() + columnOf(c.output) * cellWidth(), headerHeight() + rowOf(c.input) * cellHeight(), cellWidth(), cellHeight()};
 }
 
 std::optional<MatrixView::Cell> MatrixView::cellAt(juce::Point<int> p) const {
     const int col = (p.x - labelWidth()) / cellWidth(), row = (p.y - headerHeight()) / cellHeight();
-    if (p.x < labelWidth() || p.y < headerHeight() || col >= lmw::dsp::numOutputs || row >= lmw::dsp::numInputs) return std::nullopt;
-    return Cell{row, col};
+    if (p.x < labelWidth() || p.y < headerHeight() || col >= numColumns() || row >= numRows()) return std::nullopt;
+    return Cell{rows[static_cast<std::size_t>(row)], columns[static_cast<std::size_t>(col)]};
 }
 
 int MatrixView::rowAt(juce::Point<int> p) const {
     const int row = (p.y - headerHeight()) / cellHeight();
-    if (p.y < headerHeight() || row >= lmw::dsp::numInputs || p.x < 0 || p.x >= 2 * labelWidth() + lmw::dsp::numOutputs * cellWidth()) return -1;
+    if (p.y < headerHeight() || row >= numRows() || p.x < 0 || p.x >= 2 * labelWidth() + numColumns() * cellWidth()) return -1;
     return row;
 }
 
 int MatrixView::columnAt(juce::Point<int> p) const {
     const int col = (p.x - labelWidth()) / cellWidth();
-    if (p.x < labelWidth() || col >= lmw::dsp::numOutputs || p.y < 0 || p.y >= 2 * headerHeight() + lmw::dsp::numInputs * cellHeight()) return -1;
+    if (p.x < labelWidth() || col >= numColumns() || p.y < 0 || p.y >= 2 * headerHeight() + numRows() * cellHeight()) return -1;
     return col;
 }
 
@@ -136,7 +175,11 @@ void MatrixView::paint(juce::Graphics& g) {
     g.setColour(kFg);
     const juce::FontOptions font(fontSize), bold(fontSize, juce::Font::bold);
     const int lw = labelWidth(), hh = headerHeight(), cw = cellWidth(), ch = cellHeight();
-    const int right = lw + numOutputs * cw, bottom = hh + numInputs * ch;
+    const int nr = numRows(), nc = numColumns();
+    const int right = lw + nc * cw, bottom = hh + nr * ch;
+    const int cursorRow = rowOf(cursor.input), cursorColumn = columnOf(cursor.output);
+    auto inName = [&](int r) { return inputNames[static_cast<std::size_t>(rows[static_cast<std::size_t>(r)])]; };
+    auto outName = [&](int c) { return outputNames[static_cast<std::size_t>(columns[static_cast<std::size_t>(c)])]; };
 
     // Column headers: output names on two lines ("vcf1" / "out"); row labels: input names. Both on their
     // unit's colour (Spec S6.9; white for keys, mix, out and at the Max preset).
@@ -146,17 +189,17 @@ void MatrixView::paint(juce::Graphics& g) {
     auto rowLit = [&](int i) { return i == hoverRow || i == pinnedRow; };
     auto columnLit = [&](int o) { return o == hoverColumn || o == pinnedColumn; };
     g.setColour(colour(palette.band));
-    for (int i = 0; i < numInputs; ++i) if (rowLit(i)) g.fillRect(lw, hh + i * ch, numOutputs * cw, ch);
-    for (int o = 0; o < numOutputs; ++o) if (columnLit(o)) g.fillRect(lw + o * cw, hh, cw, numInputs * ch);
+    for (int i = 0; i < nr; ++i) if (rowLit(i)) g.fillRect(lw, hh + i * ch, nc * cw, ch);
+    for (int o = 0; o < nc; ++o) if (columnLit(o)) g.fillRect(lw + o * cw, hh, cw, nr * ch);
     auto unitFill = [&](std::string_view port) { return colour(palette.unitColour(lmw::ui::theme::unitOf(port))); };
     // Output names along the top and the bottom, input names on the left and the right (user 2026-11-24), the
     // same colours, highlight and frames on both sides.
     for (const int y0 : {0, bottom}) {
         g.setFont(bold);
-        for (int o = 0; o < numOutputs; ++o) {
-            g.setColour(columnLit(o) ? kFg : unitFill(outputNames[static_cast<std::size_t>(o)]));
+        for (int o = 0; o < nc; ++o) {
+            g.setColour(columnLit(o) ? kFg : unitFill(outName(o)));
             g.fillRect(lw + o * cw, y0, cw, hh);
-            const auto n = outputNames[static_cast<std::size_t>(o)];
+            const auto n = outName(o);
             const auto dot = n.find('.');
             auto area = juce::Rectangle<int>(lw + o * cw, y0, cw, hh).reduced(1, 2);
             g.setColour(columnLit(o) ? kBg : kFg);
@@ -164,31 +207,31 @@ void MatrixView::paint(juce::Graphics& g) {
             g.drawText(name(n.substr(dot + 1)), area, juce::Justification::centredTop, true);
         }
         g.setColour(kFg);
-        g.drawRect(juce::Rectangle<int>(lw + cursor.output * cw, y0, cw, hh).reduced(1), 2);   // selected cell's label
-        if (columnLit(cursor.output)) { g.setColour(kBg); g.drawRect(juce::Rectangle<int>(lw + cursor.output * cw, y0, cw, hh).reduced(3), 1); }
+        g.drawRect(juce::Rectangle<int>(lw + cursorColumn * cw, y0, cw, hh).reduced(1), 2);   // selected cell's label
+        if (columnLit(cursorColumn)) { g.setColour(kBg); g.drawRect(juce::Rectangle<int>(lw + cursorColumn * cw, y0, cw, hh).reduced(3), 1); }
     }
     for (const int x0 : {0, right}) {
         g.setFont(font);                                    // not bold: long names would be cut off
-        for (int i = 0; i < numInputs; ++i) {
-            g.setColour(rowLit(i) ? kFg : unitFill(inputNames[static_cast<std::size_t>(i)]));
+        for (int i = 0; i < nr; ++i) {
+            g.setColour(rowLit(i) ? kFg : unitFill(inName(i)));
             g.fillRect(x0, hh + i * ch, lw, ch);
             g.setColour(rowLit(i) ? kBg : kFg);
-            g.drawText(name(inputNames[static_cast<std::size_t>(i)]) + (isGate(i) ? " (on/off)" : ""),
+            g.drawText(name(inName(i)) + (isGate(rows[static_cast<std::size_t>(i)]) ? " (on/off)" : ""),
                        juce::Rectangle<int>(x0 == 0 ? 0 : x0 + 6, hh + i * ch, lw - 6, ch),
                        x0 == 0 ? juce::Justification::centredRight : juce::Justification::centredLeft, true);
         }
         g.setColour(kFg);
-        g.drawRect(juce::Rectangle<int>(x0, hh + cursor.input * ch, lw, ch).reduced(1), 2);
-        if (rowLit(cursor.input)) { g.setColour(kBg); g.drawRect(juce::Rectangle<int>(x0, hh + cursor.input * ch, lw, ch).reduced(3), 1); }
+        g.drawRect(juce::Rectangle<int>(x0, hh + cursorRow * ch, lw, ch).reduced(1), 2);
+        if (rowLit(cursorRow)) { g.setColour(kBg); g.drawRect(juce::Rectangle<int>(x0, hh + cursorRow * ch, lw, ch).reduced(3), 1); }
     }
     g.setColour(kFg);
     g.setFont(font);
 
     // Cells.
     const auto& p = patch();
-    for (int i = 0; i < numInputs; ++i) {
+    for (const int i : rows) {
         const auto in = static_cast<In>(i);
-        for (int o = 0; o < numOutputs; ++o) {
+        for (const int o : columns) {
             const auto b = cellBounds({i, o}).reduced(2);
             const float l = p.level(in, static_cast<Out>(o));
             if (p.hasPin(in, static_cast<Out>(o))) {
@@ -218,14 +261,12 @@ void MatrixView::paint(juce::Graphics& g) {
     }
 
     // Grid: thin lines, thicker between modules.
-    for (int o = 0; o <= numOutputs; ++o) {
-        const bool edge = o == 0 || o == numOutputs
-                       || module(outputNames[static_cast<std::size_t>(o)]) != module(outputNames[static_cast<std::size_t>(o - 1)]);
+    for (int o = 0; o <= nc; ++o) {
+        const bool edge = o == 0 || o == nc || module(outName(o)) != module(outName(o - 1));
         g.fillRect(lw + o * cw - (edge ? 1 : 0), 0 + (edge ? 0 : hh), edge ? 2 : 1, edge ? bottom + hh : bottom - hh);
     }
-    for (int i = 0; i <= numInputs; ++i) {
-        const bool edge = i == 0 || i == numInputs
-                       || module(inputNames[static_cast<std::size_t>(i)]) != module(inputNames[static_cast<std::size_t>(i - 1)]);
+    for (int i = 0; i <= nr; ++i) {
+        const bool edge = i == 0 || i == nr || module(inName(i)) != module(inName(i - 1));
         g.fillRect(edge ? 0 : lw, hh + i * ch - (edge ? 1 : 0), edge ? right + lw : right - lw, edge ? 2 : 1);
     }
 
@@ -348,8 +389,8 @@ bool MatrixView::keyPressed(const juce::KeyPress& key) {
     const auto mods = key.getModifiers();
     if (mods.isCommandDown() || mods.isCtrlDown() || mods.isAltDown()) return false;
     auto move = [this](int di, int dout) {
-        cursor.input = juce::jlimit(0, lmw::dsp::numInputs - 1, cursor.input + di);
-        cursor.output = juce::jlimit(0, lmw::dsp::numOutputs - 1, cursor.output + dout);
+        cursor.input = rows[static_cast<std::size_t>(juce::jlimit(0, numRows() - 1, rowOf(cursor.input) + di))];
+        cursor.output = columns[static_cast<std::size_t>(juce::jlimit(0, numColumns() - 1, columnOf(cursor.output) + dout))];
         syncSlider();
         repaint();
         return true;
@@ -385,9 +426,9 @@ juce::String MatrixView::getTooltip() {
     const auto c = cellAt(mp);
     if (!c) {
         if (inRowLabel(mp) && rowAt(mp) >= 0)
-            return name(lmw::dsp::inputNames[static_cast<std::size_t>(rowAt(mp))]) + "\nClick: keep this row highlighted (click again to release).";
+            return name(lmw::dsp::inputNames[static_cast<std::size_t>(rows[static_cast<std::size_t>(rowAt(mp))])]) + "\nClick: keep this row highlighted (click again to release).";
         if (inColumnLabel(mp) && columnAt(mp) >= 0)
-            return name(lmw::dsp::outputNames[static_cast<std::size_t>(columnAt(mp))]) + "\nClick: keep this column highlighted (click again to release).";
+            return name(lmw::dsp::outputNames[static_cast<std::size_t>(columns[static_cast<std::size_t>(columnAt(mp))])]) + "\nClick: keep this column highlighted (click again to release).";
         return {};
     }
     const auto in = static_cast<lmw::dsp::In>(c->input);

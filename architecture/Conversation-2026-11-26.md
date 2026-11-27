@@ -97,3 +97,6 @@
 - User: the matrix section of the effects is not very helpful (typo "helpfull" noted); split it off in a separate effects matrix, free space in the synth matrix; tabs Synth, Matrix, Schematic first, then Effects. S6.25 proposed (Matrix synth only 34 × 19; effects 5 × 5; choices A where, B order).
 - CI run 45963072216 started for 3379fa7.
 - User: Aa, Ba ok; commit the spec and start 44. S6.25 confirmed (effects matrix on the Effects tab below the panels, following the effects order); Plan 44, L30; Tests T-S6.25-fxmatrix planned.
+- Committed 77c1835 (spec 44). CI run 45963072216 (3379fa7): all four green.
+- 44 done: Patch.h port lists (synth / effects matrix), MatrixView with row / column lists (setPorts, preferredSize), fxMatrix on the Effects tab (beside MAIN where it fits, else below; follows the effects order), tabs Synth | Matrix | Schematic | Effects | Notes | Assistant, /view "area … fxmatrix". test_fxmatrix (T-S6.25-fxmatrix). Xvfb :141: 5 × 5 beside MAIN, 9P cable shown, click makes a cable (one undo step), reversed order re-orders it; Matrix 34 × 19. Pictures retaken; Terms (Matrix, Where lines), Tutorial lessons 1, 6, 9; Spec S6.7, S6.8, S7.2, S7.4, S7.6, S6.25 as built; Plan 44 done; Tests; Changes. 44 of 44 pass.
+- User: yes, commit and do the crosscheck.

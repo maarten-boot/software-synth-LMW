@@ -18,7 +18,7 @@ See also: [Module](#module), [Patch](#patch), [Voice](#voice)
 Everything is already connected in a sensible way, so it plays at once; with cables you change or
 add connections. A fully modular synthesizer plays nothing until you patch it.
 
-Where: the Synth, Effects, Matrix and Schematic tabs.
+Where: the Synth, Matrix, Schematic and Effects tabs.
 
 See also: [Normalled](#normalled), [Cable](#cable), [Patch](#patch)
 
@@ -415,7 +415,7 @@ See also: [Input](#input), [Socket](#socket)
 A connection you make from an output to an input (drag from one socket to another, or click in the
 Matrix). A cable replaces the input's normal connection; up to 4 cables on one input add up.
 
-Where: the Synth, Effects, Matrix and Schematic tabs.
+Where: the Synth, Matrix, Schematic and Effects tabs.
 
 See also: [Normalled](#normalled), [Level](#level), [Matrix](#matrix)
 
@@ -454,9 +454,11 @@ See also: [LFO](#lfo), [Envelope](#envelope), [Inverted](#inverted)
 
 ### Matrix
 A grid of every input (rows) and every output (columns), like the pin matrix of the EMS VCS3: a
-filled cell is a cable with its level, a ring a normal connection.
+filled cell is a cable with its level, a ring a normal connection. The synth's inputs and outputs are
+on the Matrix tab; the effects' (COMB, ENSEMBLE, DELAY, REVERB, MAIN) in a small matrix of their own on
+the Effects tab, in the effects' order.
 
-Where: the Matrix tab.
+Where: the Matrix tab; the Effects tab (the effects).
 
 See also: [Cable](#cable), [Normalled](#normalled), [Level](#level)
 

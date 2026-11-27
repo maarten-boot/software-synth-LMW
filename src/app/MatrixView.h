@@ -16,12 +16,15 @@
 // cell's labels have a black frame.
 // A level slider on the right (0-100 %, user 2026-11-18; -100..+100 % on modulation inputs, S5.21) shows and sets the level of the cell under the
 // cursor; it is active for every cell that takes a level (not on gate inputs, nor on an empty cell of a full input).
+// Spec S6.25: a view shows a list of inputs (rows) and outputs (columns): the Matrix tab the synth's, the Effects tab
+// the effects' (in the effects order); setPorts changes them.
 #pragma once
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "dsp/Patch.h"
 #include "ui/Theme.h"
 #include <functional>
 #include <optional>
+#include <vector>
 
 class MatrixView final : public juce::Component, public juce::TooltipClient {
 public:
@@ -29,6 +32,17 @@ public:
     // tells the user). patch(): the current patch mirror (message thread).
     MatrixView(std::function<const lmw::dsp::Patch&()> patch, std::function<bool(int, int, float)> setPin);
     std::function<void(bool started)> onLevelDrag;   // Spec S6.14: a level drag is one undo step
+    // Spec S6.25: the rows (input ports) and columns (output ports) shown, top to bottom and left to right.
+    void setPorts(std::vector<int> inputs, std::vector<int> outputs);
+    static std::vector<int> synthInputs();   // the synth's inputs, as In (not the effects')
+    static std::vector<int> synthOutputs();
+    static std::vector<int> effectInputs(int effectOrder);    // the effects' inputs in chain order, then main.in
+    static std::vector<int> effectOutputs(int effectOrder);   // out.out, then the effects' outputs in chain order
+    const std::vector<int>& rowPorts() const noexcept { return rows; }
+    const std::vector<int>& columnPorts() const noexcept { return columns; }
+    int crossedCells() const;                // cells whose input and output cannot connect (S7.6): 0 with these lists
+    // The size the grid wants at its font: labels, `cell` wide cells, the slider (the Effects tab sizes it so).
+    juce::Point<int> preferredSize(float cellWidthInFonts, float cellHeightInFonts) const;
 
     void setFontSize(float size) { fontSize = size; resized(); syncSlider(); repaint(); }
     void setPalette(const lmw::ui::theme::Palette& p) { palette = p; repaint(); }
@@ -67,26 +81,31 @@ private:
     int sliderWidth() const { return juce::roundToInt(fontSize * 8.0f); }
     // The label zones (user 2026-11-24: on all four sides): input names left and right, output names top and bottom.
     bool inRowLabel(juce::Point<int> p) const {
-        const int right = labelWidth() + lmw::dsp::numOutputs * cellWidth();
+        const int right = labelWidth() + numColumns() * cellWidth();
         return p.x < labelWidth() || (p.x >= right && p.x < right + labelWidth());
     }
     bool inColumnLabel(juce::Point<int> p) const {
-        const int bottom = headerHeight() + lmw::dsp::numInputs * cellHeight();
+        const int bottom = headerHeight() + numRows() * cellHeight();
         return p.y < headerHeight() || (p.y >= bottom && p.y < bottom + headerHeight());
     }
     void syncSlider();
+    int numRows() const noexcept { return static_cast<int>(rows.size()); }
+    int numColumns() const noexcept { return static_cast<int>(columns.size()); }
+    int rowOf(int input) const;              // display row of an input port, -1 if not shown
+    int columnOf(int output) const;
     int cellWidth() const;
     int cellHeight() const;
 
     std::function<const lmw::dsp::Patch&()> patch;
     std::function<bool(int, int, float)> setPin;
+    std::vector<int> rows = synthInputs(), columns = synthOutputs();
     float fontSize = 13.0f;
     lmw::ui::theme::Palette palette = lmw::ui::theme::palette(4.5);
-    Cell cursor;                         // keyboard cell cursor
+    Cell cursor;                         // keyboard cell cursor (ports, not display positions)
     std::optional<Cell> dragCell;        // cell being dragged
     float dragStartLevel = 0.0f;
     bool dragged = false;
-    int hoverRow = -1, hoverColumn = -1;  // under the mouse
+    int hoverRow = -1, hoverColumn = -1;  // under the mouse (display positions)
     int pinnedRow = -1, pinnedColumn = -1;  // kept highlighted by a click on its label
     std::optional<Cell> justMade;        // the cell a single click just made a cable in, and when
     juce::uint32 justMadeAt = 0;

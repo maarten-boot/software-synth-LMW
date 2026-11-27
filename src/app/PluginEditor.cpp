@@ -557,17 +557,17 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     // Spec S7, S6.7, S6.8: Synth / Effects / Matrix / Schematic / Notes tabs, patch name, Load / Save.
     ++openEditors;
     juce::LookAndFeel::setDefaultLookAndFeel(&defaultLook.get());
-    for (auto* tab : {&panelTab, &effectsTab, &matrixTab, &schematicTab, &notesTab}) {
+    for (auto* tab : {&panelTab, &matrixTab, &schematicTab, &effectsTab, &notesTab}) {   // Spec S6.25: this order
         tab->setRadioGroupId(1);
         tab->setClickingTogglesState(true);
         addAndMakeVisible(*tab);
     }
     panelTab.setToggleState(true, juce::dontSendNotification);
     panelTab.setTooltip("The synthesizer: module panels and cables");
-    effectsTab.setTooltip("Effects after the synthesizer: reverb");
+    effectsTab.setTooltip("Effects after the synthesizer: COMB, ENSEMBLE, DELAY, REVERB, and their matrix");
     notesTab.setTooltip("Free-text notes, saved with the patch");
     panelTab.onClick = [this] { if (panelTab.getToggleState()) showTab(0); };
-    matrixTab.setTooltip("The patch as a pin matrix: every cable with its level");
+    matrixTab.setTooltip("The synthesizer's patch as a pin matrix: every cable with its level (the effects' matrix is on the Effects tab)");
     effectsTab.onClick = [this] { if (effectsTab.getToggleState()) showTab(1); };
     matrixTab.onClick = [this] { if (matrixTab.getToggleState()) showTab(2); };
     notesTab.onClick = [this] { if (notesTab.getToggleState()) showTab(3); };
@@ -647,6 +647,15 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
         else processor.endStep();
     };
     addChildComponent(*matrix);
+    // Spec S6.25: the effects' inputs and outputs in their own small matrix on the Effects tab (in the effects order).
+    fxMatrix = std::make_unique<MatrixView>([this]() -> const lmw::dsp::Patch& { return processor.currentPatch(); },
+                                            [this](int in, int out, float level) { return connect(in, out, level); });
+    fxMatrix->setPorts(MatrixView::effectInputs(shownEffectOrder), MatrixView::effectOutputs(shownEffectOrder));
+    fxMatrix->setTitle("Effects matrix");
+    fxMatrix->setPalette(palette);
+    fxMatrix->onLevelDrag = matrix->onLevelDrag;
+    rackArea->addChildComponent(*fxMatrix);
+    effectComponents.push_back(fxMatrix.get());
     schematic = std::make_unique<SchematicView>([this]() -> const lmw::dsp::Patch& { return processor.currentPatch(); },
         [this] {                                           // VCF Key faders (key-tracking links), LFO Delays (S5.24)
             auto& s = processor.state();
@@ -786,6 +795,7 @@ void LMWSynthEditor::timerCallback() {
         shownRouting = processor.vcfRouting();
         if (schematic) schematic->repaint();
         if (matrix) matrix->refresh();                        // its level slider (S6.8)
+        if (fxMatrix) fxMatrix->refresh();                    // S6.25
         repaint();
     }
 }
@@ -1521,10 +1531,10 @@ void LMWSynthEditor::resized() {
     titleButton.setBounds(title.removeFromLeft(titleTextWidth()).reduced(0, 2));
     title.removeFromLeft(m.gap);
     const int tabW = wide ? 70 : 60;
-    panelTab.setBounds(title.removeFromLeft(tabW).reduced(0, 2));
-    effectsTab.setBounds(title.removeFromLeft(tabW + (wide ? 10 : 8)).reduced(0, 2));
+    panelTab.setBounds(title.removeFromLeft(tabW).reduced(0, 2));       // Spec S6.25: Synth, Matrix, Schematic, Effects
     matrixTab.setBounds(title.removeFromLeft(tabW).reduced(0, 2));
     schematicTab.setBounds(title.removeFromLeft(tabW + (wide ? 22 : 18)).reduced(0, 2));
+    effectsTab.setBounds(title.removeFromLeft(tabW + (wide ? 10 : 8)).reduced(0, 2));
     notesTab.setBounds(title.removeFromLeft(tabW).reduced(0, 2));
     if (assistant) assistantTab.setBounds(title.removeFromLeft(tabW + (wide ? 22 : 18)).reduced(0, 2));   // Spec S12
     title.removeFromLeft(m.gap);
@@ -1567,7 +1577,20 @@ void LMWSynthEditor::resized() {
         for (const auto& grp : effectGroups) effectsW = std::max(effectsW, grp.columns() * m.colW);   // wraps: one panel at least
         needW = std::max(needW, effectsW);
         const int rows = std::max(1, static_cast<int>(rack->rows().size()));
-        const int needH = rows * m.rowH + (rows - 1) * m.gap;
+        int needH = rows * m.rowH + (rows - 1) * m.gap;
+        if (fxMatrix) {                                     // Spec S6.25: the Effects tab — its panel rows and the matrix
+            fxMatrix->setFontSize(m.labelFont - 2.0f);
+            const auto fx = fxMatrix->preferredSize(5.5f, 2.2f);
+            int effectRows = 1, x = 0;
+            for (const int gi : effectPanelOrder()) {
+                const int w = effectGroups[static_cast<std::size_t>(gi)].columns() * m.colW;
+                if (x > 0 && x + w > std::max(area.getWidth(), effectsW)) { ++effectRows; x = 0; }
+                x += w + m.gap;
+            }
+            const bool besides = std::max(area.getWidth(), effectsW) - x >= fx.x && fx.y <= m.rowH;   // right of the last panel
+            needH = std::max(needH, besides ? effectRows * m.rowH + (effectRows - 1) * m.gap : effectRows * (m.rowH + m.gap) + fx.y);
+            needW = std::max(needW, fx.x);
+        }
         const int bar = rackView.getScrollBarThickness();
         const bool horz = needW > area.getWidth();
         const bool vert = needH > area.getHeight() - (horz ? bar : 0);
@@ -1595,6 +1618,14 @@ void LMWSynthEditor::resized() {
             auto jackRow = inner.removeFromBottom(m.jackH).withTrimmedTop(2);   // same fader height as on the Synth tab
             layoutJacks(effectGroupJacks[static_cast<std::size_t>(&grp - effectGroups.data())], grp.columns(), jackRow);
             for (const auto& item : grp.items) layoutItem(item, inner.removeFromLeft(m.colW));
+        }
+        if (fxMatrix) {                                     // Spec S6.25: right of the last panel, else below
+            fxMatrix->setPorts(MatrixView::effectInputs(shownEffectOrder), MatrixView::effectOutputs(shownEffectOrder));
+            const auto fx = fxMatrix->preferredSize(5.5f, 2.2f);
+            if (row.getWidth() >= fx.x && fx.y <= m.rowH)  // right of the last panel when it fits, else below
+                fxMatrix->setBounds(row.getX(), row.getY(), fx.x, fx.y);
+            else
+                fxMatrix->setBounds(rackRect.getX(), row.getY() + m.rowH + m.gap, fx.x, fx.y);
         }
     }
 
@@ -1873,6 +1904,7 @@ bool LMWSynthEditor::connect(int input, int output, float level) {
                                 + " cables. Remove one first.");
     shownPatchVersion = processor.patchVersion();
     if (matrix) matrix->refresh();
+    if (fxMatrix) fxMatrix->refresh();
     repaint();
     return ok;
 }
@@ -1897,6 +1929,7 @@ void LMWSynthEditor::undoStep() {
     refreshPatchInfo();
     updatePresetLabels();
     if (matrix) matrix->refresh();
+    if (fxMatrix) fxMatrix->refresh();
     repaint();
 }
 
@@ -1905,6 +1938,7 @@ void LMWSynthEditor::redoStep() {
     refreshPatchInfo();
     updatePresetLabels();
     if (matrix) matrix->refresh();
+    if (fxMatrix) fxMatrix->refresh();
     repaint();
 }
 
@@ -2576,6 +2610,7 @@ void LMWSynthEditor::applyContrast() {
     saveConfig();
     keyboard.repaint();
     if (matrix) matrix->setPalette(palette);
+    if (fxMatrix) fxMatrix->setPalette(palette);
     if (schematic) schematic->setPalette(palette);
     for (auto& h : headers) h->repaint();
     repaint();
@@ -3497,6 +3532,8 @@ std::string LMWSynthEditor::viewText() const {
         for (const auto& [name, r] : schematic->blockAreas()) s += "panel " + rect(getLocalArea(schematic.get(), r)) + " " + name + "\n";
     }
     if (currentTab == 2 && matrix != nullptr) s += "area " + rect(matrix->getBounds()) + " matrix\n";
+    if (currentTab == 1 && fxMatrix != nullptr)            // Spec S6.25: the effects matrix, editor pixels
+        s += "area " + rect(getLocalArea(rackArea.get(), fxMatrix->getBounds())) + " fxmatrix\n";
     if (keyboardShown) s += "area " + rect(keyboard.getBounds()) + " keyboard\n";
     return s;
 }

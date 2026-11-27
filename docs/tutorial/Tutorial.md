@@ -35,7 +35,7 @@ The keys work whichever control you used last, except while you type a value.
 2. *KEYS › Voices*: drag it down to 1 and play a chord. Only the last note sounds: one voice, like a
    flute. Back to 8 (double-click): chords again.
 3. *OUT › Volume*: the overall level. The output never clips hard: a soft limiter catches peaks.
-4. Look at the tabs: **Synth** (the panels you see), **Effects**, **Matrix**, **Schematic**, **Notes**.
+4. Look at the tabs: **Synth** (the panels you see), **Matrix**, **Schematic**, **Effects**, **Notes**.
    Open **Schematic**: the whole instrument as a drawing, the sound flowing from left to right.
 
 ![The Schematic tab: the sound flows from the keys and oscillators on the left to MAIN on the right](../images/lesson1-schematic.png)
@@ -155,7 +155,8 @@ Schematic), and a cable replaces a normal connection where you want something el
    setting, like an LFO or an envelope), dashed magenta = gate (on / off); the hover text says it too, and
    the Schematic has a legend. Any output may still go to any input — a VCO on another VCO's FM is FM
    synthesis. Drag from *LFO 2 › Out* to *VCF 1 › Cut* (the cutoff input). The filter now wobbles with LFO 2 instead of following ENV 2.
-2. Open the **Matrix** tab: every input is a row, every output a column. The cable is a filled cell
+2. Open the **Matrix** tab: every input of the synth is a row, every output a column (the effects
+   have their own matrix on the Effects tab, Lesson 9). The cable is a filled cell
    at 100 %. Click the cell (that only selects it) and drag up/down, or use the slider on the right:
    set it to 30 %. A click on an empty cell makes a cable at 100 %, a double-click removes a cable, and
    right-click opens a small menu (100 %, Type level..., Remove cable). A ring in a cell shows a normal
@@ -229,7 +230,9 @@ that you hear new overtones instead of vibrato.
 The **Effects** tab: SYNTH (the instrument) → COMB → ENSEMBLE → DELAY → REVERB → MAIN (what you
 hear), connected by default; [Mix](../Terms.md#mix) 0 means an [effect](../Terms.md#effect) is off. In a narrow window REVERB and MAIN wrap to
 a second row. Drag an effect's title left or right to change the order: the connections follow (e.g. REVERB
-first, then COMB, rings the comb on the reverb's tail).
+first, then COMB, rings the comb on the reverb's tail). Next to MAIN is the effects' own
+[matrix](../Terms.md#matrix): the same connections as a grid, in the effects' order — a click in a cell
+makes a cable.
 
 ![The Effects tab with the Lesson 9 sound and the ENSEMBLE preset Solina: SYNTH, COMB, ENSEMBLE, DELAY, REVERB and MAIN](../images/lesson9-effects.png)
 
@@ -247,7 +250,8 @@ first, then COMB, rings the comb on the reverb's tail).
    machine slowing down — the "dynamic" delay.
 7. Order with cables: on the Effects tab, *SYNTH › Out* → *REVERB › In*, *REVERB › Out* →
    *COMB › In*, *COMB › Out* → *MAIN › In*: now the comb colours the reverb too (ensemble and delay are
-   out of the chain until you patch them back).
+   out of the chain until you patch them back). The effects matrix shows the three cables (or click them
+   there: *out.out × reverb.in*, *reverb.out × comb.in*, *comb.out × main.in*).
 8. **Stereo**: on the Synth tab, *OUT › Spread* 60 % (the box under it: Keys) and play a chord across the
    keyboard: low notes come from the left, high notes from the right, as on a piano — each voice gets its
    own place before the effects, so the reverb and delay sound wider ([spread](../Terms.md#spread)). Set the box to

@@ -6,6 +6,7 @@
 #include <array>
 #include <cstdint>
 #include <string_view>
+#include <vector>
 
 namespace lmw::dsp {
 
@@ -159,6 +160,31 @@ inline float normalLevel(In in, Out o, VcfRouting r, int effects = 0) noexcept {
 inline constexpr bool isEffectOut(Out o) noexcept { return o >= Out::OutOut && o < Out::Count; }
 inline constexpr bool isEffectIn(In i) noexcept { return i >= In::CombIn && i < In::Count; }
 inline constexpr bool canConnect(In i, Out o) noexcept { return isEffectIn(i) == isEffectOut(o); }
+
+// Spec S6.25: the rows (inputs) and columns (outputs) of the two matrices. The Matrix tab: the synth's ports in
+// their order; the effects matrix: the effects' inputs in chain order then main.in, out.out then the effects'
+// outputs in chain order (the normalled chain is the diagonal next to the main one).
+inline std::vector<int> synthMatrixInputs() {
+    std::vector<int> v;
+    for (int i = 0; i < numInputs; ++i) if (!isEffectIn(static_cast<In>(i))) v.push_back(i);
+    return v;
+}
+inline std::vector<int> synthMatrixOutputs() {
+    std::vector<int> v;
+    for (int o = 0; o < numOutputs; ++o) if (!isEffectOut(static_cast<Out>(o))) v.push_back(o);
+    return v;
+}
+inline std::vector<int> effectsMatrixInputs(int orderIndex) {
+    std::vector<int> v;
+    for (const int e : effectOrder(orderIndex)) v.push_back(static_cast<int>(effectIn(e)));
+    v.push_back(static_cast<int>(In::MainIn));
+    return v;
+}
+inline std::vector<int> effectsMatrixOutputs(int orderIndex) {
+    std::vector<int> v{static_cast<int>(Out::OutOut)};
+    for (const int e : effectOrder(orderIndex)) v.push_back(static_cast<int>(effectOut(e)));
+    return v;
+}
 
 // Spec S5.21 (Phase 25a): modulation inputs take a cable level from -1 to +1 (a negative level subtracts:
 // the inverted source); audio and gate inputs 0 to 1.

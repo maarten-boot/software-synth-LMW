@@ -447,6 +447,7 @@ private:
         undoButton, redoButton;                    // Spec S6.14 (user 2026-11-24): directly in the header
     void updateUndoButtons();
     std::unique_ptr<MatrixView> matrix;                   // Spec S6.8: the Matrix tab
+    std::unique_ptr<MatrixView> fxMatrix;                 // Spec S6.25: the effects matrix, Effects tab below the panels
     std::unique_ptr<SchematicView> schematic;             // Spec S6.7: the Schematic tab
     std::unique_ptr<class AssistantView> assistant;       // Spec S12: the Assistant tab (standalone only)
     juce::TextButton assistantTab{"Assistant"};
