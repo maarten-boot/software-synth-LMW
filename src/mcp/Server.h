@@ -136,6 +136,10 @@ private:
                            "formant.vowel, vca.cv, vca.mod, lfoN.rate) also -1 to 0 = inverted, e.g. "
                            "vcf1.cutoff=env2.out@-0.5. clear_first removes all cables before.",
              R"({"type":"object","properties":{"cables":{"type":"array","items":{"type":"string"}},"clear_first":{"type":"boolean"}}})"},
+            {"get_load", "How heavy the synth runs (Spec S6.28): cpu % of the time each audio block may take, its peak over "
+                         "the last 5 s, voices playing, overruns (blocks that took too long: dropouts likely), the audio "
+                         "device's dropouts (standalone) and memory in MB. Above about 70 % lower keys.voices or switch off effects.",
+             R"({"type":"object","properties":{}})"},
             {"list_presets", "The built-in instrument presets and the module presets per module kind.",
              R"({"type":"object","properties":{}})"},
             {"apply_instrument_preset", "Set the whole sound to a built-in instrument preset (all parameters, cables "
@@ -289,6 +293,10 @@ private:
             if (!ports) return text(why, true);
             return text("Parameters (id, kind, range, unit, default, choices):\n" + *info
                         + "\nSockets (input lines: normal source -> input  type; output lines: output  type; types audio, cv, gate; cv+audio = also takes audio):\n" + *ports);
+        }
+        if (name == "get_load") {                        // Spec S6.28
+            auto l = rd("load", why);
+            return l ? text(*l) : text(why, true);
         }
         if (name == "get_sound") {
             auto p = rd("patch", why);

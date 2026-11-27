@@ -12,6 +12,7 @@
 #include "dsp/Ensemble.h"
 #include "dsp/Delay.h"
 #include "dsp/Reverb.h"
+#include "dsp/Load.h"
 #include "dsp/SpscQueue.h"
 #include "dsp/MidiParse.h"
 #include <algorithm>
@@ -292,6 +293,19 @@ public:
     float modWheel() const noexcept { return modWheelValue.load(std::memory_order_relaxed); }
     // Spec S6.26: the input gains (faders) and the units passing their input unchanged, for unitUse().
     lmw::dsp::UseParams useParams() const;
+    // Spec S6.28: the load meter — CPU share of each block (smoothed, 5 s peak), overruns, voices playing; the
+    // standalone sets the audio device's xrun count; memoryMB is filled by the caller (lmw::app::residentMemoryMB).
+    lmw::dsp::LoadInfo loadInfo() const noexcept {
+        lmw::dsp::LoadInfo l;
+        l.cpu = loadMeter.current();
+        l.peak = loadMeter.highest();
+        l.voices = voicesPlaying.load(std::memory_order_relaxed);
+        l.overruns = loadMeter.overruns();
+        l.xruns = static_cast<std::uint32_t>(std::max(0, deviceXruns.load(std::memory_order_relaxed)));
+        return l;
+    }
+    bool loadWarning() const noexcept { return loadMeter.warning(juce::Time::getMillisecondCounterHiRes() / 1000.0); }
+    void setDeviceXruns(int n) noexcept { deviceXruns.store(n, std::memory_order_relaxed); }
     // Spec S6.24: the bend wheel's position (-1 .. +1) as last set by MIDI or the on-screen wheel; the on-screen
     // wheels (and 9P /keys bend / mod) ask for a position here, applied at the start of the next block.
     float pitchBend() const noexcept { return bendValue.load(std::memory_order_relaxed); }
@@ -351,6 +365,8 @@ private:
     juce::AudioProcessorValueTreeState apvts;
     juce::MidiKeyboardState keyboard;   // on-screen + computer keyboard input
     lmw::dsp::Engine engine;
+    lmw::dsp::LoadMeter loadMeter;                 // Spec S6.28
+    std::atomic<int> voicesPlaying{0}, deviceXruns{0};
 
     // Spec S10.2: no locks on the audio thread. Keyboard notes go GUI -> audio, external MIDI
     // notes go audio -> GUI (display only), each through its own lock-free SPSC queue.

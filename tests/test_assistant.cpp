@@ -118,7 +118,8 @@ int main() {
         CHECK(std::find(names.begin(), names.end(), "list_synths") == names.end());
         CHECK(std::find(names.begin(), names.end(), "select_synth") == names.end());
         CHECK(std::find(names.begin(), names.end(), "set_parameters") != names.end());
-        CHECK(std::find(names.begin(), names.end(), "read_tutorial") != names.end() && names.size() == 11);
+        CHECK(std::find(names.begin(), names.end(), "read_tutorial") != names.end() && names.size() == 12);   // 12 with get_load (S6.28)
+        CHECK(std::find(names.begin(), names.end(), "get_load") != names.end());
         CHECK(body->get("messages")->a.size() == 1 && body->get("messages")->a[0].get("content")->a[0].get("text")->s == "make it darker");
         // second request: question, assistant turn as sent, both tool results in ONE user message
         const auto b2 = json::parse(svc.bodies[1]);

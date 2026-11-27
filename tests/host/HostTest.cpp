@@ -372,6 +372,13 @@ int main(int argc, char* argv[]) {
 
         // 4c. /info (Spec S10.10): one JSON object per parameter, e.g. the cutoff exactly as Kukel expects.
         // /version (Spec S6.10): "<version> <commit>\n", the version from CMakeLists.txt.
+        {   // Spec S6.28: /load, six lines; the blocks played above were timed
+            const auto load = read9P(sock, {"load"});
+            std::printf("/load:\n%s", load.c_str());
+            CHECK(load.rfind("cpu ", 0) == 0 && load.find("\npeak ") != std::string::npos && load.find("\nvoices ") != std::string::npos
+                  && load.find("\noverruns ") != std::string::npos && load.find("\nxruns ") != std::string::npos
+                  && load.find("\nmemory ") != std::string::npos && std::count(load.begin(), load.end(), '\n') == 6);
+        }
         const auto version = read9P(sock, {"version"});
         std::printf("/version: %s", version.c_str());
         const auto versionNumber = version.substr(0, version.find(' '));

@@ -82,6 +82,7 @@ if(LMW_BUILD_PLUGIN)
         src/app/PluginProcessor.cpp
         src/app/PluginEditor.cpp
         src/app/MatrixView.cpp
+        src/app/ProcessMemory.cpp
         src/app/SchematicView.cpp
         src/app/TermsView.cpp
         src/app/StandaloneApp.cpp
@@ -262,6 +263,9 @@ if(LMW_BUILD_TESTS)
     add_executable(test_hint tests/test_hint.cpp)
     target_link_libraries(test_hint PRIVATE lmw_ui_core)
     add_test(NAME T-S6.27-hint COMMAND test_hint)
+    add_executable(test_load tests/test_load.cpp)
+    target_link_libraries(test_load PRIVATE lmw_ui_core)
+    add_test(NAME T-S6.28-load COMMAND test_load)
     add_executable(test_reverb tests/test_reverb.cpp)
     target_link_libraries(test_reverb PRIVATE lmw_dsp)
     add_test(NAME T-S7.15-reverb COMMAND test_reverb)

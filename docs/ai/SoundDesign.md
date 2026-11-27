@@ -109,6 +109,8 @@ envelope is up. Audio and gate inputs take 0 to 1 only. A level of 0 keeps a cab
 2. Change a few parameters at a time (`set_parameters`), then `play` a note or a chord (e.g. 48 for a
    male voice, 60-67 for most, a chord [60, 64, 67] for pads) and describe what changed.
 3. Keep effects modest; leave out.gain unless the sound is too quiet or loud.
+   After a sound with many voices (keys.voices above 8) or several effects, `play` a chord and check
+   `get_load`: above about 70 % cpu, or any overruns, lower keys.voices or switch an effect off.
 4. When the user likes it, `name_sound` and offer `save_instrument_preset`.
    When they do not like a change: with lmw-mcp, `undo` takes it back (one step per parameter, cable change
    or preset); inside the synth's Assistant tab there is no undo tool, the musician has Undo last answer.

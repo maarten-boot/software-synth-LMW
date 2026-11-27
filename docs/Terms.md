@@ -52,7 +52,17 @@ each voice has its own VCOs, filters and envelopes.
 
 Where: KEYS › Voices.
 
-See also: [Polyphony](#polyphony), [Note](#note)
+See also: [Polyphony](#polyphony), [Note](#note), [Load](#load)
+
+### Load
+How much of the computer's time the synth needs: "CPU 7 %" in the header is the share of the time each
+block of sound may take. Above 70 %, or after a dropout (a block that took too long: a click or a gap),
+it turns red. More voices and effects cost more; its hover text also shows the voices playing and the
+memory used.
+
+Where: the header, left of Undo.
+
+See also: [Voice](#voice), [Polyphony](#polyphony)
 
 ### Polyphony
 Playing several notes at once. LMW-Synth has up to 32 voices; when all are in use, a new note takes

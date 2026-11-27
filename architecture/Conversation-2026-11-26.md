@@ -129,3 +129,5 @@
 - User: yes, commit; will push and wait for CI. Committed (46 C + crosscheck).
 - Committed f65c698 (46 C + crosscheck). u24 refreshed. User: what is next? Listed. User: start the spec for L20. S6.28 proposed (measuring, memory, header, /load, AI, CI benchmark); choices A-D.
 - User: yes all recommended; and drop L9 / L16 (typos "reccomened", "l9/l16" noted). S6.28 confirmed (A a, B a, C a, D a); Plan 47, L20; L9 and L16 dropped; Tests T-S6.28-load planned.
+- Committed 6496448 (spec 47). 47 done: dsp/Load.h LoadMeter + loadText, processor block timer, voices, xruns from the standalone device, ProcessMemory.cpp, header label (red / Max: black), 9P /load, lmw-mcp get_load, Assistant tool line, guide; test_load (unit + benchmark 0.9 / 5.4 / 11.4 / 21.6 %), host /load, MCP 14 tools, Assistant 12. Xvfb: label, hover (found: a tooltip whose text changes every update never shows → frozen while hovered). Terms Load; Spec S10.10, S11 tools, S6.28 as built; Tests; Plan; Changes. 47 of 47 pass. f65c698 not pushed yet (latest CI cbd9d73 green).
+- User: yes, commit and do the crosscheck.

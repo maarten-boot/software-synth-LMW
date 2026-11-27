@@ -248,6 +248,7 @@ void LMWSynthProcessor::updateKeyboardFromMidiInput() {
 
 void LMWSynthProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
     engine.prepare(sampleRate);
+    loadMeter.prepare(sampleRate);                 // Spec S6.28
     pullParameters();
     reverb.setParameters(reverbParameters());      // before setSampleRate, which makes them current (no glide)
     reverb.setSampleRate(sampleRate);              // allocates: here, not on the audio thread
@@ -582,6 +583,14 @@ void LMWSynthProcessor::handleMidi(const juce::uint8* data, int size) noexcept {
 void LMWSynthProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi) {
     juce::ScopedNoDenormals noDenormals;
     const int n = buffer.getNumSamples();
+    struct LoadTimer {                                   // Spec S6.28: the whole block, whichever way it returns
+        LMWSynthProcessor& p; int samples; double start = juce::Time::getMillisecondCounterHiRes();
+        ~LoadTimer() {
+            const double end = juce::Time::getMillisecondCounterHiRes();
+            p.loadMeter.block((end - start) / 1000.0, samples, end / 1000.0);
+            p.voicesPlaying.store(p.engine.activeVoices(), std::memory_order_relaxed);
+        }
+    } loadTimer{*this, n};
     pullParameters();
 
     lmw::dsp::PatchCommand pc;                           // cable changes (Spec S5.4), lock-free

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+#include "ProcessMemory.h"
 #include "NinePService.h"
 #include "LMWVersion.h"
 #include "PluginProcessor.h"
@@ -84,6 +85,15 @@ void NinePService::build() {
     tree.file("serial", [this] {
         const auto* p = shared->processor;
         return std::to_string(p != nullptr ? p->changeCount() : 0) + "\n";
+    });
+
+    // /load (Spec S6.28): cpu %, peak % (5 s), voices playing, overruns, xruns (standalone), memory MB.
+    tree.file("load", [this] {
+        const auto* p = shared->processor;
+        if (p == nullptr) return std::string();
+        auto l = p->loadInfo();
+        l.memoryMB = lmw::app::residentMemoryMB();
+        return lmw::dsp::loadText(l);
     });
 
     // /keys: "on <note> [velocity]" and "off <note>" lines, played like the on-screen keyboard (Spec

@@ -54,6 +54,7 @@ inline std::string toolLine(const std::string& tool, const json::Value& in, cons
     } else if (tool == "name_sound") line = "named the sound " + str("name");
     else if (tool == "save_instrument_preset") line = (result.rfind("Not saved", 0) == 0 ? "did not save " : "saved preset ") + str("name");
     else if (tool == "get_sound") line = "looked at the sound";
+    else if (tool == "get_load") line = "checked the load";      // Spec S6.28
     else if (tool == "describe_synth") line = "read the parameter list";
     else if (tool == "list_presets") line = "read the preset list";
     else if (tool == "read_tutorial") line = "read the tutorial";

@@ -36,6 +36,7 @@ struct Fake final : mcp::Link {
                         "{\"id\": \"vco1.wave\", \"kind\": \"choice\", \"default\": \"Saw\"}\n]\n";
         files["ports"] = "input  mix.out -> vcf1.in\n";
         files["cables"] = "";
+        files["load"] = "cpu 7.2\npeak 12.0\nvoices 3\noverruns 0\nxruns 0\nmemory 84.2\n";   // S6.28
         files["params/vcf1/cutoff"] = "18000\n";
         files["params/vco1/wave"] = "Saw\n";
     }
@@ -116,7 +117,7 @@ int main() {
         CHECK(json::parse(*s.handle(R"({"jsonrpc":"2.0","id":3,"method":"ping"})"))->get("result")->isObject());
         const auto tl = json::parse(*s.handle(R"({"jsonrpc":"2.0","id":4,"method":"tools/list"})"));
         const auto& list = tl->get("result")->get("tools")->a;
-        CHECK(list.size() == 13);
+        CHECK(list.size() == 14);                         // 14 with get_load (S6.28)
         for (const auto& t : list) CHECK(t.get("inputSchema") && t.get("inputSchema")->get("type")->s == "object" && !t.get("description")->s.empty());
         const auto rl = json::parse(*s.handle(R"({"jsonrpc":"2.0","id":5,"method":"resources/list"})"));
         CHECK(rl->get("result")->get("resources")->a.size() == 2);
@@ -130,6 +131,7 @@ int main() {
         const auto t = call(s, "get_sound", "{}", &err);
         CHECK(!err && has(t, "name = Old") && f.addr == "/run/a.sock");
         CHECK(has(call(s, "describe_synth", "{}"), "vcf1.cutoff") && has(call(s, "describe_synth", "{}"), "mix.out -> vcf1.in"));
+        CHECK(has(call(s, "get_load", "{}"), "cpu 7.2\npeak 12.0\nvoices 3"));   // S6.28
         const auto ls = call(s, "list_synths", "{}");
         CHECK(has(ls, "/run/a.sock  version 1.2.1 abc1234  patch \"Old\"  (in use)") && has(ls, "/run/b.sock"));
         CHECK(has(call(s, "select_synth", R"({"address":"/run/b.sock"})", &err), "Using /run/b.sock") && !err && f.addr == "/run/b.sock");

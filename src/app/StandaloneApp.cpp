@@ -236,6 +236,14 @@ public:
         for (int sig : {SIGTERM, SIGINT, SIGHUP}) std::signal(sig, onQuitSignal);
        #endif
         quitPoll.start();
+        // Spec S6.28: the audio device's dropout (xrun) count for the load meter, twice a second.
+        xrunPoll.poll = [this] {
+            auto* holder = mainWindow != nullptr ? mainWindow->pluginHolder.get() : pluginHolder.get();
+            if (holder == nullptr) return;
+            if (auto* p = dynamic_cast<LMWSynthProcessor*>(holder->processor.get()))
+                p->setDeviceXruns(holder->deviceManager.getXRunCount());
+        };
+        xrunPoll.startTimer(500);
         juce::LookAndFeel::setDefaultLookAndFeel(&lookAndFeel);   // before any window exists
         if (juce::Desktop::getInstance().getDisplays().displays.isEmpty()) {
             pluginHolder = createPluginHolder();                // no display: run headless
@@ -259,6 +267,7 @@ public:
 
     void shutdown() override {
         quitPoll.stopTimer();
+        xrunPoll.stopTimer();
         pluginHolder = nullptr;
         mainWindow = nullptr;
         appProperties.saveIfNeeded();
@@ -285,6 +294,10 @@ private:
                                                               false);
     }
 
+    struct XrunPoll final : juce::Timer {       // Spec S6.28
+        std::function<void()> poll;
+        void timerCallback() override { if (poll) poll(); }
+    } xrunPoll;
     struct QuitPoll final : juce::Timer {       // turns a quit signal into a normal quit
         void start() { startTimer(100); }
         void timerCallback() override {

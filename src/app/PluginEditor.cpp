@@ -3,6 +3,7 @@
 #include "TermsView.h"
 #include "SocketRing.h"
 #include "PluginEditor.h"
+#include "ProcessMemory.h"
 #include "AssistantView.h"
 #include "AssistantSettings.h"
 #include "KeyStore.h"
@@ -597,6 +598,9 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
         addAndMakeVisible(assistantTab);
     }
     patchLabel.setTooltip("Patch name (the file name when saved or loaded)");
+    loadLabel.setJustificationType(juce::Justification::centred);   // Spec S6.28
+    loadLabel.setTitle("Load");
+    addAndMakeVisible(loadLabel);
     // Spec S10.5: where the 9P server of this instance listens.
     titleButton.setTooltip("About LMW-Synth (click): version, licence, source.\n" + (processor.ninepEndpoints().empty()
         ? juce::String("9P server: not available")
@@ -791,7 +795,7 @@ void LMWSynthEditor::timerCallback() {
             && notesEditor.getText() != processor.notes()))   // patch loaded, or state restored by the host
         refreshPatchInfo();
     if (schematic) schematic->poll(processor.schematicLayout());   // Key faders; layout from a loaded patch
-    if (++presetLabelTick >= 8) { presetLabelTick = 0; updatePresetLabels(); updatePatchLabel(); updateUndoButtons(); }   // S7.5, S7.7: ~4/s
+    if (++presetLabelTick >= 8) { presetLabelTick = 0; updatePresetLabels(); updatePatchLabel(); updateUndoButtons(); updateLoadLabel(); }   // S7.5, S7.7, S6.28: ~4/s
     if (processor.patchVersion() != shownPatchVersion || processor.vcfRouting() != shownRouting) {   // cables or routing changed
         shownPatchVersion = processor.patchVersion();
         shownRouting = processor.vcfRouting();
@@ -1544,6 +1548,8 @@ void LMWSynthEditor::resized() {
     notesTab.setBounds(title.removeFromLeft(tabW).reduced(0, 2));
     if (assistant) assistantTab.setBounds(title.removeFromLeft(tabW + (wide ? 22 : 18)).reduced(0, 2));   // Spec S12
     title.removeFromLeft(m.gap);
+    loadLabel.setBounds(title.removeFromRight(wide ? 90 : 76).reduced(0, 3));   // Spec S6.28: left of Undo
+    title.removeFromRight(m.gap / 2);
     patchLabel.setBounds(title);
     area.removeFromTop(m.gap);
     // Spec S6.12, S6.16: the 88 keys (52 white) at their normal width — as wide as the default rack layout (in
@@ -2784,7 +2790,7 @@ void LMWSynthEditor::showAbout() {
 void LMWSynthEditor::showTab(int tab) {
     if (currentTab == 0 || currentTab == 1) tabScroll[static_cast<std::size_t>(currentTab)] = rackView.getViewPosition();   // S6.21
     currentTab = tab;
-    const juce::Component* alwaysShown[] = {&titleButton, &instrumentButton, &panelTab, &effectsTab, &matrixTab, &schematicTab, &notesTab, &patchLabel, &loadButton,
+    const juce::Component* alwaysShown[] = {&titleButton, &instrumentButton, &panelTab, &effectsTab, &matrixTab, &schematicTab, &notesTab, &patchLabel, &loadLabel, &loadButton,
                                             &saveButton, &menuButton, &undoButton, &redoButton, &resetLayoutButton, &compactButton, &keyboard, &keyboardButton, &assistantTab,
                                             // Spec S6.24 (found 2026-11-26: they vanished on the other tabs): the playing controls follow
                                             // the keyboard (shown / hidden in resized()), not the tab
@@ -3671,4 +3677,31 @@ void LMWSynthEditor::drawPanelFrame(juce::Graphics& g, juce::Rectangle<int> b, c
     g.drawDashedLine({r.getRight() - h, r.getY(), r.getRight() - h, r.getBottom()}, dash, 2, t);
     g.drawDashedLine({r.getRight(), r.getBottom() - h, r.getX(), r.getBottom() - h}, dash, 2, t);
     g.drawDashedLine({r.getX() + h, r.getBottom(), r.getX() + h, r.getY()}, dash, 2, t);
+}
+
+// ---- Spec S6.28: the load meter in the header ----
+
+void LMWSynthEditor::updateLoadLabel() {
+    auto l = processor.loadInfo();
+    l.memoryMB = lmw::app::residentMemoryMB();
+    const bool warn = processor.loadWarning();
+    loadLabel.setText("CPU " + juce::String(juce::roundToInt(l.cpu * 100.0)) + " %", juce::dontSendNotification);
+    // Black on white; a warning white on dark red (#B00020, 7.4:1 with white); at the Max preset white on black (21:1).
+    const bool maxContrast = palette.highlight == lmw::ui::Rgb{255, 255, 255};   // the Max preset (as S6.15)
+    const auto red = maxContrast ? kFg : juce::Colour(0xffb00020);
+    loadLabel.setColour(juce::Label::backgroundColourId, warn ? red : kBg);
+    loadLabel.setColour(juce::Label::textColourId, warn ? kBg : kFg);
+    loadLabel.setColour(juce::Label::outlineColourId, warn ? red : kFg);
+    juce::String tip = "Audio load: " + juce::String(l.cpu * 100.0, 1) + " % of the time each audio block may take "
+                     + "(peak " + juce::String(l.peak * 100.0, 1) + " % in the last 5 s).\n"
+                     + "Voices playing: " + juce::String(l.voices) + ".\n"
+                     + juce::String::fromUTF8("Overruns (a block took longer than it may \xe2\x80\x94 a dropout is likely): ")
+                     + juce::String(static_cast<int>(l.overruns));
+    if (processor.wrapperType == juce::AudioProcessor::wrapperType_Standalone)
+        tip += "; audio device dropouts: " + juce::String(static_cast<int>(l.xruns));
+    tip += ".\n";
+    if (l.memoryMB > 0.0) tip += "Memory: " + juce::String(l.memoryMB, 1) + " MB.\n";
+    tip += warn ? juce::String::fromUTF8("Too heavy? Lower KEYS \xe2\x80\xba Voices or switch off effects (red: above 70 % or a dropout in the last 5 s).")
+                : juce::String("Red above 70 % or after a dropout.");
+    if (!loadLabel.isMouseOver()) loadLabel.setTooltip(tip);   // frozen while hovered: a changing text restarts the tooltip
 }

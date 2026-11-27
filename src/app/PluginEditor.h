@@ -467,6 +467,8 @@ private:
     std::vector<juce::Component*> effectComponents;        // shown only on the Effects tab
     std::map<juce::String, std::unique_ptr<PresetButton>> effectPresets;   // Spec S7.5: COMB, DELAY, REVERB titles
     juce::Label patchLabel;
+    juce::Label loadLabel;                                // Spec S6.28: "CPU 7 %"
+    void updateLoadLabel();
     TitleButton titleButton;              // "LMW-Synth <version>", opens About (S6.10); hover text: 9P address
     void showAbout();
     juce::TextEditor notesEditor;
