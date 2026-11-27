@@ -115,3 +115,6 @@
 
 - Code vs S6.26: the gains in useParams match Engine.h Voice::process (FM depth + mod wheel, PM index, MIXER / MIX 2 levels, VCF Env on any cutoff source, FORMANT Mix on vowel, Tremolo, Velocity; Res, CV, Pan, Rate, gates count when connected); effects and FORMANT at Mix 0 pass exactly (Spec S7.4, S5.16). Found: the Schematic legend had no sample of the new outlines → "no effect" and "Mix 0" boxes after the rings (Xvfb checked). Pictures retaken. Spec as built, Tests, Plan header. 45 of 45 pass.
 - User: yes, commit; will push and wait for CI. Committed (crosscheck 45).
+- User: what is next? Listed (listening checks, release 1.8.0; small L1, L20; medium L18, L21, L5, L9/L16; large L3/L4, L12, 19/L14, L17, L6, 20, 22e). User: start the spec for L1. S6.27 proposed (hover replaced normal, Matrix, silent loops); choices A, B.
+- CI run 45982288039 (cbd9d73): ubuntu, windows, fedora green (macOS pending).
+- User: Aa, Bb ok; commit the spec and start 46; asked whether VCFs generate sound at high resonance (typos "thier", "we we" noted). Answer: self-oscillation from ~91 % Res, but a voice from rest clears the filter to 0, so no input = silent; added as open choice C (keep / seed). Spec committed.
