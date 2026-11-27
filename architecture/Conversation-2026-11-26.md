@@ -131,3 +131,9 @@
 - User: yes all recommended; and drop L9 / L16 (typos "reccomened", "l9/l16" noted). S6.28 confirmed (A a, B a, C a, D a); Plan 47, L20; L9 and L16 dropped; Tests T-S6.28-load planned.
 - Committed 6496448 (spec 47). 47 done: dsp/Load.h LoadMeter + loadText, processor block timer, voices, xruns from the standalone device, ProcessMemory.cpp, header label (red / Max: black), 9P /load, lmw-mcp get_load, Assistant tool line, guide; test_load (unit + benchmark 0.9 / 5.4 / 11.4 / 21.6 %), host /load, MCP 14 tools, Assistant 12. Xvfb: label, hover (found: a tooltip whose text changes every update never shows → frozen while hovered). Terms Load; Spec S10.10, S11 tools, S6.28 as built; Tests; Plan; Changes. 47 of 47 pass. f65c698 not pushed yet (latest CI cbd9d73 green).
 - User: yes, commit and do the crosscheck.
+- Committed 8d24cb3 (Phase 47).
+
+## Crosscheck after Phase 47
+
+- Code vs S6.28, S10.10, S11: as built. Found: a DAW's offline render (bounce) slower than real time would count overruns and turn the meter red → LoadMeter::block(…, realtime) with !isNonRealtime(); unit check added. std::atomic<double> static_assert lock-free. Spec as built, Tests, Plan header.
+- User: yes, commit; will push and wait for CI. Committed (crosscheck 47).

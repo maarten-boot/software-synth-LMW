@@ -587,7 +587,8 @@ void LMWSynthProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Mid
         LMWSynthProcessor& p; int samples; double start = juce::Time::getMillisecondCounterHiRes();
         ~LoadTimer() {
             const double end = juce::Time::getMillisecondCounterHiRes();
-            p.loadMeter.block((end - start) / 1000.0, samples, end / 1000.0);
+            // An offline render (a DAW's bounce) is not real time: a slow block is no dropout there (crosscheck 47).
+            p.loadMeter.block((end - start) / 1000.0, samples, end / 1000.0, !p.isNonRealtime());
             p.voicesPlaying.store(p.engine.activeVoices(), std::memory_order_relaxed);
         }
     } loadTimer{*this, n};

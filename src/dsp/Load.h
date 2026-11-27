@@ -22,8 +22,9 @@ public:
 
     void prepare(double rate) noexcept { sampleRate = rate > 0.0 ? rate : 48000.0; }
 
-    // Audio thread: one block of `samples` took `seconds` to compute; `now` is a clock in seconds.
-    void block(double seconds, int samples, double now) noexcept {
+    // Audio thread: one block of `samples` took `seconds` to compute; `now` is a clock in seconds. `realtime` false
+    // (an offline render): the load is shown, but a slow block is not counted as an overrun.
+    void block(double seconds, int samples, double now, bool realtime = true) noexcept {
         if (samples <= 0) return;
         const double duration = samples / sampleRate;
         const double share = seconds / duration;
@@ -31,7 +32,7 @@ public:
         smoothed += (share - smoothed) * a;
         if (now - bucketStart >= peakWindow / 2) { previousMax = currentMax; currentMax = 0.0; bucketStart = now; }
         currentMax = std::max(currentMax, share);
-        if (share > 1.0) { overrunCount.fetch_add(1, std::memory_order_relaxed); lastOverrun.store(now, std::memory_order_relaxed); }
+        if (share > 1.0 && realtime) { overrunCount.fetch_add(1, std::memory_order_relaxed); lastOverrun.store(now, std::memory_order_relaxed); }
         load.store(smoothed, std::memory_order_relaxed);
         peak.store(std::max(currentMax, previousMax), std::memory_order_relaxed);
     }
@@ -49,6 +50,7 @@ private:
     double sampleRate = 48000.0;
     double smoothed = 0.0, currentMax = 0.0, previousMax = 0.0, bucketStart = -1e9;   // audio thread only
     std::atomic<double> load{0.0}, peak{0.0}, lastOverrun{-1.0};
+    static_assert(std::atomic<double>::is_always_lock_free, "the load meter must not lock on the audio thread");
     std::atomic<std::uint32_t> overrunCount{0};
 };
 

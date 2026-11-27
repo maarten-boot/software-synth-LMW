@@ -29,6 +29,8 @@ int main() {
         CHECK(!m.warning(t) && m.highest() < 0.11 && m.overruns() == 1);
         for (int i = 0; i < 300; ++i) { m.block(0.0075, n, t); t += 0.01; }   // 75 %: warning without an overrun
         CHECK(m.warning(t) && m.overruns() == 1);
+        m.block(0.02, n, t, false);                            // offline render: slow, but no overrun (crosscheck 47)
+        CHECK(m.overruns() == 1);
     }
     {
         LoadInfo l;
