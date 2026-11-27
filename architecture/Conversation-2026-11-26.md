@@ -178,3 +178,8 @@
 - User: can we add one alphabetical list of All presets under All? (typos noted: alpabetical, undr). Proposed A a (after World), B a (built-ins only, A–Z ignoring case), C a (in 1.9.0); user: all recommended. Built: Presets › All; test names unique ignoring case; Spec S7.7 / S7.16, Terms, Changes, Tests.
 - Presets › All checked on Xvfb (40 A–Z, fits 1080 px, Kalimba applies); pictures retaken (1.9.0 in the header); 49 of 49 pass.
 - User: yes, commit; I will push and tag after CI. Committed Release 1.9.0.
+- v1.9.0 tagged by the user; cleanup (user): releases v1.6.0, v1.7.0 deleted (tags kept), 32 artifacts older than 14 days deleted.
+- v1.9.0 release published (6 assets); 2 releases left (v1.9.0, v1.8.0).
+- User: move the effects schema to the effects page? an amplify fader on the final output stage, or redundant? a Resonance input on FORMANT? a base level on the LFO (positive for VCA modulation, unless built in with Tremolo)? (typo noted: "inless" → unless). Answer: 1 yes, an EFFECTS block in the Schematic + a Panels / Matrix / Schematic switch on the Effects tab; 2 mostly redundant — OUT Volume to +12 dB and a MAIN limiter light instead; 3 yes, cheap; 4 Tremolo is already one-sided, but VCA CV / Shape / Cutoff / Vowel lose half the wave — a Polarity ± / + / − recommended. Order 3 + 4, 2, 1.
+- User: yes, add to plan and start the spec for 3 + 4. Plan L33–L36, Phase 51; Spec S5.29 (FORMANT Res input), S5.30 (LFO Polarity) proposed with choices A–E; Tests planned.
+- User: all recommended; commit the spec and start 51. S5.29 / S5.30 confirmed (A a, B a, C a, D a, E a); committed; Phase 51 started.
