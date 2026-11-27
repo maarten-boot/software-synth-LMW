@@ -127,3 +127,5 @@
 
 - Code vs S6.27 and S6.26: hover via Patch.h replacedNote in both describeInput paths (sockets on both tabs, Schematic ports), Matrix and effects matrix ring (same view), sounding through audio inputs with gains, selfSounding from the processor. The answer to the user's question refined by measurement (own loop lowers resonance) — in Spec as built. 46 of 46 pass.
 - User: yes, commit; will push and wait for CI. Committed (46 C + crosscheck).
+- Committed f65c698 (46 C + crosscheck). u24 refreshed. User: what is next? Listed. User: start the spec for L20. S6.28 proposed (measuring, memory, header, /load, AI, CI benchmark); choices A-D.
+- User: yes all recommended; and drop L9 / L16 (typos "reccomened", "l9/l16" noted). S6.28 confirmed (A a, B a, C a, D a); Plan 47, L20; L9 and L16 dropped; Tests T-S6.28-load planned.
