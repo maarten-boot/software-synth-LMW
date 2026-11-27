@@ -276,7 +276,7 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
                                    })}, {}});
     // Spec S5.12: LFO 1 = vibrato (normalled to the VCO FM inputs), LFO 2 = tremolo (normalled to vca.mod).
     const juce::String lfoShapeTip = "Shape of the wave: Triangle leans to a ramp, Square gets shorter (pulses), Saw doubles,\n"
-                                     "Sine bends. 0 = the plain wave. Shape input: added to the fader";   // Spec S5.28
+                                     "Sine bends. 0 = the plain wave. Shape input: added to the fader (per-voice sources: newest note)";   // Spec S5.28
     const std::size_t lfoPanel = groups.size();
     groups.push_back({"LFO 1", 2, {boxOver(addChoice(P::lfoWave, "Wave", {"Sine", "Triangle", "Saw", "Square"}),   // S5.28: row 3
                                            addFader(P::lfoShape, "Shape", inputTip(In::Lfo1Shape, lfoShapeTip))),

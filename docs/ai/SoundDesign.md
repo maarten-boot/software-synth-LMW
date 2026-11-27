@@ -33,8 +33,8 @@ A cable replaces an input's normal connection; up to 4 cables per input add up, 
 `vcf1.in=mix.out+vcf1.out@0.4` keeps the mixer and adds feedback). Effect sockets (comb, ensemble, delay, reverb,
 out.out, main.in) connect only among themselves.
 
-Modulation inputs (`vcoN.pitch`, `vcoN.fm`, `vcoN.pm`, `vcfN.cutoff`, `vcfN.res`, `formant.vowel`, `vca.cv`,
-`vca.mod`, `lfoN.rate`) also take a negative level: the source inverted. `vcf1.cutoff=env2.out@-0.5` closes
+Modulation inputs (`vcoN.pitch`, `vcoN.fm`, `vcoN.pm`, `vcoN.shape`, `vcfN.cutoff`, `vcfN.res`, `formant.vowel`, `vca.cv`,
+`vca.mod`, `lfoN.rate`, `lfoN.shape`) also take a negative level: the source inverted. `vcf1.cutoff=env2.out@-0.5` closes
 the filter as the envelope rises (a "negative envelope amount"); `vca.mod=keys.pitch@-0.3` makes low notes
 louder (keyboard scaling); with `vca.initial` 1, `vca.cv=env2.out@-1` is loud at rest and dips while the
 envelope is up. Audio and gate inputs take 0 to 1 only. A level of 0 keeps a cable, silent.
@@ -47,6 +47,9 @@ envelope is up. Audio and gate inputs take 0 to 1 only. A level of 0 keeps a cab
   Saw = bright, strings and brass; Square = hollow, clarinet; Triangle = soft, recorder; Sine = pure,
   flute and organ; Pulse = narrow and nasal, oboe, good under FORMANT. Detune VCO 2/3 by 0.05-0.15 st
   for width. PM: cable `vcoN.pm=vcoM.out` (an operator into another) for bells and electric pianos.
+  `vcoN.shape` 0-1 bends the wave (0 = plain): Square narrows to a pulse, Triangle leans to a saw, Saw doubles
+  (an octave up at 1), Sine brightens. PWM: Square at shape 0.3-0.5 and a cable `vcoN.shape=lfo2.out@0.3`
+  with lfo2.rate 0.2-0.5 (preset "PWM strings"). `lfoN.shape` does the same to an LFO's wave.
 - **MIXER** (`mix.vco1..3`, `mix.noise` 0-1): VCO 1 at 1, the others 0 by default; noise 0.03-0.08 adds
   breath. **NOISE** `noise.colour` White / Pink / Brown; `noise.rand` output: random steps at
   `noise.rate` Hz (sample & hold), smoothed by `noise.smooth`.
