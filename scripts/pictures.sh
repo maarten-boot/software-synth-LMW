@@ -130,4 +130,10 @@ echo "Lesson 9: effects (ENSEMBLE Solina on)"
 p9 write preset "Tutorial 9"
 p9 write preset "ensemble Solina"
 p9 write view "tab Effects";   shot lesson9-effects.png COMB ENSEMBLE DELAY REVERB MAIN SYNTH
+
+echo "Panel gradient (Menu > Theme > Panel gradient, S6.30), Lesson 1"
+p9 write preset "String section"
+p9 write view "tab Synth"
+p9 write view "gradient on";   shot lesson1-gradient.png KEYS "LFO 1" NOISE "VCO 1"
+p9 write view "gradient off"
 echo "done"

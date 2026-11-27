@@ -1471,9 +1471,22 @@ void LMWSynthEditor::paintRack(juce::Graphics& g) {
         for (y += m.rowH + m.gap / 2; y < area.getHeight(); y += m.rowH + m.gap)
             g.fillRect(0, y - 1, area.getWidth(), 2);
     }
-    g.setColour(kBg);
-    if (currentTab == 0) for (const auto& grp : groups) g.fillRect(grp.bounds);
-    else for (const auto& grp : effectGroups) g.fillRect(grp.bounds);
+    // Spec S6.30: with Panel gradient, a coloured unit's panel fades from (about) its title colour under the title
+    // bar to the page at the line above the sockets; the socket row stays the page colour.
+    const auto fillPanel = [&](const Group& grp, bool jacks) {
+        g.setColour(kBg);
+        g.fillRect(grp.bounds);
+        if (!settings.panelGradient) return;
+        const auto top = palette.gradientTop(lmw::ui::theme::unitOf(grp.title.toStdString()));
+        if (!top) return;
+        const auto& b = grp.bounds;
+        const int y0 = b.getY() + m.header - 2, y1 = jacks ? b.getBottom() - 3 - m.jackH : b.getBottom();
+        if (y1 <= y0) return;
+        g.setGradientFill(juce::ColourGradient(toJuce(*top), 0.0f, static_cast<float>(y0), kBg, 0.0f, static_cast<float>(y1), false));
+        g.fillRect(b.getX(), y0, b.getWidth(), y1 - y0);
+    };
+    if (currentTab == 0) for (std::size_t i = 0; i < groups.size(); ++i) fillPanel(groups[i], !groupJacks[i].empty());
+    else for (const auto& grp : effectGroups) fillPanel(grp, true);
     g.setColour(kFg);
 
     if (currentTab == 1) {                                   // Effects tab: fixed panels, titles drawn here
@@ -2480,6 +2493,8 @@ void LMWSynthEditor::addMenuItems(juce::PopupMenu& m) const {
         }
     }
     theme.addSeparator();
+    theme.addItem(menuFirstId + 40, "Panel gradient", true, settings.panelGradient);   // Spec S6.30
+    theme.addSeparator();
     theme.addItem(menuFirstId + 36, "Edit colours...");
     theme.addItem(menuFirstId + 38, "Save theme as...");
     if (!saved.isEmpty()) {
@@ -2513,6 +2528,7 @@ void LMWSynthEditor::handleMenuItem(int id) {
         case 21: setKeyboardShown(!keyboardShown); break;
         case 22: settings.showScales = !settings.showScales; saveConfig(); applyAids(); break;   // Spec S6.20
         case 23: settings.socketRings = !settings.socketRings; saveConfig(); applyAids(); break;
+        case 40: settings.panelGradient = !settings.panelGradient; saveConfig(); repaint(); if (rackArea) rackArea->repaint(); break;   // S6.30
         case 51: undoStep(); break;
         case 52: redoStep(); break;
         case 41: showAssistantSettings(); break;
@@ -3620,6 +3636,7 @@ std::string LMWSynthEditor::viewText() const {
     s += std::string("keyboard ") + (keyboardShown ? "on" : "off") + "\n";
     s += std::string("scales ") + (settings.showScales ? "on" : "off") + "\n";     // Spec S6.20
     s += std::string("rings ") + (settings.socketRings ? "on" : "off") + "\n";
+    s += std::string("gradient ") + (settings.panelGradient ? "on" : "off") + "\n";   // Spec S6.30
     s += "scroll " + std::to_string(rackView.getViewPositionX()) + " " + std::to_string(rackView.getViewPositionY()) + "\n";   // S6.21
     if (currentTab == 0 || currentTab == 1)
         for (const auto& g : currentTab == 0 ? groups : effectGroups)
@@ -3669,6 +3686,12 @@ std::string LMWSynthEditor::applyView(const std::string& text) {
             (key == "scales" ? settings.showScales : settings.socketRings) = value == "on";
             saveConfig();
             applyAids();
+        } else if (key == "gradient") {                           // Spec S6.30 (also saved to config.ini)
+            if (value != "on" && value != "off") return "bad gradient: " + value + " (on or off)";
+            settings.panelGradient = value == "on";
+            saveConfig();
+            repaint();
+            if (rackArea) rackArea->repaint();
         } else if (key == "scroll") {                             // Spec S6.21: the rack view position
             int x = 0, y = 0;
             if (std::sscanf(value.c_str(), "%d %d", &x, &y) != 2) return "bad scroll: " + value + " (x y)";

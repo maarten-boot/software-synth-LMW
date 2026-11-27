@@ -256,6 +256,35 @@ int main() {
               && parseConfig("assistant_key_store = cloud").assistantStore.empty());
     }
 
+    // T-S6.30-gradient: the panel gradient's top keeps the text and the quiet text at the contrast setting, for every
+    // theme preset and contrast (it then only gets nearer the page); white and grey units have none; config round trip.
+    {
+        using namespace lmw::ui::theme;
+        int moved = 0, total = 0;
+        for (const double r : {4.5, 7.0, 10.0, 21.0})
+            for (int t = 0; t <= static_cast<int>(ThemePreset::DarkHC); ++t) {
+                const auto pal = palette(r, presetColours(static_cast<ThemePreset>(t)));
+                for (int u = 0; u < static_cast<int>(theme::Unit::Count); ++u) {
+                    const auto unit = static_cast<theme::Unit>(u);
+                    const auto top = pal.gradientTop(unit);
+                    if (unit == theme::Unit::None || unit == theme::Unit::Mix) { CHECK(!top); continue; }
+                    CHECK(top.has_value());
+                    if (!top) continue;
+                    ++total;
+                    if (!(*top == pal.unitColour(unit))) ++moved;
+                    CHECK(contrastRatio(pal.foreground, *top) >= r - 1e-9 && contrastRatio(pal.quiet(), *top) >= r - 1e-9);
+                    CHECK(contrastRatio(pal.foreground, pal.background) >= r - 1e-9);   // the gradient's other end
+                }
+            }
+        std::printf("gradient tops: %d of %d moved towards the page for contrast\n", moved, total);
+        const auto d = palette(4.5, presetColours(ThemePreset::Default));
+        CHECK(d.gradientTop(theme::Unit::Vco) == d.unitColour(theme::Unit::Vco));   // light default: the title colour itself
+        CHECK(!parseConfig("").panelGradient && parseConfig("panel_gradient = yes").panelGradient
+              && !parseConfig("panel_gradient = maybe").panelGradient);
+        Settings a; a.panelGradient = true;
+        CHECK(parseConfig(writeConfig(a)).panelGradient);
+    }
+
     std::printf(failures ? "%d failure(s)\n" : "all contrast tests passed\n", failures);
     return failures ? 1 : 0;
 }

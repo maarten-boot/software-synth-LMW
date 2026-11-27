@@ -43,7 +43,11 @@ The keys work whichever control you used last, except while you type a value.
 ![The Schematic tab: the sound flows from the keys and oscillators on the left to MAIN on the right](../images/lesson1-schematic.png)
 
 **Listen for:** the difference between one and eight voices.
-**Try yourself:** hold a note and click *Compact* (top right): the same synthesizer, smaller.
+**Try yourself:** hold a note and click *Compact* (top right): the same synthesizer, smaller. Then
+*Menu › Theme*: *Dark* for a dark screen, and *Panel gradient* for panels that fade from their unit
+colour to the page.
+
+![Panel gradient on: each coloured panel fades from its title colour down to the page](../images/lesson1-gradient.png)
 
 ---
 

@@ -3,6 +3,7 @@
 Changes between releases.
 
 ## Unreleased
+- 2026-11-28: Panel gradient: Menu › Theme › Panel gradient lets each coloured panel fade from its title colour down to the page (white, or the dark page in a dark theme). Off by default; all text keeps your contrast setting.
 - 2026-11-27: New default panel order (Reset layout, first start): KEYS, LFO 1, NOISE, VCO 1–3 / MIXER, VCF 1, VCF 2, FORMANT / MIX 2, ENV 2, LFO 2, ENV 1, VCA, OUT. A layout you arranged yourself stays.
 - 2026-11-27: LFO Polarity: a box under each LFO's Delay fader — ± (as before), + (only up, 0 to +1) or − (only down). With + an LFO on VCA CV (Initial 0) pulses from silence, on Shape it works from 0, on the cutoff it opens only upwards. FORMANT has a Res input: an envelope, velocity or LFO can sharpen the vowels.
 

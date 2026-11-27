@@ -17,11 +17,7 @@ struct ThemeInk {
     juce::Colour colour() const {
         const auto& p = lmw::ui::theme::current();
         lmw::ui::Rgb c = which == Which::Fore ? p.foreground : p.background;
-        if (which == Which::Quiet) {                    // 30 % of the way from the text to the page, then >= 7:1
-            auto m = [](std::uint8_t a, std::uint8_t b) { return static_cast<std::uint8_t>(a + (b - a) * 0.3 + 0.5); };
-            const lmw::ui::Rgb mid{m(p.foreground.r, p.background.r), m(p.foreground.g, p.background.g), m(p.foreground.b, p.background.b)};
-            c = lmw::ui::enforceContrast(mid, p.background, std::max(7.0, p.minRatio));
-        }
+        if (which == Which::Quiet) c = p.quiet();       // 30 % of the way from the text to the page, then >= 7:1
         return juce::Colour(c.r, c.g, c.b);
     }
     operator juce::Colour() const { return colour(); }

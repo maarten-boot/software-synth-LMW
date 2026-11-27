@@ -38,6 +38,7 @@ struct Settings {
     std::optional<bool> keyboard;              // Spec S6.12: shown (true) / hidden
     bool showScales = true;                    // Spec S6.20: fader scale marks (S6.17)
     bool socketRings = true;                   // Spec S6.20: socket type rings (S6.19)
+    bool panelGradient = false;                // Spec S6.30: panels fade from the unit colour to the page
     std::string ninepTcp;                      // Spec S10.4: "" = no TCP
     theme::ThemePreset theme = theme::ThemePreset::Default;   // Spec S6.13
     std::array<std::optional<Rgb>, theme::themeItems.size()> custom{};   // Custom: the user's colours
@@ -190,9 +191,9 @@ inline Settings parseConfig(std::string_view text) {
             const auto v = detail::lower(value);
             if (v == "shown" || v == "show" || v == "true" || v == "yes" || v == "1") s.keyboard = true;
             else if (v == "hidden" || v == "hide" || v == "false" || v == "no" || v == "0") s.keyboard = false;
-        } else if (key == "show_scales" || key == "socket_rings") {   // Spec S6.20; anything else keeps the default
+        } else if (key == "show_scales" || key == "socket_rings" || key == "panel_gradient") {   // S6.20, S6.30
             const auto v = detail::lower(value);
-            bool& b = key == "show_scales" ? s.showScales : s.socketRings;
+            bool& b = key == "show_scales" ? s.showScales : key == "socket_rings" ? s.socketRings : s.panelGradient;
             if (v == "yes" || v == "true" || v == "on" || v == "1") b = true;
             else if (v == "no" || v == "false" || v == "off" || v == "0") b = false;
         }
@@ -218,6 +219,8 @@ inline std::string writeConfig(const Settings& s) {
     out += "# show_scales, socket_rings: the beginner aids (fader scale marks, socket type rings), yes or no\n";
     out += std::string("show_scales = ") + (s.showScales ? "yes" : "no") + "\n";
     out += std::string("socket_rings = ") + (s.socketRings ? "yes" : "no") + "\n";
+    out += "# panel_gradient: panels fade from their unit colour to the page (Menu > Theme > Panel gradient), yes or no\n";
+    out += std::string("panel_gradient = ") + (s.panelGradient ? "yes" : "no") + "\n";
     out += "# theme: Default, Soft, Vivid, Monochrome, Dark, DarkHC (dark, high contrast), System (Default or Dark as\n"
            "# the computer is light or dark) or Custom (the color_ lines below, on a light or dark base; every colour\n"
            "# is still raised to the contrast above)\n";

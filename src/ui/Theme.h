@@ -99,6 +99,26 @@ struct Palette {
 
     Rgb unitColour(Unit u) const noexcept { return unit[static_cast<std::size_t>(u)]; }
     Rgb textOn(Rgb fill) const noexcept { return theme::textOn(fill, foreground, background); }
+    // Spec S6.29: secondary text (scale values, tags) — 30 % of the way from the text to the page, then >= 7:1.
+    Rgb quiet() const noexcept {
+        auto m = [](std::uint8_t a, std::uint8_t b) { return static_cast<std::uint8_t>(a + (b - a) * 0.3 + 0.5); };
+        const Rgb mid{m(foreground.r, background.r), m(foreground.g, background.g), m(foreground.b, background.b)};
+        return enforceContrast(mid, background, std::max(7.0, minRatio));
+    }
+    // Spec S6.30 (Phase 52): the top of a panel gradient — the unit's title colour, moved towards the page just as
+    // far as needed for the text (and the quiet text) on it to keep the contrast setting; none for the white and
+    // grey units (KEYS, OUT, MAIN, MIXER, MIX 2: they stay plain).
+    std::optional<Rgb> gradientTop(Unit u) const noexcept {
+        if (u == Unit::None || u == Unit::Mix || u == Unit::Count) return std::nullopt;
+        const Rgb t = unitColour(u), q = quiet();
+        for (int k = 0; k <= 20; ++k) {
+            const double f = k / 20.0;
+            auto c = [f](std::uint8_t a, std::uint8_t b) { return static_cast<std::uint8_t>(a + (b - a) * f + 0.5); };
+            const Rgb top{c(t.r, background.r), c(t.g, background.g), c(t.b, background.b)};
+            if (contrastRatio(foreground, top) >= minRatio && contrastRatio(q, top) >= minRatio) return top;
+        }
+        return background;
+    }
     // Spec S6.6 (Phase 21a): cables at rest are drawn see-through — cableInk (with a white edge) at this
     // opacity, so on white they look like `cable` and the panels show through; opaque (1) from AAA 7:1 up,
     // where `cable` itself is drawn.
