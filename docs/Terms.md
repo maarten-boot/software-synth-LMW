@@ -309,7 +309,7 @@ Which way an LFO swings: ± from −1 to +1 (up and down, the usual), + from 0 t
 (only down). + is handy where a signal adds to a fader at its end: an LFO on VCA CV with Initial at 0
 pulses from silence instead of being silent half the time.
 
-Where: LFO 1 and LFO 2, the box under Wave.
+Where: LFO 1 and LFO 2, the box under Delay (above the Out socket).
 
 See also: [LFO](#lfo), [Control voltage (CV)](#control-voltage-cv)
 
@@ -682,7 +682,8 @@ See also: [Preset](#preset), [Instrument preset](#instrument-preset)
 ### Theme
 The colours of the panels, cables and highlight: Default, Soft, Vivid, Monochrome, Dark (light text on
 dark grey), Dark high contrast, Follow system (Dark while your computer is in dark mode) or your own,
-on a light or a dark base. The keyboard always looks like a piano.
+on a light or a dark base. The keyboard always looks like a piano. Panel gradient lets each coloured
+panel fade from its title colour down to the page.
 
 Where: Menu › Theme.
 
