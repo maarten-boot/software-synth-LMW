@@ -134,7 +134,7 @@ int main() {
             CHECK(cv[2].y > t.y);                           // enters from below
         }
         CHECK(!sc::findBlock("nothing"));
-        CHECK(sc::blockNote("VCF 1", 0.5f, 0.0f) == "keys.pitch \u2192 cutoff (internal: Key 50 %)");
+        CHECK(sc::blockNote("VCF 1", 0.5f, 0.0f) == "keys.pitch \xe2\x86\x92 cutoff (internal: Key 50 %)");
         CHECK(sc::blockNote("VCF 2", 0.5f, 0.0f) == "key tracking off (Key 0 %)");
         CHECK(sc::blockNote("VCA", 0, 0).find("velocity") == std::string::npos);   // S5.22: a normal connection now
         CHECK(sc::blockNote("VCO 2", 0, 0).find("mod wheel") != std::string::npos);

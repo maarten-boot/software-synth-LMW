@@ -4,6 +4,7 @@
 // no effects) as % of one core; it fails only on a gross regression: 8 voices above 50 % of a core.
 #include "dsp/Engine.h"
 #include "dsp/Load.h"
+#include <algorithm>
 #include <chrono>
 #include <cstdio>
 #include <vector>
@@ -49,11 +50,14 @@ int main() {
         e.setModParams(mp);
         for (int v = 0; v < voices; ++v) e.noteOn(36 + v, 0.8f);
         std::vector<float> l(256), r(256);
-        const int blocks = 2 * 48000 / 256;
-        const auto t0 = std::chrono::steady_clock::now();
-        for (int b = 0; b < blocks; ++b) e.render(l.data(), r.data(), 256);
-        const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
-        const double share = seconds / 2.0 * 100.0;
+        const int blocks = 48000 / 256;                       // 1 s of audio, best of 3 (a busy machine adds noise)
+        double seconds = 1e9;
+        for (int run = 0; run < 3; ++run) {
+            const auto t0 = std::chrono::steady_clock::now();
+            for (int b = 0; b < blocks; ++b) e.render(l.data(), r.data(), 256);
+            seconds = std::min(seconds, std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count());
+        }
+        const double share = seconds / (blocks * 256 / 48000.0) * 100.0;
         std::printf("benchmark: %2d voices %5.1f %% of one core (active %d)\n", voices, share, e.activeVoices());
         if (voices == 8) eight = share;
     }

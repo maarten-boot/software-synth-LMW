@@ -454,10 +454,10 @@ inline std::string lfoDelayOutputNote(Out out, const LfoDelays& delays) {
 // Extra hover lines for a block: its internal links (and the LFO Delay, S5.24).
 inline std::string blockNote(std::string_view name, float vcf1Key, float vcf2Key, const LfoDelays& delays = {}) {
     if (name == "LFO 1" || name == "LFO 2") return lfoDelayOutputNote(name == "LFO 1" ? Out::Lfo1 : Out::Lfo2, delays);
-    if (name.starts_with("VCO")) return "mod wheel \u2192 FM depth (internal: FM fader + wheel \u00d7 1 st)";
+    if (name.starts_with("VCO")) return "mod wheel \xe2\x86\x92 FM depth (internal: FM fader + wheel \xc3\x97 1 st)";
     if (name == "VCF 1" || name == "VCF 2") {
         const float k = name == "VCF 1" ? vcf1Key : vcf2Key;
-        return k > 0.0f ? "keys.pitch \u2192 cutoff (internal: Key " + percent(k) + ")"
+        return k > 0.0f ? "keys.pitch \xe2\x86\x92 cutoff (internal: Key " + percent(k) + ")"
                         : std::string("key tracking off (Key 0 %)");
     }
     return {};

@@ -5,6 +5,7 @@ Changes between releases.
 ## Unreleased
 
 ## 1.8.0 (2026-11-27)
+- 2026-11-27: Windows: some hover texts showed "?" instead of the arrow → or × (the Schematic's internal links, the new cable hint); fixed.
 - 2026-11-27: Patches and saved settings from 1.7.0 load unchanged: their reverb stays Classic (the reverb of 1.7.0, same sound), the effects keep the order COMB, ENSEMBLE, DELAY, REVERB, cables and notes as before. New patches and the REVERB presets use the new Hall reverb. One audible difference: a VCF with Reso above about 91 % and nothing at its input now sings on its own (as an analog filter does).
 - 2026-11-27: Load meter: "CPU 7 %" in the header shows how much of the computer's time the synth needs; it turns red above 70 % or after a dropout. Its hover text shows the peak, the voices playing, dropouts and memory. Also over 9P (/load) and for AI assistants (get_load).
 - 2026-11-27: VCF 1 and VCF 2 now sing on their own above about 91 % Reso, even with nothing at their input (as an analog filter does): with MIXER's levels at 0 the filter is a sine source that follows the keys with Key 100 %. Patches with high Reso and an input sound as before.

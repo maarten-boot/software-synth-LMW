@@ -346,7 +346,7 @@ inline std::string replacedNote(const Patch& p, In in) {
     std::string from;
     for (std::size_t k = 0; k < v.size(); ++k)
         from += (k == 0 ? "" : k + 1 == v.size() ? " and " : ", ") + std::string(outputNames[static_cast<std::size_t>(v[k])]);
-    return "Replaces the normal connection" + std::string(v.size() > 1 ? "s " : " ") + from + " \u2192 "
+    return "Replaces the normal connection" + std::string(v.size() > 1 ? "s " : " ") + from + " \xe2\x86\x92 "   // "→" as UTF-8 bytes: MSVC turns \u escapes into "?" (CI 2026-11-27)
          + std::string(inputNames[static_cast<std::size_t>(in)]) + "; to keep " + (v.size() > 1 ? "them" : "it") + ", add "
          + from + " as " + (v.size() > 1 ? "cables" : "a cable") + " too.";
 }

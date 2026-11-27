@@ -29,7 +29,7 @@ int main() {
     CHECK(p.connect(In::Vcf1In, Out::Vcf1, 1.0f));
     const auto one = replacedNote(p, In::Vcf1In);
     std::printf("%s\n", one.c_str());
-    CHECK(one == "Replaces the normal connection mix.out → vcf1.in; to keep it, add mix.out as a cable too.");
+    CHECK(one == "Replaces the normal connection mix.out \xe2\x86\x92 vcf1.in; to keep it, add mix.out as a cable too.");
     CHECK(p.connect(In::Vcf1In, Out::Mix, 1.0f));
     CHECK(replacedNote(p, In::Vcf1In).empty());
     p.clear();
@@ -38,7 +38,7 @@ int main() {
     CHECK(p.connect(In::FormantIn, Out::Vco2, 1.0f));
     const auto two = replacedNote(p, In::FormantIn);
     std::printf("%s\n", two.c_str());
-    CHECK(two == "Replaces the normal connections vcf1.out and vcf2.out → formant.in; to keep them, add vcf1.out and vcf2.out as cables too.");
+    CHECK(two == "Replaces the normal connections vcf1.out and vcf2.out \xe2\x86\x92 formant.in; to keep them, add vcf1.out and vcf2.out as cables too.");
     p.clear();
     p.setRouting(VcfRouting::Serial);
 
