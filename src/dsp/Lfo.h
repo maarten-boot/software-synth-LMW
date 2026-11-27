@@ -4,10 +4,18 @@
 // distorted (mean 0), triangle's rise 50 -> 2 % of the cycle, saw a second saw up to half a cycle behind, square
 // high for 50 -> 5 % (still +-1, so it can gate). Shape 0: the original waves exactly.
 #pragma once
+#include <cstdint>
 #include <cmath>
 #include <numbers>
 
 namespace lmw::dsp {
+
+// Spec S5.30: LFO Polarity. Bipolar -1..+1 (the wave as it is), Positive 0..+1, Negative -1..0 (the wave
+// moved and halved, so its shape is kept and nothing clips).
+enum class LfoPolarity : std::uint8_t { Bipolar = 0, Positive, Negative };
+inline constexpr float polarize(float x, LfoPolarity p) noexcept {
+    return p == LfoPolarity::Positive ? 0.5f * (x + 1.0f) : p == LfoPolarity::Negative ? 0.5f * (x - 1.0f) : x;
+}
 
 enum class LfoWave { Sine = 0, Triangle, Saw, Square };
 

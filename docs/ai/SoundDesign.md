@@ -37,7 +37,7 @@ A cable replaces an input's normal connection; up to 4 cables per input add up, 
 `vcf1.in=mix.out+vcf1.out@0.4` keeps the mixer and adds feedback). Effect sockets (comb, ensemble, delay, reverb,
 out.out, main.in) connect only among themselves.
 
-Modulation inputs (`vcoN.pitch`, `vcoN.fm`, `vcoN.pm`, `vcoN.shape`, `vcfN.cutoff`, `vcfN.res`, `formant.vowel`, `vca.cv`,
+Modulation inputs (`vcoN.pitch`, `vcoN.fm`, `vcoN.pm`, `vcoN.shape`, `vcfN.cutoff`, `vcfN.res`, `formant.vowel`, `formant.res`, `vca.cv`,
 `vca.mod`, `lfoN.rate`, `lfoN.shape`) also take a negative level: the source inverted. `vcf1.cutoff=env2.out@-0.5` closes
 the filter as the envelope rises (a "negative envelope amount"); `vca.mod=keys.pitch@-0.3` makes low notes
 louder (keyboard scaling); with `vca.initial` 1, `vca.cv=env2.out@-1` is loud at rest and dips while the
@@ -63,7 +63,7 @@ envelope is up. Audio and gate inputs take 0 to 1 only. A level of 0 keeps a cab
   resonance = a whistling peak (at 1 it rings by itself). Cutoff 600-1500 Hz with env 1.5-3 octaves and
   a short ENV 2 = a plucked or brassy attack. VCF 2 stays open (18 kHz) unless used.
 - **FORMANT** (`formant.vowel` 0-4 = A E I O U, gliding between; `formant.voice` Bass / Baritone / Tenor /
-  Alto / Soprano / Child; `formant.res` 0-1; `formant.mix` 0-1, 0 = off): vowels. For voices: a Saw or
+  Alto / Soprano / Child; `formant.res` 0-1 with a Res input, e.g. `formant.res=env2.out@0.3`; `formant.mix` 0-1, 0 = off): vowels. For voices: a Saw or
   Pulse source, mix 1, the voice type by range (Bass/Baritone male low, Tenor male high, Alto/Soprano
   female, Child), the vowel (A "aah", E "eh", I "ee", O "oh", U "ooo"), a little vibrato (LFO 1 at 5-6 Hz,
   FM 0.1-0.2 st). A cable `formant.vowel=lfo2.out@0.1` makes the vowel move.
@@ -78,6 +78,10 @@ envelope is up. Audio and gate inputs take 0 to 1 only. A level of 0 keeps a cab
   vibrato 5-6 Hz, slow movement 0.1-0.5 Hz. A cable `lfo1.rate=env2.out` makes the vibrato speed up.
   `lfoN.delay` 0-5 s (0 = at once): per note the LFO fades in after the start (nothing for half the
   delay, full at the delay) — delayed vibrato, 0.3-0.6 s for solo winds, strings and voices.
+  `lfoN.polarity` Bipolar / Positive / Negative [Bipolar]: -1..+1, 0..+1 or -1..0 at lfoN.out (normal
+  connections too). Positive where an input adds to a fader at its end: `vca.cv=lfo2.out` with vca.initial 0
+  (pulses from silence; Bipolar would be silent half the time), `vcoN.shape=lfo2.out` from shape 0, the
+  cutoff only upwards. Positive LFO 1 makes the vibrato go only sharp.
 - **OUT** `out.gain` 0-1 (the default 0.8 ≈ -1.9 dB); a soft limiter catches peaks.
 - **COMB** (`comb.freq` 20-5000 Hz, `comb.key` 0-1, `comb.feedback` -0.95..0.95, `comb.damping` 0-1,
   `comb.mix` 0-1, 0 = off): a resonant tube or body. Key 1 with Freq 261.6 (C4) follows the notes;

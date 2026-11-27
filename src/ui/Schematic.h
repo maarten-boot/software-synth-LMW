@@ -65,7 +65,7 @@ inline const std::vector<Block>& blocks() {
         {"MIX",    Shape::Triangle, {48, 14, 12, 26}, {In::MixIn1, In::MixIn2, In::MixIn3, In::MixIn4}, {Out::Mix}},
         {"VCF 1",  Shape::Triangle, {68, 20, 12, 14}, {In::Vcf1In, In::Vcf1Cutoff, In::Vcf1Res}, {Out::Vcf1}},
         {"VCF 2",  Shape::Triangle, {86, 20, 12, 14}, {In::Vcf2In, In::Vcf2Cutoff, In::Vcf2Res}, {Out::Vcf2}},
-        {"FORMANT", Shape::Triangle, {104, 20, 12, 14}, {In::FormantIn, In::FormantVowel}, {Out::Formant}},   // S5.16
+        {"FORMANT", Shape::Triangle, {104, 20, 12, 14}, {In::FormantIn, In::FormantVowel, In::FormantRes}, {Out::Formant}},   // S5.16, S5.29
         {"MIX 2",  Shape::Triangle, {121, 19, 10, 16}, {In::Mix2In1, In::Mix2In2, In::Mix2In3}, {Out::Mix2}},   // S5.26
         {"VCA",    Shape::Triangle, {136, 20, 12, 14},{In::VcaIn, In::VcaCv, In::VcaMod, In::VcaVel}, {Out::Vca}},
         {"OUT",    Shape::Triangle, {154, 22, 10, 10}, {In::OutIn, In::OutPan}, {Out::OutOut}},   // S7.6: feeds the effects; S5.25: pan

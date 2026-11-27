@@ -68,6 +68,7 @@ struct ModParams {
     float lfo2Rate = 4.0f;                      // lfo2.rate (Hz), Spec S5.12
     LfoWave lfo2Wave = LfoWave::Sine;           // lfo2.wave
     std::array<float, 2> lfoDelay{};            // lfo1.delay, lfo2.delay (s, Spec S5.24): 0 = no delay
+    std::array<LfoPolarity, 2> lfoPolarity{};   // lfo1.polarity, lfo2.polarity (Spec S5.30): Bipolar = as before
     float pan = 0.0f;                           // out.pan, -1 (left) .. +1 (right) (Spec S5.25)
     float spread = 0.0f;                        // out.spread, 0 .. 1
     SpreadMode spreadMode = SpreadMode::Keys;   // out.spreadmode
@@ -260,7 +261,9 @@ public:
             const float cv = read(In::FormantVowel, g, patch);
             const float position = std::isfinite(cv) ? std::clamp(mp.formantVowel + maxVowelPosition * cv, 0.0f, maxVowelPosition)
                                                      : mp.formantVowel;   // a NaN or inf signal: the fader alone
-            formant.setTarget(mp.formantVoice, position, mp.formantRes);
+            const float resCv = read(In::FormantRes, g, patch);   // Spec S5.29: added to the Reso fader, 0..1
+            const float res = std::isfinite(resCv) ? std::clamp(mp.formantRes + resCv, 0.0f, 1.0f) : mp.formantRes;
+            formant.setTarget(mp.formantVoice, position, res);
             const float wet = formant.process(inF);
             out[o(Out::Formant)] = formantWet >= 1.0f ? wet : inF + (wet - inF) * formantWet;
         }
@@ -533,7 +536,8 @@ public:
             // Spec S5.28: a patched LFO Shape input adds to the fader (from the previous sample), 0..1.
             if (lfo1ShapePatched) lfo.setShape(std::clamp(mod.lfoShape + readShared(In::Lfo1Shape), 0.0f, 1.0f));
             if (lfo2ShapePatched) lfo2.setShape(std::clamp(mod.lfo2Shape + readShared(In::Lfo2Shape), 0.0f, 1.0f));
-            const GlobalSignals g{lfo.next(), lfo2.next(), noise.next(), modWheel, random.next()};
+            const GlobalSignals g{polarize(lfo.next(), mod.lfoPolarity[0]), polarize(lfo2.next(), mod.lfoPolarity[1]),   // S5.30
+                                  noise.next(), modWheel, random.next()};
             lastGlobal = g;
             // Spec S5.25: Pan and Spread glide (20 ms); while both are 0 and out.pan has no cable the output is
             // the mono sum on both sides, exactly as before.

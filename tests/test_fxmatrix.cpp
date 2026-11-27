@@ -2,6 +2,7 @@
 // T-S6.25-fxmatrix (unit): the rows and columns of the Matrix tab (synth) and the effects matrix (Effects tab):
 // 39 x 19 (34 before S5.28) and 5 x 5, no cell where the ports cannot connect (S7.6), together every connectable pair exactly once,
 // and the effects matrix in the effects order (S7.14): row r's normalled source is column r.
+#include <algorithm>
 #include "dsp/Patch.h"
 #include <cstdio>
 #include <set>
@@ -14,7 +15,11 @@ static int failures = 0;
 int main() {
     const auto si = synthMatrixInputs(), so = synthMatrixOutputs();
     std::printf("Matrix tab %zu x %zu\n", si.size(), so.size());
-    CHECK(si.size() == 39 && so.size() == 19);                       // 39 since S5.28 (the Shape inputs)
+    CHECK(si.size() == 40 && so.size() == 19);                       // 40 since S5.29 (formant.res), 39 since S5.28 (the Shape inputs)
+    {   // S5.29: formant.res right after formant.vowel
+        const auto v = std::find(si.begin(), si.end(), static_cast<int>(In::FormantVowel));
+        CHECK(v != si.end() && v + 1 != si.end() && *(v + 1) == static_cast<int>(In::FormantRes));
+    }
     CHECK(si.front() == static_cast<int>(In::Vco1Pitch) && si.back() == static_cast<int>(In::OutPan));
     CHECK(so.front() == static_cast<int>(Out::KeysPitch) && so.back() == static_cast<int>(Out::Vca));
     for (int order = 0; order < numEffectOrders; ++order) {

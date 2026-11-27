@@ -123,6 +123,11 @@ APVTS::ParameterLayout LMWSynthProcessor::createLayout(std::map<std::string, Flo
           f(P::lfo2Delay, "LFO 2 Delay", time(5.0f), 0.0f, seconds),
           f(P::lfoShape, "LFO 1 Shape", Range(0.0f, 1.0f), 0.0f, percent),     // Spec S5.28
           f(P::lfo2Shape, "LFO 2 Shape", Range(0.0f, 1.0f), 0.0f, percent),
+          // Spec S5.30: Bipolar -1..+1 (as before), Positive 0..+1, Negative -1..0 (the panel shows +-, +, -)
+          std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{P::lfoPolarity, 1}, "LFO 1 Polarity",
+              juce::StringArray{"Bipolar", "Positive", "Negative"}, 0),
+          std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{P::lfo2Polarity, 1}, "LFO 2 Polarity",
+              juce::StringArray{"Bipolar", "Positive", "Negative"}, 0),
           f(P::gain, "Volume", Range(0.0f, 1.0f), 0.8f, decibels),
           f(P::outPan, "Pan", Range(-1.0f, 1.0f), 0.0f, percent),          // Spec S5.25
           f(P::outSpread, "Spread", Range(0.0f, 1.0f), 0.0f, percent),
@@ -183,6 +188,7 @@ LMWSynthProcessor::LMWSynthProcessor()
     raw.lfo2Rate = get(P::lfo2Rate); raw.lfo2Wave = get(P::lfo2Wave);
     raw.lfoDelay = get(P::lfoDelay); raw.lfo2Delay = get(P::lfo2Delay);
     raw.lfoShape = get(P::lfoShape); raw.lfo2Shape = get(P::lfo2Shape);   // Spec S5.28
+    raw.lfoPolarity = get(P::lfoPolarity); raw.lfo2Polarity = get(P::lfo2Polarity);   // Spec S5.30
     raw.outPan = get(P::outPan); raw.outSpread = get(P::outSpread); raw.spreadMode = get(P::spreadMode);
     raw.glide = get(P::glide); raw.glideMode = get(P::glideMode); raw.bendRange = get(P::bendRange);
     for (std::size_t k = 0; k < 3; ++k) { raw.mix2Level[k] = get(P::mix2Level[k]); raw.mix2Pan[k] = get(P::mix2Pan[k]); } raw.tremolo = get(P::vcaTremolo);
@@ -526,6 +532,8 @@ void LMWSynthProcessor::pullParameters() noexcept {
     m.lfo2Rate    = raw.lfo2Rate->load();
     m.lfo2Wave    = static_cast<lmw::dsp::LfoWave>(static_cast<int>(raw.lfo2Wave->load()));
     m.lfoDelay    = {raw.lfoDelay->load(), raw.lfo2Delay->load()};          // Spec S5.24
+    m.lfoPolarity = {static_cast<lmw::dsp::LfoPolarity>(static_cast<int>(raw.lfoPolarity->load())),   // Spec S5.30
+                     static_cast<lmw::dsp::LfoPolarity>(static_cast<int>(raw.lfo2Polarity->load()))};
     m.lfoShape    = raw.lfoShape->load();                                    // Spec S5.28
     m.lfo2Shape   = raw.lfo2Shape->load();
     m.pan         = raw.outPan->load();                                      // Spec S5.25
@@ -1078,6 +1086,7 @@ lmw::dsp::UseParams LMWSynthProcessor::useParams() const {
     set(In::Vcf1Cutoff, v(raw.vcfEnv[0]));
     set(In::Vcf2Cutoff, v(raw.vcfEnv[1]));
     set(In::FormantVowel, v(raw.formantMix));
+    set(In::FormantRes, v(raw.formantMix));                  // Spec S5.29: as the vowel input, nothing at Mix 0
     set(In::VcaMod, v(raw.tremolo));
     set(In::VcaVel, v(raw.vcaVelocity));
     const auto pass = [&](Out o, const std::atomic<float>* mix) { u.passing[static_cast<std::size_t>(o)] = v(mix) <= 0.0f; };

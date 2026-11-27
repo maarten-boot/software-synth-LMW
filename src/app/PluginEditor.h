@@ -418,7 +418,7 @@ private:
     int systemThemeTick = 0;
     Metrics m = normalMetrics;
     std::array<Fader, 75> faders;                          // exactly the faders made (75 since S5.28: the five Shapes)
-    std::array<Choice, 17> choices;                        // 17 since S7.15 (reverb Type)
+    std::array<Choice, 19> choices;                        // 17 since S7.15 (reverb Type), 19 since S5.30 (LFO Polarity)
     std::size_t usedFaders = 0, usedChoices = 0;
     std::vector<Group> groups;
     std::vector<std::unique_ptr<PanelHeader>> headers;    // one per group, same index

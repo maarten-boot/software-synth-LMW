@@ -75,6 +75,8 @@ inline constexpr const char* lfoDelay    = "lfo1.delay";   // Spec S5.24: delaye
 inline constexpr const char* lfo2Delay   = "lfo2.delay";
 inline constexpr const char* lfoShape    = "lfo1.shape";   // Spec S5.28
 inline constexpr const char* lfo2Shape   = "lfo2.shape";
+inline constexpr const char* lfoPolarity  = "lfo1.polarity";   // Spec S5.30
+inline constexpr const char* lfo2Polarity = "lfo2.polarity";
 inline constexpr const char* gain        = "out.gain";
 inline constexpr const char* outPan      = "out.pan";        // Spec S5.25: stereo per voice
 inline constexpr const char* outSpread   = "out.spread";
@@ -394,7 +396,7 @@ private:
     struct RawParams {                 // atomics owned by apvts, read on the audio thread
         std::atomic<float> *voices{}, *mixNoise{}, *vcaInitial{},
             *e1a{}, *e1d{}, *e1s{}, *e1r{}, *e2a{}, *e2d{}, *e2s{}, *e2r{}, *lfoRate{}, *lfoWave{}, *gain{},
-            *lfo2Rate{}, *lfo2Wave{}, *lfoDelay{}, *lfo2Delay{}, *lfoShape{}, *lfo2Shape{}, *outPan{}, *outSpread{}, *spreadMode{}, *glide{}, *glideMode{}, *bendRange{}, *tremolo{}, *vcaVelocity{}, *revType{}, *revPredelay{}, *revMix{}, *revSize{}, *revDamping{}, *revWidth{},
+            *lfo2Rate{}, *lfo2Wave{}, *lfoDelay{}, *lfo2Delay{}, *lfoShape{}, *lfo2Shape{}, *lfoPolarity{}, *lfo2Polarity{}, *outPan{}, *outSpread{}, *spreadMode{}, *glide{}, *glideMode{}, *bendRange{}, *tremolo{}, *vcaVelocity{}, *revType{}, *revPredelay{}, *revMix{}, *revSize{}, *revDamping{}, *revWidth{},
             *noiseColour{}, *noiseRate{}, *noiseSmooth{},
             *combFreq{}, *combKey{}, *combFeedback{}, *combDamping{}, *combMix{},
             *delayTime{}, *delayFeedback{}, *delayDamping{}, *delaySpread{}, *delayMix{}, *ensembleDepth{}, *ensembleRate{}, *ensembleShimmer{}, *ensembleMix{}, *formantVowel{}, *formantVoice{}, *formantRes{}, *formantMix{}, *vcfRouting{}, *effectsOrder{};

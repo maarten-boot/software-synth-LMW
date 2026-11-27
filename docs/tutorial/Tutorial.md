@@ -147,6 +147,8 @@ the key is let go.
 
 **Listen for:** vibrato moves pitch, tremolo moves loudness.
 **Try yourself:** a slow LFO 1 (0.3 Hz) with *VCO 2 › FM* 0.15 and VCO 2 mixed in: a gently drifting pad.
+Then patch *lfo2.out* → *vca.cv*, set *VCA › Initial* 0 and LFO 2's polarity box (under Wave) to **+**: the sound
+pulses up from silence and back. With **±** it is silent half the time: the lower half of the wave is below 0.
 
 ---
 

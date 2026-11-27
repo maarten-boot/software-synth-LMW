@@ -251,7 +251,7 @@ See also: [VCF](#vcf), [Normalled](#normalled)
 The peaks in a sound's spectrum that make a vowel: our ears hear "a", "e", "o" from where they lie.
 The FORMANT module filters the sound into a sung vowel.
 
-Where: the FORMANT panel (Voice, Vowel, Reso, Mix).
+Where: the FORMANT panel (Voice, Vowel, Reso, Mix; the sockets In, Vowel, Res, Out).
 
 See also: [Vowel](#vowel), [VCF](#vcf)
 
@@ -302,7 +302,16 @@ LFO 1 gives vibrato (pitch), LFO 2 tremolo (loudness). Its Delay lets it fade in
 
 Where: the LFO 1 and LFO 2 panels.
 
-See also: [Vibrato](#vibrato), [Tremolo](#tremolo), [Rate](#rate), [Delayed vibrato](#delayed-vibrato), [Modulation](#modulation)
+See also: [Vibrato](#vibrato), [Tremolo](#tremolo), [Rate](#rate), [Delayed vibrato](#delayed-vibrato), [Polarity](#polarity), [Modulation](#modulation)
+
+### Polarity
+Which way an LFO swings: ± from −1 to +1 (up and down, the usual), + from 0 to +1 (only up), − from −1 to 0
+(only down). + is handy where a signal adds to a fader at its end: an LFO on VCA CV with Initial at 0
+pulses from silence instead of being silent half the time.
+
+Where: LFO 1 and LFO 2, the box under Wave.
+
+See also: [LFO](#lfo), [Control voltage (CV)](#control-voltage-cv)
 
 ### Rate
 How fast an LFO (or the NOISE random steps) runs, in Hz: cycles per second.

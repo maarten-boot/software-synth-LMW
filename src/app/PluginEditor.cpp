@@ -277,6 +277,15 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     // Spec S5.12: LFO 1 = vibrato (normalled to the VCO FM inputs), LFO 2 = tremolo (normalled to vca.mod).
     const juce::String lfoShapeTip = "Shape of the wave: Triangle leans to a ramp, Square gets shorter (pulses), Saw doubles,\n"
                                      "Sine bends. 0 = the plain wave. Shape input: added to the fader (per-voice sources: newest note)";   // Spec S5.28
+    // Spec S5.30: Polarity under the Delay fader, above the Out socket it changes (as OUT's Spread mode; under the
+    // Wave box it left Shape no room). The box text says it: +-, +, -; the parameter's names are words.
+    const juce::StringArray polarities{juce::String::fromUTF8("\xc2\xb1"), "+", juce::String::fromUTF8("\xe2\x88\x92")};
+    const auto polarityTip = [](int n) {
+        return "Polarity of lfo" + juce::String(n) + ".out, wherever it goes (also its normal connection):\n"
+               + juce::String::fromUTF8("\xc2\xb1") + " = -1 to +1 (as before), + = 0 to +1 (only up), "
+               + juce::String::fromUTF8("\xe2\x88\x92") + " = -1 to 0 (only down).\n"
+               "+ helps where an input adds to a fader at its end, e.g. VCA CV with Initial 0, Shape from 0.";
+    };
     const std::size_t lfoPanel = groups.size();
     groups.push_back({"LFO 1", 2, {boxOver(addChoice(P::lfoWave, "Wave", {"Sine", "Triangle", "Saw", "Square"}),   // S5.28: row 3
                                            addFader(P::lfoShape, "Shape", inputTip(In::Lfo1Shape, lfoShapeTip))),
@@ -284,10 +293,10 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
                                        "Shared LFO 1 (vibrato): lfo1.out feeds vco1.fm, vco2.fm and vco3.fm\n"
                                        "(normalled); the FM faders set the depth.\n"
                                        "Rate input: +1.0 doubles the rate, -1.0 halves it (per-voice sources: newest note)")),
-                                   addFader(P::lfoDelay, "Delay", [] {
+                                   withBox(addFader(P::lfoDelay, "Delay", [] {
                                        return juce::String("Delayed vibrato: after each note starts, LFO 1 has no effect for the first\n"
                                                            "half of this time, then fades in to full at this time (0 = at once).");
-                                   })}, {}});
+                                   }), addChoice(P::lfoPolarity, "Polarity", polarities, polarityTip(1)))}, {}});   // S5.30
     const std::size_t mixPanel = groups.size();
     groups.push_back({"MIXER", 0,   // user 2026-11-26: at the end of row 1 by default (after NOISE), FORMANT to row 2
         {addFader(P::mixVco[0], "VCO 1", inputTip(In::MixIn1, "Level of mixer input 1")),
@@ -344,10 +353,10 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
                                        "Shared LFO 2 (tremolo): lfo2.out feeds vca.mod (normalled);\n"
                                        "the VCA Tremolo fader sets the depth.\n"
                                        "Rate input: +1.0 doubles the rate, -1.0 halves it (per-voice sources: newest note)")),
-                                   addFader(P::lfo2Delay, "Delay", [] {
+                                   withBox(addFader(P::lfo2Delay, "Delay", [] {
                                        return juce::String("Delayed tremolo: after each note starts, LFO 2 has no effect for the first\n"
                                                            "half of this time, then fades in to full at this time (0 = at once).");
-                                   })}, {}});
+                                   }), addChoice(P::lfo2Polarity, "Polarity", polarities, polarityTip(2)))}, {}});   // S5.30
     const std::size_t vcaPanel = groups.size();
     groups.push_back({"VCA", 2, {addFader(P::vcaInitial, "Initial", [this] {
                          return describeInput(In::VcaIn) + "\n" + describeInput(In::VcaCv)
@@ -380,9 +389,9 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
                    "Voice type: Bass, Baritone, Tenor, Alto, Soprano or Child (formants from low to high)"),
          addFader(P::formantVowel, "Vowel", inputTip(In::FormantVowel,
              "Vowel A, E, I, O, U, gliding in between.\nA signal on the Vowel input adds to it: 1.0 = the whole A to U span.")),
-         addFader(P::formantRes, "Reso", [] {
-             return juce::String("Sharpness of the formants: 50 % = as sung, higher = narrower peaks");
-         }),
+         addFader(P::formantRes, "Reso", inputTip(In::FormantRes,   // Spec S5.29: the Res input
+             "Sharpness of the formants: 50 % = as sung, higher = narrower peaks.\n"
+             "A signal on the Res input adds to it: 1.0 = the whole range.")),
          addFader(P::formantMix, "Mix", inputTip(In::FormantIn,
              "0 = off (the input passes unchanged), 100 % = only the formants"))}, {}});
     // Spec S5.26: MIX 2 after FORMANT, before the VCA: three inputs with level and pan; the voice is stereo from
@@ -479,23 +488,25 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
             headers.push_back(std::make_unique<PanelHeader>(*this, static_cast<int>(i)));
             rackArea->addAndMakeVisible(*headers.back());
         }
-        // Plan L10 (user 2026-11-22): LFO 1 before the VCOs, and ENV 2 → VCF before ENV 1 → VCA. Only the
-        // default order changes (Reset layout, a first start); panel numbers, and so saved layouts, stay.
-        const auto moveBefore = [&](const juce::String& panel, const juce::String& before) {
-            for (auto& row : defaultRows) {
-                const auto at = [&](const juce::String& t) {
-                    return std::find_if(row.begin(), row.end(),
-                                        [&](int g) { return groups[static_cast<std::size_t>(g)].title.startsWith(t); });
-                };
-                const auto it = at(panel);
-                if (it == row.end() || at(before) == row.end()) continue;
-                const int g = *it;
-                row.erase(it);
-                row.insert(at(before), g);
-            }
-        };
-        moveBefore("LFO 1", "LFO 2");                        // S5.28: LFO 1 beside LFO 2 in row 3 (the VCOs are wider)
-        moveBefore("ENV 2", "ENV 1");
+        // Spec S6.5 (user 2026-11-27, Phase 51b): the default order, by title. Only the default changes (Reset layout,
+        // a first start); panel numbers, and so saved layouts, stay. A panel not named here keeps its group row.
+        {
+            const std::vector<std::vector<juce::String>> order{
+                {"KEYS", "LFO 1", "NOISE", "VCO 1", "VCO 2", "VCO 3"},
+                {"MIXER", "VCF 1", "VCF 2", "FORMANT"},
+                {"MIX 2", "ENV 2", "LFO 2", "ENV 1", "VCA", "OUT"}};
+            std::vector<bool> placed(groups.size(), false);
+            lmw::ui::RackLayout::Rows rows(std::max(defaultRows.size(), order.size()));
+            for (std::size_t r = 0; r < order.size(); ++r)
+                for (const auto& title : order[r])
+                    for (std::size_t i = 0; i < groups.size(); ++i)
+                        if (!placed[i] && (groups[i].title == title || groups[i].title.startsWith(title + " "))) {
+                            rows[r].push_back(static_cast<int>(i)); placed[i] = true; break;
+                        }
+            for (std::size_t i = 0; i < groups.size(); ++i)
+                if (!placed[i]) rows[static_cast<std::size_t>(groups[i].row)].push_back(static_cast<int>(i));
+            defaultRows = std::move(rows);
+        }
         int maxColumns = 0;
         for (const auto& row : defaultRows) {
             int c = 0;
@@ -537,6 +548,7 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
             {env1Panel, 0, false, in(In::Env1Gate), "Gate"},    {env1Panel, 3, true, out(Out::Env1), "Out"},
             {env2Panel, 0, false, in(In::Env2Gate), "Gate"},    {env2Panel, 3, true, out(Out::Env2), "Out"},
             {formantPanel, 0, false, in(In::FormantIn), "In"}, {formantPanel, 1, false, in(In::FormantVowel), "Vowel"},
+            {formantPanel, 2, false, in(In::FormantRes), "Res"},   // S5.29
             {formantPanel, 3, true, out(Out::Formant), "Out"},
             {mix2Panel, 0, false, in(In::Mix2In1), "In 1"},   {mix2Panel, 2, false, in(In::Mix2In2), "In 2"},   // S5.26
             {mix2Panel, 4, false, in(In::Mix2In3), "In 3"},   {mix2Panel, 5, true, out(Out::Mix2), "Out"},
@@ -3692,7 +3704,7 @@ std::string gainName(lmw::dsp::In i) {                     // the fader that sca
         case In::Vco1Fm: case In::Vco2Fm: case In::Vco3Fm: return "FM";
         case In::Vco1Pm: case In::Vco2Pm: case In::Vco3Pm: return "PM";
         case In::Vcf1Cutoff: case In::Vcf2Cutoff: return "Env";
-        case In::FormantVowel: return "FORMANT Mix";
+        case In::FormantVowel: case In::FormantRes: return "FORMANT Mix";
         case In::VcaMod: return "Tremolo";
         case In::VcaVel: return "Velocity";
         default: return "level";
