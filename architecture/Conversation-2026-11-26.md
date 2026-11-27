@@ -94,3 +94,6 @@
 
 - Code vs S7.15: as built. Found: the tail told to the host with Hall was the Hall's alone (Size 0: 1.3 s), even with DELAY (10 s) or COMB (2 s) on → now the longest tail of the effects in use; host test checks Hall 2.9 s, with DELAY 10 s. Stale Spec lines fixed: S5a.1 (keys.glide, keys.glidemode, keys.bendrange, effects.order, reverb.type, reverb.predelay; 91 parameters), S9.2 (91; 2172 host parameters, measured), S7.15 body (panel, older patches, Phase 35 lowpass, presets, Damping 1/3.3, tail). Tests T-S7.15-reverb. 43 of 43 pass.
 - User: yes, commit; will push and wait for CI. Committed (crosscheck 43).
+- User: the matrix section of the effects is not very helpful (typo "helpfull" noted); split it off in a separate effects matrix, free space in the synth matrix; tabs Synth, Matrix, Schematic first, then Effects. S6.25 proposed (Matrix synth only 34 × 19; effects 5 × 5; choices A where, B order).
+- CI run 45963072216 started for 3379fa7.
+- User: Aa, Ba ok; commit the spec and start 44. S6.25 confirmed (effects matrix on the Effects tab below the panels, following the effects order); Plan 44, L30; Tests T-S6.25-fxmatrix planned.
