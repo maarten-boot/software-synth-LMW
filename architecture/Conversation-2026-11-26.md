@@ -118,3 +118,6 @@
 - User: what is next? Listed (listening checks, release 1.8.0; small L1, L20; medium L18, L21, L5, L9/L16; large L3/L4, L12, 19/L14, L17, L6, 20, 22e). User: start the spec for L1. S6.27 proposed (hover replaced normal, Matrix, silent loops); choices A, B.
 - CI run 45982288039 (cbd9d73): ubuntu, windows, fedora green (macOS pending).
 - User: Aa, Bb ok; commit the spec and start 46; asked whether VCFs generate sound at high resonance (typos "thier", "we we" noted). Answer: self-oscillation from ~91 % Res, but a voice from rest clears the filter to 0, so no input = silent; added as open choice C (keep / seed). Spec committed.
+- Committed 008487f (spec 46). CI run 45982288039 (cbd9d73): all four green.
+- 46 A and B done: Patch.h replacedNormals / replacedNote (socket and Schematic port hover), Matrix dashed ring + hover; soundingOutputs, silent units as no effect (followed through their audio inputs), "Silent: no sound reaches it (…)". test_hint (T-S6.27-hint, incl. the selfSounding hook for C). Xvfb :141: loop vcf1.in = vcf1.out — chain dashed, hovers, dashed ring. Pictures retaken (Lesson 6 shows the dashed ring); Tutorial Lesson 6, Terms No effect; Spec as built; Tests; Plan; Changes. 46 of 46 pass. Choice C still open.
+- User: Cb ok; commit and do the crosscheck. Committed 46 A and B; C (seed) next, then the crosscheck.

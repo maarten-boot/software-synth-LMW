@@ -327,6 +327,30 @@ struct PatchCommand {
     float level = 1.0f;
 };
 
+// Spec S6.27 (Phase 46): the normalled sources an input's cables replace (none while it has no cables, and not a
+// normal source that is also one of its cables).
+inline std::vector<Out> replacedNormals(const Patch& p, In in) {
+    std::vector<Out> v;
+    if (!p.isPatched(in)) return v;
+    const auto ns = p.normals(in);
+    for (int k = 0; k < ns.n; ++k) {
+        const auto o = ns.s[static_cast<std::size_t>(k)].source;
+        if (o != noSource && !p.hasPin(in, o)) v.push_back(o);
+    }
+    return v;
+}
+// The hover line: "Replaces the normal connection mix.out → vcf1.in; to keep it, add mix.out as a cable too."
+inline std::string replacedNote(const Patch& p, In in) {
+    const auto v = replacedNormals(p, in);
+    if (v.empty()) return {};
+    std::string from;
+    for (std::size_t k = 0; k < v.size(); ++k)
+        from += (k == 0 ? "" : k + 1 == v.size() ? " and " : ", ") + std::string(outputNames[static_cast<std::size_t>(v[k])]);
+    return "Replaces the normal connection" + std::string(v.size() > 1 ? "s " : " ") + from + " \u2192 "
+         + std::string(inputNames[static_cast<std::size_t>(in)]) + "; to keep " + (v.size() > 1 ? "them" : "it") + ", add "
+         + from + " as " + (v.size() > 1 ? "cables" : "a cable") + " too.";
+}
+
 // Spec S6.26 (Phase 45): which units have an effect on what is heard. Followed back from main.in: an input counts
 // when it is reached and its gain (the fader that scales it, e.g. a MIXER level) is not 0; its sources count through
 // connections (cables, or the normalled ones while it has none) whose level is not 0; a source output reached that
@@ -335,8 +359,30 @@ enum class Use : std::uint8_t { Used, Passing, Unused };
 struct UseParams {
     std::array<float, numInputs> gain{};                  // 0 = this input changes nothing (set by the caller)
     std::array<bool, numOutputs> passing{};               // FORMANT or an effect at Mix 0: passes its input unchanged
+    std::array<bool, numOutputs> selfSounding{};          // S6.27 choice C: e.g. a VCF that starts oscillating on its own
     UseParams() { gain.fill(1.0f); }
 };
+// Spec S6.27: the inputs that carry sound into a processing unit (its other inputs only change how it sounds), and
+// the units whose outputs sound on their own (sources).
+inline constexpr bool audioInput(In i) noexcept {
+    switch (i) {
+        case In::Vcf1In: case In::Vcf2In: case In::MixIn1: case In::MixIn2: case In::MixIn3: case In::MixIn4:
+        case In::FormantIn: case In::Mix2In1: case In::Mix2In2: case In::Mix2In3: case In::VcaIn: case In::OutIn:
+        case In::CombIn: case In::EnsembleIn: case In::DelayIn: case In::ReverbIn: case In::MainIn:
+            return true;
+        default:
+            return false;
+    }
+}
+inline constexpr bool soundSource(Out o) noexcept {
+    switch (o) {
+        case Out::Vcf1: case Out::Vcf2: case Out::Mix: case Out::Formant: case Out::Mix2: case Out::Vca: case Out::OutOut:
+        case Out::CombOut: case Out::EnsembleOut: case Out::DelayOut: case Out::ReverbOut:
+            return false;
+        default:
+            return true;                                  // KEYS, VCO, NOISE, LFO, ENV
+    }
+}
 // The unit of a port: its name before the dot ("vcf1.cutoff" -> "vcf1").
 inline std::string_view portUnit(std::string_view port) noexcept { return port.substr(0, port.find('.')); }
 inline std::string_view portUnit(Out o) noexcept { return portUnit(outputNames[static_cast<std::size_t>(o)]); }
@@ -346,6 +392,7 @@ struct UseResult {
     std::array<bool, numOutputs> output{};               // reaches main.in with a level
     std::array<bool, numInputs> input{};                 // reached and its gain not 0
     std::array<bool, numOutputs> passing{};
+    std::array<bool, numOutputs> sounding{};             // S6.27: a sound source reaches it (or it is one)
     // A unit (any of its outputs): Used, Passing (reached, but passes its input unchanged) or Unused. MAIN (no
     // outputs) and KEYS are always Used.
     Use unit(std::string_view u) const noexcept {
@@ -354,16 +401,47 @@ struct UseResult {
         for (int o = 0; o < numOutputs; ++o)
             if (portUnit(static_cast<Out>(o)) == u) {
                 has = true;
-                if (output[static_cast<std::size_t>(o)]) { any = true; pass = pass || passing[static_cast<std::size_t>(o)]; }
+                if (output[static_cast<std::size_t>(o)] && sounding[static_cast<std::size_t>(o)]) {   // S6.27: silent = no effect
+                    any = true; pass = pass || passing[static_cast<std::size_t>(o)];
+                }
             }
         return !has || (any && !pass) ? Use::Used : any ? Use::Passing : Use::Unused;
     }
     bool operator==(const UseResult&) const = default;
 };
 
+// Spec S6.27: which outputs carry sound — sources, and processing units with an audio input that a sounding output
+// reaches with a level (and the input's gain).
+inline std::array<bool, numOutputs> soundingOutputs(const Patch& p, const UseParams& up) {
+    std::array<bool, numOutputs> s{};
+    for (int o = 0; o < numOutputs; ++o) s[static_cast<std::size_t>(o)] = soundSource(static_cast<Out>(o)) || up.selfSounding[static_cast<std::size_t>(o)];
+    bool changed = true;
+    while (changed) {
+        changed = false;
+        for (int i = 0; i < numInputs; ++i) {
+            const auto in = static_cast<In>(i);
+            if (!audioInput(in) || in == In::MainIn || up.gain[static_cast<std::size_t>(i)] == 0.0f) continue;
+            bool heard = false;
+            if (p.isPatched(in)) {
+                for (int k = 0; k < p.pinCount(in); ++k)
+                    heard = heard || (p.pin(in, k).level != 0.0f && s[static_cast<std::size_t>(p.pin(in, k).source)]);
+            } else {
+                const auto ns = p.normals(in);
+                for (int k = 0; k < ns.n; ++k)
+                    heard = heard || (ns.s[static_cast<std::size_t>(k)].level != 0.0f && s[static_cast<std::size_t>(ns.s[static_cast<std::size_t>(k)].source)]);
+            }
+            if (!heard) continue;
+            for (int o = 0; o < numOutputs; ++o)
+                if (portUnit(static_cast<Out>(o)) == portUnit(in) && !s[static_cast<std::size_t>(o)]) { s[static_cast<std::size_t>(o)] = true; changed = true; }
+        }
+    }
+    return s;
+}
+
 inline UseResult unitUse(const Patch& p, const UseParams& up) {
     UseResult r;
     r.passing = up.passing;
+    r.sounding = soundingOutputs(p, up);
     std::array<bool, numInputs> reached{};
     reached[static_cast<std::size_t>(In::MainIn)] = true;
     bool changed = true;
@@ -379,8 +457,11 @@ inline UseResult unitUse(const Patch& p, const UseParams& up) {
                 if (r.output[oi]) return;
                 r.output[oi] = true;
                 changed = true;
+                // S6.27: through a silent unit only its audio inputs are followed (to find where the sound stops); its
+                // other inputs change nothing.
                 for (int k = 0; k < numInputs; ++k)
-                    if (portUnit(static_cast<In>(k)) == portUnit(o)) reached[static_cast<std::size_t>(k)] = true;
+                    if (portUnit(static_cast<In>(k)) == portUnit(o) && (r.sounding[oi] || audioInput(static_cast<In>(k))))
+                        reached[static_cast<std::size_t>(k)] = true;
             };
             if (p.isPatched(in)) {
                 for (int k = 0; k < p.pinCount(in); ++k)
@@ -400,6 +481,27 @@ inline UseResult unitUse(const Patch& p, const UseParams& up) {
 // to MAIN". `gainName(in)` names the fader of an input with gain 0.
 inline std::string unusedReason(const Patch& p, const UseParams& up, const UseResult& r, std::string_view unit,
                                 std::string (*gainName)(In)) {
+    // S6.27: on the path to MAIN but silent — what its audio inputs get instead of sound.
+    bool silent = false;
+    for (int o = 0; o < numOutputs; ++o)
+        silent = silent || (portUnit(static_cast<Out>(o)) == unit && r.output[static_cast<std::size_t>(o)] && !r.sounding[static_cast<std::size_t>(o)]);
+    if (silent) {
+        std::string s;
+        for (int i = 0; i < numInputs; ++i) {
+            const auto in = static_cast<In>(i);
+            if (!audioInput(in) || portUnit(in) != unit) continue;
+            std::string from;
+            auto add = [&](Out o, float level) {
+                if (level == 0.0f) return;
+                from += (from.empty() ? "" : ", ") + std::string(outputNames[static_cast<std::size_t>(o)]);
+            };
+            if (p.isPatched(in)) for (int k = 0; k < p.pinCount(in); ++k) add(static_cast<Out>(p.pin(in, k).source), p.pin(in, k).level);
+            else { const auto ns = p.normals(in); for (int k = 0; k < ns.n; ++k) add(ns.s[static_cast<std::size_t>(k)].source, ns.s[static_cast<std::size_t>(k)].level); }
+            if (up.gain[static_cast<std::size_t>(i)] == 0.0f || from.empty()) continue;   // nothing there: not the reason
+            s += (s.empty() ? "" : "; ") + std::string(inputNames[static_cast<std::size_t>(i)]) + " gets only " + from;
+        }
+        return "silent: no sound reaches it" + (s.empty() ? std::string() : " (" + s + ")");
+    }
     std::string out;
     int shown = 0;
     auto add = [&](const std::string& t) { if (shown++ < 3) out += (out.empty() ? "" : "; ") + t; else if (shown == 4) out += "; ..."; };

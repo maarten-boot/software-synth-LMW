@@ -430,7 +430,9 @@ See also: [Cable](#cable), [Semi-modular](#semi-modular), [No effect](#no-effect
 ### No effect
 A unit whose output does not reach MAIN, or only through a level of 0 (e.g. VCO 2 while MIXER's In 2 is
 at 0), changes nothing in the sound. Its outline is drawn with short dashes and the lines from it dotted;
-FORMANT or an effect at Mix 0 passes the sound unchanged: long dashes. Its hover text says why.
+FORMANT or an effect at Mix 0 passes the sound unchanged: long dashes. A unit that no sound reaches
+(e.g. VCF 1 with only its own output patched into its input) is silent, and so is everything after it.
+Its hover text says why.
 
 Where: the Schematic, the Synth and Effects tabs.
 

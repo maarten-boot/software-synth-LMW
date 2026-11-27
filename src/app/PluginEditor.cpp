@@ -945,7 +945,9 @@ juce::String LMWSynthEditor::describeInputOnly(lmw::dsp::In in) const {
         sources.add(juce::String(n.data(), n.size())
                     + (pin.level != 1.0f ? " (" + juce::String(juce::roundToInt(pin.level * 100.0f)) + " %)" : juce::String()));
     }
-    return sources.joinIntoString(" + ") + " " + arrow + " " + inName + (patch.pinCount(in) > 1 ? " (cables, summed)" : " (cable)");
+    const auto replaced = lmw::dsp::replacedNote(patch, in);   // Spec S6.27
+    return sources.joinIntoString(" + ") + " " + arrow + " " + inName + (patch.pinCount(in) > 1 ? " (cables, summed)" : " (cable)")
+         + (replaced.empty() ? juce::String() : "\n" + juce::String::fromUTF8(replaced.c_str()));
 }
 
 LMWSynthEditor::Item LMWSynthEditor::addFader(const char* paramId, const juce::String& text,
@@ -3628,9 +3630,12 @@ std::string LMWSynthEditor::panelUnit(const std::vector<Jack*>& jacks) {
 
 juce::String LMWSynthEditor::useNote(std::string_view unit) const {
     switch (shownUse.unit(unit)) {
-        case lmw::dsp::Use::Unused:
-            return juce::String::fromUTF8(("No effect on the sound: " + lmw::dsp::unusedReason(processor.currentPatch(), shownUseParams,
-                                                                                      shownUse, unit, gainName) + ".").c_str());
+        case lmw::dsp::Use::Unused: {
+            const auto why = lmw::dsp::unusedReason(processor.currentPatch(), shownUseParams, shownUse, unit, gainName);
+            if (why.starts_with("silent: "))                  // S6.27: "Silent: no sound reaches it (...)."
+                return juce::String::fromUTF8(("Silent: " + why.substr(8) + ".").c_str());
+            return juce::String::fromUTF8(("No effect on the sound: " + why + ".").c_str());
+        }
         case lmw::dsp::Use::Passing: return "Passes the sound unchanged: Mix 0.";
         case lmw::dsp::Use::Used: break;
     }

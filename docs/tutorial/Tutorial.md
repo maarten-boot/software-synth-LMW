@@ -162,7 +162,8 @@ Schematic), and a cable replaces a normal connection where you want something el
    at 100 %. Click the cell (that only selects it) and drag up/down, or use the slider on the right:
    set it to 30 %. A click on an empty cell makes a cable at 100 %, a double-click removes a cable, and
    right-click opens a small menu (100 %, Type level..., Remove cable). A ring in a cell shows a normal
-   connection, used while that input has no cable.
+   connection, used while that input has no cable; a dashed ring one that a cable replaced (here env2.out
+   on vcf1.cutoff: the cable from LFO 2 took its place — add env2.out as a second cable to have both).
 
    ![The Matrix tab: inputs as rows, outputs as columns; rings are the normal connections; the cable lfo2.out → vcf1.cutoff at 30 %](../images/lesson6-matrix.png)
 

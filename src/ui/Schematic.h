@@ -364,7 +364,8 @@ inline std::string describeInput(const lmw::dsp::Patch& p, In in) {
         s += lmw::dsp::outputNames[static_cast<std::size_t>(pin.source)];
         if (pin.level != 1.0f) s += " (" + percent(pin.level) + ")";   // S5.21: signed
     }
-    return s + " → " + name + (p.pinCount(in) > 1 ? " (cables, summed)" : " (cable)");
+    const auto replaced = lmw::dsp::replacedNote(p, in);              // Spec S6.27
+    return s + " → " + name + (p.pinCount(in) > 1 ? " (cables, summed)" : " (cable)") + (replaced.empty() ? "" : "\n" + replaced);
 }
 
 // Hover text for an output: what it feeds.

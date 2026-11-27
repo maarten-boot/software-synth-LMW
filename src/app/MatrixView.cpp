@@ -253,6 +253,12 @@ void MatrixView::paint(juce::Graphics& g) {
                 g.drawRect(b, 1);
             } else if (!p.isPatched(in) && p.normalLevel(in, static_cast<Out>(o)) > 0.0f) {
                 g.drawEllipse(b.toFloat().withSizeKeepingCentre(9.0f, 9.0f), 1.5f);    // normalled: ring
+            } else if (p.normalLevel(in, static_cast<Out>(o)) > 0.0f) {                // S6.27: replaced by cables: dashed ring
+                juce::Path ring, dashed;
+                ring.addEllipse(b.toFloat().withSizeKeepingCentre(11.0f, 11.0f));
+                const float dash[] = {3.0f, 2.2f};
+                juce::PathStrokeType(2.0f).createDashedStroke(dashed, ring, dash, 2);
+                g.fillPath(dashed);
             } else if (!canConnect(in, static_cast<Out>(o))) {                          // S7.6: other domain
                 const auto r = b.toFloat().reduced(4.0f);
                 g.drawLine(r.getX(), r.getBottom(), r.getRight(), r.getY(), 1.0f);
@@ -444,6 +450,10 @@ juce::String MatrixView::getTooltip() {
     if (cabled) state = "cable at " + percent(l) + (l < 0.0f ? " (inverted)" : "");
     else if (const float n = p.isPatched(in) ? 0.0f : p.normalLevel(in, out); n > 0.0f)
         state = "normalled" + (n < 1.0f ? " at " + percent(n) : juce::String()) + " (used while this input has no cables)";
+    else if (p.normalLevel(in, out) > 0.0f)                                  // Spec S6.27
+        return link + ": normal connection, replaced by the cables on this input."
+             + (p.pinCount(in) >= lmw::dsp::Patch::maxPins ? juce::String("\nThis input already has 4 cables.")
+                                                         : juce::String("\nClick: keep it as a cable at 100 %. Right-click: menu."));
     else state = "no cable";
     juce::String how = isGate(c->input)
         ? (cabled ? "Double-click: off. Right-click: menu." : "Click: on. Right-click: menu.")
