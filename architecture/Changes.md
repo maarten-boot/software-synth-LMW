@@ -3,6 +3,7 @@
 Changes between releases.
 
 ## Unreleased
+- 2026-11-27: Dark themes: Menu › Theme › Dark (light text on dark grey), Dark high contrast and Follow system (dark while your computer is). Everything follows: panels, Matrix, Schematic, menus, hover texts, dialogs, the Assistant; the keyboard still looks like a piano; small texts are bold in the dark themes. Edit colours works on a dark base too. The contrast setting still applies.
 
 ## 1.8.0 (2026-11-27)
 - 2026-11-27: Windows: some hover texts showed "?" instead of the arrow → or × (the Schematic's internal links, the new cable hint); fixed.

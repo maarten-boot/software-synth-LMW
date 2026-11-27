@@ -29,6 +29,8 @@ struct ScaleSlider : juce::Slider {
 class LMWLookAndFeel final : public juce::LookAndFeel_V4 {
 public:
     LMWLookAndFeel();
+    // Spec S6.29: the widget colours from the current theme (lmw::ui::theme::current()); again on every theme change.
+    void applyTheme();
     // Spec S6.1: vertical faders, drawn only in black on white (no grey tints).
     void drawLinearSlider(juce::Graphics&, int x, int y, int width, int height,
                           float sliderPos, float minSliderPos, float maxSliderPos,
@@ -409,6 +411,8 @@ private:
 
     LMWSynthProcessor& processor;
     LMWLookAndFeel lookAndFeel;
+    bool shownOsDark = false;                             // Spec S6.29: the OS dark mode the theme was made for
+    int systemThemeTick = 0;
     Metrics m = normalMetrics;
     std::array<Fader, 70> faders;                          // exactly the faders made (70 since S7.15: reverb Pre-delay)
     std::array<Choice, 17> choices;                        // 17 since S7.15 (reverb Type)

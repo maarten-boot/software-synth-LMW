@@ -267,6 +267,7 @@ if(LMW_BUILD_TESTS)
     target_link_libraries(test_load PRIVATE lmw_ui_core)
     add_test(NAME T-S6.28-load COMMAND test_load)
     set_tests_properties(T-S6.28-load PROPERTIES RUN_SERIAL TRUE)   # the benchmark: not beside other tests
+    add_test(NAME T-S6.29-scan COMMAND ${CMAKE_COMMAND} -DSRC=${CMAKE_SOURCE_DIR}/src -P ${CMAKE_SOURCE_DIR}/cmake/ScanColours.cmake)
     add_executable(test_reverb tests/test_reverb.cpp)
     target_link_libraries(test_reverb PRIVATE lmw_dsp)
     add_test(NAME T-S7.15-reverb COMMAND test_reverb)

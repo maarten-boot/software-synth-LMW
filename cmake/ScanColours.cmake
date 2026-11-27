@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# T-S6.29-dark (source scan): the GUI code draws no fixed black or white — every colour comes from the theme
+# (src/app/ThemeInk.h kFg / kBg / kQuiet, the palette); a line marked "scan: allowed" is a deliberate fixed pair. Run: cmake -DSRC=<repo>/src -P ScanColours.cmake
+file(GLOB files "${SRC}/app/*.cpp" "${SRC}/app/*.h")
+set(bad "")
+foreach(f IN LISTS files)
+  get_filename_component(name "${f}" NAME)
+  if(name STREQUAL "ThemeInk.h")
+    continue()
+  endif()
+  file(STRINGS "${f}" lines REGEX "Colours::black|Colours::white|theme::foreground|theme::background|Colour\\(0xff000000\\)|Colour\\(0xffffffff\\)")
+  foreach(l IN LISTS lines)
+    string(STRIP "${l}" l)
+    if(NOT l MATCHES "^//" AND NOT l MATCHES "scan: allowed")
+      list(APPEND bad "${name}: ${l}")
+    endif()
+  endforeach()
+endforeach()
+if(bad)
+  list(JOIN bad "\n" text)
+  message(FATAL_ERROR "fixed black / white in the GUI code (Spec S6.29):\n${text}")
+endif()
+message(STATUS "T-S6.29-dark scan: no fixed black or white in src/app")

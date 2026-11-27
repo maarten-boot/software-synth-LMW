@@ -12,8 +12,13 @@
 #include <utility>
 
 namespace lmw::ui::theme {
-inline constexpr Rgb background{255, 255, 255};
+inline constexpr Rgb background{255, 255, 255};   // the light themes' page and text (S6.2); dark themes: S6.29
 inline constexpr Rgb foreground{0, 0, 0};
+// Spec S6.29 (Phase 48): the dark themes — off-white on dark grey (not white on black: light text bleeds, worse
+// with astigmatism), and a high-contrast one; the keyboard stays a piano (light grey white keys).
+inline constexpr Rgb darkForeground{0xE6, 0xE6, 0xE6}, darkBackground{0x1E, 0x1E, 0x1E};   // 13.4:1
+inline constexpr Rgb darkHcForeground{0xFF, 0xFF, 0xFF}, darkHcBackground{0x0A, 0x0A, 0x0A};   // ~19.8:1
+inline constexpr Rgb darkWhiteKey{0xC8, 0xC8, 0xC8}, darkBlackKey{0x14, 0x14, 0x14};
 inline constexpr Rgb keyDownDesign{0x76, 0x76, 0x76};   // 4.54:1 on white, 4.63:1 on black
 // Spec S6.2 (user 2026-11-21): the Synth and Effects tabs show a very light grey around the panels
 // (the panels stay white); 19.6:1 with black. Raised towards white with the contrast preset (white at Max).
@@ -70,13 +75,17 @@ inline constexpr Unit unitOf(std::string_view name) noexcept {
     return Unit::None;
 }
 
-// The better of black and white as text on `fill` (at least sqrt(21) ~ 4.58:1 by construction).
-inline Rgb textOn(Rgb fill) noexcept {
-    return contrastRatio(foreground, fill) >= contrastRatio(background, fill) ? foreground : background;
+// The better of two text colours on `fill` (black and white: at least sqrt(21) ~ 4.58:1 by construction).
+inline Rgb textOn(Rgb fill, Rgb a = foreground, Rgb b = background) noexcept {
+    return contrastRatio(a, fill) >= contrastRatio(b, fill) ? a : b;
 }
 
 struct Palette {
     double minRatio = 4.5;
+    Rgb foreground{theme::foreground}, background{theme::background};   // S6.29: text and page of this theme
+    bool dark = false;                 // S6.29: a dark theme (small texts semi-bold, choice C)
+    Rgb whiteKey{theme::background}, blackKey{theme::foreground};        // S6.29: the keyboard stays a piano
+    Rgb keyText{theme::foreground};    // note names and separator lines on the white keys
     Rgb whiteKeyDown{keyDownDesign};   // pressed white key, against the white keys around it
     Rgb blackKeyDown{keyDownDesign};   // pressed black key, against the black keys around it
     Rgb rack{rackDesign};              // behind the panels on the Synth and Effects tabs
@@ -89,6 +98,7 @@ struct Palette {
     std::array<Rgb, 3> socket{socketDesign};   // S6.19: type rings (audio, CV, gate) on white
 
     Rgb unitColour(Unit u) const noexcept { return unit[static_cast<std::size_t>(u)]; }
+    Rgb textOn(Rgb fill) const noexcept { return theme::textOn(fill, foreground, background); }
     // Spec S6.6 (Phase 21a): cables at rest are drawn see-through — cableInk (with a white edge) at this
     // opacity, so on white they look like `cable` and the panels show through; opaque (1) from AAA 7:1 up,
     // where `cable` itself is drawn.
@@ -96,13 +106,13 @@ struct Palette {
     Rgb cableDrawn() const noexcept { return cableOpacity < 1.0f ? cableInk : cable; }
 
     // (foreground, background) pairs actually drawn by the GUI.
-    std::array<std::pair<Rgb, Rgb>, 12 + static_cast<std::size_t>(Unit::Count)> pairs() const noexcept {
-        std::array<std::pair<Rgb, Rgb>, 12 + static_cast<std::size_t>(Unit::Count)> p{{
-            {foreground, background},             // text, faders, value boxes, outlines, cables, black keys
+    std::array<std::pair<Rgb, Rgb>, 14 + static_cast<std::size_t>(Unit::Count)> pairs() const noexcept {
+        std::array<std::pair<Rgb, Rgb>, 14 + static_cast<std::size_t>(Unit::Count)> p{{
+            {foreground, background},             // text, faders, value boxes, outlines, cables
             {background, foreground},             // highlighted menu text, fader cap line, output sockets
-            {whiteKeyDown, background},           // pressed white key
-            {blackKeyDown, foreground},           // pressed black key
-            {textOn(whiteKeyDown), whiteKeyDown}, // note name (C4) on a pressed white key
+            {whiteKeyDown, whiteKey},             // pressed white key
+            {blackKeyDown, blackKey},             // pressed black key
+            {theme::textOn(whiteKeyDown, keyText, whiteKey), whiteKeyDown},   // note name (C4) on a pressed white key
             {foreground, rack},                   // panel frames and the drop marker on the rack grey
             {foreground, band},                   // Matrix: rings, strokes and grid on a highlighted band
             {cable, background},                  // a cable at rest on its white edge
@@ -110,15 +120,20 @@ struct Palette {
             {socket[0], background},              // S6.19: audio ring on white
             {socket[1], background},              //        CV ring
             {socket[2], background},              //        gate ring
+            {keyText, whiteKey},                  // S6.29: note names and lines on the white keys
+            {blackKey, whiteKey},                 //        black keys against the white keys
         }};
         for (std::size_t i = 0; i < unit.size(); ++i)
-            p[12 + i] = {foreground, unit[i]};     // black title text, line and focus ring on a unit colour
+            p[14 + i] = {foreground, unit[i]};     // title text, line and focus ring on a unit colour
         return p;
     }
 };
 
 // ---- Spec S6.13 (Phase 21d): themes — the colours a user may change, before the contrast is applied.
 struct Colours {
+    bool dark = false;                         // S6.29: a dark base (keyboard, small text)
+    Rgb foreground{theme::foreground};         // S6.29: text
+    Rgb background{theme::background};         // S6.29: panels and page
     std::array<Rgb, static_cast<std::size_t>(Unit::Count)> unit{unitDesign};
     Rgb rack{rackDesign};
     Rgb band{bandDesign};
@@ -127,8 +142,12 @@ struct Colours {
     Rgb highlight{highlightDesign};            // S6.15
     std::array<Rgb, 3> socket{socketDesign};   // S6.19: audio, CV, gate rings
 };
-enum class ThemePreset { Default, Soft, Vivid, Monochrome, Custom };
-inline constexpr std::array<std::string_view, 5> themeNames{"Default", "Soft", "Vivid", "Monochrome", "Custom"};
+// S6.29: Dark, DarkHC (Dark high contrast) and System (Default or Dark, as the OS is light or dark; the editor
+// resolves it). Kept by name in config.ini, so the order may change.
+enum class ThemePreset { Default, Soft, Vivid, Monochrome, Dark, DarkHC, System, Custom };
+inline constexpr std::array<std::string_view, 8> themeNames{"Default", "Soft", "Vivid", "Monochrome", "Dark", "DarkHC", "System", "Custom"};
+inline constexpr std::array<std::string_view, 8> themeLabels{"Default", "Soft", "Vivid", "Monochrome", "Dark", "Dark high contrast",
+                                                             "Follow system", "Custom"};
 
 inline std::optional<ThemePreset> parseTheme(std::string_view name) noexcept {
     for (std::size_t i = 0; i < themeNames.size(); ++i) {
@@ -147,7 +166,7 @@ inline std::optional<ThemePreset> parseTheme(std::string_view name) noexcept {
 // The editable items: the unit colours (not None), the three greys and the socket highlight (S6.15).
 // key: config.ini "color_<key>". New items go at the end (indices are kept).
 struct ThemeItem { std::string_view key, label; bool textOnIt; };   // textOnIt: black text on it (else a line on white)
-inline constexpr std::array<ThemeItem, 15> themeItems{{
+inline constexpr std::array<ThemeItem, 17> themeItems{{
     {"vco", "VCO", true}, {"noise", "NOISE", true}, {"vcf", "VCF, FORMANT, COMB", true}, {"vca", "VCA", true},
     {"env", "ENV", true}, {"lfo", "LFO", true}, {"mixer", "MIXER", true}, {"effects", "ENSEMBLE, DELAY, REVERB", true},
     {"background", "Background around the panels", true}, {"band", "Matrix highlight band", true},
@@ -155,6 +174,7 @@ inline constexpr std::array<ThemeItem, 15> themeItems{{
     {"highlight", "Selected socket (highlight)", true},
     {"socket_audio", "Audio sockets (ring)", false}, {"socket_cv", "CV sockets (ring)", false},
     {"socket_gate", "Gate sockets (ring)", false},     // S6.19
+    {"text", "Text (and lines)", false}, {"page", "Panels (page)", true},   // S6.29: edited on a dark base too
 }};
 inline Rgb& itemColour(Colours& c, std::size_t item) noexcept {
     if (item < 8) return c.unit[item + 1];                     // Vco .. Effect
@@ -162,6 +182,8 @@ inline Rgb& itemColour(Colours& c, std::size_t item) noexcept {
     if (item == 9) return c.band;
     if (item == 11) return c.highlight;
     if (item >= 12 && item < 15) return c.socket[item - 12];
+    if (item == 15) return c.foreground;                       // S6.29
+    if (item == 16) return c.background;
     return c.cable;
 }
 inline Rgb itemColour(const Colours& c, std::size_t item) noexcept { return itemColour(const_cast<Colours&>(c), item); }
@@ -189,41 +211,78 @@ inline Colours presetColours(ThemePreset t) noexcept {
             c.highlight = Rgb{0xD0, 0xD0, 0xD0};
             c.socket = {{{0, 0, 0}, {0, 0, 0}, {0, 0, 0}}};   // S6.19: the ring styles tell them apart
             break;
+        case ThemePreset::Dark:                              // S6.29: dark muted tints behind light text
+        case ThemePreset::DarkHC:
+            c.dark = true;
+            c.foreground = t == ThemePreset::Dark ? darkForeground : darkHcForeground;
+            c.background = t == ThemePreset::Dark ? darkBackground : darkHcBackground;
+            c.unit = {{c.background, {0x5E, 0x2A, 0x2A}, {0x5E, 0x3D, 0x1C}, {0x4E, 0x45, 0x18}, {0x1F, 0x4A, 0x26},
+                       {0x1F, 0x3A, 0x60}, {0x45, 0x29, 0x5E}, {0x38, 0x38, 0x38}, {0x3F, 0x3A, 0x1E}}};
+            c.rack = t == ThemePreset::Dark ? Rgb{0x14, 0x14, 0x14} : Rgb{0x00, 0x00, 0x00};
+            c.band = Rgb{0x3C, 0x3C, 0x3C};
+            c.cable = c.foreground;
+            c.highlight = Rgb{0x6B, 0x50, 0x00};             // dark amber behind light text
+            c.socket = {{{0x5A, 0xA9, 0xFF}, {0xFF, 0x9F, 0x43}, {0xFF, 0x66, 0xC4}}};
+            break;
         case ThemePreset::Default:
+        case ThemePreset::System:                            // resolved by the editor; Default if not
         case ThemePreset::Custom:
             break;
     }
     return c;
 }
 
-// The palette: every design colour raised to the chosen minimum contrast (S6.3), from the theme's colours.
+// The palette: every design colour raised to the chosen minimum contrast (S6.3), from the theme's colours, against
+// its own text and page (S6.29: light text on dark for the dark themes).
 inline Palette palette(double minRatio, const Colours& c = Colours{}) noexcept {
     Palette p;
     p.minRatio = minRatio;
-    p.whiteKeyDown = enforceContrast(keyDownDesign, background, minRatio);
-    p.blackKeyDown = enforceContrast(keyDownDesign, foreground, minRatio);
-    p.rack = enforceContrast(c.rack, foreground, minRatio);
-    p.band = enforceContrast(c.band, foreground, minRatio);
-    // Cables at rest: `ink` at `opacity` over white looks `blend`; below AAA drawn so (the opacity raised
-    // just enough, or the ink darkened, until the look meets the ratio on white), from AAA up opaque.
+    p.dark = c.dark;
+    Rgb fg = c.foreground, bg = c.background;            // text first; the page only if the text cannot get there
+    if (contrastRatio(fg, bg) < minRatio) fg = enforceContrast(fg, bg, minRatio);
+    if (contrastRatio(fg, bg) < minRatio) bg = enforceContrast(bg, fg, minRatio);
+    p.foreground = fg;
+    p.background = bg;
+    // The keyboard: a piano in every theme — light themes the page and the text, dark ones light grey white keys
+    // and near-black black keys, with dark note names on the white keys.
+    p.whiteKey = c.dark ? darkWhiteKey : bg;
+    p.blackKey = c.dark ? darkBlackKey : fg;
+    p.keyText = c.dark ? theme::foreground : fg;
+    if (contrastRatio(p.keyText, p.whiteKey) < minRatio) p.whiteKey = enforceContrast(p.whiteKey, p.keyText, minRatio);
+    if (contrastRatio(p.blackKey, p.whiteKey) < minRatio) p.blackKey = enforceContrast(p.blackKey, p.whiteKey, minRatio);
+    p.whiteKeyDown = enforceContrast(keyDownDesign, p.whiteKey, minRatio);
+    p.blackKeyDown = enforceContrast(keyDownDesign, p.blackKey, minRatio);
+    if (contrastRatio(theme::textOn(p.whiteKeyDown, p.keyText, p.whiteKey), p.whiteKeyDown) < minRatio)
+        p.whiteKeyDown = enforceContrast(p.whiteKeyDown, p.keyText, minRatio);
+    p.rack = enforceContrast(c.rack, fg, minRatio);
+    p.band = enforceContrast(c.band, fg, minRatio);
+    // Cables at rest: `ink` at `opacity` over the page looks `blend`; below AAA drawn so (the opacity raised
+    // just enough, or the ink moved, until the look meets the ratio on the page), from AAA up opaque.
     {
-        auto over = [](Rgb ink, float a) {
-            auto m = [a](std::uint8_t x) { return static_cast<std::uint8_t>(x * a + 255.0f * (1.0f - a) + 0.5f); };
-            return Rgb{m(ink.r), m(ink.g), m(ink.b)};
+        auto over = [bg](Rgb ink, float a) {
+            auto m = [a](std::uint8_t x, std::uint8_t b) { return static_cast<std::uint8_t>(x * a + b * (1.0f - a) + 0.5f); };
+            return Rgb{m(ink.r, bg.r), m(ink.g, bg.g), m(ink.b, bg.b)};
         };
         Rgb ink = c.cable;
         float a = std::clamp(c.cableOpacity, 0.2f, 1.0f);
-        if (contrastRatio(ink, background) < minRatio) ink = enforceContrast(ink, background, minRatio);
-        while (a < 1.0f && contrastRatio(over(ink, a), background) < minRatio) a = std::min(1.0f, a + 0.01f);
+        if (contrastRatio(ink, bg) < minRatio) ink = enforceContrast(ink, bg, minRatio);
+        while (a < 1.0f && contrastRatio(over(ink, a), bg) < minRatio) a = std::min(1.0f, a + 0.01f);
         const Rgb look = over(ink, a);
-        if (minRatio >= 7.0) { p.cable = enforceContrast(look, background, minRatio); p.cableInk = p.cable; p.cableOpacity = 1.0f; }
+        if (minRatio >= 7.0) { p.cable = enforceContrast(look, bg, minRatio); p.cableInk = p.cable; p.cableOpacity = 1.0f; }
         else { p.cable = look; p.cableInk = ink; p.cableOpacity = a; }
     }
-    // Unit colours are lightened (towards white) until black text on them meets the ratio; at Max (21:1)
-    // that is white, so the bars are black and white like everything else.
-    for (std::size_t i = 0; i < p.unit.size(); ++i) p.unit[i] = enforceContrast(c.unit[i], foreground, minRatio);
-    p.highlight = enforceContrast(c.highlight, foreground, minRatio);
-    for (std::size_t i = 0; i < p.socket.size(); ++i) p.socket[i] = enforceContrast(c.socket[i], background, minRatio);
+    // Unit colours are moved away from the text (lighter behind black text, darker behind light text) until the
+    // text on them meets the ratio; at Max (21:1) that is the page colour, so the bars are like everything else.
+    for (std::size_t i = 0; i < p.unit.size(); ++i) p.unit[i] = enforceContrast(c.unit[i], fg, minRatio);
+    p.highlight = enforceContrast(c.highlight, fg, minRatio);
+    for (std::size_t i = 0; i < p.socket.size(); ++i) p.socket[i] = enforceContrast(c.socket[i], bg, minRatio);
+    return p;
+}
+
+// Spec S6.29: the palette the GUI draws with now (message thread; set by the editor when the theme or the contrast
+// changes; one for the process, as the settings are).
+inline Palette& current() noexcept {
+    static Palette p = palette(4.5);
     return p;
 }
 } // namespace lmw::ui::theme

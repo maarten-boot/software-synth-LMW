@@ -16,6 +16,7 @@ public:
 
     void resized() override;
     void paint(juce::Graphics& g) override;
+    void lookAndFeelChanged() override;                   // Spec S6.29: the Find placeholder in the new theme's grey
 
     // See also: empty Find, show the list by topic and scroll to `name`, marked "> ". False if unknown.
     bool jumpTo(const std::string& name);

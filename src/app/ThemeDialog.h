@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Spec S6.13 (Phase 21d): the "Edit colours..." dialog — one row per theme item (ui/Theme.h themeItems):
-// its name, a swatch (click: a colour picker), the contrast it gets against black text (or, for the cable,
-// against white) at the current contrast setting, and Reset (back to the Default theme's colour). Black on
-// white like every dialog (S6.2). Every change is reported through onChange(item, colour or nothing).
+// its name, a swatch (click: a colour picker), the contrast it gets against the theme's text (or, for the cable,
+// against the page) at the current contrast setting, and Reset (back to its base theme's colour). In the theme's
+// colours like every dialog (S6.2, S6.29). Every change is reported through onChange(item, colour or nothing).
 #pragma once
+#include "ThemeInk.h"
 #include <juce_gui_extra/juce_gui_extra.h>
 #include "ui/Config.h"
 #include "ui/Theme.h"
@@ -76,7 +77,7 @@ public:
         row.removeFromLeft(10);
         opacityInfo.setBounds(row);
     }
-    void paint(juce::Graphics& g) override { g.fillAll(juce::Colours::white); }
+    void paint(juce::Graphics& g) override { g.fillAll(lmw::app::kBg); }
 
 private:
     struct Swatch final : juce::Button {
@@ -86,7 +87,7 @@ private:
             const auto b = getLocalBounds().toFloat().reduced(1.0f);
             g.setColour(fill);
             g.fillRect(b);
-            g.setColour(juce::Colours::black);
+            g.setColour(lmw::app::kFg);
             g.drawRect(b, highlighted || hasKeyboardFocus(false) ? 3.0f : 1.0f);
         }
     };
@@ -102,7 +103,7 @@ private:
         std::function<void(juce::Colour)> changed;
         explicit Picker(juce::Colour start) {
             selector.setCurrentColour(start, juce::dontSendNotification);
-            selector.setColour(juce::ColourSelector::backgroundColourId, juce::Colours::white);
+            selector.setColour(juce::ColourSelector::backgroundColourId, lmw::app::kBg);
             selector.addChangeListener(this);
             addAndMakeVisible(selector);
             setSize(300, 300);
@@ -133,16 +134,17 @@ private:
             lmw::ui::theme::Colours shownAll;                 // the colours as drawn at this contrast
             shownAll.unit = pal.unit; shownAll.rack = pal.rack; shownAll.band = pal.band; shownAll.cable = pal.cable;
             shownAll.highlight = pal.highlight; shownAll.socket = pal.socket;   // S6.15, S6.19
+            shownAll.foreground = pal.foreground; shownAll.background = pal.background;   // S6.29
             const auto shown = lmw::ui::theme::itemColour(shownAll, i);
             rows[i]->swatch.fill = juce::Colour(chosen.r, chosen.g, chosen.b);
             rows[i]->swatch.repaint();
-            const double r = item.textOnIt ? lmw::ui::contrastRatio(lmw::ui::theme::foreground, shown)
-                                           : lmw::ui::contrastRatio(shown, lmw::ui::theme::background);
+            const double r = item.textOnIt ? lmw::ui::contrastRatio(pal.foreground, shown)   // S6.29: this theme's text / page
+                                           : lmw::ui::contrastRatio(shown, pal.background);
             const bool isCable = item.key == "cable";           // drawn see-through: it "looks" lighter
             const bool raised = isCable ? pal.cableInk != chosen : shown != chosen;
             rows[i]->contrast.setText(juce::String(lmw::ui::hexColour(chosen)) + "   " + juce::String(r, 1) + ":1"
-                                          + (item.textOnIt ? " with black"
-                                             : isCable ? " on white, looks " + juce::String(lmw::ui::hexColour(shown)) : juce::String(" on white"))
+                                          + (item.textOnIt ? " with the text"
+                                             : isCable ? " on the page, looks " + juce::String(lmw::ui::hexColour(shown)) : juce::String(" on the page"))
                                           + (raised ? " (adjusted)" : ""),
                                       juce::dontSendNotification);
         }

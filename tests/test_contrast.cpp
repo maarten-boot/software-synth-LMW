@@ -83,10 +83,37 @@ int main() {
         CHECK(lmw::ui::theme::palette(7.0).cableAlpha() == 1.0f && lmw::ui::theme::palette(21.0).cableAlpha() == 1.0f);
         std::printf("cable at rest: black at %.0f %% = #%02X%02X%02X on white\n", a * 100.0, v, v, v);
     }
+    {   // Spec S6.29 (Phase 48): the dark themes. Dark #E6E6E6 on #1E1E1E (13.4:1) kept at AA and AAA, white on black at
+        // Max; the keyboard stays a piano (light grey white keys, dark note names); unit tints darker than the page's
+        // text needs; Custom on a dark base round-trips; System is Default or Dark.
+        using namespace lmw::ui::theme;
+        const auto d = palette(4.5, presetColours(ThemePreset::Dark)), hc = palette(4.5, presetColours(ThemePreset::DarkHC));
+        const auto dm = palette(21.0, presetColours(ThemePreset::Dark));
+        std::printf("Dark: text on page %.1f, HC %.1f, at Max %.1f; white keys #%02X%02X%02X, note names on them %.1f\n",
+                    contrastRatio(d.foreground, d.background), contrastRatio(hc.foreground, hc.background),
+                    contrastRatio(dm.foreground, dm.background), d.whiteKey.r, d.whiteKey.g, d.whiteKey.b,
+                    contrastRatio(d.keyText, d.whiteKey));
+        CHECK(d.dark && d.foreground == darkForeground && d.background == darkBackground);
+        CHECK(contrastRatio(d.foreground, d.background) > 13.0 && contrastRatio(hc.foreground, hc.background) > 19.0);
+        CHECK(dm.foreground == (Rgb{255, 255, 255}) && dm.background == (Rgb{0, 0, 0}));
+        CHECK(d.whiteKey == darkWhiteKey && contrastRatio(d.keyText, d.whiteKey) >= 4.5 && contrastRatio(d.blackKey, d.whiteKey) >= 4.5);
+        for (std::size_t i = 1; i < d.unit.size(); ++i) CHECK(contrastRatio(d.foreground, d.unit[i]) >= 4.5 && relativeLuminance(d.unit[i]) < 0.2);
+        for (const auto& [fg, bg] : palette(7.0, presetColours(ThemePreset::Dark)).pairs()) CHECK(contrastRatio(fg, bg) >= 7.0 - 1e-9);
+        lmw::ui::Settings st;
+        st.theme = ThemePreset::System;
+        CHECK(!st.colours(false).dark && st.colours(true).dark && st.colours(true).background == darkBackground);
+        st = lmw::ui::parseConfig("theme = Custom\nbase = dark\ncolor_vco = #602020\n");
+        CHECK(st.customDark && st.colours().dark && st.colours().unit[1] == (Rgb{0x60, 0x20, 0x20}) && st.colours().background == darkBackground);
+        const auto back = lmw::ui::parseConfig(lmw::ui::writeConfig(st));
+        CHECK(back.customDark && back.colours().background == darkBackground && back.colours().foreground == darkForeground);
+        CHECK(lmw::ui::readTheme(lmw::ui::writeTheme("Night", st.colours())).dark);
+        CHECK(parseTheme("darkhc") == ThemePreset::DarkHC && parseTheme("System") == ThemePreset::System);
+        CHECK(lmw::ui::parseConfig(lmw::ui::writeConfig(lmw::ui::parseConfig("theme = Dark"))).theme == ThemePreset::Dark);
+    }
     {   // Spec S6.13 (Phase 21d): themes. Every preset at every ratio: all pairs meet it; Default = the
         // designs; Soft paler, Vivid stronger, Monochrome without hue; Vivid black text >= 8:1 by design.
         using namespace lmw::ui::theme;
-        for (int t = 0; t < 4; ++t)
+        for (int t = 0; t < 6; ++t)                          // S6.29: Dark and DarkHC too
             for (double r : {4.5, 7.0, 12.0, 21.0}) {
                 const auto pal = palette(r, presetColours(static_cast<ThemePreset>(t)));
                 for (const auto& [fg, bg] : pal.pairs()) CHECK(contrastRatio(fg, bg) >= r - 1e-9);
@@ -94,7 +121,7 @@ int main() {
         // S6.19: the socket rings — the designs pass 4.5:1 on white as they are, Monochrome draws them black,
         // three more editable items (15).
         for (const auto& c : socketDesign) CHECK(contrastRatio(c, {255, 255, 255}) >= 4.5);
-        CHECK(palette(4.5).socket == socketDesign && themeItems.size() == 15 && itemColour(Colours{}, 13).r == socketDesign[1].r);
+        CHECK(palette(4.5).socket == socketDesign && themeItems.size() == 17 && itemColour(Colours{}, 13).r == socketDesign[1].r);
         for (const auto& c : presetColours(ThemePreset::Monochrome).socket) CHECK(c.r == 0 && c.g == 0 && c.b == 0);
         const auto def = presetColours(ThemePreset::Default), soft = presetColours(ThemePreset::Soft),
                    vivid = presetColours(ThemePreset::Vivid), mono = presetColours(ThemePreset::Monochrome);
@@ -140,7 +167,7 @@ int main() {
               && std::fabs(rt.cableOpacity - 0.4f) < 1e-6);
         // T-S6.15-highlight: the socket highlight is theme item 11 "highlight", golden yellow by default,
         // preset colours, black on it meets every setting, white at Max (edge only); config and theme files.
-        CHECK(themeItems.size() == 15 && themeItems[11].key == "highlight" && themeItems[11].textOnIt);
+        CHECK(themeItems.size() == 17 && themeItems[11].key == "highlight" && themeItems[11].textOnIt);
         CHECK(def.highlight == (Rgb{0xFF, 0xC0, 0x00}) && itemColour(def, 11) == def.highlight && soft.highlight == (Rgb{0xFF, 0xE0, 0x8A})
               && vivid.highlight == (Rgb{0xFF, 0xB0, 0x00}) && mono.highlight == (Rgb{0xD0, 0xD0, 0xD0}));
         CHECK(palette(4.5).highlight == highlightDesign && contrastRatio({0, 0, 0}, highlightDesign) > 12.0);

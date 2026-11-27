@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "AssistantView.h"
+#include "ThemeInk.h"
 #include "PluginProcessor.h"
 #include "assistant/ToolLine.h"
 
 namespace {
-const juce::Colour ink = juce::Colours::black;                  // S6.2: black on white, 21:1
-const juce::Colour quiet(0xff4a4a4a);                           // tool lines: #4A4A4A on white, 8.9:1 (AAA)
+constexpr lmw::app::ThemeInk ink = lmw::app::kFg;             // S6.2, S6.29: the theme's text on its page
+constexpr lmw::app::ThemeInk quiet = lmw::app::kQuiet;        // tool lines: at least 7:1 (AAA)
 
 juce::String dollars(double d) {
     return "$" + juce::String(d, d < 0.1 ? 3 : 2);
@@ -19,7 +20,7 @@ AssistantView::AssistantView(LMWSynthProcessor& p) : session(std::make_unique<As
     log.setCaretVisible(false);
     log.setScrollbarsShown(true);
     log.setTitle("Conversation with the assistant");
-    log.setColour(juce::TextEditor::backgroundColourId, juce::Colours::white);
+    log.setColour(juce::TextEditor::backgroundColourId, lmw::app::kBg);
     log.setColour(juce::TextEditor::outlineColourId, ink);
     addAndMakeVisible(log);
 
@@ -27,7 +28,7 @@ AssistantView::AssistantView(LMWSynthProcessor& p) : session(std::make_unique<As
     input.setReturnKeyStartsNewLine(false);
     input.setTitle("Your question or wish");
     input.setTextToShowWhenEmpty("Ask a question or describe a sound, e.g. \"a warm pad with a slow attack\"", quiet);
-    input.setColour(juce::TextEditor::backgroundColourId, juce::Colours::white);
+    input.setColour(juce::TextEditor::backgroundColourId, lmw::app::kBg);
     input.setColour(juce::TextEditor::textColourId, ink);
     input.setColour(juce::TextEditor::outlineColourId, ink);
     input.send = [this] { send(); };
@@ -89,7 +90,11 @@ void AssistantView::setFontSize(float size) {
 
 void AssistantView::focusInput() { input.grabKeyboardFocus(); }
 
-void AssistantView::paint(juce::Graphics& g) { g.fillAll(juce::Colours::white); }
+void AssistantView::lookAndFeelChanged() {
+    input.setTextToShowWhenEmpty("Ask a question or describe a sound, e.g. \"a warm pad with a slow attack\"", quiet);
+}
+
+void AssistantView::paint(juce::Graphics& g) { g.fillAll(lmw::app::kBg); }
 
 void AssistantView::resized() {
     auto area = getLocalBounds();

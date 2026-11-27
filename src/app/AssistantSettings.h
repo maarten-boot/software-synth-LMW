@@ -4,6 +4,7 @@
 // limit per session (S12.7), and "How to get a key". OK applies everything at once, Cancel nothing.
 // Black on white like every dialog (S6.2).
 #pragma once
+#include "ThemeInk.h"
 #include <juce_gui_extra/juce_gui_extra.h>
 #include "AssistantSession.h"
 #include "assistant/Claude.h"
@@ -24,7 +25,7 @@ public:
         : values(std::move(v)), privacyText(std::move(privacyNotice)) {
         const auto label = [this](juce::Label& l, const juce::String& t) {
             l.setText(t, juce::dontSendNotification);
-            l.setColour(juce::Label::textColourId, juce::Colours::black);
+            l.setColour(juce::Label::textColourId, lmw::app::kFg);
             addAndMakeVisible(l);
         };
         label(providerName, "Provider");
@@ -38,7 +39,7 @@ public:
         key.setPasswordCharacter(static_cast<juce::juce_wchar>(0x2022));
         key.setText(juce::String::fromUTF8(values.key.c_str()), false);
         key.setTitle("API key");
-        key.setTextToShowWhenEmpty("sk-ant-...", juce::Colour(0xff4a4a4a));
+        key.setTextToShowWhenEmpty("sk-ant-...", lmw::app::kQuiet);
         key.onTextChange = [this] { testResult.setText({}, juce::dontSendNotification); };
         addAndMakeVisible(key);
         paste.setButtonText("Paste");
@@ -52,7 +53,7 @@ public:
         howTo.setButtonText("How to get a key...");
         howTo.onClick = [this] { if (onHowTo) onHowTo(); };
         for (auto* b : {&paste, &clear, &test, &howTo}) addAndMakeVisible(*b);
-        testResult.setColour(juce::Label::textColourId, juce::Colours::black);
+        testResult.setColour(juce::Label::textColourId, lmw::app::kFg);
         addAndMakeVisible(testResult);
 
         label(modelName, "Model");
@@ -80,9 +81,9 @@ public:
         file.setButtonText("the settings file (plain text, readable by programs you run)");
         for (auto* t : {&keychain, &file}) {
             t->setRadioGroupId(7);
-            t->setColour(juce::ToggleButton::textColourId, juce::Colours::black);
-            t->setColour(juce::ToggleButton::tickColourId, juce::Colours::black);
-            t->setColour(juce::ToggleButton::tickDisabledColourId, juce::Colour(0xff4a4a4a));
+            t->setColour(juce::ToggleButton::textColourId, lmw::app::kFg);
+            t->setColour(juce::ToggleButton::tickColourId, lmw::app::kFg);
+            t->setColour(juce::ToggleButton::tickDisabledColourId, lmw::app::kQuiet);
             addAndMakeVisible(*t);
         }
         keychain.setEnabled(keychainAvailable);
@@ -97,7 +98,7 @@ public:
         label(limitNote, "dollars per session, then it asks before going on (0 = no limit)");
 
         privacy.setText("Privacy: " + privacyText, juce::dontSendNotification);   // S12.8, repeated here
-        privacy.setColour(juce::Label::textColourId, juce::Colours::black);
+        privacy.setColour(juce::Label::textColourId, lmw::app::kFg);
         privacy.setJustificationType(juce::Justification::topLeft);
         addAndMakeVisible(privacy);
 
@@ -165,7 +166,7 @@ public:
         buttons.removeFromRight(8);
         ok.setBounds(buttons.removeFromRight(90));
     }
-    void paint(juce::Graphics& g) override { g.fillAll(juce::Colours::white); }
+    void paint(juce::Graphics& g) override { g.fillAll(lmw::app::kBg); }
 
 private:
     void runTest() {

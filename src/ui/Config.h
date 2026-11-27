@@ -43,6 +43,7 @@ struct Settings {
     std::array<std::optional<Rgb>, theme::themeItems.size()> custom{};   // Custom: the user's colours
     std::optional<float> customOpacity;        // Custom: cables at rest, 0.2 .. 1
     std::string themeName;                     // Custom came from this saved theme (unchanged since)
+    bool customDark = false;                   // Spec S6.29: Custom on a dark base (config base = dark)
     // Spec S12.6, S12.7: the Assistant tab (standalone). Empty / unset = the defaults.
     std::string assistantStore;                // "keychain" or "file" (where the API key is kept)
     std::string assistantKey;                  // only with "file": plain text (the file is then the user's only)
@@ -54,8 +55,13 @@ struct Settings {
 
     // The theme's colours (before the contrast is applied): a preset, or Custom = Default with the
     // user's colours on top.
-    theme::Colours colours() const noexcept {
-        auto c = theme::presetColours(theme);
+    // S6.29: System is Default or Dark as the OS is light or dark (osDark, known to the editor); Custom starts from
+    // Default or Dark (its base).
+    theme::Colours colours(bool osDark = false) const noexcept {
+        using theme::ThemePreset;
+        const auto base = theme == ThemePreset::System ? (osDark ? ThemePreset::Dark : ThemePreset::Default)
+                        : theme == ThemePreset::Custom ? (customDark ? ThemePreset::Dark : ThemePreset::Default) : theme;
+        auto c = theme::presetColours(base);
         if (theme == theme::ThemePreset::Custom)
             for (std::size_t i = 0; i < custom.size(); ++i)
                 if (custom[i]) theme::itemColour(c, i) = *custom[i];
@@ -156,6 +162,8 @@ inline Settings parseConfig(std::string_view text) {
             double o = 0;
             const std::string v(value);
             if (std::sscanf(v.c_str(), "%lf", &o) == 1 && o > 0) s.customOpacity = static_cast<float>(std::clamp(o > 1.0 ? o / 100.0 : o, 0.2, 1.0));
+        } else if (key == "base") {                     // S6.29: Custom on a light or dark base
+            s.customDark = detail::lower(value) == "dark";
         } else if (key == "theme_name") {
             s.themeName = std::string(value);
         } else if (key == "assistant_key_store") {
@@ -210,11 +218,13 @@ inline std::string writeConfig(const Settings& s) {
     out += "# show_scales, socket_rings: the beginner aids (fader scale marks, socket type rings), yes or no\n";
     out += std::string("show_scales = ") + (s.showScales ? "yes" : "no") + "\n";
     out += std::string("socket_rings = ") + (s.socketRings ? "yes" : "no") + "\n";
-    out += "# theme: Default, Soft, Vivid, Monochrome or Custom (Custom uses the color_ lines below; every colour\n"
+    out += "# theme: Default, Soft, Vivid, Monochrome, Dark, DarkHC (dark, high contrast), System (Default or Dark as\n"
+           "# the computer is light or dark) or Custom (the color_ lines below, on a light or dark base; every colour\n"
            "# is still raised to the contrast above)\n";
     out += "theme = " + std::string(theme::themeNames[static_cast<std::size_t>(s.theme)]) + "\n";
     if (s.theme == theme::ThemePreset::Custom) {
         const auto c = s.colours();
+        out += std::string("base = ") + (s.customDark ? "dark" : "light") + "\n";   // S6.29
         for (std::size_t i = 0; i < theme::themeItems.size(); ++i)
             out += "color_" + std::string(theme::themeItems[i].key) + " = " + hexColour(theme::itemColour(c, i)) + "\n";
         char o[16];
@@ -248,7 +258,8 @@ inline std::string writeConfig(const Settings& s) {
 // Spec S6.13: a saved theme, Documents/LMW-Synth Presets/THEME/<name>.lmwtheme — the Custom lines of
 // config.ini (read with parseConfig, which ignores everything else).
 inline std::string writeTheme(const std::string& name, const theme::Colours& c) {
-    std::string out = "# LMW-Synth theme (hand-editable; as the Custom lines of config.ini)\nformat = 1\nname = " + name + "\n";
+    std::string out = "# LMW-Synth theme (hand-editable; as the Custom lines of config.ini)\nformat = 1\nname = " + name + "\n"
+                    + "base = " + (c.dark ? "dark" : "light") + "\n";   // S6.29
     for (std::size_t i = 0; i < theme::themeItems.size(); ++i)
         out += "color_" + std::string(theme::themeItems[i].key) + " = " + hexColour(theme::itemColour(c, i)) + "\n";
     char o[16];

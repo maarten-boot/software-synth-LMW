@@ -18,6 +18,7 @@ public:
 
     void resized() override;
     void paint(juce::Graphics&) override;
+    void lookAndFeelChanged() override;                   // Spec S6.29: the placeholder in the new theme's grey
     void setFontSize(float size);
     void focusInput();
     void ready();                                       // after configure/openSettings are set: help text, buttons

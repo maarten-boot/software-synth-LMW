@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "MatrixView.h"
+#include "ThemeInk.h"
 #include "ui/Theme.h"
 #include <algorithm>
 #include <cmath>
 
 namespace {
 juce::Colour colour(lmw::ui::Rgb c) { return juce::Colour(c.r, c.g, c.b); }
-const juce::Colour kBg = colour(lmw::ui::theme::background);
-const juce::Colour kFg = colour(lmw::ui::theme::foreground);
+using lmw::app::kBg;                                    // Spec S6.29: the theme's page and text (ThemeInk.h)
+using lmw::app::kFg;
 
 juce::String name(std::string_view s) { return juce::String(s.data(), s.size()); }
 juce::String percent(float level) { return juce::String(juce::roundToInt(level * 100.0f)) + " %"; }

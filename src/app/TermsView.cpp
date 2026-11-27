@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Spec S7.10 (Phase 27b): the Terms window. See TermsView.h.
 #include "TermsView.h"
+#include "ThemeInk.h"
 #include "TermsText.h"   // generated from docs/Terms.md
 #include <functional>
 
 namespace {
 constexpr int pad = 12, gap = 6, buttonH = 26;
-const juce::Colour ink = juce::Colours::black, paper = juce::Colours::white;
-const juce::Colour quiet{0xff4d4d4d};                 // topic after a Find hit: 8.4:1 on white
+constexpr lmw::app::ThemeInk ink = lmw::app::kFg, paper = lmw::app::kBg;   // Spec S6.29: the theme's text and page
+constexpr lmw::app::ThemeInk quiet = lmw::app::kQuiet;                     // topic after a Find hit: at least 7:1
 
 juce::String utf8(const std::string& s) { return juce::String::fromUTF8(s.c_str()); }
 
@@ -81,7 +82,7 @@ public:
         return y + pad;
     }
     void paint(juce::Graphics& g) override {
-        g.setColour(juce::Colour(0xffd0d0d0));
+        g.setColour(lmw::app::kQuiet.withAlpha(0.35f));       // a faint rule (decoration; S6.29: either theme)
         g.drawHorizontalLine(getHeight() - 1, static_cast<float>(pad), static_cast<float>(getWidth() - pad));
         text.draw(g, juce::Rectangle<float>(static_cast<float>(pad), static_cast<float>(pad),
                                             static_cast<float>(getWidth() - 2 * pad), static_cast<float>(textH + 4)));
@@ -132,7 +133,7 @@ TermsView::TermsView() : content(std::make_unique<Content>()) {
     findLabel.setFont(juce::FontOptions(16.0f));
     addAndMakeVisible(findLabel);
     find.setTitle("Find a term");
-    find.setTextToShowWhenEmpty("a word, for example cutoff", juce::Colour(0xff595959));   // 7:1 on white
+    find.setTextToShowWhenEmpty("a word, for example cutoff", lmw::app::kQuiet);   // at least 7:1 (S6.29)
     find.setFont(juce::FontOptions(16.0f));
     find.setColour(juce::TextEditor::backgroundColourId, paper);
     find.setColour(juce::TextEditor::textColourId, ink);
@@ -260,3 +261,5 @@ void TermsView::ensureVisible(juce::Component& c) {
     if (area.getY() < view.getY()) viewport.setViewPosition(0, area.getY() - pad);
     else if (area.getBottom() > view.getBottom()) viewport.setViewPosition(0, area.getBottom() - view.getHeight() + pad);
 }
+
+void TermsView::lookAndFeelChanged() { find.setTextToShowWhenEmpty("a word, for example cutoff", lmw::app::kQuiet); }

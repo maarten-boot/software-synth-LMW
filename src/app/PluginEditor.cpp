@@ -3,6 +3,7 @@
 #include "TermsView.h"
 #include "SocketRing.h"
 #include "PluginEditor.h"
+#include "ThemeInk.h"
 #include "ProcessMemory.h"
 #include "AssistantView.h"
 #include "AssistantSettings.h"
@@ -19,12 +20,14 @@
 #include "NinePService.h"
 
 namespace {
-juce::Colour toJuce(lmw::ui::Rgb c) { return juce::Colour(c.r, c.g, c.b); }
-const juce::Colour kBg      = toJuce(lmw::ui::theme::background);
-const juce::Colour kFg      = toJuce(lmw::ui::theme::foreground);
+using lmw::app::toJuce;                                 // Spec S6.29: kFg / kBg follow the theme (ThemeInk.h)
+using lmw::app::kBg;
+using lmw::app::kFg;
 }
 
-LMWLookAndFeel::LMWLookAndFeel() {
+LMWLookAndFeel::LMWLookAndFeel() { applyTheme(); }
+
+void LMWLookAndFeel::applyTheme() {
     using C = juce::LookAndFeel_V4::ColourScheme;
     setColourScheme(C{kBg, kBg, kBg, kFg, kFg, kFg, kBg, kFg, kFg});
     // windowBackground, widgetBackground, menuBackground, outline, defaultText,
@@ -44,9 +47,10 @@ LMWLookAndFeel::LMWLookAndFeel() {
     setColour(juce::PopupMenu::textColourId, kFg);
     setColour(juce::PopupMenu::highlightedBackgroundColourId, kFg);
     setColour(juce::PopupMenu::highlightedTextColourId, kBg);
-    setColour(juce::MidiKeyboardComponent::whiteNoteColourId, kBg);
-    setColour(juce::MidiKeyboardComponent::blackNoteColourId, kFg);
-    setColour(juce::MidiKeyboardComponent::keySeparatorLineColourId, kFg);
+    const auto& pal = lmw::ui::theme::current();                       // S6.29: a piano in every theme
+    setColour(juce::MidiKeyboardComponent::whiteNoteColourId, toJuce(pal.whiteKey));
+    setColour(juce::MidiKeyboardComponent::blackNoteColourId, toJuce(pal.blackKey));
+    setColour(juce::MidiKeyboardComponent::keySeparatorLineColourId, toJuce(pal.keyText));
     // Pressed and hovered keys are drawn by LMWSynthEditor::Keyboard with the contrast palette.
     setColour(juce::TextEditor::backgroundColourId, kBg);              // typed values, Custom ratio
     setColour(juce::TextEditor::textColourId, kFg);
@@ -58,7 +62,7 @@ LMWLookAndFeel::LMWLookAndFeel() {
     setColour(juce::AlertWindow::backgroundColourId, kBg);
     setColour(juce::AlertWindow::textColourId, kFg);
     setColour(juce::AlertWindow::outlineColourId, kFg);
-    setColour(juce::MidiKeyboardComponent::textLabelColourId, kFg);
+    setColour(juce::MidiKeyboardComponent::textLabelColourId, toJuce(pal.keyText));
     setColour(juce::MidiKeyboardComponent::shadowColourId, juce::Colours::transparentBlack);
     setColour(juce::MidiKeyboardComponent::upDownButtonBackgroundColourId, kBg);
     setColour(juce::MidiKeyboardComponent::upDownButtonArrowColourId, kFg);
@@ -113,7 +117,7 @@ void LMWLookAndFeel::drawLinearSlider(juce::Graphics& g, int x, int y, int width
     // Spec S6.17: scale ticks left of the track (majors longer), value texts at the majors right of it (normal
     // view); their spacing shows the curve. Black on white, under the thumb.
     if (const auto* scaled = dynamic_cast<const ScaleSlider*>(&s); scaled != nullptr && scaled->showTicks) {   // S6.20
-        g.setFont(juce::FontOptions(9.0f));
+        g.setFont(lmw::app::smallFont(9.0f));               // S6.29: bold in a dark theme
         const float textX = cx + 17.0f, textW = static_cast<float>(x + width) - textX + 2.0f;
         for (const auto& t : scaled->ticks) {
             const float ty = static_cast<float>(s.getPositionOfValue(t.value));
@@ -172,6 +176,11 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
       settings(lmw::ui::parseConfig(configFile().loadFileAsString().toStdString())),
       palette(lmw::ui::theme::palette(settings.minRatio(), settings.colours())),
       keyboard(p.keyboardState(), palette) {
+    shownOsDark = juce::Desktop::getInstance().isDarkModeActive();                  // Spec S6.29: before anything is drawn
+    palette = lmw::ui::theme::palette(settings.minRatio(), settings.colours(shownOsDark));
+    lmw::ui::theme::current() = palette;
+    lookAndFeel.applyTheme();
+    defaultLook.get().applyTheme();
     setLookAndFeel(&lookAndFeel);
     // Spec S6.21: the rack surface in a scrolling view; every rack component below is its child.
     rackArea = std::make_unique<RackArea>(*this);
@@ -638,7 +647,7 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     notesEditor.setTabKeyUsedAsCharacter(false);
     notesEditor.setScrollbarsShown(true);
     notesEditor.setTitle("Patch notes");
-    notesEditor.setTextToShowWhenEmpty("Notes for this patch: they are saved with it.", kFg);
+    notesEditor.setTextToShowWhenEmpty("Notes for this patch: they are saved with it.", kFg);   // again in applyContrast (S6.29)
     notesEditor.onTextChange = [this] { processor.setNotes(notesEditor.getText()); };
     addChildComponent(notesEditor);
     // Spec S6.8: the Matrix tab edits the same patch as the cables (through connect(), which reports
@@ -796,6 +805,11 @@ void LMWSynthEditor::timerCallback() {
         refreshPatchInfo();
     if (schematic) schematic->poll(processor.schematicLayout());   // Key faders; layout from a loaded patch
     if (++presetLabelTick >= 8) { presetLabelTick = 0; updatePresetLabels(); updatePatchLabel(); updateUndoButtons(); updateLoadLabel(); }   // S7.5, S7.7, S6.28: ~4/s
+    if (++systemThemeTick >= 30) {                       // Spec S6.29: Follow system, about once a second
+        systemThemeTick = 0;
+        if (settings.theme == lmw::ui::theme::ThemePreset::System && juce::Desktop::getInstance().isDarkModeActive() != shownOsDark)
+            applyContrast();
+    }
     if (processor.patchVersion() != shownPatchVersion || processor.vcfRouting() != shownRouting) {   // cables or routing changed
         shownPatchVersion = processor.patchVersion();
         shownRouting = processor.vcfRouting();
@@ -1015,7 +1029,7 @@ void LMWSynthEditor::setCompact(bool compact) {
     for (std::size_t i = 0; i < usedFaders; ++i) {
         faders[i].slider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, m.boxW, m.boxH);
         faders[i].label.setFont(juce::FontOptions(m.labelFont));
-        faders[i].tag.setFont(juce::FontOptions(static_cast<float>(tagH()) - 1.0f));   // Spec S6.17
+        faders[i].tag.setFont(lmw::app::smallFont(static_cast<float>(tagH()) - 1.0f));   // Spec S6.17, S6.29
         faders[i].tag.setBorderSize({});
         faders[i].slider.tickLabels = m.colW >= 80;              // value texts only in normal view
     }
@@ -1697,7 +1711,7 @@ void LMWSynthEditor::Jack::paint(juce::Graphics& g) {
     // the highlight colour with a 2 px black edge; at Max 21:1 the fill is white and the edge 3 px.
     if (hasKeyboardFocus(false) || editor.hoverJack == this || (editor.drag && editor.drag->target == this)) {
         const auto& h = editor.palette.highlight;
-        const bool edgeOnly = h == lmw::ui::Rgb{255, 255, 255};
+        const bool edgeOnly = h == editor.palette.background;   // Max: no fill to see (S6.29: either page)
         const auto box = getLocalBounds().toFloat();
         g.setColour(toJuce(h));
         g.fillRect(box);
@@ -1724,10 +1738,10 @@ void LMWSynthEditor::Jack::paint(juce::Graphics& g) {
     g.setColour(kFg);
     // Label shrinks to fit a narrow slot (several sockets under one fader column).
     float size = editor.m.colW >= 80 ? 12.0f : 11.0f;
-    juce::Font font{juce::FontOptions(size)};
+    juce::Font font{lmw::app::smallFont(size)};            // S6.29: bold in a dark theme
     while (size > 8.0f && juce::GlyphArrangement::getStringWidth(font, name) > static_cast<float>(getWidth() - 2)) {
         size -= 0.5f;
-        font = juce::Font(juce::FontOptions(size));
+        font = juce::Font(lmw::app::smallFont(size));
     }
     g.setFont(font);
     g.drawText(name, getLocalBounds().withTrimmedTop(static_cast<int>(c.getBottom()) + 4), juce::Justification::centredTop, false);   // below the ring
@@ -2299,7 +2313,7 @@ void LMWSynthEditor::showAssistantSettings() {
     };
     juce::DialogWindow::LaunchOptions o;
     o.dialogTitle = "Assistant settings";
-    o.dialogBackgroundColour = juce::Colours::white;
+    o.dialogBackgroundColour = lmw::app::kBg;
     o.content.setOwned(dialog.release());
     o.componentToCentreAround = this;
     o.escapeKeyTriggersCloseButton = true;
@@ -2318,14 +2332,14 @@ void LMWSynthEditor::showLesson(int number) {
     text->setCaretVisible(false);
     text->setScrollbarsShown(true);
     text->setFont(juce::FontOptions(16.0f));
-    text->setColour(juce::TextEditor::backgroundColourId, juce::Colours::white);
-    text->setColour(juce::TextEditor::textColourId, juce::Colours::black);
+    text->setColour(juce::TextEditor::backgroundColourId, lmw::app::kBg);
+    text->setColour(juce::TextEditor::textColourId, lmw::app::kFg);
     text->setText(juce::String::fromUTF8(lmw::tutorial::plain(lmw::tutorial::section(number)).c_str()), false);
     text->setTitle("Tutorial lesson " + juce::String(number));
     text->setSize(760, 560);
     juce::DialogWindow::LaunchOptions o;
     o.dialogTitle = juce::String::fromUTF8(lmw::tutorial::title(number).c_str());
-    o.dialogBackgroundColour = juce::Colours::white;
+    o.dialogBackgroundColour = lmw::app::kBg;
     o.content.setOwned(text.release());
     o.componentToCentreAround = this;
     o.escapeKeyTriggersCloseButton = true;
@@ -2348,14 +2362,14 @@ void LMWSynthEditor::showChanges() {
     text->setCaretVisible(false);
     text->setScrollbarsShown(true);
     text->setFont(juce::FontOptions(16.0f));
-    text->setColour(juce::TextEditor::backgroundColourId, juce::Colours::white);
-    text->setColour(juce::TextEditor::textColourId, juce::Colours::black);
+    text->setColour(juce::TextEditor::backgroundColourId, lmw::app::kBg);
+    text->setColour(juce::TextEditor::textColourId, lmw::app::kFg);
     text->setText(juce::String::fromUTF8(lmw::tutorial::plain(md).c_str()), false);
     text->setTitle("Change history");
     text->setSize(820, 600);
     juce::DialogWindow::LaunchOptions o;
     o.dialogTitle = "LMW-Synth change history";
-    o.dialogBackgroundColour = juce::Colours::white;
+    o.dialogBackgroundColour = lmw::app::kBg;
     o.content.setOwned(text.release());
     o.componentToCentreAround = this;
     o.escapeKeyTriggersCloseButton = true;
@@ -2372,7 +2386,7 @@ void LMWSynthEditor::showTerms() {
     auto* raw = view.get();
     juce::DialogWindow::LaunchOptions o;
     o.dialogTitle = "LMW-Synth terms";
-    o.dialogBackgroundColour = juce::Colours::white;
+    o.dialogBackgroundColour = lmw::app::kBg;
     o.content.setOwned(view.release());
     o.componentToCentreAround = this;
     o.escapeKeyTriggersCloseButton = true;
@@ -2422,6 +2436,11 @@ void LMWSynthEditor::addMenuItems(juce::PopupMenu& m) const {
         const auto n = lmw::ui::theme::themeNames[static_cast<std::size_t>(t)];
         theme.addItem(menuFirstId + 31 + t, juce::String(n.data(), n.size()), true, static_cast<int>(settings.theme) == t);
     }
+    theme.addSeparator();                                  // Spec S6.29: the dark themes, and following the system
+    for (int t = 4; t < 7; ++t) {
+        const auto n = lmw::ui::theme::themeLabels[static_cast<std::size_t>(t)];
+        theme.addItem(menuFirstId + 57 + t, juce::String(n.data(), n.size()), true, static_cast<int>(settings.theme) == t);
+    }
     if (settings.theme == ThemePreset::Custom && settings.themeName.empty()) theme.addItem(menuFirstId + 35, "Custom", true, true);
     const auto saved = themeFiles();                       // Spec S6.13: the user's named themes
     if (!saved.isEmpty()) {
@@ -2470,7 +2489,8 @@ void LMWSynthEditor::handleMenuItem(int id) {
         case 52: redoStep(); break;
         case 41: showAssistantSettings(); break;
         case 31: case 32: case 33: case 34:                // Spec S6.13: a theme preset
-            settings.theme = static_cast<lmw::ui::theme::ThemePreset>(id - menuFirstId - 31);
+        case 61: case 62: case 63:                         // S6.29: Dark, Dark high contrast, Follow system
+            settings.theme = static_cast<lmw::ui::theme::ThemePreset>(id - menuFirstId - (id - menuFirstId >= 61 ? 57 : 31));
             settings.themeName.clear();
             applyContrast();
             break;
@@ -2511,7 +2531,8 @@ void LMWSynthEditor::handleMenuItem(int id) {
 void LMWSynthEditor::makeThemeCustom() {
     auto& s = settings;
     if (s.theme != lmw::ui::theme::ThemePreset::Custom) {
-        const auto now = s.colours();
+        const auto now = s.colours(shownOsDark);
+        s.customDark = now.dark;                             // Spec S6.29: Custom keeps a dark base
         for (std::size_t i = 0; i < s.custom.size(); ++i) s.custom[i] = lmw::ui::theme::itemColour(now, i);
         s.customOpacity = now.cableOpacity;
         s.theme = lmw::ui::theme::ThemePreset::Custom;
@@ -2535,6 +2556,7 @@ void LMWSynthEditor::applySavedTheme(const juce::File& f) {
     settings.theme = lmw::ui::theme::ThemePreset::Custom;
     for (std::size_t i = 0; i < settings.custom.size(); ++i) settings.custom[i] = lmw::ui::theme::itemColour(c, i);
     settings.customOpacity = c.cableOpacity;
+    settings.customDark = c.dark;                          // Spec S6.29
     settings.themeName = f.getFileNameWithoutExtension().toStdString();
     applyContrast();
 }
@@ -2577,11 +2599,12 @@ void LMWSynthEditor::saveThemeAs() {
 // applies at once.
 void LMWSynthEditor::editColours() {
     if (colourWindow != nullptr) { colourWindow->toFront(true); return; }
-    auto dialog = std::make_unique<ThemeDialog>(settings.colours(), settings.minRatio());
+    auto dialog = std::make_unique<ThemeDialog>(settings.colours(shownOsDark), settings.minRatio());
     dialog->onChange = [safe = juce::Component::SafePointer<LMWSynthEditor>(this)](std::size_t item, std::optional<lmw::ui::Rgb> c) {
         if (safe == nullptr) return;
         safe->makeThemeCustom();
-        safe->settings.custom[item] = c ? *c : lmw::ui::theme::itemColour(lmw::ui::theme::Colours{}, item);
+        safe->settings.custom[item] = c ? *c : lmw::ui::theme::itemColour(lmw::ui::theme::presetColours(   // Reset: its base's colour
+            safe->settings.customDark ? lmw::ui::theme::ThemePreset::Dark : lmw::ui::theme::ThemePreset::Default), item);
         safe->applyContrast();
     };
     dialog->onOpacity = [safe = juce::Component::SafePointer<LMWSynthEditor>(this)](float o) {
@@ -2592,7 +2615,7 @@ void LMWSynthEditor::editColours() {
     };
     juce::DialogWindow::LaunchOptions o;
     o.dialogTitle = "Theme colours";
-    o.dialogBackgroundColour = juce::Colours::white;
+    o.dialogBackgroundColour = lmw::app::kBg;
     o.content.setOwned(dialog.release());
     o.componentToCentreAround = this;
     o.escapeKeyTriggersCloseButton = true;
@@ -2618,7 +2641,17 @@ void LMWSynthEditor::showMainMenu() {
 }
 
 void LMWSynthEditor::applyContrast() {
-    palette = lmw::ui::theme::palette(settings.minRatio(), settings.colours());   // S6.3, S6.13
+    shownOsDark = juce::Desktop::getInstance().isDarkModeActive();                  // S6.29: Follow system
+    palette = lmw::ui::theme::palette(settings.minRatio(), settings.colours(shownOsDark));   // S6.3, S6.13, S6.29
+    const juce::Colour oldFg = kFg, oldBg = kBg, oldQuiet = lmw::app::kQuiet;
+    lmw::ui::theme::current() = palette;                    // S6.29: kFg / kBg and the widgets follow
+    defaultLook.get().applyTheme();
+    lookAndFeel.applyTheme();
+    lmw::app::retintDesktop({{{oldFg, kFg}, {oldBg, kBg}, {oldQuiet, lmw::app::kQuiet}}});
+    if (auto* top = getTopLevelComponent()) top->sendLookAndFeelChange();
+    else sendLookAndFeelChange();
+    resized();                                              // S6.29: the small fonts (tags) of this theme
+    notesEditor.setTextToShowWhenEmpty("Notes for this patch: they are saved with it.", kFg);
     saveConfig();
     keyboard.repaint();
     if (matrix) matrix->setPalette(palette);
@@ -2848,7 +2881,7 @@ void LMWSynthEditor::Wheel::paint(juce::Graphics& g) {
     const auto r = getLocalBounds().toFloat().reduced(2.0f);
     g.setColour(kBg);
     g.fillRoundedRectangle(r, 6.0f);
-    g.setColour(juce::Colour(0xff7a7a7a));                     // ridges (decoration only)
+    g.setColour(lmw::app::kQuiet);                             // ridges (decoration only; S6.29: either theme)
     for (float y = r.getY() + 6.0f; y < r.getBottom() - 4.0f; y += 6.0f)
         g.drawHorizontalLine(juce::roundToInt(y), r.getX() + 6.0f, r.getRight() - 6.0f);
     const double p = (getValue() - getMinimum()) / (getMaximum() - getMinimum());
@@ -3686,12 +3719,14 @@ void LMWSynthEditor::updateLoadLabel() {
     l.memoryMB = lmw::app::residentMemoryMB();
     const bool warn = processor.loadWarning();
     loadLabel.setText("CPU " + juce::String(juce::roundToInt(l.cpu * 100.0)) + " %", juce::dontSendNotification);
-    // Black on white; a warning white on dark red (#B00020, 7.4:1 with white); at the Max preset white on black (21:1).
-    const bool maxContrast = palette.highlight == lmw::ui::Rgb{255, 255, 255};   // the Max preset (as S6.15)
-    const auto red = maxContrast ? kFg : juce::Colour(0xffb00020);
-    loadLabel.setColour(juce::Label::backgroundColourId, warn ? red : kBg);
-    loadLabel.setColour(juce::Label::textColourId, warn ? kBg : kFg);
-    loadLabel.setColour(juce::Label::outlineColourId, warn ? red : kFg);
+    // The theme's text on its page; a warning white on dark red (#B00020, 7.4:1 with white, either theme); at the Max
+    // preset the page on the text (21:1).
+    const bool maxContrast = palette.minRatio >= 21.0;
+    const juce::Colour red = maxContrast ? juce::Colour(kFg) : juce::Colour(0xffb00020);
+    const juce::Colour onRed = maxContrast ? juce::Colour(kBg) : juce::Colour(0xffffffff);   // fixed on purpose (scan: allowed)
+    loadLabel.setColour(juce::Label::backgroundColourId, warn ? red : juce::Colour(kBg));
+    loadLabel.setColour(juce::Label::textColourId, warn ? onRed : juce::Colour(kFg));
+    loadLabel.setColour(juce::Label::outlineColourId, warn ? red : juce::Colour(kFg));
     juce::String tip = "Audio load: " + juce::String(l.cpu * 100.0, 1) + " % of the time each audio block may take "
                      + "(peak " + juce::String(l.peak * 100.0, 1) + " % in the last 5 s).\n"
                      + "Voices playing: " + juce::String(l.voices) + ".\n"

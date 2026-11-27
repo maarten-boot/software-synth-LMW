@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "SchematicView.h"
+#include "ThemeInk.h"
 #include "SocketRing.h"
 #include <algorithm>
 #include <cmath>
@@ -9,8 +10,8 @@ namespace sc = lmw::ui::schematic;
 
 namespace {
 juce::Colour colour(lmw::ui::Rgb c) { return juce::Colour(c.r, c.g, c.b); }
-const juce::Colour kBg = colour(lmw::ui::theme::background);
-const juce::Colour kFg = colour(lmw::ui::theme::foreground);
+using lmw::app::kBg;                                    // Spec S6.29: the theme's page and text (ThemeInk.h)
+using lmw::app::kFg;
 juce::String text(std::string_view s) { return juce::String::fromUTF8(s.data(), static_cast<int>(s.size())); }
 }
 
@@ -102,7 +103,7 @@ void SchematicView::drawBlock(juce::Graphics& g, std::size_t index) const {
         g.fillPath(dashed);
     };
     auto outlineRect = [&](juce::Rectangle<float> box, float width) { juce::Path p; p.addRectangle(box); outline(p, width); };
-    const juce::FontOptions label(1.7f * s);
+    const juce::FontOptions label = lmw::app::smallFont(1.7f * s);   // S6.29: port labels bold in a dark theme
 
     auto innerLabels = [&](float labelLeft) {   // output labels inside the right edge, for several outputs
         if (b.outputs.size() < 2) return;
@@ -285,7 +286,7 @@ void SchematicView::paint(juce::Graphics& g) {
     }
     // Spec S6.23: the selected blocks on a box in the highlight colour with a black edge (at Max: white, 3 px edge).
     if (!selected.empty()) {
-        const bool edgeOnly = palette.highlight == lmw::ui::Rgb{255, 255, 255};
+        const bool edgeOnly = palette.highlight == palette.background;   // Max: no fill to see (S6.29: either page)
         for (const auto b : selected) {
             const auto r = toScreen(layout.box(b)).expanded(0.6f * s);
             g.setColour(juce::Colour(palette.highlight.r, palette.highlight.g, palette.highlight.b));
@@ -369,7 +370,7 @@ void SchematicView::paint(juce::Graphics& g) {
         std::vector<PortRef> lit;
         for (const auto& h : {hover, cursorPort, target})
             if (h && std::find(lit.begin(), lit.end(), *h) == lit.end()) lit.push_back(*h);
-        const bool edgeOnly = palette.highlight == lmw::ui::Rgb{255, 255, 255};
+        const bool edgeOnly = palette.highlight == palette.background;   // Max: no fill to see (S6.29: either page)
         for (const auto& h : lit) {
             const auto box = juce::Rectangle<float>(pr * 4.0f, pr * 4.0f).withCentre(toScreen(portPoint(h)));
             g.setColour(juce::Colour(palette.highlight.r, palette.highlight.g, palette.highlight.b));

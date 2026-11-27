@@ -660,7 +660,9 @@ Where: the Presets button of a panel.
 See also: [Preset](#preset), [Instrument preset](#instrument-preset)
 
 ### Theme
-The colours of the panels, cables and highlight: Default, Soft, Vivid, Monochrome or your own.
+The colours of the panels, cables and highlight: Default, Soft, Vivid, Monochrome, Dark (light text on
+dark grey), Dark high contrast, Follow system (Dark while your computer is in dark mode) or your own,
+on a light or a dark base. The keyboard always looks like a piano.
 
 Where: Menu › Theme.
 
@@ -701,8 +703,8 @@ See also: [lmw-mcp](#lmw-mcp)
 ## Display
 
 ### Contrast
-How strongly colours stand out against black text: AA 4.5:1 (default), AAA 7:1, Max 21:1 (only black
-and white), or your own ratio.
+How strongly colours stand out against the text (black, or light in a dark theme): AA 4.5:1 (default),
+AAA 7:1, Max 21:1 (only black and white), or your own ratio.
 
 Where: Menu › Contrast.
 
