@@ -14,6 +14,7 @@
 #include "dsp/Reverb.h"
 #include "dsp/SpscQueue.h"
 #include "dsp/MidiParse.h"
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <map>
@@ -128,10 +129,15 @@ public:
     // The reverb rings on after the last note (Spec S7.4); without it the sound stops with the notes.
     // Spec S7.6: the comb rings on too (high feedback).
     double getTailLengthSeconds() const override {
-        if (raw.revMix->load() > 0.0f && raw.revType->load() >= 0.5f)   // S7.15: the Hall's decay + 1 s, + Pre-delay
-            return lmw::dsp::HallReverb::rt60(raw.revSize->load()) + 1.0 + raw.revPredelay->load();
-        return raw.revMix->load() > 0.0f || raw.delayMix->load() > 0.0f ? 10.0
-             : (raw.combMix->load() > 0.0f ? 2.0 : (raw.ensembleMix->load() > 0.0f ? 0.05 : 0.0));
+        // The longest tail of the effects in use. S7.15: Hall = its decay + 1 s + Pre-delay; Classic 10 s as before.
+        double t = raw.ensembleMix->load() > 0.0f ? 0.05 : 0.0;
+        if (raw.combMix->load() > 0.0f) t = std::max(t, 2.0);
+        if (raw.delayMix->load() > 0.0f) t = std::max(t, 10.0);
+        if (raw.revMix->load() > 0.0f)
+            t = std::max(t, raw.revType->load() >= 0.5f
+                                ? lmw::dsp::HallReverb::rt60(raw.revSize->load()) + 1.0 + double(raw.revPredelay->load())
+                                : 10.0);
+        return t;
     }
 
     int getNumPrograms() override { return 1; }

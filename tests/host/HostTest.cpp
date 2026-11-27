@@ -304,6 +304,16 @@ int main(int argc, char* argv[]) {
             CHECK(wetTail > 0.01 * held && wetTail > 100.0 * dryTail);
             CHECK(side > 1e-5);                                  // Width 100 %: stereo
             CHECK(a->getTailLengthSeconds() > 0.0);
+            // S7.15: Hall at Size 50 %: its decay + 1 s (2.9 s); with DELAY on too the longer DELAY tail (10 s) wins.
+            if (auto* dmix = findParameter(*a, "Delay Mix")) {
+                const double hallTail = a->getTailLengthSeconds();
+                dmix->setValueNotifyingHost(0.3f);
+                const double both = a->getTailLengthSeconds();
+                dmix->setValueNotifyingHost(0.0f);
+                std::printf("tail: Hall Size 50 %% %.2f s, with DELAY %.2f s\n", hallTail, both);
+                CHECK(hallTail > 2.5 && hallTail < 3.5);
+                CHECK(both >= 10.0);
+            } else CHECK(false);
             mix->setValueNotifyingHost(0.0f);
             std::vector<float> againL, againR;
             play(againL, againR);

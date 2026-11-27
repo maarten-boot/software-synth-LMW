@@ -88,3 +88,9 @@
 ## 2026-11-27 (continued in the same session)
 
 - Committed bc7fe65 (spec 43). 43 done: src/dsp/Reverb.h (Hall FDN), reverb.type / reverb.predelay, Classic for older states (StateMigration 6) and patch files, presets Hall with Pre-delay, panel Type | Size | Damping | Width | Pre-delay | Mix; tests/test_reverb.cpp (with a Freeverb model for the ring), host checks for both types and the older-patch rule. Tuned by measurement: modulation 1 ms (ring 6.7 vs Freeverb 16.6), Damping a two-pole wet lowpass besides the decay (the decay alone left the start bright), the level by a fit of the measured raw level (flat within 0.2 dB). Found: the editor's faders[] / choices[] arrays overflowed (crash at start, ctest has no editor) → sized + hard check; the Type box was hidden on the Effects tab (choices not in the effect list) → fixed. Upgrade check with the 1.7.0 release: Classic kept. Pictures retaken (rack layout, REVERB). 43 of 43.
+- User: continue (commit). Committed 7b3c10f (Phase 43).
+
+## Crosscheck after Phase 43
+
+- Code vs S7.15: as built. Found: the tail told to the host with Hall was the Hall's alone (Size 0: 1.3 s), even with DELAY (10 s) or COMB (2 s) on → now the longest tail of the effects in use; host test checks Hall 2.9 s, with DELAY 10 s. Stale Spec lines fixed: S5a.1 (keys.glide, keys.glidemode, keys.bendrange, effects.order, reverb.type, reverb.predelay; 91 parameters), S9.2 (91; 2172 host parameters, measured), S7.15 body (panel, older patches, Phase 35 lowpass, presets, Damping 1/3.3, tail). Tests T-S7.15-reverb. 43 of 43 pass.
+- User: yes, commit; will push and wait for CI. Committed (crosscheck 43).
