@@ -138,3 +138,5 @@
 - Code vs S6.28, S10.10, S11: as built. Found: a DAW's offline render (bounce) slower than real time would count overruns and turn the meter red → LoadMeter::block(…, realtime) with !isNonRealtime(); unit check added. std::atomic<double> static_assert lock-free. Spec as built, Tests, Plan header.
 - User: yes, commit; will push and wait for CI. Committed (crosscheck 47).
 - User: what is next? Listed (push, listening, release 1.8.0; medium L18, L21, L5; large ...). User: lets go for v1.8.0. CMakeLists 1.8.0; Changes "## 1.8.0 (2026-11-27)" with the upgrade note (1.7.0 patches and states: reverb Classic, effects order as before; VCF above ~91 % Reso without input now sings); pictures retaken (title 1.8.0). 47 of 47 pass. CI run 46000596436 (ee5de8a) started (user pushed).
+- Committed 9d1a17d (release 1.8.0 prepared). User: done: glide, effects orders, the Hall presets, and the load meter while playing. Recorded as listening pass (Tests T-S6.24-playing, T-S7.14-order, T-S7.15-reverb, T-S6.28-load; Plan 41, 42, 43, 47); the singing VCF (S6.27 C) by ear still open.
+- User: yes, commit; will tag after CI. CI run 46001152016 (9d1a17d) started.
