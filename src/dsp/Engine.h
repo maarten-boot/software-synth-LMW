@@ -39,6 +39,8 @@ enum class SpreadMode : int { Keys, Voices };
 struct ModParams {
     std::array<float, numVcos> fmSemitones{};   // vcoN.fm (base depth; the mod wheel adds up to +1 st)
     std::array<float, numVcos> pmIndex{};       // vcoN.pm: phase-modulation index in radians per 1.0 at vcoN.pm (S5.20)
+    std::array<float, numVcos> vcoShape{};      // vcoN.shape 0..1 (S5.28)
+    float lfoShape = 0.0f, lfo2Shape = 0.0f;    // lfo1.shape, lfo2.shape 0..1 (S5.28)
     std::array<int, numVcos> octave{};          // vcoN.octave, -2..+2 (Spec S5.10)
     std::array<float, numVcos> tune{};          // vcoN.tune, semitones
     std::array<float, numVcos> mixVco{1.0f, 0.0f, 0.0f};   // mix.vco1..3
@@ -212,6 +214,10 @@ public:
                 const float x = read(vcoPmIn(n), g, patch);
                 if (std::isfinite(x)) pm = static_cast<double>(mp.pmIndex[i] * x) / (2.0 * std::numbers::pi);
             }
+            // Spec S5.28: Shape = fader + vcoN.shape input (only while patched, so the default stays exact), 0..1.
+            const In shapeIn = vcoShapeIn(n);
+            osc[i].setShape(patch.isPatched(shapeIn) ? std::clamp(mp.vcoShape[i] + read(shapeIn, g, patch), 0.0f, 1.0f)
+                                                     : mp.vcoShape[i]);
             out[o(vcoOut(n))] = osc[i].next(pm);
         }
 
@@ -450,6 +456,8 @@ public:
         cutoff2Target = std::log2(std::clamp(static_cast<double>(p.vcf2Cutoff), Ladder::minCutoff, Ladder::maxCutoff));
         lfo.setRate(p.lfoRate); lfo.setWave(p.lfoWave);
         lfo2.setRate(p.lfo2Rate); lfo2.setWave(p.lfo2Wave);
+        if (!patch.isPatched(In::Lfo1Shape)) lfo.setShape(p.lfoShape);     // S5.28 (patched: per sample in render)
+        if (!patch.isPatched(In::Lfo2Shape)) lfo2.setShape(p.lfo2Shape);
         noise.setColour(p.noiseColour);
         random.setRate(p.randRate); random.setSmooth(p.randSmooth);
         for (auto& v : voices) {
@@ -522,6 +530,9 @@ public:
             // read from the previous sample; unpatched, the rate is exactly the fader's.
             if (lfo1RatePatched) lfo.setRate(modulatedRate(mod.lfoRate, In::Lfo1Rate));
             if (lfo2RatePatched) lfo2.setRate(modulatedRate(mod.lfo2Rate, In::Lfo2Rate));
+            // Spec S5.28: a patched LFO Shape input adds to the fader (from the previous sample), 0..1.
+            if (lfo1ShapePatched) lfo.setShape(std::clamp(mod.lfoShape + readShared(In::Lfo1Shape), 0.0f, 1.0f));
+            if (lfo2ShapePatched) lfo2.setShape(std::clamp(mod.lfo2Shape + readShared(In::Lfo2Shape), 0.0f, 1.0f));
             const GlobalSignals g{lfo.next(), lfo2.next(), noise.next(), modWheel, random.next()};
             lastGlobal = g;
             // Spec S5.25: Pan and Spread glide (20 ms); while both are 0 and out.pan has no cable the output is
@@ -581,6 +592,10 @@ private:
         panPatched = patch.isPatched(In::OutPan);                // S5.25
         if (!lfo1RatePatched) lfo.setRate(mod.lfoRate);     // back to the fader's rate exactly
         if (!lfo2RatePatched) lfo2.setRate(mod.lfo2Rate);
+        lfo1ShapePatched = patch.isPatched(In::Lfo1Shape);       // S5.28
+        lfo2ShapePatched = patch.isPatched(In::Lfo2Shape);
+        if (!lfo1ShapePatched) lfo.setShape(mod.lfoShape);
+        if (!lfo2ShapePatched) lfo2.setShape(mod.lfo2Shape);
         globalOnOut = false;
         for (int k = 0; k < patch.pinCount(In::OutIn); ++k)
             globalOnOut = globalOnOut || isGlobal(static_cast<Out>(patch.pin(In::OutIn, k).source));
@@ -664,6 +679,7 @@ private:
     int voiceCount = 8;
     bool sustainPedal = false, drone = false, globalOnOut = false;
     bool lfo1RatePatched = false, lfo2RatePatched = false;   // Spec S5.19
+    bool lfo1ShapePatched = false, lfo2ShapePatched = false; // Spec S5.28
     int newestVoice = 0;                     // voice of the newest note (S5.19)
     GlobalSignals lastGlobal{};              // shared signals of the previous sample (S5.19)
     static constexpr float minModulatedLfoRate = 0.01f, maxModulatedLfoRate = 50.0f;

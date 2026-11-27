@@ -41,7 +41,7 @@ int main() {
         CHECK(names.size() >= (k == Kind::Ensemble ? 4u : 6u));
     }
     std::printf("%d built-in presets\n", count);
-    CHECK(count == 103);                                       // 53 + 30 FORMANT (S5.16) + 9 COMB + 7 DELAY + 4 ENSEMBLE
+    CHECK(count == 104);                                       // + PWM (S5.28); 53 + 30 FORMANT (S5.16) + 9 COMB + 7 DELAY + 4 ENSEMBLE
     CHECK(builtIn(Kind::Formant).size() == 30 && builtIn(Kind::Formant).front().name == "Bass A"
           && builtIn(Kind::Formant).back().name == "Child U");
 

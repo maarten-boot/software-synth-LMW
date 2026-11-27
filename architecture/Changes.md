@@ -3,6 +3,7 @@
 Changes between releases.
 
 ## Unreleased
+- 2026-11-27: Shape: every VCO and LFO has a Shape fader (and socket) that bends its wave — a square narrows to a pulse (an LFO on Shape gives pulse-width modulation), a triangle leans to a saw, a saw doubles, a sine gets brighter. New presets: VCO › PWM (Shape 50 %) and the instrument PWM strings. LFO 1 now sits beside LFO 2 in the default layout (Reset layout) to make room.
 - 2026-11-27: Dark themes: Menu › Theme › Dark (light text on dark grey), Dark high contrast and Follow system (dark while your computer is). Everything follows: panels, Matrix, Schematic, menus, hover texts, dialogs, the Assistant; the keyboard still looks like a piano; small texts are bold in the dark themes. Edit colours works on a dark base too. The contrast setting still applies.
 
 ## 1.8.0 (2026-11-27)

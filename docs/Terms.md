@@ -104,7 +104,16 @@ square hollow (clarinet-like), saw bright (strings, brass), pulse thin and nasal
 
 Where: a VCO's Wave choice; an LFO's Wave choice.
 
-See also: [VCO](#vco), [LFO](#lfo)
+See also: [VCO](#vco), [LFO](#lfo), [Shape](#shape)
+
+### Shape
+Bends the wave: a square becomes a narrow pulse (pulse-width modulation, PWM, when an LFO moves it), a
+triangle leans towards a saw, a saw doubles (an octave up at 100 %), a sine gets brighter, a pulse
+narrower. 0 is the plain wave. An LFO on the Shape socket makes the sound move and shimmer.
+
+Where: VCO › Shape and its socket; LFO › Shape (under Wave) and its socket.
+
+See also: [Waveform](#waveform), [LFO](#lfo)
 
 ### Octave
 Twelve semitones: the same note, twice or half the pitch. A VCO's Oct choice moves it −2 … +2

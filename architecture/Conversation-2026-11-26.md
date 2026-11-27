@@ -154,3 +154,8 @@
 - User: yes, commit; will push and wait for CI. Committed (crosscheck 48).
 - User: what is next? Listed. User: start the spec for L21. S5.28 proposed (Shape per VCO, per wave, band-limited, panel, presets); choices A-D.
 - User: all recommended; commit the spec and start 49; should we also allow that on the LFO? Answer: yes, it makes sense, but a 4th LFO column would not fit 1920 with LFO 1 in row 3; open choice E (fader under the Wave box / own column / VCOs only). S5.28 confirmed (A a, B a, C a, D a); Plan 49, L21; Tests T-S5.28-shape planned.
+- User (mid-turn): short fader is ok — choice E a (LFO Shape under the Wave box).
+- 49 done: Oscillator / Lfo shapes (measured: alias, mean; widths at least 2 samples, the sine's mean removed — both found by measuring), Patch inputs vco1-3.shape / lfo1-2.shape, engine, 5 parameters (96), VCO Shape column, LFO Wave over a short Shape fader (scale texts hidden under 60 px — found on Xvfb), LFO 1 to row 3, Schematic symbols taller (found on Xvfb), presets PWM (Shape 50 %) and PWM strings; test_shape; counts in 7 tests; Terms Shape; Tutorial Lesson 2 step 6; Spec as built, S5a.1, S9.2, S6.8; Tests; Plan; Changes. 49 of 49 pass.
+- User (mid-turn): now that we have several more enhancements, should we go over the presets? … if you want to group types of instruments (woodwind/keyboard/...) feel free. To be specified after 49.
+- User pushed (c6c2b68 and before); CI watched.
+- User: yes, commit and do the crosscheck.

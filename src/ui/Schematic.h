@@ -55,12 +55,12 @@ inline constexpr float maxPageWidth = 1000.0f, maxPageHeight = 500.0f;   // 152 
 
 inline const std::vector<Block>& blocks() {
     static const std::vector<Block> b{
-        {"LFO 1",  Shape::Triangle, {2, 6, 10, 9},    {In::Lfo1Rate}, {Out::Lfo1}},   // rate input: S5.19
+        {"LFO 1",  Shape::Triangle, {2, 5, 10, 12},    {In::Lfo1Rate, In::Lfo1Shape}, {Out::Lfo1}},   // rate: S5.19, shape: S5.28
         {"KEYS",   Shape::Keys,     {2, 23, 12, 11},  {}, {Out::KeysPitch, Out::KeysGate, Out::KeysVel, Out::KeysMod}},   // mod: S6.24
         // VCO 1-3: 12 x 14 like the VCFs since S5.20 (three inputs: pitch, fm, pm); 11 x 10 before
-        {"VCO 1",  Shape::Triangle, {26, 2, 12, 14},  {In::Vco1Pitch, In::Vco1Fm, In::Vco1Pm}, {Out::Vco1}},
-        {"VCO 2",  Shape::Triangle, {26, 17, 12, 14}, {In::Vco2Pitch, In::Vco2Fm, In::Vco2Pm}, {Out::Vco2}},
-        {"VCO 3",  Shape::Triangle, {26, 32, 12, 14}, {In::Vco3Pitch, In::Vco3Fm, In::Vco3Pm}, {Out::Vco3}},
+        {"VCO 1",  Shape::Triangle, {26, 1, 12, 16},  {In::Vco1Pitch, In::Vco1Fm, In::Vco1Pm, In::Vco1Shape}, {Out::Vco1}},
+        {"VCO 2",  Shape::Triangle, {26, 18, 12, 16}, {In::Vco2Pitch, In::Vco2Fm, In::Vco2Pm, In::Vco2Shape}, {Out::Vco2}},
+        {"VCO 3",  Shape::Triangle, {26, 35, 12, 16}, {In::Vco3Pitch, In::Vco3Fm, In::Vco3Pm, In::Vco3Shape}, {Out::Vco3}},
         {"NOISE",  Shape::Noise,    {26, 54, 11, 8},  {}, {Out::Noise, Out::Rand}},
         {"MIX",    Shape::Triangle, {48, 14, 12, 26}, {In::MixIn1, In::MixIn2, In::MixIn3, In::MixIn4}, {Out::Mix}},
         {"VCF 1",  Shape::Triangle, {68, 20, 12, 14}, {In::Vcf1In, In::Vcf1Cutoff, In::Vcf1Res}, {Out::Vcf1}},
@@ -71,7 +71,7 @@ inline const std::vector<Block>& blocks() {
         {"OUT",    Shape::Triangle, {154, 22, 10, 10}, {In::OutIn, In::OutPan}, {Out::OutOut}},   // S7.6: feeds the effects; S5.25: pan
         {"ENV 1",  Shape::Adsr,     {50, 58, 12, 8},  {In::Env1Gate}, {Out::Env1}},
         {"ENV 2",  Shape::Adsr,     {50, 45, 12, 8},  {In::Env2Gate}, {Out::Env2}},
-        {"LFO 2",  Shape::Triangle, {110, 50, 10, 9}, {In::Lfo2Rate}, {Out::Lfo2}},
+        {"LFO 2",  Shape::Triangle, {110, 49, 10, 12}, {In::Lfo2Rate, In::Lfo2Shape}, {Out::Lfo2}},
         // Spec S7.6: the effects rack; MAIN (what is heard) has the line-out symbol OUT had before. At the bottom,
         // under everything (user 2026-11-26; y 40 before).
         {"COMB",   Shape::Triangle, {88, 70, 12, 10}, {In::CombIn}, {Out::CombOut}},

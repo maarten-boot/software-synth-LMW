@@ -144,6 +144,15 @@ inline const std::vector<Instrument>& builtIn() {
                                                   {"vcf1.cutoff", "3000"}, {"vcf1.res", "0.2"}, {"vcf1.slope", "12 dB"}, {"vcf1.key", "0.5"}},
                                                  reverb("Concert hall")),
                      "vco1.pm=lfo1.out;vco2.pm=lfo1.out;vco3.pm=lfo1.out"});
+        // Spec S5.28: pulse-width modulation — two squares at Shape 40 %, LFO 2 moving their widths in opposite
+        // directions (the classic PWM string pad).
+        v.push_back({"PWM strings", join({{"voice.count", "12"}, {"out.spread", "0.5"}, byVoices, {"vco1.wave", "Square"}, {"vco1.shape", "0.4"},
+                                          {"vco2.wave", "Square"}, {"vco2.tune", "0.08"}, {"vco2.shape", "0.4"}, {"mix.vco2", "0.8"},
+                                          {"lfo2.rate", "0.35"}, {"lfo1.rate", "5"}, {"vco1.fm", "0.08"}, {"vco2.fm", "0.08"},
+                                          {"env1.attack", "0.4"}, {"env1.decay", "0.5"}, {"env1.sustain", "0.85"}, {"env1.release", "1.2"},
+                                          {"vcf1.cutoff", "3500"}, {"vcf1.res", "0.15"}},
+                                         join(ensemble("Solina"), reverb("Concert hall"))),
+                     "vco1.shape=lfo2.out@0.35;vco2.shape=lfo2.out@-0.35"});
         v.push_back({"Electric piano (FM)", join({{"voice.count", "12"}, {"out.spread", "0.4"}, byKeys, {"vco1.wave", "Sine"}, {"vco1.pm", "1.5"},
                                                   {"vco2.wave", "Sine"}, {"mix.vco2", "0"},
                                                   {"env1.attack", "0.002"}, {"env1.decay", "2.5"}, {"env1.sustain", "0"}, {"env1.release", "0.4"}},

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // T-S6.25-fxmatrix (unit): the rows and columns of the Matrix tab (synth) and the effects matrix (Effects tab):
-// 34 x 19 and 5 x 5, no cell where the ports cannot connect (S7.6), together every connectable pair exactly once,
+// 39 x 19 (34 before S5.28) and 5 x 5, no cell where the ports cannot connect (S7.6), together every connectable pair exactly once,
 // and the effects matrix in the effects order (S7.14): row r's normalled source is column r.
 #include "dsp/Patch.h"
 #include <cstdio>
@@ -14,7 +14,7 @@ static int failures = 0;
 int main() {
     const auto si = synthMatrixInputs(), so = synthMatrixOutputs();
     std::printf("Matrix tab %zu x %zu\n", si.size(), so.size());
-    CHECK(si.size() == 34 && so.size() == 19);
+    CHECK(si.size() == 39 && so.size() == 19);                       // 39 since S5.28 (the Shape inputs)
     CHECK(si.front() == static_cast<int>(In::Vco1Pitch) && si.back() == static_cast<int>(In::OutPan));
     CHECK(so.front() == static_cast<int>(Out::KeysPitch) && so.back() == static_cast<int>(Out::Vca));
     for (int order = 0; order < numEffectOrders; ++order) {

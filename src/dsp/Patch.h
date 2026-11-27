@@ -23,6 +23,7 @@ enum class In  : std::uint8_t { Vco1Pitch, Vco1Fm, Vco1Pm, Vco2Pitch, Vco2Fm, Vc
                                 VcaMod, VcaVel,                          // velocity input: Spec S5.22
                                 OutIn, Lfo1Rate, Lfo2Rate,               // LFO rate inputs: Spec S5.19
                                 OutPan,                                  // pan per voice: Spec S5.25
+                                Vco1Shape, Vco2Shape, Vco3Shape, Lfo1Shape, Lfo2Shape,   // Shape inputs: Spec S5.28
                                 CombIn, EnsembleIn, DelayIn, ReverbIn, MainIn,   // effects (Spec S7.6, S7.8, S7.11)
                                 Count };
 
@@ -32,6 +33,7 @@ inline constexpr Out vcoOut(int n) noexcept { return static_cast<Out>(static_cas
 inline constexpr In vcoPitchIn(int n) noexcept { return static_cast<In>(static_cast<int>(In::Vco1Pitch) + 3 * n); }
 inline constexpr In vcoFmIn(int n) noexcept { return static_cast<In>(static_cast<int>(In::Vco1Fm) + 3 * n); }
 inline constexpr In vcoPmIn(int n) noexcept { return static_cast<In>(static_cast<int>(In::Vco1Pm) + 3 * n); }   // S5.20
+inline constexpr In vcoShapeIn(int n) noexcept { return static_cast<In>(static_cast<int>(In::Vco1Shape) + n); }   // S5.28
 
 inline constexpr int numOutputs = static_cast<int>(Out::Count);
 inline constexpr int numInputs  = static_cast<int>(In::Count);
@@ -46,7 +48,9 @@ inline constexpr std::array<std::string_view, numInputs> inputNames{
     "env1.gate", "env2.gate",
     "mix.in1", "mix.in2", "mix.in3", "mix.in4", "vcf1.in", "vcf1.cutoff", "vcf1.res", "vcf2.in", "vcf2.cutoff", "vcf2.res",
     "formant.in", "formant.vowel", "mix2.in1", "mix2.in2", "mix2.in3", "vca.in", "vca.cv",
-    "vca.mod", "vca.vel", "out.in", "lfo1.rate", "lfo2.rate", "out.pan", "comb.in", "ensemble.in", "delay.in", "reverb.in", "main.in"};
+    "vca.mod", "vca.vel", "out.in", "lfo1.rate", "lfo2.rate", "out.pan",
+    "vco1.shape", "vco2.shape", "vco3.shape", "lfo1.shape", "lfo2.shape",   // S5.28
+    "comb.in", "ensemble.in", "delay.in", "reverb.in", "main.in"};
 
 // An input without a normalled source reads 0 until a cable is plugged in (Spec S5.13: vcfN.res).
 inline constexpr Out noSource = Out::Count;
@@ -62,6 +66,7 @@ inline constexpr std::array<Out, numInputs> normalled{
     Out::KeysVel,                                                 // S5.22: velocity -> VCA, as before but patchable
     Out::Vca, noSource, noSource,
     noSource,                                                     // S5.25: out.pan, no normalled source
+    noSource, noSource, noSource, noSource, noSource,             // S5.28: the Shape inputs, no normalled source
     Out::OutOut, Out::CombOut, Out::EnsembleOut, Out::DelayOut, Out::ReverbOut};   // S7.6, S7.8, S7.11: out.out -> COMB -> ENSEMBLE -> DELAY -> REVERB -> main.in
 
 // Name of an output, or "none" for noSource (hover texts, 9P /ports).
@@ -167,7 +172,15 @@ inline constexpr bool canConnect(In i, Out o) noexcept { return isEffectIn(i) ==
 // outputs in chain order (the normalled chain is the diagonal next to the main one).
 inline std::vector<int> synthMatrixInputs() {
     std::vector<int> v;
-    for (int i = 0; i < numInputs; ++i) if (!isEffectIn(static_cast<In>(i))) v.push_back(i);
+    for (int i = 0; i < numInputs; ++i) {
+        const auto in = static_cast<In>(i);
+        if (isEffectIn(in) || (in >= In::Vco1Shape && in <= In::Lfo2Shape)) continue;
+        v.push_back(i);
+        // S5.28: each Shape input next to its unit's other inputs (vcoN.pm, lfoN.rate), not at the end
+        for (int n = 0; n < numVcos; ++n) if (in == vcoPmIn(n)) v.push_back(static_cast<int>(vcoShapeIn(n)));
+        if (in == In::Lfo1Rate) v.push_back(static_cast<int>(In::Lfo1Shape));
+        if (in == In::Lfo2Rate) v.push_back(static_cast<int>(In::Lfo2Shape));
+    }
     return v;
 }
 inline std::vector<int> synthMatrixOutputs() {
@@ -195,6 +208,7 @@ inline constexpr bool bipolar(In i) noexcept {
         case In::Vco3Pitch: case In::Vco3Fm: case In::Vco3Pm: case In::Vcf1Cutoff: case In::Vcf1Res:
         case In::Vcf2Cutoff: case In::Vcf2Res: case In::FormantVowel: case In::VcaCv: case In::VcaMod: case In::VcaVel:
         case In::Lfo1Rate: case In::Lfo2Rate: case In::OutPan:   // S5.25
+        case In::Vco1Shape: case In::Vco2Shape: case In::Vco3Shape: case In::Lfo1Shape: case In::Lfo2Shape:   // S5.28
             return true;
         default:
             return false;

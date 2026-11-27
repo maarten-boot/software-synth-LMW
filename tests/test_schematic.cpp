@@ -190,7 +190,8 @@ int main() {
         const auto order = sc::portOrder();
         CHECK(static_cast<int>(order.size()) == lmw::dsp::numInputs + lmw::dsp::numOutputs);
         CHECK(order.front().input && order.front().index == static_cast<int>(In::Lfo1Rate));   // LFO 1 first: its rate input (S5.19)
-        CHECK(!order[1].input && order[1].index == static_cast<int>(Out::Lfo1));
+        CHECK(order[1].input && order[1].index == static_cast<int>(In::Lfo1Shape));   // S5.28
+        CHECK(!order[2].input && order[2].index == static_cast<int>(Out::Lfo1));
         std::set<std::pair<bool, int>> seen;
         for (const auto& h : order) seen.insert({h.input, h.index});
         CHECK(seen.size() == order.size());
@@ -207,7 +208,7 @@ int main() {
         // A free spot: moves (snapped to the grid); ports and internal targets follow.
         CHECK(l.move(lfo2, {96.4f, 55.6f}));
         CHECK(l.position(lfo2).x == 96 && l.position(lfo2).y == 56 && !l.isDefault());
-        CHECK(sc::outputPoint(Out::Lfo2, l).x == 106 && sc::outputPoint(Out::Lfo2, l).y == 56 + 4.5f);
+        CHECK(sc::outputPoint(Out::Lfo2, l).x == 106 && sc::outputPoint(Out::Lfo2, l).y == 56 + 6.0f);
         CHECK(sc::outputPoint(Out::Lfo2).x == 120);                                    // default unchanged
         CHECK(sc::portAt(sc::outputPoint(Out::Lfo2, l), 0.5f, false, l).has_value());
         CHECK(!sc::portAt(sc::outputPoint(Out::Lfo2), 0.5f, false, l));
@@ -222,7 +223,7 @@ int main() {
         CHECK(!l.move(vcf2, {130, 20}) && !l.move(vcf2, {88, -1}) && !l.move(vcf2, {88, 60}));
         CHECK(l.serialize() == before);
         // Text form: every block; round trip; partial text keeps the others at their default place.
-        CHECK(sc::Layout().serialize().starts_with("lfo1:2,6;keys:2,23;vco1:26,2;"));   // VCO 1 at y 2 since S5.20
+        CHECK(sc::Layout().serialize().starts_with("lfo1:2,5;keys:2,23;vco1:26,1;"));   // VCO 1 at y 2 since S5.20
         const auto back = sc::Layout::parse(before);
         CHECK(back && *back == l);
         const auto partial = sc::Layout::parse(" lfo2 : 110 , 56 ");

@@ -60,6 +60,9 @@ so a held note stays.
 4. *VCO 2 › Oct* +1 and *Tune* 0: an octave on top, organ-like. *VCO 2 › Tune* 7: a fifth.
 5. *MIXER › Noise* to 10 %: a breath on top of the tone. *NOISE › Colour*: White, Pink (softer),
    Brown (darker).
+6. *VCO 1 › Wave* Square, then *VCO 1 › Shape* slowly up: the square narrows to a thin pulse
+   ([shape](../Terms.md#shape)). Patch *LFO 2 › Out* to *VCO 1 › Shape* (Shape at 40 %): the width moves —
+   pulse-width modulation, the rich, slowly moving sound of *Presets › PWM strings*.
 
 **Listen for:** how much character the wave alone gives — before any filter.
 **Try yourself:** VCO 1, 2 and 3 all on Saw, Tune 0, +0.1 and −0.08, mixer 100/80/60 %: a string

@@ -32,6 +32,7 @@ inline constexpr const char* voices      = "voice.count";
 inline constexpr std::array<const char*, 3> vcoWave  {"vco1.wave",   "vco2.wave",   "vco3.wave"};
 inline constexpr std::array<const char*, 3> vcoFm    {"vco1.fm",     "vco2.fm",     "vco3.fm"};
 inline constexpr std::array<const char*, 3> vcoPm    {"vco1.pm",     "vco2.pm",     "vco3.pm"};   // Spec S5.20
+inline constexpr std::array<const char*, 3> vcoShape {"vco1.shape",  "vco2.shape",  "vco3.shape"};   // Spec S5.28
 inline constexpr std::array<const char*, 3> vcoOctave{"vco1.octave", "vco2.octave", "vco3.octave"};
 inline constexpr std::array<const char*, 3> vcoTune  {"vco1.tune",   "vco2.tune",   "vco3.tune"};
 inline constexpr std::array<const char*, 3> mixVco   {"mix.vco1",    "mix.vco2",    "mix.vco3"};
@@ -72,6 +73,8 @@ inline constexpr const char* lfo2Rate    = "lfo2.rate";
 inline constexpr const char* lfo2Wave    = "lfo2.wave";
 inline constexpr const char* lfoDelay    = "lfo1.delay";   // Spec S5.24: delayed vibrato
 inline constexpr const char* lfo2Delay   = "lfo2.delay";
+inline constexpr const char* lfoShape    = "lfo1.shape";   // Spec S5.28
+inline constexpr const char* lfo2Shape   = "lfo2.shape";
 inline constexpr const char* gain        = "out.gain";
 inline constexpr const char* outPan      = "out.pan";        // Spec S5.25: stereo per voice
 inline constexpr const char* outSpread   = "out.spread";
@@ -391,13 +394,13 @@ private:
     struct RawParams {                 // atomics owned by apvts, read on the audio thread
         std::atomic<float> *voices{}, *mixNoise{}, *vcaInitial{},
             *e1a{}, *e1d{}, *e1s{}, *e1r{}, *e2a{}, *e2d{}, *e2s{}, *e2r{}, *lfoRate{}, *lfoWave{}, *gain{},
-            *lfo2Rate{}, *lfo2Wave{}, *lfoDelay{}, *lfo2Delay{}, *outPan{}, *outSpread{}, *spreadMode{}, *glide{}, *glideMode{}, *bendRange{}, *tremolo{}, *vcaVelocity{}, *revType{}, *revPredelay{}, *revMix{}, *revSize{}, *revDamping{}, *revWidth{},
+            *lfo2Rate{}, *lfo2Wave{}, *lfoDelay{}, *lfo2Delay{}, *lfoShape{}, *lfo2Shape{}, *outPan{}, *outSpread{}, *spreadMode{}, *glide{}, *glideMode{}, *bendRange{}, *tremolo{}, *vcaVelocity{}, *revType{}, *revPredelay{}, *revMix{}, *revSize{}, *revDamping{}, *revWidth{},
             *noiseColour{}, *noiseRate{}, *noiseSmooth{},
             *combFreq{}, *combKey{}, *combFeedback{}, *combDamping{}, *combMix{},
             *delayTime{}, *delayFeedback{}, *delayDamping{}, *delaySpread{}, *delayMix{}, *ensembleDepth{}, *ensembleRate{}, *ensembleShimmer{}, *ensembleMix{}, *formantVowel{}, *formantVoice{}, *formantRes{}, *formantMix{}, *vcfRouting{}, *effectsOrder{};
         std::array<std::atomic<float>*, 2> cutoff{}, resonance{}, vcfEnv{}, vcfKey{}, vcfSlope{}, vcfType{};
         std::array<std::atomic<float>*, 3> mix2Level{}, mix2Pan{};   // Spec S5.26
-        std::array<std::atomic<float>*, 3> wave{}, fm{}, pm{}, octave{}, tune{}, mixVco{};
+        std::array<std::atomic<float>*, 3> wave{}, fm{}, pm{}, octave{}, tune{}, mixVco{}, shape{};
     } raw;
 
     // Spec S7.4: reverb (JUCE's Freeverb), wet only, mixed in with our own 20 ms Mix smoothing. While Mix

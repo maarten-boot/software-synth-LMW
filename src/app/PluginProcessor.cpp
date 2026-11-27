@@ -72,6 +72,7 @@ APVTS::ParameterLayout LMWSynthProcessor::createLayout(std::map<std::string, Flo
               // Skewed for more travel where small changes matter (user 2026-11-21): half way = 1 st, PM index 2.
               f(P::vcoFm[n],   (name + " FM").toRawUTF8(), skewed(0.0f, 12.0f, 1.0f), 0.0f, semis),
               f(P::vcoPm[n],   (name + " PM").toRawUTF8(), skewed(0.0f, 10.0f, 2.0f), 0.0f, index),   // Spec S5.20
+              f(P::vcoShape[n], (name + " Shape").toRawUTF8(), Range(0.0f, 1.0f), 0.0f, percent),    // Spec S5.28
               f(P::mixVco[n],  ("Mixer " + name).toRawUTF8(), Range(0.0f, 1.0f), n == 0 ? 1.0f : 0.0f, percent));
     }
     l.add(f(P::mixNoise,  "Mixer Noise",   Range(0.0f, 1.0f), 0.0f, percent));
@@ -120,6 +121,8 @@ APVTS::ParameterLayout LMWSynthProcessor::createLayout(std::map<std::string, Flo
               juce::StringArray{"Sine", "Triangle", "Saw", "Square"}, 0),
           f(P::lfoDelay, "LFO 1 Delay", time(5.0f), 0.0f, seconds),      // Spec S5.24
           f(P::lfo2Delay, "LFO 2 Delay", time(5.0f), 0.0f, seconds),
+          f(P::lfoShape, "LFO 1 Shape", Range(0.0f, 1.0f), 0.0f, percent),     // Spec S5.28
+          f(P::lfo2Shape, "LFO 2 Shape", Range(0.0f, 1.0f), 0.0f, percent),
           f(P::gain, "Volume", Range(0.0f, 1.0f), 0.8f, decibels),
           f(P::outPan, "Pan", Range(-1.0f, 1.0f), 0.0f, percent),          // Spec S5.25
           f(P::outSpread, "Spread", Range(0.0f, 1.0f), 0.0f, percent),
@@ -179,6 +182,7 @@ LMWSynthProcessor::LMWSynthProcessor()
     raw.lfoRate = get(P::lfoRate); raw.lfoWave = get(P::lfoWave); raw.gain = get(P::gain);
     raw.lfo2Rate = get(P::lfo2Rate); raw.lfo2Wave = get(P::lfo2Wave);
     raw.lfoDelay = get(P::lfoDelay); raw.lfo2Delay = get(P::lfo2Delay);
+    raw.lfoShape = get(P::lfoShape); raw.lfo2Shape = get(P::lfo2Shape);   // Spec S5.28
     raw.outPan = get(P::outPan); raw.outSpread = get(P::outSpread); raw.spreadMode = get(P::spreadMode);
     raw.glide = get(P::glide); raw.glideMode = get(P::glideMode); raw.bendRange = get(P::bendRange);
     for (std::size_t k = 0; k < 3; ++k) { raw.mix2Level[k] = get(P::mix2Level[k]); raw.mix2Pan[k] = get(P::mix2Pan[k]); } raw.tremolo = get(P::vcaTremolo);
@@ -198,7 +202,7 @@ LMWSynthProcessor::LMWSynthProcessor()
     raw.vcfRouting = get(P::vcfRouting);
     raw.effectsOrder = get(P::effectsOrder);
     for (std::size_t n = 0; n < 3; ++n) {
-        raw.wave[n] = get(P::vcoWave[n]); raw.fm[n] = get(P::vcoFm[n]); raw.pm[n] = get(P::vcoPm[n]); raw.octave[n] = get(P::vcoOctave[n]);
+        raw.wave[n] = get(P::vcoWave[n]); raw.fm[n] = get(P::vcoFm[n]); raw.pm[n] = get(P::vcoPm[n]); raw.shape[n] = get(P::vcoShape[n]); raw.octave[n] = get(P::vcoOctave[n]);
         raw.tune[n] = get(P::vcoTune[n]); raw.mixVco[n] = get(P::mixVco[n]);
     }
     keyboard.addListener(this);
@@ -497,6 +501,7 @@ void LMWSynthProcessor::pullParameters() noexcept {
     for (std::size_t n = 0; n < 3; ++n) {
         m.fmSemitones[n] = raw.fm[n]->load();
         m.pmIndex[n]     = raw.pm[n]->load();        // Spec S5.20
+        m.vcoShape[n]    = raw.shape[n]->load();     // Spec S5.28
         m.octave[n]      = static_cast<int>(raw.octave[n]->load()) - 2;    // choice index 0..4 = -2..+2
         m.tune[n]        = raw.tune[n]->load();
         m.mixVco[n]      = raw.mixVco[n]->load();
@@ -521,6 +526,8 @@ void LMWSynthProcessor::pullParameters() noexcept {
     m.lfo2Rate    = raw.lfo2Rate->load();
     m.lfo2Wave    = static_cast<lmw::dsp::LfoWave>(static_cast<int>(raw.lfo2Wave->load()));
     m.lfoDelay    = {raw.lfoDelay->load(), raw.lfo2Delay->load()};          // Spec S5.24
+    m.lfoShape    = raw.lfoShape->load();                                    // Spec S5.28
+    m.lfo2Shape   = raw.lfo2Shape->load();
     m.pan         = raw.outPan->load();                                      // Spec S5.25
     m.spread      = raw.outSpread->load();
     m.spreadMode  = static_cast<lmw::dsp::SpreadMode>(static_cast<int>(raw.spreadMode->load()));

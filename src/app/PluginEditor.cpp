@@ -119,11 +119,12 @@ void LMWLookAndFeel::drawLinearSlider(juce::Graphics& g, int x, int y, int width
     if (const auto* scaled = dynamic_cast<const ScaleSlider*>(&s); scaled != nullptr && scaled->showTicks) {   // S6.20
         g.setFont(lmw::app::smallFont(9.0f));               // S6.29: bold in a dark theme
         const float textX = cx + 17.0f, textW = static_cast<float>(x + width) - textX + 2.0f;
+        const bool roomForTexts = static_cast<float>(height) >= 60.0f;   // S5.28: a short fader (LFO Shape) keeps only the marks
         for (const auto& t : scaled->ticks) {
             const float ty = static_cast<float>(s.getPositionOfValue(t.value));
             const float len = t.major ? 6.0f : 3.0f;
             g.fillRect(juce::Rectangle<float>(cx - 17.0f - len, ty - 0.5f, len, 1.0f));
-            if (t.major && scaled->tickLabels && textW > 8.0f)
+            if (t.major && scaled->tickLabels && roomForTexts && textW > 8.0f)
                 g.drawText(juce::String(t.text), juce::Rectangle<float>(textX, ty - 5.0f, textW, 10.0f),
                            juce::Justification::centredLeft, false);
         }
@@ -255,6 +256,10 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
                       "0 = off; a sine carrier and modulator sound clearest")),
              addFader(P::vcoTune[i], "Tune", inputTip(lmw::dsp::vcoPitchIn(n),
                       "Detune, -7 to +7 semitones; Oct shifts by whole octaves")),
+             addFader(P::vcoShape[i], "Shape", inputTip(lmw::dsp::vcoShapeIn(n),   // Spec S5.28, above its socket
+                      "Shape of the wave: Square narrows to a pulse (PWM), Triangle leans to a saw, Saw doubles\n"
+                      "(an octave up at 100 %), Sine bends brighter, Pulse narrows further. 0 = the plain wave.\n"
+                      "Shape input: added to the fader (an LFO here gives pulse-width modulation)")),
              stacked(addChoice(P::vcoWave[i], "Wave", {"Sine", "Saw", "Square", "Triangle", "Pulse"},
                                "Waveform. Pulse: narrow (12.5 %), bright and nasal, good under FORMANT"),
                      addChoice(P::vcoOctave[i], "Oct", {"-2", "-1", "0", "+1", "+2"}, "Octave"))}, {}});
@@ -270,8 +275,11 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
                                        return juce::String("0 = random steps; higher = glides from value to value");
                                    })}, {}});
     // Spec S5.12: LFO 1 = vibrato (normalled to the VCO FM inputs), LFO 2 = tremolo (normalled to vca.mod).
+    const juce::String lfoShapeTip = "Shape of the wave: Triangle leans to a ramp, Square gets shorter (pulses), Saw doubles,\n"
+                                     "Sine bends. 0 = the plain wave. Shape input: added to the fader";   // Spec S5.28
     const std::size_t lfoPanel = groups.size();
-    groups.push_back({"LFO 1", 0, {addChoice(P::lfoWave, "Wave", {"Sine", "Triangle", "Saw", "Square"}),
+    groups.push_back({"LFO 1", 2, {boxOver(addChoice(P::lfoWave, "Wave", {"Sine", "Triangle", "Saw", "Square"}),   // S5.28: row 3
+                                           addFader(P::lfoShape, "Shape", inputTip(In::Lfo1Shape, lfoShapeTip))),
                                    addFader(P::lfoRate, "Rate", inputTip(In::Lfo1Rate,
                                        "Shared LFO 1 (vibrato): lfo1.out feeds vco1.fm, vco2.fm and vco3.fm\n"
                                        "(normalled); the FM faders set the depth.\n"
@@ -330,7 +338,8 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
         {addFader(P::env2Attack, "Attack"), addFader(P::env2Decay, "Decay"),
          addFader(P::env2Sustain, "Sustain"), addFader(P::env2Release, "Release")}, {}});
     const std::size_t lfo2Panel = groups.size();
-    groups.push_back({"LFO 2", 2, {addChoice(P::lfo2Wave, "Wave", {"Sine", "Triangle", "Saw", "Square"}),
+    groups.push_back({"LFO 2", 2, {boxOver(addChoice(P::lfo2Wave, "Wave", {"Sine", "Triangle", "Saw", "Square"}),
+                                           addFader(P::lfo2Shape, "Shape", inputTip(In::Lfo2Shape, lfoShapeTip))),
                                    addFader(P::lfo2Rate, "Rate", inputTip(In::Lfo2Rate,
                                        "Shared LFO 2 (tremolo): lfo2.out feeds vca.mod (normalled);\n"
                                        "the VCA Tremolo fader sets the depth.\n"
@@ -485,7 +494,7 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
                 row.insert(at(before), g);
             }
         };
-        moveBefore("LFO 1", "VCO 1");
+        moveBefore("LFO 1", "LFO 2");                        // S5.28: LFO 1 beside LFO 2 in row 3 (the VCOs are wider)
         moveBefore("ENV 2", "ENV 1");
         int maxColumns = 0;
         for (const auto& row : defaultRows) {
@@ -520,7 +529,9 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
             {vcaPanel, 0, false, in(In::VcaIn), "In"},          {vcaPanel, 0, false, in(In::VcaCv), "CV"},
             {vcaPanel, 1, false, in(In::VcaMod), "Mod"},
             {vcaPanel, 2, false, in(In::VcaVel), "Vel"},        {vcaPanel, 2, true, out(Out::Vca), "Out"},   // S5.22
+            {lfoPanel, 0, false, in(In::Lfo1Shape), "Shape"},   // S5.28
             {lfoPanel, 1, false, in(In::Lfo1Rate), "Rate"},     {lfoPanel, 1, true, out(Out::Lfo1), "Out"},   // S5.19
+            {lfo2Panel, 0, false, in(In::Lfo2Shape), "Shape"},
             {lfo2Panel, 1, false, in(In::Lfo2Rate), "Rate"},    {lfo2Panel, 1, true, out(Out::Lfo2), "Out"},
             {outPanel, 0, false, in(In::OutIn), "In"},          {outPanel, 1, false, in(In::OutPan), "Pan"},   // S5.25
             {env1Panel, 0, false, in(In::Env1Gate), "Gate"},    {env1Panel, 3, true, out(Out::Env1), "Out"},
@@ -535,7 +546,8 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
             ports.push_back({g, 0, false, in(lmw::dsp::vcoFmIn(n)), "FM"});
             ports.push_back({g, 1, false, in(lmw::dsp::vcoPmIn(n)), "PM"});      // Spec S5.20
             ports.push_back({g, 2, false, in(lmw::dsp::vcoPitchIn(n)), "Pitch"});
-            ports.push_back({g, 3, true, out(lmw::dsp::vcoOut(n)), "Out"});
+            ports.push_back({g, 3, false, in(lmw::dsp::vcoShapeIn(n)), "Shape"});   // Spec S5.28
+            ports.push_back({g, 4, true, out(lmw::dsp::vcoOut(n)), "Out"});
         }
         groupJacks.resize(groups.size());
         for (const auto& d : ports) {
@@ -1499,7 +1511,11 @@ void LMWSynthEditor::layoutJacks(const std::vector<Jack*>& js, int columns, juce
 
 void LMWSynthEditor::layoutItem(const Item& item, juce::Rectangle<int> column) const {
     column.reduce(m.colW >= 80 ? 4 : 2, 0);
-    if (item.fader != nullptr && item.choice != nullptr) {   // S5.25: a box under the fader, its text says it
+    if (item.fader != nullptr && item.choice != nullptr && item.boxOnTop) {   // S5.28: the box with its label, then the fader
+        item.choice->label.setBounds(column.removeFromTop(m.labelH));
+        item.choice->box.setBounds(column.removeFromTop(m.boxH + 2).reduced(2, 0));
+        column.removeFromTop(m.gap / 2);
+    } else if (item.fader != nullptr && item.choice != nullptr) {   // S5.25: a box under the fader, its text says it
         item.choice->label.setBounds({});
         item.choice->box.setBounds(column.removeFromBottom(m.boxH + 2).reduced(2, 0));
         column.removeFromBottom(m.gap / 2);

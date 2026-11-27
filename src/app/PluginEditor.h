@@ -104,10 +104,13 @@ private:
         Choice* choice = nullptr;
         Choice* choice2 = nullptr;      // stacked below `choice`
         Choice* choice3 = nullptr;      // a third box below, without its label (S5.17: VCF routing)
+        bool boxOnTop = false;          // S5.28: the choice box above a short fader (LFO Wave over Shape)
     };
     static Item stacked(Item top, Item bottom) { return {nullptr, top.choice, bottom.choice}; }
     // Spec S5.25: a fader with a choice box (no label) under it in the same column (OUT: Spread and its mode).
     static Item withBox(Item fader, Item box) { return {fader.fader, box.choice}; }
+    // Spec S5.28 (choice E a): a choice box with its label, and a short fader under it (LFO: Wave over Shape).
+    static Item boxOver(Item box, Item fader) { Item i{fader.fader, box.choice}; i.boxOnTop = true; return i; }
     static Item stacked(Item top, Item middle, Item bottom) { return {nullptr, top.choice, middle.choice, bottom.choice}; }
     struct Group {                      // a framed module panel (Spec S6.1)
         juce::String title;
@@ -414,7 +417,7 @@ private:
     bool shownOsDark = false;                             // Spec S6.29: the OS dark mode the theme was made for
     int systemThemeTick = 0;
     Metrics m = normalMetrics;
-    std::array<Fader, 70> faders;                          // exactly the faders made (70 since S7.15: reverb Pre-delay)
+    std::array<Fader, 75> faders;                          // exactly the faders made (75 since S5.28: the five Shapes)
     std::array<Choice, 17> choices;                        // 17 since S7.15 (reverb Type)
     std::size_t usedFaders = 0, usedChoices = 0;
     std::vector<Group> groups;

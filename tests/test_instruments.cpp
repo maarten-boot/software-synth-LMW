@@ -35,7 +35,7 @@ int main() {
             int modules = 0;
             for (const auto& [id, value] : i.values)
                 modules += (id.rfind("env1.", 0) == 0 || id.rfind("env2.", 0) == 0 || id.rfind("vcf1.", 0) == 0 || id.rfind("vco1.", 0) == 0) ? 1 : 0;
-            CHECK(modules == 4 + 4 + 6 + 5);
+            CHECK(modules == 4 + 4 + 6 + 6);   // VCO: + shape (S5.28)
             bool solo = false; for (const auto& [id, value] : i.values) solo = solo || (id == "voice.count" && value == "1");
             CHECK(solo);
         }
@@ -49,7 +49,7 @@ int main() {
         }
     }
     std::printf("%zu built-in instrument presets\n", list.size());
-    CHECK(list.size() == 33);   // + Choral flute (S5.26), + 13 world instruments (S7.13)
+    CHECK(list.size() == 34);   // + PWM strings (S5.28), + Choral flute (S5.26), + 13 world instruments (S7.13)
     {   // S7.13: the World group, 13 instruments
         int world = 0;
         for (const auto& i : list) world += i.group == "World" ? 1 : 0;
