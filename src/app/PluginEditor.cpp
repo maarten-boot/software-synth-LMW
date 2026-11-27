@@ -3391,13 +3391,26 @@ void LMWSynthEditor::showInstrumentMenu() {
     menu.setLookAndFeel(&lookAndFeel);              // black on white (Spec S6.2)
     menu.addSectionHeader("Instrument presets");
     menu.addItem(1, "Default");
+    // Spec S7.16: one submenu per family; the world instruments also in theirs, below a separator (same ids: the
+    // same preset). Then Presets > World (S7.13).
+    for (const auto family : lmw::instruments::families) {
+        juce::PopupMenu sub;
+        sub.setLookAndFeel(&lookAndFeel);
+        for (std::size_t i = 0; i < builtIn.size(); ++i)
+            if (builtIn[i].family == family && builtIn[i].group != "World")
+                sub.addItem(100 + static_cast<int>(i), juce::String::fromUTF8(builtIn[i].name.c_str()));
+        bool separated = false;
+        for (std::size_t i = 0; i < builtIn.size(); ++i)
+            if (builtIn[i].family == family && builtIn[i].group == "World") {
+                if (!separated) { sub.addSeparator(); separated = true; }
+                sub.addItem(100 + static_cast<int>(i), juce::String::fromUTF8(builtIn[i].name.c_str()));
+            }
+        menu.addSubMenu(juce::String(family.data(), family.size()), sub);
+    }
     juce::PopupMenu world;                           // Spec S7.13: Presets > World
     world.setLookAndFeel(&lookAndFeel);
-    for (std::size_t i = 0; i < builtIn.size(); ++i) {
-        const auto item = juce::String::fromUTF8(builtIn[i].name.c_str());
-        if (builtIn[i].group == "World") world.addItem(100 + static_cast<int>(i), item);
-        else menu.addItem(100 + static_cast<int>(i), item);
-    }
+    for (std::size_t i = 0; i < builtIn.size(); ++i)
+        if (builtIn[i].group == "World") world.addItem(100 + static_cast<int>(i), juce::String::fromUTF8(builtIn[i].name.c_str()));
     menu.addSubMenu("World", world);
     if (!own.isEmpty()) {
         menu.addSectionHeader("Your presets");

@@ -485,6 +485,64 @@ int main(int argc, char* argv[]) {
             }
         std::printf("instrument presets: %d of %d values accepted and read back\n", instrumentExact, instrumentValues);
         CHECK(instrumentValues > 300 && instrumentExact == instrumentValues);
+        CHECK(write9P(sock, {"effects"}, "comb ensemble delay reverb").empty());   // S7.16: Shimmer space changed the order
+
+        // 4h-2. Spec S7.16: loudness. Each instrument loaded as a patch (missing parameters: their defaults), then C4
+        // held (one note: a chord would favour the polyphonic ones) for 2.5 s through the whole plugin, effects included;
+        // the loudest 50 ms (RMS), in dB against String section, within +-2 dB.
+        {
+            auto loudness = [&](const lmw::instruments::Instrument& ins) {
+                std::string text = "# LMW-Synth patch\nformat = 1\nstate_version = 6\nname = " + ins.name + "\n\n[parameters]\n";
+                int voices = 8;
+                for (const auto& [id, value] : ins.values) {
+                    text += id + " = " + value + "\n";
+                    if (id == "voice.count") voices = std::atoi(value.c_str());
+                }
+                text += "\n[cables]\n";
+                std::string c = ins.cables;
+                for (std::size_t at = 0; !c.empty();) {
+                    at = c.find(';');
+                    text += c.substr(0, at) + "\n";
+                    c = at == std::string::npos ? std::string() : c.substr(at + 1);
+                }
+                text += "\n[notes]\n";
+                if (const auto e = write9P(sock, {"patch"}, text); !e.empty()) { std::printf("  %s: %s\n", ins.name.c_str(), e.c_str()); return -999.0; }
+                a->releaseResources(); a->prepareToPlay(sampleRate, blockSize);
+                (void)voices;
+                const std::vector<int> notes{60};                // per note: solo and polyphonic presets compared alike
+                juce::AudioBuffer<float> buffer(2, blockSize);
+                // The loudest 50 ms (both channels) of a note held 2.5 s: fair to slow pads and to plucked sounds alike.
+                const int window = static_cast<int>(0.05 * sampleRate);
+                double e = 0.0, best = 0.0; long count = 0;
+                const int blocks = static_cast<int>(2.5 * sampleRate / blockSize);
+                for (int blk = 0; blk < blocks; ++blk) {
+                    juce::MidiBuffer midi;
+                    if (blk == 0) for (const int n : notes) midi.addEvent(juce::MidiMessage::noteOn(1, n, static_cast<juce::uint8>(100)), 0);
+                    buffer.clear();
+                    a->processBlock(buffer, midi);
+                    for (int i = 0; i < blockSize; ++i) {
+                        for (int ch = 0; ch < 2; ++ch) { const double v = buffer.getSample(ch, i); e += v * v; }
+                        if (++count == window) { best = std::max(best, e / (2.0 * window)); e = 0.0; count = 0; }
+                    }
+                }
+                juce::MidiBuffer off;
+                for (const int n : notes) off.addEvent(juce::MidiMessage::noteOff(1, n), 0);
+                buffer.clear(); a->processBlock(buffer, off);
+                return 10.0 * std::log10(best + 1e-12);
+            };
+            double reference = 0.0;
+            for (const auto& ins : lmw::instruments::builtIn()) if (ins.name == "String section") reference = loudness(ins);
+            int within = 0, total = 0;
+            for (const auto& ins : lmw::instruments::builtIn()) {
+                const double d = loudness(ins) - reference;
+                ++total;
+                if (std::fabs(d) <= 2.0) ++within;
+                std::printf("  loudness %-22s %+5.1f dB%s\n", ins.name.c_str(), d, std::fabs(d) <= 2.0 ? "" : "  (outside +-2 dB)");
+            }
+            std::printf("loudness: %d of %d instruments within +-2 dB of String section\n", within, total);
+            CHECK(within == total);
+            CHECK(write9P(sock, {"patch"}, "# LMW-Synth patch\nformat = 1\nname = Default\n\n[parameters]\n\n[cables]\n\n[notes]\n").empty());
+        }
 
 #ifdef LMW_MCP_PATH
         // 4i. lmw-mcp end to end (Spec S11, T-S11-mcp-host): the real program against this instance, in a

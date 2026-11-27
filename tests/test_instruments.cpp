@@ -6,6 +6,8 @@
 #include "app/InstrumentPresets.h"
 #include "dsp/PatchText.h"
 #include <cstdio>
+#include <algorithm>
+#include <map>
 #include <set>
 
 static int failures = 0;
@@ -41,15 +43,41 @@ int main() {
         }
     // S5.24: the solo instruments with vibrato start it after the attack (lfo1.delay 0.4 s); the others have none.
     {
-        const std::set<std::string> delayed{"Flute", "Oboe", "Clarinet", "Bassoon", "Trumpet", "French horn", "Violin", "Male voice (ooo)", "Choral flute"};
+        const std::set<std::string> delayed{"Flute", "Oboe", "Clarinet", "Bassoon", "Trumpet", "French horn", "Violin", "Male voice (ooo)", "Choral flute", "Hollow lead"};
         for (const auto& i : list) {
             std::string d;
             for (const auto& [id, value] : i.values) if (id == "lfo1.delay") d = value;
             if (i.group.empty()) CHECK(delayed.count(i.name) ? d == "0.4" : d.empty());   // (World: their own)
         }
     }
+    // Spec S7.16: every instrument has a family; the main ones once in the menu, each world one also in World; the
+    // families are the menu's; the new Synth presets use their feature.
+    {
+        std::map<std::string, int> perFamily;
+        for (const auto& i : list) {
+            CHECK(!i.family.empty());
+            CHECK(std::find(lmw::instruments::families.begin(), lmw::instruments::families.end(), i.family) != lmw::instruments::families.end());
+            ++perFamily[i.family];
+        }
+        for (const auto& [f, n] : perFamily) std::printf("  %s: %d\n", f.c_str(), n);
+        CHECK(perFamily["Woodwinds"] == 10 && perFamily["Brass"] == 3 && perFamily["Strings"] == 4 && perFamily["Keyboards"] == 4
+              && perFamily["Plucked & mallets"] == 9 && perFamily["Voices"] == 2 && perFamily["Synth"] == 8);
+        auto value = [&](const std::string& name, const std::string& id) {
+            for (const auto& i : list) if (i.name == name) for (const auto& [k, v] : i.values) if (k == id) return v;
+            return std::string();
+        };
+        auto cables = [&](const std::string& name) { for (const auto& i : list) if (i.name == name) return i.cables; return std::string(); };
+        CHECK(value("Acid bass", "vcf1.res") == "0.85" && value("Acid bass", "keys.glidemode") == "Legato");
+        CHECK(value("Filter sine", "mix.vco1") == "0" && value("Filter sine", "vcf1.res") == "1" && value("Filter sine", "vcf1.key") == "1");
+        CHECK(value("Hollow lead", "vco1.shape") == "1" && value("Hollow lead", "delay.mix") != "");
+        CHECK(value("Ping-pong pluck", "delay.spread") == "1");
+        CHECK(value("Wobble pad", "lfo2.shape") == "0.9" && cables("Wobble pad").find("lfo2.out") != std::string::npos);
+        CHECK(value("Shimmer space", "effects.order") == "reverb, comb, ensemble, delay");
+        for (const char* n : {"Trumpet", "French horn", "Piano", "Harpsichord", "Electric piano (FM)"})
+            CHECK(cables(n).find("vcf1.cutoff=env2.out+keys.vel@0.4") != std::string::npos);   // velocity brightens, ENV 2 kept
+    }
     std::printf("%zu built-in instrument presets\n", list.size());
-    CHECK(list.size() == 34);   // + PWM strings (S5.28), + Choral flute (S5.26), + 13 world instruments (S7.13)
+    CHECK(list.size() == 40);   // + 6 Synth (S7.16), + PWM strings (S5.28), + Choral flute (S5.26), + 13 world instruments (S7.13)
     {   // S7.13: the World group, 13 instruments
         int world = 0;
         for (const auto& i : list) world += i.group == "World" ? 1 : 0;

@@ -167,3 +167,8 @@
 - User: yes, commit and start the preset review spec. Committed (crosscheck 49).
 - Committed 710d2da. S7.16 preset review proposed (groups, improvements, 6 new Synth presets, loudness); choices A-D.
 - User: all recommended; commit the spec and start 50; also add each type of world instrument to its class (typo "windwood" noted). Read as: World stays, each world instrument also in its family. S7.16 confirmed; Plan 50, L32; Tests planned.
+- User (mid-turn): adding a second synth only works with two key ranks or a split keyboard? Answer: also layering (same keys) or MIDI channels; a split keyboard to be added to L17 (split point; layer / split / channel per synth) — Plan update pending.
+- 50 in progress (uncommitted): families + menu + MCP list, improvements, 6 Synth presets, tests (instrument families, new presets), host loudness check 4h-2 (loudest 50 ms of a held C4). User: loudness a is ok (all ~9 dB below the old String section; OUT Volume per instrument). 39 of 40 within +-2 dB; Duduk opened further (cutoff 4000, formant 0.3) — not yet re-measured.
+- User: stop here, continue at home. Open: re-measure Duduk, docs (Spec as built, Tests, Plan 50 + L17 split, Changes, Terms?), pictures, host test on display, u24, commit.
+- (Continued at home on the same VM.) User: ok continue. Duduk: opening the filter alone gave −5.6 dB; the cause was its 12.5 % pulse — now a square at Shape 40 % (a 32 % pulse), −1.8 dB: 40 of 40 within ±2 dB. Tutorial menu paths and Terms updated; Spec S7.16 as built; Tests; Plan 50 done, L17 with the split keyboard (layer / split / channel); Changes. 49 of 49 pass.
+- Host test on display passes; pictures retaken; u24 build 49 of 49. User: yes, commit and do the crosscheck. Committed Phase 50; crosscheck next.

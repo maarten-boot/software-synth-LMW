@@ -184,7 +184,7 @@ A second mixer after the filters (and FORMANT), with a level and a pan for each 
 gets FORMANT; In 2 and In 3 take cables, e.g. VCF 1 left and VCF 2 right, so the VCOs of one voice can sit
 apart. While an input is off the centre the voice is stereo from here through the VCA to OUT.
 
-Where: the MIX 2 panel; Presets › Choral flute uses it.
+Where: the MIX 2 panel; Presets › Woodwinds › Choral flute uses it.
 
 See also: [Mixer](#mixer), [Pan](#pan), [Stereo](#stereo)
 

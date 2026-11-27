@@ -341,8 +341,14 @@ private:
             return text(out, tried > 0 && done == 0);
         }
         if (name == "list_presets") {
-            std::string out = "Instrument presets (apply_instrument_preset):\n";
-            for (const auto& i : instruments::builtIn()) out += "  " + i.name + "\n";
+            std::string out = "Instrument presets (apply_instrument_preset), by family (S7.16; world instruments marked):\n";
+            for (const auto family : instruments::families) {
+                out += "  " + std::string(family) + ":";
+                bool first = true;
+                for (const auto& i : instruments::builtIn())
+                    if (i.family == family) { out += (first ? " " : ", ") + i.name + (i.group == "World" ? " (world)" : ""); first = false; }
+                out += "\n";
+            }
             using presets::Kind;
             const std::pair<Kind, const char*> kinds[] = {
                 {Kind::Env, "env1, env2"}, {Kind::Vcf, "vcf1, vcf2"}, {Kind::Vco, "vco1, vco2, vco3"},

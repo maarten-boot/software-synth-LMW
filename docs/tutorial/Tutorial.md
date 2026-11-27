@@ -62,7 +62,7 @@ so a held note stays.
    Brown (darker).
 6. *VCO 1 › Wave* Square, then *VCO 1 › Shape* slowly up: the square narrows to a thin pulse
    ([shape](../Terms.md#shape)). Patch *LFO 2 › Out* to *VCO 1 › Shape* (Shape at 40 %): the width moves —
-   pulse-width modulation, the rich, slowly moving sound of *Presets › PWM strings*.
+   pulse-width modulation, the rich, slowly moving sound of *Presets › Synth › PWM strings*.
 
 **Listen for:** how much character the wave alone gives — before any filter.
 **Try yourself:** VCO 1, 2 and 3 all on Saw, Tune 0, +0.1 and −0.08, mixer 100/80/60 %: a string
@@ -224,10 +224,10 @@ that you hear new overtones instead of vibrato.
 4. **Feedback**: remove the cable, then *vco1.out → vco1.pm* and PM 1.5: the sine turns into a buzzy,
    saw-like tone.
 5. The PM violin: *lfo1.out* into all three PM inputs, PM 0.6 on VCO 1 and 2, Saw waves — see
-   *Presets › Violin (PM vibrato)*.
+   *Presets › Strings › Violin (PM vibrato)*.
 
 **Listen for:** FM gives brightness without a filter; index and ratio change the character a lot.
-**Try yourself:** *Presets › Electric piano (FM)* and raise *VCO 1 › PM* step by step.
+**Try yourself:** *Presets › Keyboards › Electric piano (FM)* and raise *VCO 1 › PM* step by step.
 
 ---
 
@@ -249,7 +249,7 @@ makes a cable.
 2. *COMB › Mix* 30 %, *Key* 100 %, *Freq* 262 Hz (C4), *Feedback* 40 %: a resonant body that
    follows the notes — the breathy flute gets a tube.
 3. *COMB › Feedback* −50 %: odd harmonics, clarinet-like. *Damping* softens it. Back to *COMB › Mix* 0.
-4. *Presets › String section*, then *ENSEMBLE › Mix* 0 and back to 70 %: the string-machine chorus
+4. *Presets › Strings › String section*, then *ENSEMBLE › Mix* 0 and back to 70 %: the string-machine chorus
    (as in the Solina; [ENSEMBLE](../Terms.md#ensemble)) that makes the saws wide and moving. *Depth*: how far it sweeps; *Shimmer*: the
    fast trembling; *Rate*: both sweeps faster or slower. *ENSEMBLE › Presets › Wide* or *Subtle chorus*.
 5. *DELAY › Mix* 30 %, *Time* 350 ms, *Feedback* 40 %: echoes. *Spread* 100 %: they bounce between
@@ -265,8 +265,8 @@ makes a cable.
    own place before the effects, so the reverb and delay sound wider ([spread](../Terms.md#spread)). Set the box to
    Voices with *KEYS › Voices* 6: even one note played twice moves. *OUT › Pan* moves the whole sound
    ([pan](../Terms.md#pan)); a cable from *LFO 2 › Out* to *OUT › Pan* makes it wander (auto-pan).
-   One voice can be stereo too: **MIX 2** (after the filters) has a Pan for each input — *Presets › Choral
-   flute* sends VCO 1 through VCF 1 to the left and VCO 2 through VCF 2 to the right
+   One voice can be stereo too: **MIX 2** (after the filters) has a Pan for each input — *Presets › Woodwinds ›
+   Choral flute* sends VCO 1 through VCF 1 to the left and VCO 2 through VCF 2 to the right
    ([MIX 2](../Terms.md#mix-2)).
 
 Each effect has its own **Presets** in its title bar, e.g. *DELAY › Presets › Ping-pong* or
@@ -282,7 +282,9 @@ Time 30 ms, Feedback 70 %: a short metallic repeat (a slap echo).
 
 **Lesson sound:** *Clarinet*.
 
-1. *Presets* (header) › *Clarinet*: a whole sound — modules, voices (1), comb, reverb. Look at the
+1. *Presets* (header) › *Woodwinds* › *Clarinet*: a whole sound — modules, voices (1), comb, reverb (the
+   instruments are grouped by family: Woodwinds, Brass, Strings, Keyboards, Plucked & mallets, Voices,
+   Synth, and World; each world instrument is also in its family, below a line). Look at the
    panels: VCO 1, VCF 1, ENV 1 and ENV 2 show "Clarinet" in their title bars; on the Effects tab
    COMB shows "Clarinet" and REVERB "Chamber".
 2. Change *VCF 1 › Cutoff*: the header says *Patch: Clarinet\**, the VCF 1 title *Clarinet\**.
