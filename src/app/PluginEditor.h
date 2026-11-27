@@ -301,7 +301,7 @@ public:
     // Spec S7.12 (Phase 31), for 9P /preset, /view, /snapshot (message thread). runPreset: an instrument preset
     // name, "Tutorial <n>" or "<module> <preset>" as the Presets menus; error text or empty. viewText: "tab",
     // "size", "compact", "keyboard" lines, then "panel <x> <y> <w> <h> <title>" per panel / Schematic block shown
-    // and "area <x> <y> <w> <h> <name>" (keyboard, matrix, schematic); applyView: tab / size / compact / keyboard
+    // and "area <x> <y> <w> <h> <name>" (keyboard, matrix, schematic, fxmatrix); applyView: tab / size / compact / keyboard
     // lines. snapshotPng: the editor as shown, as PNG bytes.
     std::string runPreset(const std::string& text);
     std::string viewText() const;

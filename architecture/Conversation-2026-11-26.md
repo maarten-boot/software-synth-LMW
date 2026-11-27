@@ -100,3 +100,10 @@
 - Committed 77c1835 (spec 44). CI run 45963072216 (3379fa7): all four green.
 - 44 done: Patch.h port lists (synth / effects matrix), MatrixView with row / column lists (setPorts, preferredSize), fxMatrix on the Effects tab (beside MAIN where it fits, else below; follows the effects order), tabs Synth | Matrix | Schematic | Effects | Notes | Assistant, /view "area … fxmatrix". test_fxmatrix (T-S6.25-fxmatrix). Xvfb :141: 5 × 5 beside MAIN, 9P cable shown, click makes a cable (one undo step), reversed order re-orders it; Matrix 34 × 19. Pictures retaken; Terms (Matrix, Where lines), Tutorial lessons 1, 6, 9; Spec S6.7, S6.8, S7.2, S7.4, S7.6, S6.25 as built; Plan 44 done; Tests; Changes. 44 of 44 pass.
 - User: yes, commit and do the crosscheck.
+- Committed 9e6c5ce (Phase 44).
+
+## Crosscheck after Phase 44
+
+- Code vs S6.25, S6.8, S7.6: as built (Patch.h port lists, MatrixView lists, fxMatrix with the Effects components, order follows, refresh / palette / undo as the Matrix). Stale: S7.12 /view area names (+ fxmatrix), PluginEditor.h comment, README (Matrix: every synth connection; Effects: with their own matrix). Plan header. No code change.
+- User: units in the schematic whose output is not used effectively do nothing; stipple outline? (typos "unis", "schema", "who's", "effectivly" noted). S6.26 proposed (rule through levels, pass-through at Mix 0, where, lines); choices asked.
+- User: 1b, 2b, 3b, 4a ok; commit the spec and start 45. S6.26 confirmed; Plan 45, L31; Tests T-S6.26-unused planned. Committed with the crosscheck fixes after 44.
