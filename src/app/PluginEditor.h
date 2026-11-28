@@ -539,6 +539,16 @@ private:
         bool held = false;                                // notes from the computer keys may be sounding
     };
     Keyboard keyboard;
+    // Spec S3.2 (user 2026-11-28): while a socket menu with level faders is open, the computer keys still play
+    // notes. A menu window ignores the keys it does not use and passes them nowhere (it has no parent), so this
+    // listener, attached to the menu window by its level rows, hands them to the keyboard.
+    struct MenuNoteKeys final : juce::KeyListener {
+        explicit MenuNoteKeys(LMWSynthEditor& e) : editor(e) {}
+        bool keyPressed(const juce::KeyPress& key, juce::Component*) override;
+        bool keyStateChanged(bool isKeyDown, juce::Component*) override;
+        LMWSynthEditor& editor;
+    };
+    MenuNoteKeys menuNoteKeys{*this};
     bool keyboardShown = true;                            // Spec S6.12
     juce::TextButton keyboardButton;                      // "▾ keyboard" / "▴ keyboard"
     juce::TooltipWindow tooltips{this, 2000};   // hover texts appear after 2 s

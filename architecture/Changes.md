@@ -3,6 +3,7 @@
 Changes between releases.
 
 ## Unreleased
+- 2026-11-28: With a socket's menu open (to fine-tune a cable's level) the computer keys now play notes, so you can hear the level while you move it. Before, a note only sounded if you started it before opening the menu.
 - 2026-11-28: The effects moved off the Schematic tab: it now ends with OUT → EFFECTS, a box naming the effects in their order (hover: which are at Mix 0; double-click: opens them). The Effects tab shows its own Schematic below the panels and the effects matrix: SYNTH → COMB → ENSEMBLE → DELAY → REVERB → MAIN in the effects order, where you patch and move blocks as on the Schematic tab. A long cable along a row now curves below it instead of running through the blocks. A Schematic layout you arranged keeps the synth blocks; the effects start at their new places.
 - 2026-11-28: OUT Volume goes up to +12 dB (0 dB now sits at three quarters of the fader), so a quiet sound can be raised. OUT and MAIN each have a limiter lamp ("limit"): filled while the limiter squashes peaks; its hover text says how much. Saved sounds keep their level; a DAW automation of Volume recorded before plays back at different levels (it is stored as a fader position).
 - 2026-11-28: Panel gradient: Menu › Theme › Panel gradient lets each coloured panel fade from its title colour down to the page (white, or the dark page in a dark theme). Off by default; all text keeps your contrast setting.

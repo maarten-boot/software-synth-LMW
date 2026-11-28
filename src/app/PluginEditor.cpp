@@ -831,6 +831,7 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
 
 LMWSynthEditor::~LMWSynthEditor() {
     stopTimer();
+    juce::PopupMenu::dismissAllActiveMenus();             // their level rows point at menuNoteKeys (S3.2)
     juce::Desktop::getInstance().removeFocusChangeListener(this);
     if (auto* w = colourWindow.getComponent()) { w->setLookAndFeel(nullptr); delete w; }   // uses our look-and-feel
     for (auto* w : {assistantWindow.getComponent(), lessonWindow.getComponent()})
@@ -945,6 +946,16 @@ void LMWSynthEditor::Keyboard::followHeldKeys() {
         return;
     }
     keyStateChanged(false);                               // a key released while the focus was elsewhere
+}
+
+bool LMWSynthEditor::MenuNoteKeys::keyPressed(const juce::KeyPress& key, juce::Component*) {
+    const auto mods = key.getModifiers();
+    if (mods.isCommandDown() || mods.isCtrlDown() || mods.isAltDown()) return false;
+    return editor.keyboard.keyPressed(key);               // the note keys (the menu used arrows, Enter, Escape)
+}
+
+bool LMWSynthEditor::MenuNoteKeys::keyStateChanged(bool isKeyDown, juce::Component*) {
+    return editor.keyboard.keyStateChanged(isKeyDown);    // notes start and stop here (JUCE polls the keys)
 }
 
 bool LMWSynthEditor::isTypingText() {
@@ -2125,6 +2136,7 @@ public:
         std::function<void(float)> set;                  // the new level (makes the cable(s) when normalled)
         std::function<void(bool)> drag;                  // drag started / ended (one undo step)
         juce::Colour sourceFill = kBg, targetFill = kBg;  // the units' colours (S6.9, user 2026-11-24)
+        juce::KeyListener* noteKeys = nullptr;           // S3.2: the computer keys play while the menu is open
     };
     CableRow(int input, int output, Link l) : juce::PopupMenu::CustomComponent(false), in(input), out(output), link(std::move(l)) {
         const auto inName = lmw::dsp::inputNames[static_cast<std::size_t>(in)];
@@ -2161,6 +2173,15 @@ public:
         sync();
         startTimerHz(10);
     }
+    ~CableRow() override { if (window != nullptr && link.noteKeys != nullptr) window->removeKeyListener(link.noteKeys); }
+    // S3.2: the menu window gets the note-key listener (every row adds the same one; JUCE keeps it once).
+    void parentHierarchyChanged() override {
+        auto* top = getTopLevelComponent();
+        if (link.noteKeys == nullptr || top == this || top == window.getComponent()) return;
+        if (window != nullptr) window->removeKeyListener(link.noteKeys);
+        window = top;
+        window->addKeyListener(link.noteKeys);
+    }
     void getIdealSize(int& w, int& h) override { w = 470; h = 30; }
     void resized() override {
         auto r = getLocalBounds().reduced(6, 3);
@@ -2191,6 +2212,7 @@ private:
     bool gate = false, dragging = false, syncing = false;
     juce::Label source, target, value;
     juce::Slider fader;
+    juce::Component::SafePointer<juce::Component> window;   // the menu window holding the listener
 };
 }
 
@@ -2317,6 +2339,7 @@ void LMWSynthEditor::showPortMenu(bool output, int port, juce::Rectangle<int> sc
                 link.set = [safe, in = in, out = out](float level) { if (safe != nullptr) safe->setCableLevel(in, out, level); };
                 // User 2026-11-24: the names on their unit's colour, as in the panel titles and the Matrix (S6.9).
                 link.sourceFill = toJuce(palette.unitColour(lmw::ui::theme::unitOf(lmw::dsp::outputNames[static_cast<std::size_t>(out)])));
+                link.noteKeys = &menuNoteKeys;                    // S3.2
                 link.targetFill = toJuce(palette.unitColour(lmw::ui::theme::unitOf(lmw::dsp::inputNames[static_cast<std::size_t>(in)])));
                 link.drag = [safe](bool started) {               // Spec S6.14: one drag, one step
                     if (safe == nullptr) return;
