@@ -201,3 +201,5 @@
 - User: yes, commit and do the crosscheck. Committed Phase 53 with the pictures fix; crosscheck next.
 - Crosscheck after 53: code matched the Spec. Stale lines fixed: S5a.1 out.gain 0–4, S10.10 /load (limit lines) and /info scale words (db); Plan header.
 - User: yes, commit; I will push and wait for CI. Committed the crosscheck fixes.
+- User: ok continue. CI for c820ef8 green. Next in the agreed order: L33 → Spec S6.31 (effects Schematic on the Effects tab) proposed with choices A–E.
+- User: all recommended; commit the spec and start 54. S6.31 confirmed (A a, B b, C a, D a, E a); Plan 54, Tests planned; committed; Phase 54 started.
