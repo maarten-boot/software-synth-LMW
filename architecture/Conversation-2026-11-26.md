@@ -199,3 +199,5 @@
 - 53 built: out.gain 0–4 (skew: 0 dB at 75 %), dB scale kind, '+6.0 dB' text; LimitMeter / reductionDb, Engine::takeOutPeak, MAIN peak; /load limit_out / limit_main; LimitLamp in OUT (title bar) and MAIN (under the title); Terms Limiter (90), Volume; tutorial Lesson 1; AI guide; MCP text; test_outgain + test updates; 51 of 51 incl. host with a display; Xvfb lamps off / lit, hover.
 - Pictures: lesson5-vca.png was a sliver since 51b (VCA right of the 1496 px pictures window) and row-3 crops had the scroll bar over the socket labels → pictures.sh window 1920 × 1000 and shot() scrolls to a panel right of the view; all pictures retaken; Spec S7.12 note.
 - User: yes, commit and do the crosscheck. Committed Phase 53 with the pictures fix; crosscheck next.
+- Crosscheck after 53: code matched the Spec. Stale lines fixed: S5a.1 out.gain 0–4, S10.10 /load (limit lines) and /info scale words (db); Plan header.
+- User: yes, commit; I will push and wait for CI. Committed the crosscheck fixes.
