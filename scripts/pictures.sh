@@ -57,7 +57,8 @@ p9 write view "scales on"                               # Spec S6.20: the beginn
 p9 write view "rings on"
 p9 write view "scroll 0 0"                             # Spec S6.21: the rack from its top-left
 
-# shot <file> [panel title prefixes...]: the window, or the smallest area holding those panels (+ 8 px).
+# shot <file> [panel title prefixes...]: the window, or the smallest area holding those panels (+ 8 px; $below px more
+# below them, for cables that sag under a row of Schematic blocks).
 shot() {
     local file=$1; shift
     p9 write view "pointer away"                         # no hover marks or tooltip
@@ -85,7 +86,7 @@ shot() {
             p9 cat snapshot > "$work/full.png"
         fi
         local box
-        box=$(p9 cat view | awk -v want="$(printf '%s\n' "$@")" '
+        box=$(p9 cat view | awk -v below="${below:-0}" -v want="$(printf '%s\n' "$@")" '
             BEGIN { n = split(want, w, "\n") }
             $1 == "panel" {
                 title = $6; for (i = 7; i <= NF; ++i) title = title " " $i
@@ -95,7 +96,7 @@ shot() {
                     seen = 1
                 }
             }
-            END { if (seen) printf "%dx%d+%d+%d", x1 - x0 + 16, y1 - y0 + 16, (x0 > 8 ? x0 - 8 : 0), (y0 > 8 ? y0 - 8 : 0) }')
+            END { if (seen) printf "%dx%d+%d+%d", x1 - x0 + 16, y1 - y0 + 16 + below, (x0 > 8 ? x0 - 8 : 0), (y0 > 8 ? y0 - 8 : 0) }')
         [ -n "$box" ] || { echo "pictures.sh: no panel $* on this tab"; exit 1; }
         convert "$work/full.png" -crop "$box" +repage "$out/$file"
         [ -z "$fit" ] || p9 write view "scroll 0 0"
@@ -148,6 +149,14 @@ echo "Lesson 9: effects (ENSEMBLE Solina on)"
 p9 write preset "Tutorial 9"
 p9 write preset "ensemble Solina"
 p9 write view "tab Effects";   shot lesson9-effects.png COMB ENSEMBLE DELAY REVERB MAIN SYNTH
+echo "Lesson 9: REVERB first, then COMB (the effects order), on the effects Schematic (S6.31)"
+p9 write effects "reverb comb ensemble delay"
+p9 write params/reverb/mix 0.25
+p9 write params/comb/mix 0.3
+p9 write view "fxview schematic"
+shot lesson9-fxschematic.png SYNTH COMB ENSEMBLE DELAY REVERB MAIN
+p9 write view "fxview panels"
+p9 write effects "comb ensemble delay reverb"
 
 echo "Panel gradient (Menu > Theme > Panel gradient, S6.30), Lesson 1"
 p9 write preset "String section"

@@ -42,7 +42,7 @@ The keys work whichever control you used last, except while you type a value.
    A dashed outline marks a unit that has [no effect](../Terms.md#no-effect) on the sound yet (VCO 2 and
    3 while their MIXER levels are 0); long dashes: it passes the sound unchanged (an effect at Mix 0).
 
-![The Schematic tab: the sound flows from the keys and oscillators on the left to MAIN on the right](../images/lesson1-schematic.png)
+![The Schematic tab: the sound flows from the keys and oscillators on the left to OUT and the EFFECTS box on the right](../images/lesson1-schematic.png)
 
 **Listen for:** the difference between one and eight voices.
 **Try yourself:** hold a note and click *Compact* (top right): the same synthesizer, smaller. Then
@@ -246,11 +246,15 @@ that you hear new overtones instead of vibrato.
 The **Effects** tab: SYNTH (the instrument) → COMB → ENSEMBLE → DELAY → REVERB → MAIN (what you
 hear), connected by default; [Mix](../Terms.md#mix) 0 means an [effect](../Terms.md#effect) is off. In a narrow window REVERB and MAIN wrap to
 a second row. Drag an effect's title left or right to change the order: the connections follow (e.g. REVERB
-first, then COMB, rings the comb on the reverb's tail). Next to MAIN is the effects' own
+first, then COMB, rings the comb on the reverb's tail). **Schematic** in the header (next to Reset layout)
+shows the effects as a drawing in that order; you can patch and move the blocks there as on the Schematic
+tab (**Panels** goes back). Next to MAIN is the effects' own
 [matrix](../Terms.md#matrix): the same connections as a grid, in the effects' order — a click in a cell
 makes a cable.
 
 ![The Effects tab with the Lesson 9 sound and the ENSEMBLE preset Solina: SYNTH, COMB, ENSEMBLE, DELAY, REVERB and MAIN](../images/lesson9-effects.png)
+
+![The Effects tab's Schematic with the order REVERB, COMB, ENSEMBLE, DELAY (REVERB dragged to the front): the blocks follow the order](../images/lesson9-fxschematic.png)
 
 1. *REVERB › Mix* 25 %, *Size* 80 %: a hall. *Damping* darker, *Width* narrower or wider, *Pre-delay*
    30 ms: the flute stays clear in front of the hall. *Type* Classic is the reverb of older versions.

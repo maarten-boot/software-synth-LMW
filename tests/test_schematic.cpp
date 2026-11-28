@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // T-S6.7-schematic: schematic geometry and connections (Spec S6.7, Phase 12a).
+// T-S6.31-fxschematic: the synth and effects pages (Spec S6.31, Phase 54).
 #include "ui/Schematic.h"
 #include "ui/CableEdit.h"
 #include <cstdio>
@@ -13,32 +14,38 @@ static int failures = 0;
 
 int main() {
     const auto& blocks = sc::blocks();
-    {   // Every port belongs to exactly one block; every block lies inside the canvas; blocks do not overlap.
+    sc::Layout fxLayout;                                     // S6.31: the effects page's default view
+    fxLayout.setShown(sc::Page::Effects);
+    const auto layoutOf = [&](const sc::Block& b) -> const sc::Layout& { return b.page == sc::Page::Effects ? fxLayout : sc::defaultLayout(); };
+    {   // Every port belongs to exactly one block (out.out: OUT on the synth page and SYNTH on the effects page,
+        // S6.31); every block lies inside its page's canvas; blocks of a page do not overlap.
         std::multiset<int> ins, outs;
         for (const auto& b : blocks) {
             for (auto i : b.inputs) ins.insert(static_cast<int>(i));
             for (auto o : b.outputs) outs.insert(static_cast<int>(o));
-            CHECK(b.box.x >= 0 && b.box.right() <= sc::canvasWidth);
-            CHECK(b.box.y >= 0 && b.box.bottom() <= sc::canvasHeight - 4);   // legend below
+            const auto c = sc::canvasSize(b.page);
+            CHECK(b.box.x >= 0 && b.box.right() <= c.x);
+            CHECK(b.box.y >= 0 && b.box.bottom() <= c.y - 4);   // legend below
         }
         for (int i = 0; i < lmw::dsp::numInputs; ++i) CHECK(ins.count(i) == 1);
-        for (int o = 0; o < lmw::dsp::numOutputs; ++o) CHECK(outs.count(o) == 1);
+        for (int o = 0; o < lmw::dsp::numOutputs; ++o) CHECK(outs.count(o) == (o == static_cast<int>(Out::OutOut) ? 2u : 1u));
         for (std::size_t a = 0; a < blocks.size(); ++a)
             for (std::size_t b = a + 1; b < blocks.size(); ++b) {
+                if (blocks[a].page != blocks[b].page) continue;
                 auto ra = blocks[a].box, rb = blocks[b].box;
                 if (ra.intersects(rb)) std::printf("overlap: %s / %s\n", blocks[a].name.data(), blocks[b].name.data());
                 CHECK(!ra.intersects(rb));
             }
-        CHECK(blocks.size() == 21);   // 20 since S7.11 (ENSEMBLE), 19 with S7.8 (DELAY), 18 with S7.6
+        CHECK(blocks.size() == 23);   // 21 + EFFECTS and SYNTH since S6.31; 20 since S7.11 (ENSEMBLE), 19 with S7.8, 18 with S7.6
     }
     {   // Ports: inputs on the left edge, outputs on the right edge (a triangle's output at its tip); distinct.
         for (const auto& b : blocks) {
             for (auto i : b.inputs) {
-                const auto p = sc::inputPoint(i);
+                const auto p = sc::inputPoint(i, layoutOf(b));
                 CHECK(p.x == b.box.x && p.y > b.box.y && p.y < b.box.bottom());
             }
             for (auto o : b.outputs) {
-                const auto p = sc::outputPoint(o);
+                const auto p = sc::outputPoint(o, layoutOf(b));
                 CHECK(p.x == b.box.right() && p.y > b.box.y && p.y < b.box.bottom());
                 if (b.shape == sc::Shape::Triangle) CHECK(p.y == b.box.y + b.box.h / 2);
             }
@@ -47,17 +54,21 @@ int main() {
         for (const auto& b : blocks) {
             const std::string_view n = b.name;
             const auto want = n.starts_with("ENV") ? sc::Shape::Adsr : n == "KEYS" ? sc::Shape::Keys
-                            : n == "NOISE" ? sc::Shape::Noise : n == "MAIN" ? sc::Shape::Out : sc::Shape::Triangle;   // S7.6: MAIN line-out
+                            : n == "NOISE" ? sc::Shape::Noise : n == "MAIN" ? sc::Shape::Out
+                            : n == "EFFECTS" ? sc::Shape::Effects : sc::Shape::Triangle;   // S7.6: MAIN line-out; S6.31
             CHECK(b.shape == want);
         }
-        // Hit test finds each port at its own place.
-        for (int i = 0; i < lmw::dsp::numInputs; ++i) {
-            const auto h = sc::portAt(sc::inputPoint(static_cast<In>(i)), 0.5f);
-            CHECK(h && h->input && h->index == i);
-        }
-        for (int o = 0; o < lmw::dsp::numOutputs; ++o) {
-            const auto h = sc::portAt(sc::outputPoint(static_cast<Out>(o)), 0.5f);
-            CHECK(h && !h->input && h->index == o);
+        // Hit test finds each port at its own place, on its page (S6.31).
+        for (const auto& b : blocks) {
+            const auto& l = layoutOf(b);
+            for (auto i : b.inputs) {
+                const auto h = sc::portAt(sc::inputPoint(i, l), 0.5f, std::nullopt, l);
+                CHECK(h && h->input && h->index == static_cast<int>(i));
+            }
+            for (auto o : b.outputs) {
+                const auto h = sc::portAt(sc::outputPoint(o, l), 0.5f, std::nullopt, l);
+                CHECK(h && !h->input && h->index == static_cast<int>(o));
+            }
         }
         CHECK(!sc::portAt({1, 60}, 0.5f));
     }
@@ -113,6 +124,12 @@ int main() {
         const auto mid = sc::curveAt(cv, 0.5f);
         CHECK(std::isfinite(mid.x) && std::isfinite(mid.y));
         CHECK(sc::curveAt(cv, 0).x == cv[0].x && sc::curveAt(cv, 1).y == cv[3].y);
+        // S6.31: a long same-height cable sags below the row (its middle 12 units down at most 16); short or
+        // sloping ones do not.
+        const auto longRow = sc::curve({14, 9}, {76, 9});
+        CHECK(sc::curveAt(longRow, 0.5f).y > 9 + 10 && sc::curveAt(longRow, 0.5f).y <= 9 + 16);
+        CHECK(sc::curveAt(sc::curve({14, 9}, {28, 9}), 0.5f).y == 9 && sc::curve({14, 9}, {76, 20})[1].y == 9);
+        CHECK(sc::curveAt(sc::curve({112, 9}, {28, 9}), 0.5f).y > 9 + 10);   // backward along the row: below it too
     }
     {   // Internal links: key tracking only while Key > 0 (velocity -> VCA is the normalled input vca.vel since
         // S5.22); targets on the block's lower edge.
@@ -188,7 +205,7 @@ int main() {
         CHECK(ce::drop(g, ce::PortRef{true, env2}) == (V{{cut, lfo2, lmw::dsp::removePin}}));   // an output is no target: removed
         // Port order for the keyboard: every port once, block by block, inputs before outputs.
         const auto order = sc::portOrder();
-        CHECK(static_cast<int>(order.size()) == lmw::dsp::numInputs + lmw::dsp::numOutputs);
+        CHECK(static_cast<int>(order.size() + sc::portOrder(sc::Page::Effects).size()) == lmw::dsp::numInputs + lmw::dsp::numOutputs + 1);   // out.out twice
         CHECK(order.front().input && order.front().index == static_cast<int>(In::Lfo1Rate));   // LFO 1 first: its rate input (S5.19)
         CHECK(order[1].input && order[1].index == static_cast<int>(In::Lfo1Shape));   // S5.28
         CHECK(!order[2].input && order[2].index == static_cast<int>(Out::Lfo1));
@@ -206,13 +223,13 @@ int main() {
         for (std::size_t i = 0; i < sc::blocks().size(); ++i) CHECK(l.fits(i, l.position(i)));   // default is valid
         const auto vcf2 = *sc::findBlock("VCF 2"), lfo2 = *sc::findBlock("LFO 2"), vcf1 = *sc::findBlock("VCF 1");
         // A free spot: moves (snapped to the grid); ports and internal targets follow.
-        CHECK(l.move(lfo2, {96.4f, 55.6f}));
-        CHECK(l.position(lfo2).x == 96 && l.position(lfo2).y == 56 && !l.isDefault());
-        CHECK(sc::outputPoint(Out::Lfo2, l).x == 106 && sc::outputPoint(Out::Lfo2, l).y == 56 + 6.0f);
+        CHECK(l.move(lfo2, {96.4f, 51.6f})   /* y 52: the page is 70 high since S6.31 */);
+        CHECK(l.position(lfo2).x == 96 && l.position(lfo2).y == 52 && !l.isDefault());
+        CHECK(sc::outputPoint(Out::Lfo2, l).x == 106 && sc::outputPoint(Out::Lfo2, l).y == 52 + 6.0f);
         CHECK(sc::outputPoint(Out::Lfo2).x == 120);                                    // default unchanged
         CHECK(sc::portAt(sc::outputPoint(Out::Lfo2, l), 0.5f, false, l).has_value());
         CHECK(!sc::portAt(sc::outputPoint(Out::Lfo2), 0.5f, false, l));
-        CHECK(sc::blockAt({98, 60}, l) == lfo2 && !sc::blockAt({98, 60}));
+        CHECK(sc::blockAt({98, 56}, l) == lfo2 && !sc::blockAt({98, 56}));
         const auto t0 = sc::internalTarget(vcf2), t1 = (l.move(vcf2, {86, 21}), sc::internalTarget(vcf2, l));
         CHECK(t1.y == t0.y + 1 && t1.x == t0.x);
         // Refused: on another block, off the canvas, into the legend; nothing changes.
@@ -285,12 +302,17 @@ int main() {
     CHECK(sc::blocks()[0].unit() == lmw::ui::theme::Unit::Lfo);
 
     {   // Up/Down jump between symbols (user 2026-11-16): the first port of the next / previous block, wrapping.
+        // S6.31: the synth page's blocks with ports (EFFECTS has none).
         const auto order = sc::portOrder();
-        const auto nb = sc::blocks().size();
+        std::vector<std::size_t> withPorts;
+        for (std::size_t i = 0; i < sc::blocks().size(); ++i)
+            if (sc::blocks()[i].page == sc::Page::Synth && !(sc::blocks()[i].inputs.empty() && sc::blocks()[i].outputs.empty())) withPorts.push_back(i);
+        const auto nb = withPorts.size();
+        const auto rank = [&](std::size_t b) { return static_cast<std::size_t>(std::find(withPorts.begin(), withPorts.end(), b) - withPorts.begin()); };
         std::size_t k = 0, visited = 0;
         do {
             const auto next = sc::blockJump(k, 1);
-            CHECK(sc::blockOf(order[next]) == (sc::blockOf(order[k]) + 1) % nb);
+            CHECK(rank(sc::blockOf(order[next])) == (rank(sc::blockOf(order[k])) + 1) % nb);
             CHECK(next == 0 || sc::blockOf(order[next - 1]) != sc::blockOf(order[next]));   // first port of its block
             CHECK(sc::blockOf(order[sc::blockJump(next, -1)]) == sc::blockOf(order[k]));   // back again
             k = next;
@@ -303,7 +325,65 @@ int main() {
             if (order[j].input && order[j].index == static_cast<int>(lmw::dsp::In::MixIn3)) mix3 = j;
         CHECK(order[sc::blockJump(mix3, 1)].input && order[sc::blockJump(mix3, 1)].index == static_cast<int>(lmw::dsp::In::Vcf1In));
         CHECK(sc::blocks()[sc::blockOf(order[sc::blockJump(mix3, -1)])].name == std::string("NOISE"));
-        CHECK(sc::blockJump(0, -1) == order.size() - 1);             // LFO 1 up: MAIN (one port, the last; S7.6)
+        CHECK(sc::blocks()[sc::blockOf(order[sc::blockJump(0, -1)])].name == std::string("LFO 2"));   // LFO 1 up: LFO 2 (the last; S6.31)
+        CHECK(order.size() - sc::blockJump(0, -1) == 3);             // its rate, shape and out
+    }
+    {   // T-S6.31-fxschematic: the two pages.
+        using sc::Page;
+        auto names = [&](Page pg) { std::string s; for (const auto& b : sc::blocks()) if (b.page == pg) s += std::string(b.name) + " "; return s; };
+        std::printf("synth page: %s\neffects page: %s\n", names(Page::Synth).c_str(), names(Page::Effects).c_str());
+        CHECK(names(Page::Effects) == "SYNTH COMB ENSEMBLE DELAY REVERB MAIN ");
+        CHECK(names(Page::Synth).find("COMB") == std::string::npos && names(Page::Synth).find("MAIN") == std::string::npos
+              && names(Page::Synth).find("EFFECTS") != std::string::npos);
+        // Ports by page: comb.in only on the effects page; out.out on both (OUT, SYNTH), at different places.
+        CHECK(sc::onPage(In::CombIn, Page::Effects) && !sc::onPage(In::CombIn, Page::Synth));
+        CHECK(sc::onPage(Out::OutOut, Page::Effects) && sc::onPage(Out::OutOut, Page::Synth));
+        CHECK(!sc::portAt(sc::inputPoint(In::CombIn, fxLayout), 0.5f));          // not on the synth page
+        CHECK(sc::outputPoint(Out::OutOut).x == 164 && sc::outputPoint(Out::OutOut, fxLayout).x == 14);
+        CHECK(sc::blockAt({90, 8}, fxLayout) == sc::findBlock("DELAY") || sc::blockAt({80, 8}, fxLayout) == sc::findBlock("DELAY"));
+        CHECK(!sc::blockAt({80, 8}));                                            // the synth page has none there
+        // The synth page's line into EFFECTS: out.out feeds the effects (normalled chain) in the default patch.
+        lmw::dsp::Patch p;
+        CHECK(sc::feedsEffects(p));
+        // Overlap is per page: an effect may sit where a synth block is.
+        sc::Layout l;
+        const auto comb = *sc::findBlock("COMB"), vco1 = *sc::findBlock("VCO 1"), ens = *sc::findBlock("ENSEMBLE");
+        l.setShown(Page::Effects);
+        l.setPage(200, 60);
+        CHECK(l.fits(comb, l.position(vco1)));
+        CHECK(!l.fits(comb, l.position(ens)));                                   // onto ENSEMBLE: refused
+        CHECK(l.move(comb, {28, 20}) && !l.isDefault(Page::Effects) && l.isDefault(Page::Synth));
+        CHECK(l.blocksIn({0, 0}, {50, 60}) == (std::vector<std::size_t>{*sc::findBlock("SYNTH"), comb}));   // this page's only
+        CHECK(l.extent().x == 132);                                              // MAIN's right edge
+        // Reset per page: the synth places stay.
+        sc::Layout both = l;
+        both.setShown(Page::Synth);
+        CHECK(both.move(vco1, {26, 0}));
+        both.resetPage(Page::Effects);
+        CHECK(both.isDefault(Page::Effects) && !both.isDefault(Page::Synth) && both.position(vco1).y == 0);
+        // Merge (the editor): the effects page from one layout, the synth page from another.
+        sc::Layout merged = both;
+        merged.takePage(l, Page::Effects);
+        CHECK(merged.position(comb).y == 20 && merged.position(vco1).y == 0);
+        const auto text = merged.serialize();
+        CHECK(text.find("effects:168,20") != std::string::npos && text.find("synth:4,4") != std::string::npos);
+        const auto back = sc::Layout::parse(text);
+        CHECK(back && *back == merged);
+        // A layout saved before Phase 54 (no EFFECTS block; the effects row at the bottom of the synth page): the
+        // synth places are kept, the effects go to their defaults on the effects page.
+        const auto old = sc::Layout::parse("vco1:26,0;comb:88,70;ensemble:104,70;delay:120,70;reverb:136,70;main:152,71");
+        CHECK(old && old->position(vco1).y == 0 && old->isDefault(Page::Effects));
+        // Its effects order kept: arrange still swaps the effect places on the effects page.
+        sc::Layout ord;
+        ord.arrange({*sc::findBlock("REVERB"), comb, ens, *sc::findBlock("DELAY")});
+        CHECK(ord.position(*sc::findBlock("REVERB")).x == 28 && ord.position(comb).x == 52);
+        // Keyboard order on the effects page: SYNTH's out first, MAIN's in last.
+        const auto fo = sc::portOrder(Page::Effects);
+        CHECK(fo.size() == 10 && !fo.front().input && fo.front().index == static_cast<int>(Out::OutOut)
+              && fo.back().input && fo.back().index == static_cast<int>(In::MainIn));
+        CHECK(sc::blocks()[sc::blockOf(fo[sc::blockJump(0, 1, Page::Effects)], Page::Effects)].name == std::string("COMB"));
+        CHECK(sc::blockOf(fo.front(), Page::Effects) == *sc::findBlock("SYNTH"));
+        CHECK(sc::blockOf({false, static_cast<int>(Out::OutOut)}) == *sc::findBlock("OUT"));
     }
     std::printf(failures == 0 ? "test_schematic: all passed\n" : "test_schematic: %d failure(s)\n", failures);
     return failures == 0 ? 0 : 1;

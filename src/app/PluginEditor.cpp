@@ -707,28 +707,74 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
         },
         [this](int in, int out, float level) { return connect(in, out, level); },   // Phase 12b: editing
         [this](bool output, int port, juce::Rectangle<int> area) { showPortMenu(output, port, area); });
-    schematic->setPalette(palette);
-    schematic->setRings(settings.socketRings);           // Spec S6.20
-    schematic->setLayout(processor.schematicLayout());     // Phase 12c: moved symbols, saved with the state
-    schematic->onLayoutChange = [this](const juce::String& text) {
-        const LMWSynthProcessor::ScopedStep step(processor, "Schematic layout");   // Spec S6.14
-        processor.setSchematicLayout(text);
+    // Spec S6.31: the same view for the effects page, on the Effects tab.
+    fxSchematic = std::make_unique<SchematicView>([this]() -> const lmw::dsp::Patch& { return processor.currentPatch(); },
+        [] { return std::array<float, 4>{}; },
+        [this](int in, int out, float level) { return connect(in, out, level); },
+        [this](bool output, int port, juce::Rectangle<int> area) { showPortMenu(output, port, area); });
+    fxSchematic->setPage(lmw::ui::schematic::Page::Effects);
+    schematic->effectNames = [this] {                      // S6.31: the EFFECTS block's text, in the effects order
+        std::vector<juce::String> v;
+        for (const int e : lmw::dsp::effectOrder(shownEffectOrder)) {
+            const auto n = lmw::dsp::effectNames[static_cast<std::size_t>(e)];
+            v.push_back(juce::String(n.data(), n.size()).toUpperCase());
+        }
+        return v;
     };
+    schematic->effectsNote = [this] {
+        juce::String order, passing;
+        for (const int e : lmw::dsp::effectOrder(shownEffectOrder)) {
+            const auto n = lmw::dsp::effectNames[static_cast<std::size_t>(e)];
+            const auto name = juce::String(n.data(), n.size()).toUpperCase();
+            order += name + juce::String::fromUTF8(" \xe2\x86\x92 ");
+            if (shownUse.unit(n) == lmw::dsp::Use::Passing) passing += (passing.isEmpty() ? "" : ", ") + name;
+        }
+        return "out.out " + juce::String::fromUTF8("\xe2\x86\x92 ") + order + "MAIN (what is heard)"
+             + (passing.isEmpty() ? juce::String() : "\nAt Mix 0 (pass the sound unchanged): " + passing);
+    };
+    schematic->onOpenEffects = [this] {
+        effectsTab.setToggleState(true, juce::dontSendNotification);
+        showEffectsView(true);
+        showTab(1);
+    };
+    for (auto* view : {schematic.get(), fxSchematic.get()}) {
+        view->setPalette(palette);
+        view->setRings(settings.socketRings);              // Spec S6.20
+        view->setLayout(processor.schematicLayout());      // Phase 12c: moved symbols, saved with the state
+        view->onLayoutChange = [this, view](const juce::String& text) { schematicLayoutChanged(text, view->page()); };
+    }
     schematicView.setViewedComponent(schematic.get(), false);   // Spec S6.22
-    schematicView.setScrollBarThickness(10);
-    for (auto* bar : {&schematicView.getVerticalScrollBar(), &schematicView.getHorizontalScrollBar()}) {
-        bar->setColour(juce::ScrollBar::thumbColourId, kFg);
-        bar->setColour(juce::ScrollBar::trackColourId, kBg);
+    fxSchematicView.setViewedComponent(fxSchematic.get(), false);
+    for (auto* v : {&schematicView, &fxSchematicView}) {
+        v->setScrollBarThickness(10);
+        for (auto* bar : {&v->getVerticalScrollBar(), &v->getHorizontalScrollBar()}) {
+            bar->setColour(juce::ScrollBar::thumbColourId, kFg);
+            bar->setColour(juce::ScrollBar::trackColourId, kBg);
+        }
     }
     schematic->onSizeChange = [this] { layoutSchematic(); };
+    fxSchematic->onSizeChange = [this] { layoutSchematic(); };
     updateUse(true);                                       // Spec S6.26: before the first paint
     addChildComponent(schematicView);
+    addChildComponent(fxSchematicView);
+    for (auto* b : {&fxPanelsButton, &fxSchematicButton}) {   // Spec S6.31: the Effects tab's switch
+        b->setRadioGroupId(2);
+        b->setClickingTogglesState(true);
+        addChildComponent(*b);
+    }
+    fxPanelsButton.setToggleState(true, juce::dontSendNotification);
+    fxPanelsButton.setTooltip("The effect panels and the effects matrix");
+    fxSchematicButton.setTooltip("The effects as a schematic: SYNTH, the effects in their order, MAIN");
+    fxPanelsButton.onClick = [this] { if (fxPanelsButton.getToggleState()) showEffectsView(false); };
+    fxSchematicButton.onClick = [this] { if (fxSchematicButton.getToggleState()) showEffectsView(true); };
     for (auto* c : effectComponents) c->setVisible(false);  // Effects tab not shown at start
 
     resetLayoutButton.setTooltip("Put all module panels back in their original places "
-                                 "(on the Schematic tab: all symbols; on the Effects tab: the effects order COMB, ENSEMBLE, DELAY, REVERB)");
+                                 "(on the Schematic tab: all symbols; on the Effects tab: the effects order COMB, ENSEMBLE, DELAY, REVERB; "
+                                 "on the effects Schematic: its symbols)");
     resetLayoutButton.onClick = [this] {
         if (currentTab == 4) { schematic->resetLayout(); return; }   // Spec S6.7: the schematic's blocks
+        if (currentTab == 1 && fxSchematicShown) { fxSchematic->resetLayout(); return; }   // S6.31: the effects page
         if (currentTab == 1) { resetEffectOrder(); return; }         // Spec S7.14 (user 2026-11-26): the effects order
         rack->reset();
         layoutChanged(-1);
@@ -849,6 +895,7 @@ void LMWSynthEditor::timerCallback() {
             && notesEditor.getText() != processor.notes()))   // patch loaded, or state restored by the host
         refreshPatchInfo();
     if (schematic) schematic->poll(processor.schematicLayout());   // Key faders; layout from a loaded patch
+    if (fxSchematic) fxSchematic->poll(processor.schematicLayout());   // S6.31
     if (++presetLabelTick >= 8) { presetLabelTick = 0; updatePresetLabels(); updatePatchLabel(); updateUndoButtons(); updateLoadLabel(); }   // S7.5, S7.7, S6.28: ~4/s
     if (++systemThemeTick >= 30) {                       // Spec S6.29: Follow system, about once a second
         systemThemeTick = 0;
@@ -859,6 +906,7 @@ void LMWSynthEditor::timerCallback() {
         shownPatchVersion = processor.patchVersion();
         shownRouting = processor.vcfRouting();
         if (schematic) schematic->repaint();
+        if (fxSchematic) fxSchematic->repaint();              // S6.31
         if (matrix) matrix->refresh();                        // its level slider (S6.8)
         if (fxMatrix) fxMatrix->refresh();                    // S6.25
         repaint();
@@ -962,6 +1010,7 @@ void LMWSynthEditor::applyAids() {
         f.slider.repaint();
     }
     if (schematic) schematic->setRings(settings.socketRings);
+    if (fxSchematic) fxSchematic->setRings(settings.socketRings);
     for (auto& j : jacks) j->repaint();
     repaint();
 }
@@ -1083,6 +1132,7 @@ void LMWSynthEditor::setCompact(bool compact) {
     notesEditor.setFont(juce::FontOptions(m.labelFont + 3.0f));
     if (rack) rack->setMaxColumns(std::max(defaultMaxColumns, screenColumns(m)));
     if (schematic) schematic->setCompact(compact);         // Spec S6.7: smaller in Compact too
+    if (fxSchematic) fxSchematic->setCompact(compact);
     updateSize(!standalone());                   // S6.16: the standalone keeps its size, a plugin fits the view
 }
 
@@ -1599,6 +1649,11 @@ void LMWSynthEditor::resized() {
     resetLayoutButton.setButtonText(wide ? "Reset layout" : "Reset");
     resetLayoutButton.setBounds(title.removeFromRight(wide ? 110 : 56).reduced(0, 2));
     title.removeFromRight(m.gap);
+    if (currentTab == 1) {                                  // Spec S6.31: Panels | Schematic, on the Effects tab only
+        fxSchematicButton.setBounds(title.removeFromRight(wide ? 90 : 76).reduced(0, 2));
+        fxPanelsButton.setBounds(title.removeFromRight(wide ? 70 : 60).reduced(0, 2));
+        title.removeFromRight(m.gap);
+    }
     saveButton.setBounds(title.removeFromRight(wide ? 76 : 64).reduced(0, 2));
     title.removeFromRight(m.gap / 2);
     loadButton.setBounds(title.removeFromRight(wide ? 76 : 64).reduced(0, 2));
@@ -1653,6 +1708,7 @@ void LMWSynthEditor::resized() {
     notesEditor.setBounds(area);                             // Notes tab: the area of the panels
     if (matrix) { matrix->setBounds(area); matrix->setFontSize(m.labelFont - 2.0f); }   // Matrix tab
     schematicView.setBounds(area);                          // Schematic tab (S6.22: in its view)
+    fxSchematicView.setBounds(area);                        // S6.31: the Effects tab's Schematic
     layoutSchematic();
     if (assistant) { assistant->setBounds(area); assistant->setFontSize(m.labelFont + 3.0f); }   // Assistant tab
     // Spec S6.21: the rack in rackView at `area`; the rack surface is as large as the rows need (at least the view),
@@ -2220,7 +2276,8 @@ void LMWSynthEditor::showPortMenu(bool output, int port, juce::Rectangle<int> sc
         menu.addSeparator();
         menu.addItem(3, "Remove all cables");
     }
-    if (currentTab == 4 && !schematic->isLayoutDefault()) {   // Phase 12c
+    if ((currentTab == 4 && !schematic->isLayoutDefault())   // Phase 12c; S6.31: the effects Schematic too
+        || (currentTab == 1 && fxSchematicShown && !fxSchematic->isLayoutDefault())) {
         menu.addSeparator();
         menu.addItem(4, "Reset schematic layout");
     }
@@ -2284,7 +2341,7 @@ void LMWSynthEditor::showPortMenu(bool output, int port, juce::Rectangle<int> sc
             for (int i = 0; i < lmw::dsp::numInputs; ++i)
                 if (p.hasPin(static_cast<In>(i), static_cast<lmw::dsp::Out>(port))) safe->connect(i, port, lmw::dsp::removePin);
         } else if (r == 4) {
-            safe->schematic->resetLayout();
+            (safe->currentTab == 1 ? safe->fxSchematic : safe->schematic)->resetLayout();
         } else if (r == 3) {
             safe->removeAllCables();
         } else if (!output && r >= 100 && r < 100 + lmw::dsp::numOutputs) {    // toggle that cable
@@ -2726,6 +2783,7 @@ void LMWSynthEditor::applyContrast() {
     if (matrix) matrix->setPalette(palette);
     if (fxMatrix) fxMatrix->setPalette(palette);
     if (schematic) schematic->setPalette(palette);
+    if (fxSchematic) fxSchematic->setPalette(palette);
     for (auto& h : headers) h->repaint();
     repaint();
 }
@@ -2891,7 +2949,9 @@ void LMWSynthEditor::showAbout() {
 
 void LMWSynthEditor::showTab(int tab) {
     if (currentTab == 0 || currentTab == 1) tabScroll[static_cast<std::size_t>(currentTab)] = rackView.getViewPosition();   // S6.21
+    const bool headerChanges = (currentTab == 1) != (tab == 1);   // S6.31: the Effects tab's switch in the header
     currentTab = tab;
+    if (headerChanges) resized();
     const juce::Component* alwaysShown[] = {&titleButton, &instrumentButton, &panelTab, &effectsTab, &matrixTab, &schematicTab, &notesTab, &patchLabel, &loadLabel, &loadButton,
                                             &saveButton, &menuButton, &undoButton, &redoButton, &resetLayoutButton, &compactButton, &keyboard, &keyboardButton, &assistantTab,
                                             // Spec S6.24 (found 2026-11-26: they vanished on the other tabs): the playing controls follow
@@ -2900,11 +2960,14 @@ void LMWSynthEditor::showTab(int tab) {
                                             &bendLabel, &modLabel, &glideLabel, &bendRangeLabel};
     for (auto* child : getChildren()) {
         if (child == &notesEditor || child == matrix.get() || child == schematic.get() || child == assistant.get()
-            || child == &rackView || child == &schematicView || std::find(std::begin(alwaysShown), std::end(alwaysShown), child) != std::end(alwaysShown))
+            || child == &rackView || child == &schematicView || child == &fxSchematicView || std::find(std::begin(alwaysShown), std::end(alwaysShown), child) != std::end(alwaysShown))
             continue;
         child->setVisible(false);
     }
-    rackView.setVisible(tab == 0 || tab == 1);               // Spec S6.21: the rack scrolls in its view
+    rackView.setVisible(tab == 0 || (tab == 1 && !fxSchematicShown));   // Spec S6.21: the rack scrolls in its view
+    fxSchematicView.setVisible(tab == 1 && fxSchematicShown);   // Spec S6.31
+    fxPanelsButton.setVisible(tab == 1);
+    fxSchematicButton.setVisible(tab == 1);
     for (auto* child : rackArea->getChildren()) {
         if (child == cables.get()) continue;
         const bool effect = std::find(effectComponents.begin(), effectComponents.end(), child) != effectComponents.end();
@@ -2919,6 +2982,7 @@ void LMWSynthEditor::showTab(int tab) {
     if (tab == 2) matrix->grabKeyboardFocus();
     if (tab == 3) notesEditor.grabKeyboardFocus();
     if (tab == 4) schematic->grabKeyboardFocus();
+    if (tab == 1 && fxSchematicShown) fxSchematic->grabKeyboardFocus();
     if (tab == 5 && assistant) assistant->focusInput();
     if (tab == 0 || tab == 1) rackView.setViewPosition(tabScroll[static_cast<std::size_t>(tab)]);   // S6.21
     rackArea->repaint();
@@ -2928,14 +2992,33 @@ void LMWSynthEditor::showTab(int tab) {
 // Spec S6.22: the Schematic surface is its drawing (with a margin) or the view, whichever is larger: centred
 // when it fits, scroll bars when it does not.
 void LMWSynthEditor::layoutSchematic() {
-    if (!schematic) return;
-    const auto need = schematic->drawingSize();
-    const auto area = schematicView.getBounds();
-    const int bar = schematicView.getScrollBarThickness();
-    const bool horz = need.x > area.getWidth();
-    const bool vert = need.y > area.getHeight() - (horz ? bar : 0);
-    const bool horz2 = need.x > area.getWidth() - (vert ? bar : 0);
-    schematic->setSize(std::max(need.x, area.getWidth() - (vert ? bar : 0)), std::max(need.y, area.getHeight() - (horz2 ? bar : 0)));
+    for (auto [view, port] : {std::pair{schematic.get(), &schematicView}, std::pair{fxSchematic.get(), &fxSchematicView}}) {
+        if (!view) continue;
+        const auto need = view->drawingSize();
+        const auto area = port->getBounds();
+        const int bar = port->getScrollBarThickness();
+        const bool horz = need.x > area.getWidth();
+        const bool vert = need.y > area.getHeight() - (horz ? bar : 0);
+        const bool horz2 = need.x > area.getWidth() - (vert ? bar : 0);
+        view->setSize(std::max(need.x, area.getWidth() - (vert ? bar : 0)), std::max(need.y, area.getHeight() - (horz2 ? bar : 0)));
+    }
+}
+
+// Spec S6.31: the Effects tab's switch — the panels (and the effects matrix) or the effects Schematic.
+void LMWSynthEditor::showEffectsView(bool showSchematic) {
+    fxSchematicShown = showSchematic;
+    (showSchematic ? fxSchematicButton : fxPanelsButton).setToggleState(true, juce::dontSendNotification);
+    if (currentTab == 1) showTab(1);
+}
+
+// Spec S6.31: one stored layout for both pages; a change on one page keeps the other page's places.
+void LMWSynthEditor::schematicLayoutChanged(const juce::String& text, lmw::ui::schematic::Page page) {
+    namespace sc = lmw::ui::schematic;
+    const auto stored = processor.schematicLayout().toStdString();
+    auto merged = sc::Layout::parse(stored).value_or(sc::Layout());
+    merged.takePage(sc::Layout::parse(text.toStdString()).value_or(sc::Layout()), page);
+    const LMWSynthProcessor::ScopedStep step(processor, "Schematic layout");   // Spec S6.14
+    processor.setSchematicLayout(merged.isDefault() ? juce::String() : juce::String(merged.serialize()));
 }
 
 // ---- Spec S6.24 (Phase 41): playing controls left of the keyboard ----
@@ -3663,7 +3746,8 @@ std::string LMWSynthEditor::viewText() const {
     s += std::string("rings ") + (settings.socketRings ? "on" : "off") + "\n";
     s += std::string("gradient ") + (settings.panelGradient ? "on" : "off") + "\n";   // Spec S6.30
     s += "scroll " + std::to_string(rackView.getViewPositionX()) + " " + std::to_string(rackView.getViewPositionY()) + "\n";   // S6.21
-    if (currentTab == 0 || currentTab == 1)
+    if (currentTab == 1) s += std::string("fxview ") + (fxSchematicShown ? "schematic" : "panels") + "\n";   // Spec S6.31
+    if (currentTab == 0 || (currentTab == 1 && !fxSchematicShown))
         for (const auto& g : currentTab == 0 ? groups : effectGroups)
             s += "panel " + rect(getLocalArea(rackArea.get(), g.bounds)) + " " + g.title.toStdString() + "\n";   // editor pixels (S6.21)
     if (currentTab == 4 && schematic != nullptr) {
@@ -3671,7 +3755,11 @@ std::string LMWSynthEditor::viewText() const {
         for (const auto& [name, r] : schematic->blockAreas()) s += "panel " + rect(getLocalArea(schematic.get(), r)) + " " + name + "\n";
     }
     if (currentTab == 2 && matrix != nullptr) s += "area " + rect(matrix->getBounds()) + " matrix\n";
-    if (currentTab == 1 && fxMatrix != nullptr)            // Spec S6.25: the effects matrix, editor pixels
+    if (currentTab == 1 && fxSchematicShown && fxSchematic != nullptr) {   // Spec S6.31
+        s += "area " + rect(fxSchematicView.getBounds()) + " fxschematic\n";
+        for (const auto& [name, r] : fxSchematic->blockAreas()) s += "panel " + rect(getLocalArea(fxSchematic.get(), r)) + " " + name + "\n";
+    }
+    if (currentTab == 1 && !fxSchematicShown && fxMatrix != nullptr)   // Spec S6.25: the effects matrix, editor pixels
         s += "area " + rect(getLocalArea(rackArea.get(), fxMatrix->getBounds())) + " fxmatrix\n";
     if (keyboardShown) s += "area " + rect(keyboard.getBounds()) + " keyboard\n";
     return s;
@@ -3717,6 +3805,9 @@ std::string LMWSynthEditor::applyView(const std::string& text) {
             saveConfig();
             repaint();
             if (rackArea) rackArea->repaint();
+        } else if (key == "fxview") {                             // Spec S6.31: the Effects tab's panels or Schematic
+            if (value != "panels" && value != "schematic") return "bad fxview: " + value + " (panels or schematic)";
+            showEffectsView(value == "schematic");
         } else if (key == "scroll") {                             // Spec S6.21: the rack view position
             int x = 0, y = 0;
             if (std::sscanf(value.c_str(), "%d %d", &x, &y) != 2) return "bad scroll: " + value + " (x y)";
@@ -3727,7 +3818,7 @@ std::string LMWSynthEditor::applyView(const std::string& text) {
         } else if (key == "focus" && value == "none") {
             unfocusAllComponents();                       // no keyboard cursor (Matrix, Schematic) in a picture
         } else {
-            return "bad view line: " + line + " (tab, size, compact, keyboard, scales, rings, scroll, pointer away, focus none)";
+            return "bad view line: " + line + " (tab, size, compact, keyboard, scales, rings, gradient, fxview, scroll, pointer away, focus none)";
         }
     }
     return {};
@@ -3793,6 +3884,7 @@ void LMWSynthEditor::updateUse(bool force) {
     for (std::size_t i = 0; i < headers.size(); ++i) headers[i]->setNote(useNote(panelUnit(groupJacks[i])));
     for (std::size_t e = 0; e < effectHeaders.size(); ++e) effectHeaders[e]->setNote(useNote(panelUnit(effectGroupJacks[e + 1])));
     if (schematic) schematic->setUse(shownUse, [this](std::string_view u) { return useNote(u); });
+    if (fxSchematic) fxSchematic->setUse(shownUse, [this](std::string_view u) { return useNote(u); });
     if (repaintNeeded) rackArea->repaint();
 }
 

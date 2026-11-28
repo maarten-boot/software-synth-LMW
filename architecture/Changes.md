@@ -3,6 +3,7 @@
 Changes between releases.
 
 ## Unreleased
+- 2026-11-28: The effects moved off the Schematic tab: it now ends with OUT → EFFECTS, a box naming the effects in their order (hover: which are at Mix 0; double-click: opens them). The Effects tab has Panels | Schematic in the header: its Schematic shows SYNTH → COMB → ENSEMBLE → DELAY → REVERB → MAIN, where you patch and move blocks as on the Schematic tab. A long cable along a row now curves below it instead of running through the blocks. A Schematic layout you arranged keeps the synth blocks; the effects start at their new places.
 - 2026-11-28: OUT Volume goes up to +12 dB (0 dB now sits at three quarters of the fader), so a quiet sound can be raised. OUT and MAIN each have a limiter lamp ("limit"): filled while the limiter squashes peaks; its hover text says how much. Saved sounds keep their level; a DAW automation of Volume recorded before plays back at different levels (it is stored as a fader position).
 - 2026-11-28: Panel gradient: Menu › Theme › Panel gradient lets each coloured panel fade from its title colour down to the page (white, or the dark page in a dark theme). Off by default; all text keeps your contrast setting.
 - 2026-11-27: New default panel order (Reset layout, first start): KEYS, LFO 1, NOISE, VCO 1–3 / MIXER, VCF 1, VCF 2, FORMANT / MIX 2, ENV 2, LFO 2, ENV 1, VCA, OUT. A layout you arranged yourself stays.

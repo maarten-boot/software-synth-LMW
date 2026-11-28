@@ -46,7 +46,8 @@ float SchematicView::scale() const noexcept {
 juce::Point<int> SchematicView::drawingSize() const noexcept {
     const float s = scale();
     const auto e = layout.extent();
-    const float w = std::max(sc::canvasWidth, e.x + 20.0f), h = std::max(sc::canvasHeight, e.y + 8.0f);
+    const auto c = sc::canvasSize(layout.page());          // S6.31: the page's canvas
+    const float w = std::max(c.x, e.x + 20.0f), h = std::max(c.y, e.y + 8.0f);
     return {juce::roundToInt(w * s) + 24, juce::roundToInt(h * s) + 24};
 }
 
@@ -219,6 +220,29 @@ void SchematicView::drawBlock(juce::Graphics& g, std::size_t index) const {
         innerLabels(area.getRight());
         break;
     }
+    case sc::Shape::Effects: {
+        // Spec S6.31: a rectangle with the name at the top, the effect names in their order below it (one per
+        // line, small) and the line-out arrow (what is heard, MAIN) at the right.
+        g.setColour(kBg);
+        g.fillRect(r);
+        g.setColour(kFg);
+        outlineRect(r, stroke);
+        drawName(juce::Rectangle<float>(r.getX() + 0.8f * s, r.getY() + 0.2f * s, r.getWidth() - 1.6f * s, 2.0f * s),
+                 juce::Justification::centredLeft);
+        const auto names = effectNames ? effectNames() : std::vector<juce::String>{};
+        const float lineH = 1.45f * s;
+        g.setFont(juce::FontOptions(1.3f * s));
+        float y = r.getY() + 2.4f * s;
+        for (std::size_t k = 0; k < names.size(); ++k, y += lineH)
+            g.drawText((k == 0 ? juce::String() : juce::String::fromUTF8("\xe2\x86\x92 ")) + names[k],
+                       juce::Rectangle<float>(r.getX() + 0.8f * s, y, r.getWidth() * 0.7f, lineH), juce::Justification::centredLeft, false);
+        const float d = 2.4f * s;                          // the line-out sign: a small circle with an arrow
+        const juce::Rectangle<float> circle(r.getRight() - 4.4f * s, r.getBottom() - d - 0.8f * s, d, d);
+        g.drawEllipse(circle, stroke);
+        g.drawArrow(juce::Line<float>(circle.getRight(), circle.getCentreY(), r.getRight() - 0.3f * s, circle.getCentreY()),
+                    stroke, d * 0.45f, d * 0.45f);
+        break;
+    }
     case sc::Shape::Out: {
         // A circle with an arrow leaving it to the right (the usual line-out sign).
         const float d = std::min(r.getHeight(), r.getWidth() * 0.6f);
@@ -240,7 +264,10 @@ void SchematicView::paint(juce::Graphics& g) {
     g.fillAll(kBg);
     const float s = scale();
     const auto& p = patch();
-    const auto conns = sc::connections(p);
+    const auto page = layout.page();
+    auto conns = sc::connections(p);                       // S6.31: only those with both ends on this page
+    conns.erase(std::remove_if(conns.begin(), conns.end(), [&](const sc::Connection& c) {
+        return !sc::onPage(c.from, page) || !sc::onPage(c.to, page); }), conns.end());
 
     // Normalled connections first, so the blocks cover where they pass behind them; cables on top of the
     // blocks, black with a white edge (as on the Synth tab), so a cable crossing a block is seen to cross it.
@@ -265,9 +292,19 @@ void SchematicView::paint(juce::Graphics& g) {
         juce::PathStrokeType(lineW).createDashedStroke(dashed, pathOf(c), fromUnused(c) ? sparse : dash, 2);
         g.fillPath(dashed);
     }
+    // Spec S6.31: out.out into the EFFECTS block (no port: it takes no cables), solid, behind the blocks.
+    if (page == sc::Page::Synth && sc::feedsEffects(p)) {
+        const auto fx = sc::Layout::indexOf("EFFECTS");
+        const auto box = layout.box(fx);
+        const auto cv = sc::curve(sc::outputPoint(lmw::dsp::Out::OutOut, layout), {box.x, box.y + box.h / 2});
+        juce::Path path;
+        path.startNewSubPath(toScreen(cv[0]));
+        path.cubicTo(toScreen(cv[1]), toScreen(cv[2]), toScreen(cv[3]));
+        g.strokePath(path, juce::PathStrokeType(lineW * 1.4f));
+    }
     // Internal links (fader-set): thin, dotted, behind the blocks; the arrow ends on the block's edge.
     shownKeys = keyTrack();
-    const auto internal = sc::internalLinks(shownKeys[0], shownKeys[1]);
+    const auto internal = page == sc::Page::Synth ? sc::internalLinks(shownKeys[0], shownKeys[1]) : std::vector<sc::InternalLink>{};
     const float dot[] = {0.25f * s, 0.55f * s};
     for (const auto& l : internal) {
         const auto bi = sc::findBlock(l.block);
@@ -295,12 +332,12 @@ void SchematicView::paint(juce::Graphics& g) {
             g.drawRect(r, std::max(edgeOnly ? 3.0f : 2.0f, 0.2f * s));
         }
     }
-    for (std::size_t i = 0; i < sc::blocks().size(); ++i) drawBlock(g, i);
+    for (std::size_t i = 0; i < sc::blocks().size(); ++i) if (sc::Layout::onPage(i, page)) drawBlock(g, i);
     // Cables grey at rest; black, thicker and on top for the port under the mouse or the keyboard cursor
     // (user 2026-11-22, as on the Synth tab).
     std::optional<PortRef> cursorPort;
     if (hasKeyboardFocus(false)) {
-        const auto order = sc::portOrder();
+        const auto order = sc::portOrder(page);
         if (cursor < order.size()) cursorPort = PortRef{!order[cursor].input, order[cursor].index};
     }
     auto hotEnd = [&](const sc::Connection& c) {
@@ -348,7 +385,7 @@ void SchematicView::paint(juce::Graphics& g) {
         g.drawText(t, box, juce::Justification::centred, false);
     }
     // Spec S5.24: an LFO whose Delay is above 0 gets "delay 400 ms" under its symbol, as the key labels.
-    for (std::size_t k = 0; k < 2; ++k) {
+    for (std::size_t k = 0; k < 2 && page == sc::Page::Synth; ++k) {
         if (!(shownKeys[2 + k] > 0.0f)) continue;
         const auto bi = sc::findBlock(k == 0 ? "LFO 1" : "LFO 2");
         if (!bi) continue;
@@ -381,6 +418,7 @@ void SchematicView::paint(juce::Graphics& g) {
     }
     for (int i = 0; i < lmw::dsp::numInputs; ++i) {
         const auto in = static_cast<lmw::dsp::In>(i);
+        if (!sc::onPage(in, page)) continue;
         const auto c = toScreen(sc::inputPoint(in, layout));
         g.setColour(kBg);
         g.fillEllipse(c.x - pr, c.y - pr, 2 * pr, 2 * pr);
@@ -389,6 +427,7 @@ void SchematicView::paint(juce::Graphics& g) {
         if (p.isPatched(in)) g.fillEllipse(c.x - pr * 0.45f, c.y - pr * 0.45f, pr * 0.9f, pr * 0.9f);   // cable plugged in
     }
     for (int o = 0; o < lmw::dsp::numOutputs; ++o) {
+        if (!sc::onPage(static_cast<lmw::dsp::Out>(o), page)) continue;
         const auto c = toScreen(sc::outputPoint(static_cast<lmw::dsp::Out>(o), layout));
         g.fillEllipse(c.x - pr, c.y - pr, 2 * pr, 2 * pr);
     }
@@ -396,11 +435,13 @@ void SchematicView::paint(juce::Graphics& g) {
         const float rr = pr + std::max(2.0f, 0.3f * s), rw = std::max(1.5f, 0.2f * s);
         for (int i = 0; i < lmw::dsp::numInputs; ++i) {
             const auto in = static_cast<lmw::dsp::In>(i);
+            if (!sc::onPage(in, page)) continue;
             const auto t = lmw::dsp::typeOf(in);
             lmw::ui::drawTypeRing(g, toScreen(sc::inputPoint(in, layout)), rr, rw, t, colour(palette.socket[static_cast<std::size_t>(t)]));
         }
         for (int o = 0; o < lmw::dsp::numOutputs; ++o) {
             const auto out = static_cast<lmw::dsp::Out>(o);
+            if (!sc::onPage(out, page)) continue;
             const auto t = lmw::dsp::typeOf(out);
             lmw::ui::drawTypeRing(g, toScreen(sc::outputPoint(out, layout)), rr, rw, t, colour(palette.socket[static_cast<std::size_t>(t)]));
         }
@@ -524,7 +565,8 @@ void SchematicView::paint(juce::Graphics& g) {
 std::vector<std::pair<std::string, juce::Rectangle<int>>> SchematicView::blockAreas() const {
     std::vector<std::pair<std::string, juce::Rectangle<int>>> out;
     for (std::size_t i = 0; i < sc::blocks().size(); ++i)
-        out.emplace_back(std::string(sc::blocks()[i].name), toScreen(layout.box(i)).getSmallestIntegerContainer());
+        if (sc::Layout::onPage(i, layout.page()))          // S6.31: this view's page
+            out.emplace_back(std::string(sc::blocks()[i].name), toScreen(layout.box(i)).getSmallestIntegerContainer());
     return out;
 }
 
@@ -549,6 +591,9 @@ juce::String SchematicView::getTooltip() {
     if (const auto bi = sc::blockAt(c, layout)) {
             const auto& b = sc::blocks()[*bi];
             juce::String t = text(b.name);
+            if (b.shape == sc::Shape::Effects)                    // S6.31
+                return t + (effectsNote ? "\n" + effectsNote() : juce::String())
+                     + "\nDouble-click: the effects Schematic on the Effects tab. Drag the symbol to move it.";
             if (useNote && !b.outputs.empty())                    // S6.26: why it has no effect
                 if (const auto n = useNote(lmw::dsp::portUnit(b.outputs.front())); n.isNotEmpty()) t += "\n" + n;
             for (auto in : b.inputs) t += "\n" + juce::String::fromUTF8(sc::describeInput(p, in).c_str());
@@ -615,7 +660,7 @@ void SchematicView::mouseDown(const juce::MouseEvent& e) {
         repaint();
         return;
     }
-    const auto order = sc::portOrder();
+    const auto order = sc::portOrder(layout.page());
     for (std::size_t k = 0; k < order.size(); ++k)
         if (order[k].input == !pressed->output && order[k].index == pressed->index) cursor = k;
     repaint();
@@ -691,19 +736,19 @@ bool SchematicView::keyPressed(const juce::KeyPress& key) {
         if (c == '0' || code == juce::KeyPress::numberPad0) { setZoom(1); return true; }
         if (c == 'a' || c == 'A' || code == 'a' || code == 'A') {   // S6.23: Ctrl + A selects every block
             selected.clear();
-            for (std::size_t i = 0; i < sc::blocks().size(); ++i) selected.push_back(i);
+            for (std::size_t i = 0; i < sc::blocks().size(); ++i) if (sc::Layout::onPage(i, layout.page())) selected.push_back(i);
             repaint();
             return true;
         }
     }
     if (mods.isCommandDown() || mods.isCtrlDown() || mods.isAltDown()) return false;
-    const auto order = sc::portOrder();
+    const auto order = sc::portOrder(layout.page());
     if (order.empty()) return false;
     cursor = std::min(cursor, order.size() - 1);
     if (mods.isShiftDown() && (code == juce::KeyPress::leftKey || code == juce::KeyPress::rightKey
                                || code == juce::KeyPress::upKey || code == juce::KeyPress::downKey)) {
         // Phase 12c: Shift+arrow moves the block that holds the port cursor one grid step (if it fits).
-        const auto bi = sc::blockOf(order[cursor]);
+        const auto bi = sc::blockOf(order[cursor], layout.page());
         const sc::Point d{code == juce::KeyPress::leftKey ? -1.0f : code == juce::KeyPress::rightKey ? 1.0f : 0.0f,
                           code == juce::KeyPress::upKey ? -1.0f : code == juce::KeyPress::downKey ? 1.0f : 0.0f};
         // S6.23: the whole selection when the cursor's block is in it, else that block alone.
@@ -718,7 +763,7 @@ bool SchematicView::keyPressed(const juce::KeyPress& key) {
         return true;
     }
     if (code == juce::KeyPress::downKey || code == juce::KeyPress::upKey) {        // first port of next / previous symbol
-        cursor = sc::blockJump(cursor, code == juce::KeyPress::downKey ? 1 : -1);
+        cursor = sc::blockJump(cursor, code == juce::KeyPress::downKey ? 1 : -1, layout.page());
         repaint();
         return true;
     }
@@ -739,7 +784,9 @@ bool SchematicView::keyPressed(const juce::KeyPress& key) {
 
 void SchematicView::setLayout(const juce::String& text) {
     shownLayout = text;
+    const auto shownPage = layout.page();
     layout = sc::Layout::parse(text.toStdString()).value_or(sc::Layout());
+    layout.setShown(shownPage);                            // S6.31: this view's page
     selected.clear();                                      // S6.23: a new layout (a patch loaded): no selection
     updatePage();
     if (onSizeChange) onSizeChange();                      // a stored layout may reach further (39b)
@@ -752,7 +799,7 @@ void SchematicView::poll(const juce::String& layoutText) {
 }
 
 void SchematicView::resetLayout() {
-    layout = sc::Layout();
+    layout.resetPage(layout.page());                       // S6.31: this view's page only
     updatePage();
     layoutChanged();
     repaint();
@@ -762,6 +809,25 @@ void SchematicView::layoutChanged() {
     shownLayout = layout.isDefault() ? juce::String() : juce::String(layout.serialize());
     if (onLayoutChange) onLayoutChange(shownLayout);
     if (onSizeChange) onSizeChange();                      // S6.22 (39b): the page grows with the blocks
+}
+
+void SchematicView::setPage(sc::Page p) {
+    layout.setShown(p);
+    cursor = 0;
+    selected.clear();
+    setTitle(p == sc::Page::Effects ? "Effects schematic" : "Schematic");
+    updatePage();
+    if (onSizeChange) onSizeChange();
+    repaint();
+}
+
+// Spec S6.31: a double-click on the EFFECTS block opens the effects Schematic.
+void SchematicView::mouseDoubleClick(const juce::MouseEvent& e) {
+    if (const auto bi = sc::blockAt(toCanvas(e.position), layout); bi && sc::blocks()[*bi].shape == sc::Shape::Effects) {
+        moving.reset();
+        moved = false;
+        if (onOpenEffects) onOpenEffects();
+    }
 }
 
 void SchematicView::mouseExit(const juce::MouseEvent&) {

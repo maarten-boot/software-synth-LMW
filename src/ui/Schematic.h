@@ -27,7 +27,11 @@ using lmw::dsp::Out;
 
 // VCO, VCF, VCA, LFO, MIX: triangles pointing right; ENV: ADSR curve in a rectangle; KEYS: a small
 // keyboard; NOISE: a noise trace in a rectangle; OUT: a circle with an arrow leaving it to the right.
-enum class Shape : std::uint8_t { Triangle, Adsr, Keys, Noise, Out };
+// Effects (S6.31): the EFFECTS block on the synth page, a rectangle naming the effects order with the line-out arrow.
+enum class Shape : std::uint8_t { Triangle, Adsr, Keys, Noise, Out, Effects };
+// Spec S6.31 (Phase 54): the synth blocks are drawn on the Schematic tab, the effects (SYNTH … MAIN) on the
+// Effects tab's Schematic. One layout holds both pages; a block only meets blocks of its own page.
+enum class Page : std::uint8_t { Synth, Effects };
 
 struct Point { float x = 0, y = 0; };
 struct Rect {
@@ -44,10 +48,16 @@ struct Block {
     Rect box;                        // canvas units
     std::vector<In> inputs;          // top to bottom on the left edge
     std::vector<Out> outputs;        // top to bottom on the right edge
+    Page page = Page::Synth;         // Spec S6.31
     theme::Unit unit() const noexcept { return theme::unitOf(name); }
 };
 
-inline constexpr float canvasWidth = 168.0f, canvasHeight = 84.0f;   // 4 below for the legend; 72 before the effects moved to the bottom (2026-11-26)
+// The synth page (4 below for the legend): 188 x 70 since S6.31 (EFFECTS after OUT, the effects row gone); 168 x 84
+// with the effects row at the bottom (2026-11-26), 72 before.
+inline constexpr float canvasWidth = 188.0f, canvasHeight = 70.0f;
+// Spec S6.31: the effects page (one row, the legend below it; as wide as the legend).
+inline constexpr float fxCanvasWidth = 172.0f, fxCanvasHeight = 20.0f;
+inline constexpr Point canvasSize(Page p) noexcept { return p == Page::Effects ? Point{fxCanvasWidth, fxCanvasHeight} : Point{canvasWidth, canvasHeight}; }
 // Spec S6.22 (39b, user 2026-11-26: "allow elements to use the complete page"): blocks may be placed anywhere on the
 // page the view shows (at least the canvas above); stored layouts are accepted up to this size.
 inline constexpr float maxPageWidth = 1000.0f, maxPageHeight = 500.0f;   // 152 before the effects (S7.6), 136 before FORMANT (S5.16)
@@ -69,16 +79,19 @@ inline const std::vector<Block>& blocks() {
         {"MIX 2",  Shape::Triangle, {121, 19, 10, 16}, {In::Mix2In1, In::Mix2In2, In::Mix2In3}, {Out::Mix2}},   // S5.26
         {"VCA",    Shape::Triangle, {136, 20, 12, 14},{In::VcaIn, In::VcaCv, In::VcaMod, In::VcaVel}, {Out::Vca}},
         {"OUT",    Shape::Triangle, {154, 22, 10, 10}, {In::OutIn, In::OutPan}, {Out::OutOut}},   // S7.6: feeds the effects; S5.25: pan
+        {"EFFECTS", Shape::Effects, {168, 20, 16, 14}, {}, {}},   // S6.31: the effects in their order, to MAIN
         {"ENV 1",  Shape::Adsr,     {50, 58, 12, 8},  {In::Env1Gate}, {Out::Env1}},
         {"ENV 2",  Shape::Adsr,     {50, 45, 12, 8},  {In::Env2Gate}, {Out::Env2}},
         {"LFO 2",  Shape::Triangle, {110, 49, 10, 12}, {In::Lfo2Rate, In::Lfo2Shape}, {Out::Lfo2}},
-        // Spec S7.6: the effects rack; MAIN (what is heard) has the line-out symbol OUT had before. At the bottom,
-        // under everything (user 2026-11-26; y 40 before).
-        {"COMB",   Shape::Triangle, {88, 70, 12, 10}, {In::CombIn}, {Out::CombOut}},
-        {"ENSEMBLE", Shape::Triangle, {104, 70, 12, 10}, {In::EnsembleIn}, {Out::EnsembleOut}},   // S7.11
-        {"DELAY",  Shape::Triangle, {120, 70, 12, 10}, {In::DelayIn}, {Out::DelayOut}},   // S7.8
-        {"REVERB", Shape::Triangle, {136, 70, 12, 10}, {In::ReverbIn}, {Out::ReverbOut}},
-        {"MAIN",   Shape::Out,      {152, 71, 8, 8}, {In::MainIn}, {}},
+        // Spec S7.6: the effects rack; MAIN (what is heard) has the line-out symbol OUT had before. Since S6.31 on
+        // the Effects tab's page, from SYNTH (out.out, as the Effects tab's SYNTH panel); before at the bottom of the
+        // synth page (y 70, user 2026-11-26; y 40 before that).
+        {"SYNTH",  Shape::Triangle, {4, 4, 10, 10},   {}, {Out::OutOut}, Page::Effects},
+        {"COMB",   Shape::Triangle, {28, 4, 12, 10},  {In::CombIn}, {Out::CombOut}, Page::Effects},
+        {"ENSEMBLE", Shape::Triangle, {52, 4, 12, 10}, {In::EnsembleIn}, {Out::EnsembleOut}, Page::Effects},   // S7.11
+        {"DELAY",  Shape::Triangle, {76, 4, 12, 10},  {In::DelayIn}, {Out::DelayOut}, Page::Effects},   // S7.8
+        {"REVERB", Shape::Triangle, {100, 4, 12, 10}, {In::ReverbIn}, {Out::ReverbOut}, Page::Effects},
+        {"MAIN",   Shape::Out,      {124, 5, 8, 8},   {In::MainIn}, {}, Page::Effects},
     };
     return b;
 }
@@ -98,6 +111,21 @@ class Layout {
 public:
     Layout() { for (const auto& b : blocks()) pos.push_back({b.box.x, b.box.y}); }
 
+    // Spec S6.31: the page a view shows (page size, extent, selection rectangles); every block keeps its place.
+    void setShown(Page p) noexcept { shown = p; setPage(pageW, pageH); }
+    Page page() const noexcept { return shown; }
+    static bool onPage(std::size_t i, Page p) { return i < blocks().size() && blocks()[i].page == p; }
+    // The blocks of page `p` back in their default places (Reset layout on that page).
+    void resetPage(Page p) { for (std::size_t i = 0; i < pos.size(); ++i) if (onPage(i, p)) pos[i] = {blocks()[i].box.x, blocks()[i].box.y}; }
+    // The places of page `p` taken from `o` (the editor merges a page changed in one view into the stored layout).
+    void takePage(const Layout& o, Page p) { for (std::size_t i = 0; i < pos.size(); ++i) if (onPage(i, p)) pos[i] = o.pos[i]; }
+    bool isDefault(Page p) const {
+        const Layout d;
+        for (std::size_t i = 0; i < pos.size(); ++i)
+            if (onPage(i, p) && (std::lround(pos[i].x) != std::lround(d.pos[i].x) || std::lround(pos[i].y) != std::lround(d.pos[i].y))) return false;
+        return true;
+    }
+
     Point position(std::size_t i) const { return pos[i]; }
     Rect box(std::size_t i) const {
         auto r = blocks()[i].box;
@@ -116,7 +144,7 @@ public:
         r.y = p.y;
         if (r.x < 0 || r.right() > pageW || r.y < 0 || r.bottom() > pageH - 4) return false;
         for (std::size_t j = 0; j < pos.size(); ++j)
-            if (j != i && room(r).intersects(room(box(j)))) return false;
+            if (j != i && blocks()[j].page == blocks()[i].page && room(r).intersects(room(box(j)))) return false;
         return true;
     }
     // Spec S6.23 (Phase 40): a group of blocks moved together by `delta` (whole grid steps). It fits when every
@@ -131,7 +159,7 @@ public:
             r.y += delta.y;
             if (r.x < 0 || r.right() > pageW || r.y < 0 || r.bottom() > pageH - 4) return false;
             for (std::size_t j = 0; j < pos.size(); ++j)
-                if (!inGroup(j) && room(r).intersects(room(box(j)))) return false;
+                if (!inGroup(j) && blocks()[j].page == blocks()[i].page && room(r).intersects(room(box(j)))) return false;
         }
         return true;
     }
@@ -145,16 +173,16 @@ public:
     std::vector<std::size_t> blocksIn(Point a, Point b) const {
         const Rect r{std::min(a.x, b.x), std::min(a.y, b.y), std::fabs(b.x - a.x), std::fabs(b.y - a.y)};
         std::vector<std::size_t> out;
-        for (std::size_t i = 0; i < pos.size(); ++i) if (r.intersects(box(i))) out.push_back(i);
+        for (std::size_t i = 0; i < pos.size(); ++i) if (onPage(i, shown) && r.intersects(box(i))) out.push_back(i);
         return out;
     }
     // S6.22 (39b): the page the blocks may use (canvas units), at least the canvas; and how far the blocks reach.
-    void setPage(float w, float h) { pageW = std::clamp(w, canvasWidth, maxPageWidth); pageH = std::clamp(h, canvasHeight, maxPageHeight); }
+    void setPage(float w, float h) { const auto c = canvasSize(shown); pageW = std::clamp(w, c.x, maxPageWidth); pageH = std::clamp(h, c.y, maxPageHeight); }
     float pageWidth() const noexcept { return pageW; }
     float pageHeight() const noexcept { return pageH; }
     Point extent() const {
         Point e{0, 0};
-        for (std::size_t i = 0; i < pos.size(); ++i) { const auto r = box(i); e.x = std::max(e.x, r.right()); e.y = std::max(e.y, r.bottom()); }
+        for (std::size_t i = 0; i < pos.size(); ++i) { if (!onPage(i, shown)) continue; const auto r = box(i); e.x = std::max(e.x, r.right()); e.y = std::max(e.y, r.bottom()); }
         return e;
     }
     // Moves block i to `p` (snapped) if it fits there.
@@ -220,22 +248,30 @@ public:
             l.pos[i] = {static_cast<float>(x), static_cast<float>(y)};
             named[i] = true;
         }
+        // Spec S6.31: a layout saved before Phase 54 (no EFFECTS block) placed the effects on the synth page; they
+        // go to their defaults on the effects page, the synth blocks keep their places.
+        if (const auto fx = indexOf("EFFECTS"); fx < named.size() && !named[fx])
+            for (std::size_t i = 0; i < l.pos.size(); ++i)
+                if (onPage(i, Page::Effects)) { l.pos[i] = {blocks()[i].box.x, blocks()[i].box.y}; named[i] = false; }
         const auto later = [](std::string_view name) {   // blocks added after Phase 12c
             return name == "FORMANT" || name == "COMB" || name == "ENSEMBLE" || name == "DELAY" || name == "REVERB" || name == "MAIN"
-                || name == "MIX 2";                                   // S5.26
+                || name == "MIX 2"                                    // S5.26
+                || name == "EFFECTS" || name == "SYNTH";              // S6.31
         };
         for (std::size_t i = 0; i < l.pos.size(); ++i) {           // the others: inside, not on each other
             if (!named[i] && later(blocks()[i].name)) continue;
             const Rect r = l.box(i);
             if (r.x < 0 || r.right() > maxPageWidth || r.y < 0 || r.bottom() > maxPageHeight - 4) return std::nullopt;
             for (std::size_t j = 0; j < l.pos.size(); ++j)
-                if (j != i && (named[j] || !later(blocks()[j].name)) && r.intersects(l.box(j))) return std::nullopt;
+                if (j != i && blocks()[j].page == blocks()[i].page && (named[j] || !later(blocks()[j].name)) && r.intersects(l.box(j)))
+                    return std::nullopt;
         }
         for (std::size_t i = 0; i < l.pos.size(); ++i) {
             if (named[i] || !later(blocks()[i].name) || l.fits(i, l.pos[i])) continue;
             bool placed = false;
-            for (int y = 0; y <= static_cast<int>(canvasHeight) && !placed; ++y)
-                for (int x = 0; x <= static_cast<int>(canvasWidth) && !placed; ++x)
+            const auto c = canvasSize(blocks()[i].page);
+            for (int y = 0; y <= static_cast<int>(c.y) && !placed; ++y)
+                for (int x = 0; x <= static_cast<int>(c.x) && !placed; ++x)
                     placed = l.move(i, {static_cast<float>(x), static_cast<float>(y)});
             if (!placed) return std::nullopt;
         }
@@ -255,6 +291,7 @@ private:
     }
     std::vector<Point> pos;
     float pageW = canvasWidth, pageH = canvasHeight;
+    Page shown = Page::Synth;                       // Spec S6.31
 };
 
 inline const Layout& defaultLayout() {
@@ -269,9 +306,11 @@ inline float slot(const Rect& r, std::size_t k, std::size_t n) noexcept {
 }
 
 // Where an input / output sits on the canvas.
+// Spec S6.31: on the page the layout shows (out.out is OUT's on the synth page, SYNTH's on the effects page).
 inline Point inputPoint(In in, const Layout& l = defaultLayout()) {
     const auto& bs = blocks();
     for (std::size_t i = 0; i < bs.size(); ++i)
+        if (bs[i].page == l.page())
         for (std::size_t k = 0; k < bs[i].inputs.size(); ++k)
             if (bs[i].inputs[k] == in) {
                 const auto r = l.box(i);
@@ -283,6 +322,7 @@ inline Point inputPoint(In in, const Layout& l = defaultLayout()) {
 inline Point outputPoint(Out out, const Layout& l = defaultLayout()) {
     const auto& bs = blocks();
     for (std::size_t i = 0; i < bs.size(); ++i)
+        if (bs[i].page == l.page())
         for (std::size_t k = 0; k < bs[i].outputs.size(); ++k)
             if (bs[i].outputs[k] == out) {
                 const auto r = l.box(i);
@@ -295,11 +335,21 @@ inline Point outputPoint(Out out, const Layout& l = defaultLayout()) {
 // The block under a canvas point.
 inline std::optional<std::size_t> blockAt(Point p, const Layout& l = defaultLayout()) {
     for (std::size_t i = 0; i < blocks().size(); ++i)
-        if (l.box(i).contains(p)) return i;
+        if (Layout::onPage(i, l.page()) && l.box(i).contains(p)) return i;
     return std::nullopt;
 }
 
 // Short port label shown next to the port ("vcf1.cutoff" -> "cutoff", "keys.gate" -> "gate").
+// Spec S6.31: whether a port is drawn on page `p`.
+inline bool onPage(In in, Page p) {
+    for (const auto& b : blocks()) if (b.page == p && std::find(b.inputs.begin(), b.inputs.end(), in) != b.inputs.end()) return true;
+    return false;
+}
+inline bool onPage(Out out, Page p) {
+    for (const auto& b : blocks()) if (b.page == p && std::find(b.outputs.begin(), b.outputs.end(), out) != b.outputs.end()) return true;
+    return false;
+}
+
 inline std::string_view portLabel(std::string_view name) noexcept { return name.substr(name.find('.') + 1); }
 
 struct Connection {
@@ -329,9 +379,15 @@ inline std::vector<Connection> connections(const lmw::dsp::Patch& p) {
 
 // The curve of a connection: a cubic Bezier leaving the output to the right and entering the input from
 // the left (also for feedback, which loops back); returns the four control points.
+// Spec S6.31: a connection between ports at about the same height that passes other blocks (forward over 20 units,
+// e.g. out.out -> delay.in past COMB and ENSEMBLE on the effects row; or backward, e.g. reverb.out -> comb.in)
+// sags below the row instead of running straight through the blocks between them.
 inline std::array<Point, 4> curve(Point a, Point b) noexcept {
     const float d = std::max(6.0f, std::abs(b.x - a.x) * 0.45f);
-    return {{a, {a.x + d, a.y}, {b.x - d, b.y}, b}};
+    const float span = std::abs(b.x - a.x);
+    const bool passes = b.x - a.x > 20.0f || b.x < a.x;
+    const float sag = std::abs(b.y - a.y) < 2.0f && passes ? std::clamp(span * 0.25f, 8.0f, 16.0f) : 0.0f;
+    return {{a, {a.x + d, a.y + sag}, {b.x - d, b.y + sag}, b}};
 }
 
 inline Point curveAt(const std::array<Point, 4>& c, float t) noexcept {
@@ -471,17 +527,18 @@ inline std::optional<PortHit> portAt(Point p, float radius, std::optional<bool> 
     auto near = [&](Point q) { return std::hypot(q.x - p.x, q.y - p.y) <= radius; };
     if (wantInput.value_or(true))
         for (int i = 0; i < lmw::dsp::numInputs; ++i)
-            if (near(inputPoint(static_cast<In>(i), l))) return PortHit{true, i};
+            if (onPage(static_cast<In>(i), l.page()) && near(inputPoint(static_cast<In>(i), l))) return PortHit{true, i};
     if (!wantInput.value_or(false))
         for (int o = 0; o < lmw::dsp::numOutputs; ++o)
-            if (near(outputPoint(static_cast<Out>(o), l))) return PortHit{false, o};
+            if (onPage(static_cast<Out>(o), l.page()) && near(outputPoint(static_cast<Out>(o), l))) return PortHit{false, o};
     return std::nullopt;
 }
 
 // The block that holds a port (for moving it with the keyboard).
-inline std::size_t blockOf(PortHit h) {
+inline std::size_t blockOf(PortHit h, Page p = Page::Synth) {
     for (std::size_t i = 0; i < blocks().size(); ++i) {
         const auto& b = blocks()[i];
+        if (b.page != p) continue;
         if (h.input && std::find(b.inputs.begin(), b.inputs.end(), static_cast<In>(h.index)) != b.inputs.end()) return i;
         if (!h.input && std::find(b.outputs.begin(), b.outputs.end(), static_cast<Out>(h.index)) != b.outputs.end()) return i;
     }
@@ -489,9 +546,10 @@ inline std::size_t blockOf(PortHit h) {
 }
 
 // Keyboard order of the ports (Phase 12b): block by block, each block's inputs then its outputs.
-inline std::vector<PortHit> portOrder() {
+inline std::vector<PortHit> portOrder(Page p = Page::Synth) {
     std::vector<PortHit> v;
     for (const auto& b : blocks()) {
+        if (b.page != p) continue;
         for (auto i : b.inputs) v.push_back({true, static_cast<int>(i)});
         for (auto o : b.outputs) v.push_back({false, static_cast<int>(o)});
     }
@@ -500,16 +558,26 @@ inline std::vector<PortHit> portOrder() {
 
 // Up/Down on the Schematic tab (user 2026-11-16): from port `cursor` (index into portOrder()) to the
 // first port of the next (dir > 0) or previous (dir < 0) block in the same order, wrapping around.
-inline std::size_t blockJump(std::size_t cursor, int dir) {
-    const auto order = portOrder();
+inline std::size_t blockJump(std::size_t cursor, int dir, Page p = Page::Synth) {
+    const auto order = portOrder(p);
     if (order.empty()) return 0;
     cursor = std::min(cursor, order.size() - 1);
-    const auto nb = blocks().size();
-    const auto here = blockOf(order[cursor]);
-    const auto target = dir > 0 ? (here + 1) % nb : (here + nb - 1) % nb;
+    std::vector<std::size_t> withPorts;                // the page's blocks that have ports, in order
+    for (const auto& h : order) if (const auto b = blockOf(h, p); withPorts.empty() || withPorts.back() != b) withPorts.push_back(b);
+    const auto here = std::find(withPorts.begin(), withPorts.end(), blockOf(order[cursor], p)) - withPorts.begin();
+    const auto nb = static_cast<std::ptrdiff_t>(withPorts.size());
+    const auto target = withPorts[static_cast<std::size_t>(dir > 0 ? (here + 1) % nb : (here + nb - 1) % nb)];
     for (std::size_t k = 0; k < order.size(); ++k)
-        if (blockOf(order[k]) == target) return k;
+        if (blockOf(order[k], p) == target) return k;
     return cursor;
+}
+
+// Spec S6.31: the EFFECTS block's text (the effect names in their order) and the synth page's line into it — from
+// out.out when it feeds any effect input or MAIN (normalled or by cable); it takes no cables.
+inline bool feedsEffects(const lmw::dsp::Patch& p) {
+    for (const auto& c : connections(p))
+        if (c.from == Out::OutOut && !onPage(c.to, Page::Synth)) return true;
+    return false;
 }
 
 } // namespace lmw::ui::schematic

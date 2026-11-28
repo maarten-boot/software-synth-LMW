@@ -261,7 +261,12 @@ private:
     struct RackViewport final : juce::Viewport { bool keyPressed(const juce::KeyPress&) override { return false; } };
     RackViewport rackView;
     RackViewport schematicView;                          // S6.22: the Schematic, centred or scrolling
+    RackViewport fxSchematicView;                        // S6.31: the effects Schematic on the Effects tab
     void layoutSchematic();
+    // Spec S6.31: the Effects tab shows its panels (and the effects matrix) or its Schematic.
+    bool fxSchematicShown = false;
+    void showEffectsView(bool schematic);
+    void schematicLayoutChanged(const juce::String& text, lmw::ui::schematic::Page page);   // merges one page in
     std::array<juce::Point<int>, 2> tabScroll{};          // S6.21: the view position of the Synth / Effects tab
     void paintRack(juce::Graphics&);
     void scrollIntoView(const juce::Component&);           // S6.21: a focused control out of view comes into view
@@ -487,6 +492,8 @@ private:
     std::unique_ptr<MatrixView> matrix;                   // Spec S6.8: the Matrix tab
     std::unique_ptr<MatrixView> fxMatrix;                 // Spec S6.25: the effects matrix, Effects tab below the panels
     std::unique_ptr<SchematicView> schematic;             // Spec S6.7: the Schematic tab
+    std::unique_ptr<SchematicView> fxSchematic;           // Spec S6.31: the effects page, on the Effects tab
+    juce::TextButton fxPanelsButton{"Panels"}, fxSchematicButton{"Schematic"};   // S6.31: the Effects tab's switch
     std::unique_ptr<class AssistantView> assistant;       // Spec S12: the Assistant tab (standalone only)
     juce::TextButton assistantTab{"Assistant"};
     // Spec S7.4: the Effects tab — fixed panels (not part of the rack), one so far: REVERB.

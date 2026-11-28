@@ -43,8 +43,18 @@ public:
     // Phase 12c: the block positions as text (empty = default); onLayoutChange is called after a move or reset.
     void setLayout(const juce::String& text);
     void resetLayout();
-    bool isLayoutDefault() const { return layout.isDefault(); }
+    bool isLayoutDefault() const { return layout.isDefault(layout.page()); }   // S6.31: this view's page
     std::function<void(const juce::String&)> onLayoutChange;
+
+    // Spec S6.31 (Phase 54): the page this view shows — the synth (Schematic tab) or the effects (Effects tab).
+    void setPage(lmw::ui::schematic::Page p);
+    lmw::ui::schematic::Page page() const noexcept { return layout.page(); }
+    // The synth page's EFFECTS block: the effect names in their order, its hover lines (order, Mix 0), and a
+    // double-click on it (the editor opens the Effects tab's Schematic).
+    std::function<std::vector<juce::String>()> effectNames;
+    std::function<juce::String()> effectsNote;
+    std::function<void()> onOpenEffects;
+    void mouseDoubleClick(const juce::MouseEvent&) override;
 
     void setPalette(const lmw::ui::theme::Palette& p) { palette = p; repaint(); }
     void paint(juce::Graphics&) override;

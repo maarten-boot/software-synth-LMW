@@ -922,6 +922,18 @@ int main(int argc, char* argv[]) {
                 std::printf("view after a change: %s", view2.substr(0, view2.find("compact")).c_str());
                 CHECK(view2.rfind("tab Schematic\nsize 1600 900\n", 0) == 0 && view2.find(" LFO 1\n") != std::string::npos
                       && view2.find("area ") != std::string::npos && view2.find(" VCF 1\n") != std::string::npos);
+                // T-S6.31-fxschematic: the Schematic tab has EFFECTS and no effect blocks; the Effects tab's switch.
+                CHECK(view2.find(" EFFECTS\n") != std::string::npos && view2.find(" COMB\n") == std::string::npos);
+                CHECK(write9P(sockA, {"view"}, "tab effects\nfxview schematic\n").empty());
+                const auto view3 = read9P(sockA, {"view"});
+                CHECK(view3.find("\nfxview schematic\n") != std::string::npos && view3.find(" fxschematic\n") != std::string::npos
+                      && view3.find(" SYNTH\n") != std::string::npos && view3.find(" MAIN\n") != std::string::npos
+                      && view3.find(" VCF 1\n") == std::string::npos && view3.find(" fxmatrix\n") == std::string::npos);
+                CHECK(write9P(sockA, {"view"}, "fxview panels\n").empty());
+                const auto view4 = read9P(sockA, {"view"});
+                CHECK(view4.find("\nfxview panels\n") != std::string::npos && view4.find(" fxmatrix\n") != std::string::npos);
+                CHECK(write9P(sockA, {"view"}, "fxview both").find("bad fxview") != std::string::npos);
+                CHECK(write9P(sockA, {"view"}, "tab schematic\n").empty());
                 CHECK(write9P(sockA, {"view"}, "tab Piano").find("unknown tab") != std::string::npos);
                 CHECK(write9P(sockA, {"view"}, "zoom 2").find("bad view line") != std::string::npos);
                 const auto png = read9P(sockA, {"snapshot"});
