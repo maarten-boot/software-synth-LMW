@@ -246,9 +246,9 @@ that you hear new overtones instead of vibrato.
 The **Effects** tab: SYNTH (the instrument) → COMB → ENSEMBLE → DELAY → REVERB → MAIN (what you
 hear), connected by default; [Mix](../Terms.md#mix) 0 means an [effect](../Terms.md#effect) is off. In a narrow window REVERB and MAIN wrap to
 a second row. Drag an effect's title left or right to change the order: the connections follow (e.g. REVERB
-first, then COMB, rings the comb on the reverb's tail). **Schematic** in the header (next to Reset layout)
-shows the effects as a drawing in that order; you can patch and move the blocks there as on the Schematic
-tab (**Panels** goes back). Next to MAIN is the effects' own
+first, then COMB, rings the comb on the reverb's tail). Below the panels and the matrix the effects' own
+Schematic draws them in that order; you can patch and move the blocks there as on the Schematic tab.
+Next to MAIN (or below the panels) is the effects' own
 [matrix](../Terms.md#matrix): the same connections as a grid, in the effects' order — a click in a cell
 makes a cable.
 

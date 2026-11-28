@@ -55,8 +55,9 @@ struct Block {
 // The synth page (4 below for the legend): 188 x 70 since S6.31 (EFFECTS after OUT, the effects row gone); 168 x 84
 // with the effects row at the bottom (2026-11-26), 72 before.
 inline constexpr float canvasWidth = 188.0f, canvasHeight = 70.0f;
-// Spec S6.31: the effects page (one row, the legend below it; as wide as the legend).
-inline constexpr float fxCanvasWidth = 172.0f, fxCanvasHeight = 20.0f;
+// Spec S6.31: the effects page (one row, room below it for cables that sag under the row, then the legend; as wide as
+// the legend).
+inline constexpr float fxCanvasWidth = 172.0f, fxCanvasHeight = 30.0f;
 inline constexpr Point canvasSize(Page p) noexcept { return p == Page::Effects ? Point{fxCanvasWidth, fxCanvasHeight} : Point{canvasWidth, canvasHeight}; }
 // Spec S6.22 (39b, user 2026-11-26: "allow elements to use the complete page"): blocks may be placed anywhere on the
 // page the view shows (at least the canvas above); stored layouts are accepted up to this size.

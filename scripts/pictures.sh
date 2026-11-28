@@ -57,7 +57,7 @@ p9 write view "scales on"                               # Spec S6.20: the beginn
 p9 write view "rings on"
 p9 write view "scroll 0 0"                             # Spec S6.21: the rack from its top-left
 
-# shot <file> [panel title prefixes...]: the window, or the smallest area holding those panels (+ 8 px; $below px more
+# shot <file> [panel title or area name prefixes...]: the window, or the smallest area holding those panels / areas (+ 8 px; $below px more
 # below them, for cables that sag under a row of Schematic blocks).
 shot() {
     local file=$1; shift
@@ -74,7 +74,7 @@ shot() {
             BEGIN { n = split(want, w, "\n") }
             $1 == "size" { width = $2 }
             $1 == "scroll" { sx = $2; sy = $3 }
-            $1 == "panel" {
+            $1 == "panel" || $1 == "area" {
                 title = $6; for (i = 7; i <= NF; ++i) title = title " " $i
                 for (k = 1; k <= n; ++k) if (w[k] != "" && index(title, w[k]) == 1 && $2 + $4 > x1) x1 = $2 + $4
             }
@@ -88,7 +88,7 @@ shot() {
         local box
         box=$(p9 cat view | awk -v below="${below:-0}" -v want="$(printf '%s\n' "$@")" '
             BEGIN { n = split(want, w, "\n") }
-            $1 == "panel" {
+            $1 == "panel" || $1 == "area" {
                 title = $6; for (i = 7; i <= NF; ++i) title = title " " $i
                 for (k = 1; k <= n; ++k) if (w[k] != "" && index(title, w[k]) == 1) {
                     if (!seen || $2 < x0) x0 = $2; if (!seen || $3 < y0) y0 = $3
@@ -107,7 +107,7 @@ shot() {
 echo "README (String section)"
 p9 write preset "String section"
 p9 write view "tab Synth";     shot synth.png
-p9 write view "tab Effects";   shot effects.png COMB ENSEMBLE DELAY REVERB MAIN SYNTH
+p9 write view "tab Effects";   shot effects.png COMB ENSEMBLE DELAY REVERB MAIN SYNTH fxmatrix fxschematic
 p9 write view "tab Matrix";    shot matrix.png
 p9 write view "tab Schematic"; shot schematic.png
 
@@ -153,9 +153,7 @@ echo "Lesson 9: REVERB first, then COMB (the effects order), on the effects Sche
 p9 write effects "reverb comb ensemble delay"
 p9 write params/reverb/mix 0.25
 p9 write params/comb/mix 0.3
-p9 write view "fxview schematic"
-shot lesson9-fxschematic.png SYNTH COMB ENSEMBLE DELAY REVERB MAIN
-p9 write view "fxview panels"
+shot lesson9-fxschematic.png fxschematic
 p9 write effects "comb ensemble delay reverb"
 
 echo "Panel gradient (Menu > Theme > Panel gradient, S6.30), Lesson 1"

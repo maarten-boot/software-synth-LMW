@@ -924,15 +924,13 @@ int main(int argc, char* argv[]) {
                       && view2.find("area ") != std::string::npos && view2.find(" VCF 1\n") != std::string::npos);
                 // T-S6.31-fxschematic: the Schematic tab has EFFECTS and no effect blocks; the Effects tab's switch.
                 CHECK(view2.find(" EFFECTS\n") != std::string::npos && view2.find(" COMB\n") == std::string::npos);
-                CHECK(write9P(sockA, {"view"}, "tab effects\nfxview schematic\n").empty());
+                // Effects tab (user 2026-11-28: one view): the panels, the effects matrix and the effects Schematic below them.
+                CHECK(write9P(sockA, {"view"}, "tab effects\n").empty());
                 const auto view3 = read9P(sockA, {"view"});
-                CHECK(view3.find("\nfxview schematic\n") != std::string::npos && view3.find(" fxschematic\n") != std::string::npos
+                CHECK(view3.find(" fxschematic\n") != std::string::npos && view3.find(" fxmatrix\n") != std::string::npos
                       && view3.find(" SYNTH\n") != std::string::npos && view3.find(" MAIN\n") != std::string::npos
-                      && view3.find(" VCF 1\n") == std::string::npos && view3.find(" fxmatrix\n") == std::string::npos);
-                CHECK(write9P(sockA, {"view"}, "fxview panels\n").empty());
-                const auto view4 = read9P(sockA, {"view"});
-                CHECK(view4.find("\nfxview panels\n") != std::string::npos && view4.find(" fxmatrix\n") != std::string::npos);
-                CHECK(write9P(sockA, {"view"}, "fxview both").find("bad fxview") != std::string::npos);
+                      && view3.find(" VCF 1\n") == std::string::npos);
+                CHECK(write9P(sockA, {"view"}, "fxview schematic").find("bad view line") != std::string::npos);
                 CHECK(write9P(sockA, {"view"}, "tab schematic\n").empty());
                 CHECK(write9P(sockA, {"view"}, "tab Piano").find("unknown tab") != std::string::npos);
                 CHECK(write9P(sockA, {"view"}, "zoom 2").find("bad view line") != std::string::npos);

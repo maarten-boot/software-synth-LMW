@@ -26,7 +26,7 @@ See also: [Normalled](#normalled), [Cable](#cable), [Patch](#patch)
 One building block with one job, such as a VCO, a VCF or an envelope. Each module is a panel with
 faders and sockets.
 
-Where: the panels on the Synth and Effects tabs; the blocks on the Schematic tab.
+Where: the panels on the Synth and Effects tabs; the blocks on the Schematic tab and the Effects tab's Schematic.
 
 See also: [Panel](#panel), [Socket](#socket), [Rack](#rack)
 
@@ -508,8 +508,8 @@ The whole instrument drawn as a diagram, the sound flowing left to right: every 
 connection a line. You can patch and move blocks there too.
 
 It is drawn at the Synth tab's text size; Ctrl + wheel or Ctrl + / − zooms (Ctrl 0: 100 %). Drag on empty space (or Ctrl / Shift-click, Ctrl + A) to select several symbols and drag one of them to move them all.
-The Schematic tab ends with OUT → EFFECTS (the effects in their order); the effects themselves (SYNTH → COMB … REVERB → MAIN) have their own Schematic on the Effects tab (Panels | Schematic in the header; double-click EFFECTS to go there).
-Where: the Schematic tab; the Effects tab › Schematic.
+The Schematic tab ends with OUT → EFFECTS (the effects in their order); the effects themselves (SYNTH → COMB … REVERB → MAIN) have their own Schematic on the Effects tab, below the panels and the effects matrix (double-click EFFECTS to go there).
+Where: the Schematic tab; the Effects tab, at the bottom.
 
 See also: [Module](#module), [Cable](#cable)
 

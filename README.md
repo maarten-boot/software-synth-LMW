@@ -7,7 +7,7 @@ Licence: GNU AGPLv3 (see `LICENSE`). Design documents: `architecture/`.
 
 ![LMW-Synth: the Synth tab](docs/images/synth.png)
 
-More views: [Schematic](docs/images/schematic.png) (the whole patch as a drawing), [Matrix](docs/images/matrix.png) (every synth connection), [Effects](docs/images/effects.png) (COMB → ENSEMBLE → DELAY → REVERB, with their own matrix).
+More views: [Schematic](docs/images/schematic.png) (the whole patch as a drawing), [Matrix](docs/images/matrix.png) (every synth connection), [Effects](docs/images/effects.png) (COMB → ENSEMBLE → DELAY → REVERB, with their own matrix and [Schematic](docs/images/lesson9-fxschematic.png)).
 
 ## Download
 
