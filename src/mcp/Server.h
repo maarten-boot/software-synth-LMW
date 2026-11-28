@@ -133,7 +133,7 @@ private:
             {"set_cables", "Patch cables. Each entry is input=output[@level][+output[@level]...], e.g. "
                            "vcf1.cutoff=lfo2.out@0.3; input= removes that input's cables. A cable replaces the "
                            "input's normal connection. Levels 0 to 1; modulation inputs (vcoN.pitch/fm/pm, vcfN.cutoff/res, "
-                           "formant.vowel, formant.res, vca.cv, vca.mod, lfoN.rate, vcoN.shape, lfoN.shape) also -1 to 0 = inverted, e.g. "
+                           "formant.vowel, formant.res, vca.cv, vca.mod, lfoN.rate, vcoN.shape, lfoN.shape, mvcaN.cv) also -1 to 0 = inverted, e.g. "
                            "vcf1.cutoff=env2.out@-0.5. clear_first removes all cables before.",
              R"({"type":"object","properties":{"cables":{"type":"array","items":{"type":"string"}},"clear_first":{"type":"boolean"}}})"},
             {"get_load", "How heavy the synth runs (Spec S6.28): cpu % of the time each audio block may take, its peak over "
