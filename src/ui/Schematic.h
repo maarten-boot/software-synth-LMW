@@ -84,6 +84,10 @@ inline const std::vector<Block>& blocks() {
         {"ENV 1",  Shape::Adsr,     {50, 58, 12, 8},  {In::Env1Gate}, {Out::Env1}},
         {"ENV 2",  Shape::Adsr,     {50, 45, 12, 8},  {In::Env2Gate}, {Out::Env2}},
         {"LFO 2",  Shape::Triangle, {110, 49, 10, 12}, {In::Lfo2Rate, In::Lfo2Shape}, {Out::Lfo2}},
+        // Spec S5.32: the mini VCAs, in the left column under KEYS.
+        {"MVCA 1", Shape::Triangle, {2, 37, 10, 9},  {In::Mvca1In, In::Mvca1Cv}, {Out::Mvca1}},
+        {"MVCA 2", Shape::Triangle, {2, 47, 10, 9},  {In::Mvca2In, In::Mvca2Cv}, {Out::Mvca2}},
+        {"MVCA 3", Shape::Triangle, {2, 57, 10, 9},  {In::Mvca3In, In::Mvca3Cv}, {Out::Mvca3}},
         // Spec S7.6: the effects rack; MAIN (what is heard) has the line-out symbol OUT had before. Since S6.31 on
         // the Effects tab's page, from SYNTH (out.out, as the Effects tab's SYNTH panel); before at the bottom of the
         // synth page (y 70, user 2026-11-26; y 40 before that).
@@ -257,7 +261,8 @@ public:
         const auto later = [](std::string_view name) {   // blocks added after Phase 12c
             return name == "FORMANT" || name == "COMB" || name == "ENSEMBLE" || name == "DELAY" || name == "REVERB" || name == "MAIN"
                 || name == "MIX 2"                                    // S5.26
-                || name == "EFFECTS" || name == "SYNTH";              // S6.31
+                || name == "EFFECTS" || name == "SYNTH"               // S6.31
+                || name.starts_with("MVCA");                          // S5.32
         };
         for (std::size_t i = 0; i < l.pos.size(); ++i) {           // the others: inside, not on each other
             if (!named[i] && later(blocks()[i].name)) continue;

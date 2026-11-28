@@ -360,7 +360,18 @@ and end. Initial adds a level without any envelope, Velocity how much the key ve
 
 Where: the VCA panel.
 
-See also: [Envelope](#envelope), [Velocity](#velocity), [Tremolo](#tremolo)
+See also: [Envelope](#envelope), [Velocity](#velocity), [Tremolo](#tremolo), [MVCA](#mvca)
+
+### MVCA
+Mini VCA: a small amplifier with one fader (Level) and three sockets — In, CV and Out. Out is In times
+Level plus whatever comes in at CV (from 0 to 100 %). Use it to let an envelope or LFO control how much
+of something goes somewhere: VCO 2 Out → MVCA 1 In, ENV 2 Out → MVCA 1 CV, MVCA 1 Out → VCO 1 PM, and
+the PM (the brightness) follows the envelope — a bright attack that mellows, as in FM bells. There are
+three, independent, per note. Nothing is connected until you patch them.
+
+Where: the MVCA 1, MVCA 2 and MVCA 3 panels (before MIXER).
+
+See also: [VCA](#vca), [PM](#pm), [Envelope](#envelope)
 
 ### Velocity
 How hard (fast) a key is struck, from a MIDI keyboard. It sets the loudness through the VCA (Velocity

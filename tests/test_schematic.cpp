@@ -36,7 +36,7 @@ int main() {
                 if (ra.intersects(rb)) std::printf("overlap: %s / %s\n", blocks[a].name.data(), blocks[b].name.data());
                 CHECK(!ra.intersects(rb));
             }
-        CHECK(blocks.size() == 23);   // 21 + EFFECTS and SYNTH since S6.31; 20 since S7.11 (ENSEMBLE), 19 with S7.8, 18 with S7.6
+        CHECK(blocks.size() == 26);   // + MVCA 1-3 since S5.32; 21 + EFFECTS and SYNTH since S6.31; 20 since S7.11 (ENSEMBLE), 19 with S7.8, 18 with S7.6
     }
     {   // Ports: inputs on the left edge, outputs on the right edge (a triangle's output at its tip); distinct.
         for (const auto& b : blocks) {
@@ -325,8 +325,8 @@ int main() {
             if (order[j].input && order[j].index == static_cast<int>(lmw::dsp::In::MixIn3)) mix3 = j;
         CHECK(order[sc::blockJump(mix3, 1)].input && order[sc::blockJump(mix3, 1)].index == static_cast<int>(lmw::dsp::In::Vcf1In));
         CHECK(sc::blocks()[sc::blockOf(order[sc::blockJump(mix3, -1)])].name == std::string("NOISE"));
-        CHECK(sc::blocks()[sc::blockOf(order[sc::blockJump(0, -1)])].name == std::string("LFO 2"));   // LFO 1 up: LFO 2 (the last; S6.31)
-        CHECK(order.size() - sc::blockJump(0, -1) == 3);             // its rate, shape and out
+        CHECK(sc::blocks()[sc::blockOf(order[sc::blockJump(0, -1)])].name == std::string("MVCA 3"));   // LFO 1 up: MVCA 3 (the last; S5.32)
+        CHECK(order.size() - sc::blockJump(0, -1) == 3);             // its in, cv and out
     }
     {   // T-S6.31-fxschematic: the two pages.
         using sc::Page;

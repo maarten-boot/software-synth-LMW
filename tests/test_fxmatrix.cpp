@@ -15,7 +15,7 @@ static int failures = 0;
 int main() {
     const auto si = synthMatrixInputs(), so = synthMatrixOutputs();
     std::printf("Matrix tab %zu x %zu\n", si.size(), so.size());
-    CHECK(si.size() == 40 && so.size() == 19);                       // 40 since S5.29 (formant.res), 39 since S5.28 (the Shape inputs)
+    CHECK(si.size() == 46 && so.size() == 22);   // 46 / 22 since S5.32 (mvca1-3);                       // 40 since S5.29 (formant.res), 39 since S5.28 (the Shape inputs)
     {   // S5.29: formant.res right after formant.vowel
         const auto v = std::find(si.begin(), si.end(), static_cast<int>(In::FormantVowel));
         CHECK(v != si.end() && v + 1 != si.end() && *(v + 1) == static_cast<int>(In::FormantRes));

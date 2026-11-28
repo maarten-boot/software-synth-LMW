@@ -229,6 +229,10 @@ that you hear new overtones instead of vibrato.
    **index**; the lower half of its travel (0–2) is the most musical.
 2. *VCO 2 › Oct* +1: a different, bell-like set of overtones. *VCO 2 › Tune* 3.5 or 7: metallic.
 3. *ENV 1* as in *Piano* (fast attack, long decay, no sustain): an electric piano.
+   **PM that follows an envelope** ([MVCA](../Terms.md#mvca)): move the cable to *vco2.out → MVCA 1 › In*, add
+   *ENV 2 › Out → MVCA 1 › CV* and *MVCA 1 › Out → VCO 1 › PM* (MVCA 1 › Level 0). Now the brightness is
+   loudest at the attack and fades with ENV 2 (*Decay* 0.5 s, *Sustain* 0): the bell gets mellow as it rings.
+   *MVCA 1 › Level* 20 % keeps a little brightness after the decay.
 4. **Feedback**: remove the cable, then *vco1.out → vco1.pm* and PM 1.5: the sine turns into a buzzy,
    saw-like tone.
 5. The PM violin: *lfo1.out* into all three PM inputs, PM 0.6 on VCO 1 and 2, Saw waves — see

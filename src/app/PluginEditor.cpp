@@ -412,6 +412,17 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
         }
         groups.push_back({"MIX 2", 1, std::move(items), {}});
     }
+    // Spec S5.32: three mini VCAs, one column each (Level; In | CV | Out under it). Created last as MIX 2 was: saved
+    // layouts keep their panel numbers (they join row 2).
+    std::array<std::size_t, lmw::dsp::numMvcas> mvcaPanel{};
+    for (int n = 0; n < lmw::dsp::numMvcas; ++n) {
+        const auto k = static_cast<std::size_t>(n);
+        mvcaPanel[k] = groups.size();
+        groups.push_back({"MVCA " + juce::String(n + 1), 1,
+            {addFader(P::mvcaLevel[k], "Level", inputTip(lmw::dsp::mvcaIn(n),
+                "Gain without CV: out = in x (Level + CV), from 0 to 100 %. With an envelope at CV, Level 0 gives the pure "
+                "envelope shape; e.g. VCO 2 Out -> In, ENV 2 -> CV, Out -> VCO 1 PM: the PM depth follows the envelope."))}, {}});
+    }
     // Spec S7.4, S7.6: Effects tab: SYNTH (out.out, the synth after OUT) | COMB | REVERB | MAIN (main.in, what
     // is heard); normalled SYNTH -> COMB -> REVERB -> MAIN, cables change the order.
     effectGroups.push_back({"SYNTH", 0, {}, {}, 1});
@@ -494,7 +505,7 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
         {
             const std::vector<std::vector<juce::String>> order{
                 {"KEYS", "LFO 1", "NOISE", "VCO 1", "VCO 2", "VCO 3"},
-                {"MIXER", "VCF 1", "VCF 2", "FORMANT"},
+                {"MVCA 1", "MVCA 2", "MVCA 3", "MIXER", "VCF 1", "VCF 2", "FORMANT"},   // S5.32: the mini VCAs first
                 {"MIX 2", "ENV 2", "LFO 2", "ENV 1", "VCA", "OUT"}};
             std::vector<bool> placed(groups.size(), false);
             lmw::ui::RackLayout::Rows rows(std::max(defaultRows.size(), order.size()));
@@ -554,6 +565,12 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
             {mix2Panel, 0, false, in(In::Mix2In1), "In 1"},   {mix2Panel, 2, false, in(In::Mix2In2), "In 2"},   // S5.26
             {mix2Panel, 4, false, in(In::Mix2In3), "In 3"},   {mix2Panel, 5, true, out(Out::Mix2), "Out"},
         };
+        for (int n = 0; n < lmw::dsp::numMvcas; ++n) {        // Spec S5.32: In | CV | Out sharing the one column
+            const auto g = mvcaPanel[static_cast<std::size_t>(n)];
+            ports.push_back({g, 0, false, in(lmw::dsp::mvcaIn(n)), "In"});
+            ports.push_back({g, 0, false, in(lmw::dsp::mvcaCv(n)), "CV"});
+            ports.push_back({g, 0, true, out(lmw::dsp::mvcaOut(n)), "Out"});
+        }
         for (int n = 0; n < 3; ++n) {                         // FM under FM, Pitch under Tune, Out last
             const auto g = vcoPanel[static_cast<std::size_t>(n)];
             ports.push_back({g, 0, false, in(lmw::dsp::vcoFmIn(n)), "FM"});
@@ -3846,6 +3863,8 @@ std::string gainName(lmw::dsp::In i) {                     // the fader that sca
         case In::Vco1Pm: case In::Vco2Pm: case In::Vco3Pm: return "PM";
         case In::Vcf1Cutoff: case In::Vcf2Cutoff: return "Env";
         case In::FormantVowel: case In::FormantRes: return "FORMANT Mix";
+        case In::Mvca1In: case In::Mvca2In: case In::Mvca3In: return "MVCA Level";        // S5.32: and nothing at CV
+        case In::Mvca1Cv: case In::Mvca2Cv: case In::Mvca3Cv: return "MVCA In cables";    // S5.32: nothing to scale
         case In::VcaMod: return "Tremolo";
         case In::VcaVel: return "Velocity";
         default: return "level";

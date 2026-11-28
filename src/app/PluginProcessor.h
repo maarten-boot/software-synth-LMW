@@ -86,6 +86,7 @@ inline constexpr const char* bendRange   = "keys.bendrange";
 inline constexpr const char* spreadMode  = "out.spreadmode";
 inline constexpr std::array<const char*, 3> mix2Level{"mix2.level1", "mix2.level2", "mix2.level3"};   // Spec S5.26
 inline constexpr std::array<const char*, 3> mix2Pan{"mix2.pan1", "mix2.pan2", "mix2.pan3"};
+inline constexpr std::array<const char*, 3> mvcaLevel{"mvca1.level", "mvca2.level", "mvca3.level"};   // Spec S5.32
 // Spec S7.4: Effects tab, reverb after the voices (and the soft limiter), before the output.
 inline constexpr const char* reverbMix     = "reverb.mix";
 inline constexpr const char* reverbSize    = "reverb.size";
@@ -411,6 +412,7 @@ private:
             *delayTime{}, *delayFeedback{}, *delayDamping{}, *delaySpread{}, *delayMix{}, *ensembleDepth{}, *ensembleRate{}, *ensembleShimmer{}, *ensembleMix{}, *formantVowel{}, *formantVoice{}, *formantRes{}, *formantMix{}, *vcfRouting{}, *effectsOrder{};
         std::array<std::atomic<float>*, 2> cutoff{}, resonance{}, vcfEnv{}, vcfKey{}, vcfSlope{}, vcfType{};
         std::array<std::atomic<float>*, 3> mix2Level{}, mix2Pan{};   // Spec S5.26
+        std::array<std::atomic<float>*, 3> mvcaLevel{};              // Spec S5.32
         std::array<std::atomic<float>*, 3> wave{}, fm{}, pm{}, octave{}, tune{}, mixVco{}, shape{};
     } raw;
 

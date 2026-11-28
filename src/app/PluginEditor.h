@@ -438,7 +438,7 @@ private:
     bool shownOsDark = false;                             // Spec S6.29: the OS dark mode the theme was made for
     int systemThemeTick = 0;
     Metrics m = normalMetrics;
-    std::array<Fader, 75> faders;                          // exactly the faders made (75 since S5.28: the five Shapes)
+    std::array<Fader, 78> faders;                          // exactly the faders made (78 since S5.32: the MVCA Levels; 75 since S5.28)
     std::array<Choice, 19> choices;                        // 17 since S7.15 (reverb Type), 19 since S5.30 (LFO Polarity)
     std::size_t usedFaders = 0, usedChoices = 0;
     std::vector<Group> groups;

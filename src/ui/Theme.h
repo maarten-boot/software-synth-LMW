@@ -68,7 +68,7 @@ inline constexpr Unit unitOf(std::string_view name) noexcept {
     if (k == "noi") return Unit::Noise;
     if (k == "vcf" || k == "for" || k == "com") return Unit::Vcf;   // FORMANT (S5.16) and COMB (S7.6) are filters too
     if (k == "del" || k == "rev" || k == "ens") return Unit::Effect;   // DELAY (S7.8), REVERB, ENSEMBLE (S7.11)
-    if (k == "vca") return Unit::Vca;
+    if (k == "vca" || k == "mvc") return Unit::Vca;                     // MVCA 1-3 (S5.32): the VCA green
     if (k == "env") return Unit::Env;
     if (k == "lfo") return Unit::Lfo;
     if (k == "mix") return Unit::Mix;

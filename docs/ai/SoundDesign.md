@@ -38,7 +38,7 @@ A cable replaces an input's normal connection; up to 4 cables per input add up, 
 out.out, main.in) connect only among themselves.
 
 Modulation inputs (`vcoN.pitch`, `vcoN.fm`, `vcoN.pm`, `vcoN.shape`, `vcfN.cutoff`, `vcfN.res`, `formant.vowel`, `formant.res`, `vca.cv`,
-`vca.mod`, `lfoN.rate`, `lfoN.shape`) also take a negative level: the source inverted. `vcf1.cutoff=env2.out@-0.5` closes
+`vca.mod`, `lfoN.rate`, `lfoN.shape`, `mvcaN.cv`) also take a negative level: the source inverted. `vcf1.cutoff=env2.out@-0.5` closes
 the filter as the envelope rises (a "negative envelope amount"); `vca.mod=keys.pitch@-0.3` makes low notes
 louder (keyboard scaling); with `vca.initial` 1, `vca.cv=env2.out@-1` is loud at rest and dips while the
 envelope is up. Audio and gate inputs take 0 to 1 only. A level of 0 keeps a cable, silent.
@@ -70,6 +70,10 @@ envelope is up. Audio and gate inputs take 0 to 1 only. A level of 0 keeps a cab
 - **VCA** (`vca.initial` 0-1 a level without any envelope; `vca.tremolo` 0-1 depth of LFO 2; `vca.velocity` 0-1
   how much the note velocity sets the loudness, 1 = soft notes quiet, 0 = every note full; the velocity comes
   in on `vca.vel`, normally `keys.vel`: a cable such as `vca.vel=noise.rand@0.5` gives random accents).
+- **MVCA 1 / 2 / 3** (`mvcaN.level` 0-1 [0]; sockets `mvcaN.in`, `mvcaN.cv`, `mvcaN.out`; nothing connected by default):
+  three small per-voice VCAs, out = in x (level + cv), 0 to 1. For modulation that follows an envelope, e.g. PM
+  that fades with ENV 2: `mvca1.in=vco2.out`, `mvca1.cv=env2.out`, `vco1.pm=mvca1.out` (with `vco1.pm` 1-3); or an
+  LFO whose depth grows with an envelope: `mvca2.in=lfo1.out`, `mvca2.cv=env2.out`, `vcf1.cutoff=mvca2.out@0.3`.
 - **ENV 1 → VCA, ENV 2 → VCF** (`envN.attack` / `decay` 0-5 s, `sustain` 0-1, `release` 0-10 s):
   loudness and tone over time. Winds: attack 0.03-0.1, sustain 0.85-0.9, release 0.1-0.15. Strings:
   attack 0.15-0.4. Pads: attack 1-2, release 2-4. Plucked and struck (piano, guitar, marimba): attack

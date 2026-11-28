@@ -73,6 +73,7 @@ struct ModParams {
     float spread = 0.0f;                        // out.spread, 0 .. 1
     SpreadMode spreadMode = SpreadMode::Keys;   // out.spreadmode
     std::array<float, 3> mix2Level{1.0f, 0.0f, 0.0f};   // mix2.level1..3 (Spec S5.26)
+    std::array<float, numMvcas> mvcaLevel{};             // mvca1..3.level, 0..1 (Spec S5.32)
     std::array<float, 3> mix2Pan{};                      // mix2.pan1..3, -1 .. +1
     float glide = 0.0f;                                  // keys.glide (s, Spec S5.27): 0 = off
     GlideMode glideMode = GlideMode::Always;             // keys.glidemode
@@ -196,6 +197,19 @@ public:
         followGate(env2, In::Env2Gate, env2GateWasOn, env2KeyGated, g, patch);
         out[o(Out::Env1)] = env1.next();
         out[o(Out::Env2)] = env2.next();
+
+        // Spec S5.32: the mini VCAs, after the envelopes and before the VCOs (an ENV at CV scales e.g. a VCO's PM in the
+        // same sample): out = in x clamp(Level + cv, 0, 1); 0 while nothing is at In.
+        for (int n = 0; n < numMvcas; ++n) {
+            const In in = mvcaIn(n);
+            float y = 0.0f;
+            if (patch.isPatched(in)) {
+                const In cv = mvcaCv(n);
+                const float gain = std::clamp(mp.mvcaLevel[static_cast<std::size_t>(n)] + (patch.isPatched(cv) ? read(cv, g, patch) : 0.0f), 0.0f, 1.0f);
+                if (gain > 0.0f) y = read(in, g, patch) * gain;   // NaN-safe: clamp(NaN) is not > 0
+            }
+            out[o(mvcaOut(n))] = y;
+        }
 
         for (int n = 0; n < numVcos; ++n) {
             if (!vcoUsed[static_cast<std::size_t>(n)]) continue;

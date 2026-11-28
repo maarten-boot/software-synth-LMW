@@ -14,6 +14,7 @@ namespace lmw::dsp {
 // Order = order in menus: roughly signal flow. Saved patches use the names, not the numbers.
 enum class Out : std::uint8_t { KeysPitch, KeysGate, KeysVel, KeysMod, Vco1, Vco2, Vco3, Noise, Rand, Lfo1, Lfo2, Env1, Env2, Mix,   // KeysMod: the mod wheel (S6.24)
                                 Vcf1, Vcf2, Formant, Mix2, Vca,           // Mix2: Spec S5.26
+                                Mvca1, Mvca2, Mvca3,                      // Spec S5.32: the mini VCAs
                                 OutOut, CombOut, EnsembleOut, DelayOut, ReverbOut,   // effects (Spec S7.6, S7.8, S7.11): after OUT
                                 Count };
 enum class In  : std::uint8_t { Vco1Pitch, Vco1Fm, Vco1Pm, Vco2Pitch, Vco2Fm, Vco2Pm, Vco3Pitch, Vco3Fm, Vco3Pm,   // PM: S5.20
@@ -25,6 +26,7 @@ enum class In  : std::uint8_t { Vco1Pitch, Vco1Fm, Vco1Pm, Vco2Pitch, Vco2Fm, Vc
                                 OutPan,                                  // pan per voice: Spec S5.25
                                 Vco1Shape, Vco2Shape, Vco3Shape, Lfo1Shape, Lfo2Shape,   // Shape inputs: Spec S5.28
                                 FormantRes,                              // Spec S5.29
+                                Mvca1In, Mvca1Cv, Mvca2In, Mvca2Cv, Mvca3In, Mvca3Cv,   // Spec S5.32
                                 CombIn, EnsembleIn, DelayIn, ReverbIn, MainIn,   // effects (Spec S7.6, S7.8, S7.11)
                                 Count };
 
@@ -43,6 +45,7 @@ inline constexpr int numInputs  = static_cast<int>(In::Count);
 inline constexpr std::array<std::string_view, numOutputs> outputNames{
     "keys.pitch", "keys.gate", "keys.vel", "keys.mod", "vco1.out", "vco2.out", "vco3.out",
     "noise.out", "noise.rand", "lfo1.out", "lfo2.out", "env1.out", "env2.out", "mix.out", "vcf1.out", "vcf2.out", "formant.out", "mix2.out", "vca.out",
+    "mvca1.out", "mvca2.out", "mvca3.out",                                  // S5.32
     "out.out", "comb.out", "ensemble.out", "delay.out", "reverb.out"};
 inline constexpr std::array<std::string_view, numInputs> inputNames{
     "vco1.pitch", "vco1.fm", "vco1.pm", "vco2.pitch", "vco2.fm", "vco2.pm", "vco3.pitch", "vco3.fm", "vco3.pm",
@@ -52,6 +55,7 @@ inline constexpr std::array<std::string_view, numInputs> inputNames{
     "vca.mod", "vca.vel", "out.in", "lfo1.rate", "lfo2.rate", "out.pan",
     "vco1.shape", "vco2.shape", "vco3.shape", "lfo1.shape", "lfo2.shape",   // S5.28
     "formant.res",                                                          // S5.29
+    "mvca1.in", "mvca1.cv", "mvca2.in", "mvca2.cv", "mvca3.in", "mvca3.cv",   // S5.32
     "comb.in", "ensemble.in", "delay.in", "reverb.in", "main.in"};
 
 // An input without a normalled source reads 0 until a cable is plugged in (Spec S5.13: vcfN.res).
@@ -70,6 +74,7 @@ inline constexpr std::array<Out, numInputs> normalled{
     noSource,                                                     // S5.25: out.pan, no normalled source
     noSource, noSource, noSource, noSource, noSource,             // S5.28: the Shape inputs, no normalled source
     noSource,                                                     // S5.29: formant.res, no normalled source
+    noSource, noSource, noSource, noSource, noSource, noSource,   // S5.32: the mini VCAs, nothing until patched
     Out::OutOut, Out::CombOut, Out::EnsembleOut, Out::DelayOut, Out::ReverbOut};   // S7.6, S7.8, S7.11: out.out -> COMB -> ENSEMBLE -> DELAY -> REVERB -> main.in
 
 // Name of an output, or "none" for noSource (hover texts, 9P /ports).
@@ -168,6 +173,13 @@ inline float normalLevel(In in, Out o, VcfRouting r, int effects = 0) noexcept {
 // stereo signal after OUT; they connect only to each other, synth ports only to synth ports.
 inline constexpr bool isEffectOut(Out o) noexcept { return o >= Out::OutOut && o < Out::Count; }
 inline constexpr bool isEffectIn(In i) noexcept { return i >= In::CombIn && i < In::Count; }
+// Spec S5.32: the mini VCAs' ports.
+inline constexpr int numMvcas = 3;
+inline constexpr bool isMvcaIn(In i) noexcept { return i >= In::Mvca1In && i <= In::Mvca3Cv; }
+inline constexpr bool isMvcaOut(Out o) noexcept { return o >= Out::Mvca1 && o <= Out::Mvca3; }
+inline constexpr In mvcaIn(int n) noexcept { return static_cast<In>(static_cast<int>(In::Mvca1In) + 2 * n); }
+inline constexpr In mvcaCv(int n) noexcept { return static_cast<In>(static_cast<int>(In::Mvca1Cv) + 2 * n); }
+inline constexpr Out mvcaOut(int n) noexcept { return static_cast<Out>(static_cast<int>(Out::Mvca1) + n); }
 inline constexpr bool canConnect(In i, Out o) noexcept { return isEffectIn(i) == isEffectOut(o); }
 
 // Spec S6.25: the rows (inputs) and columns (outputs) of the two matrices. The Matrix tab: the synth's ports in
@@ -177,7 +189,9 @@ inline std::vector<int> synthMatrixInputs() {
     std::vector<int> v;
     for (int i = 0; i < numInputs; ++i) {
         const auto in = static_cast<In>(i);
-        if (isEffectIn(in) || (in >= In::Vco1Shape && in <= In::Lfo2Shape) || in == In::FormantRes) continue;
+        if (isEffectIn(in) || (in >= In::Vco1Shape && in <= In::Lfo2Shape) || in == In::FormantRes || isMvcaIn(in)) continue;
+        if (in == In::MixIn1)                                    // S5.32: the mini VCAs before MIXER, as in the rack
+            for (int k = static_cast<int>(In::Mvca1In); k <= static_cast<int>(In::Mvca3Cv); ++k) v.push_back(k);
         v.push_back(i);
         if (in == In::FormantVowel) v.push_back(static_cast<int>(In::FormantRes));   // S5.29: beside the vowel input
         // S5.28: each Shape input next to its unit's other inputs (vcoN.pm, lfoN.rate), not at the end
@@ -189,7 +203,13 @@ inline std::vector<int> synthMatrixInputs() {
 }
 inline std::vector<int> synthMatrixOutputs() {
     std::vector<int> v;
-    for (int o = 0; o < numOutputs; ++o) if (!isEffectOut(static_cast<Out>(o))) v.push_back(o);
+    for (int o = 0; o < numOutputs; ++o) {
+        const auto out = static_cast<Out>(o);
+        if (isEffectOut(out) || isMvcaOut(out)) continue;
+        if (out == Out::Mix)                                     // S5.32: the mini VCAs before MIXER, as in the rack
+            for (int k = static_cast<int>(Out::Mvca1); k <= static_cast<int>(Out::Mvca3); ++k) v.push_back(k);
+        v.push_back(o);
+    }
     return v;
 }
 inline std::vector<int> effectsMatrixInputs(int orderIndex) {
@@ -214,6 +234,7 @@ inline constexpr bool bipolar(In i) noexcept {
         case In::Lfo1Rate: case In::Lfo2Rate: case In::OutPan:   // S5.25
         case In::Vco1Shape: case In::Vco2Shape: case In::Vco3Shape: case In::Lfo1Shape: case In::Lfo2Shape:   // S5.28
         case In::FormantRes:                                                                                 // S5.29
+        case In::Mvca1Cv: case In::Mvca2Cv: case In::Mvca3Cv:                                               // S5.32
             return true;
         default:
             return false;
@@ -387,6 +408,7 @@ inline constexpr bool audioInput(In i) noexcept {
     switch (i) {
         case In::Vcf1In: case In::Vcf2In: case In::MixIn1: case In::MixIn2: case In::MixIn3: case In::MixIn4:
         case In::FormantIn: case In::Mix2In1: case In::Mix2In2: case In::Mix2In3: case In::VcaIn: case In::OutIn:
+        case In::Mvca1In: case In::Mvca2In: case In::Mvca3In:   // S5.32
         case In::CombIn: case In::EnsembleIn: case In::DelayIn: case In::ReverbIn: case In::MainIn:
             return true;
         default:
@@ -396,6 +418,7 @@ inline constexpr bool audioInput(In i) noexcept {
 inline constexpr bool soundSource(Out o) noexcept {
     switch (o) {
         case Out::Vcf1: case Out::Vcf2: case Out::Mix: case Out::Formant: case Out::Mix2: case Out::Vca: case Out::OutOut:
+        case Out::Mvca1: case Out::Mvca2: case Out::Mvca3:      // S5.32
         case Out::CombOut: case Out::EnsembleOut: case Out::DelayOut: case Out::ReverbOut:
             return false;
         default:

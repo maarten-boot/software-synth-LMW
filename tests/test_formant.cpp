@@ -133,7 +133,7 @@ int main() {
     CHECK(normalled[static_cast<std::size_t>(In::FormantIn)] == Out::Vcf2);
     CHECK(normalled[static_cast<std::size_t>(In::Mix2In1)] == Out::Formant && normalled[static_cast<std::size_t>(In::VcaIn)] == Out::Mix2);
     CHECK(normalled[static_cast<std::size_t>(In::FormantVowel)] == noSource);
-    CHECK(numInputs == 45 && numOutputs == 24);   // 44 inputs since S5.28 (vco1-3.shape, lfo1-2.shape)   // 24 outputs since S6.24 (keys.mod); 39 / 23 since S5.26 (MIX 2);   // 36 since S5.25 (out.pan); 33 / 21 since S7.8 (delay ports)
+    CHECK(numInputs == 51 && numOutputs == 27);   // 51 / 27 since S5.32 (mvca1-3); 45 / 24 before; 44 inputs since S5.28 (vco1-3.shape, lfo1-2.shape)   // 24 outputs since S6.24 (keys.mod); 39 / 23 since S5.26 (MIX 2);   // 36 since S5.25 (out.pan); 33 / 21 since S7.8 (delay ports)
 
     std::printf(failures ? "%d FAILED\n" : "all passed\n", failures);
     return failures ? 1 : 0;

@@ -173,6 +173,9 @@ APVTS::ParameterLayout LMWSynthProcessor::createLayout(std::map<std::string, Flo
           f(P::ensembleRate,    "Ensemble Rate",    logRange(0.15f, 2.4f, 0.6f), 0.6f, hertz),
           f(P::ensembleShimmer, "Ensemble Shimmer", Range(0.0f, 1.0f), 0.4f, percent),
           f(P::ensembleMix,     "Ensemble Mix",     Range(0.0f, 1.0f), 0.0f, percent));
+    for (std::size_t k = 0; k < 3; ++k)                                      // Spec S5.32: the mini VCAs (added last)
+        l.add(f(P::mvcaLevel[k], ("MVCA " + juce::String(static_cast<int>(k) + 1) + " Level").toRawUTF8(),
+                Range(0.0f, 1.0f), 0.0f, percent));
     return l;
 }
 
@@ -195,6 +198,7 @@ LMWSynthProcessor::LMWSynthProcessor()
     raw.lfoPolarity = get(P::lfoPolarity); raw.lfo2Polarity = get(P::lfo2Polarity);   // Spec S5.30
     raw.outPan = get(P::outPan); raw.outSpread = get(P::outSpread); raw.spreadMode = get(P::spreadMode);
     raw.glide = get(P::glide); raw.glideMode = get(P::glideMode); raw.bendRange = get(P::bendRange);
+    for (std::size_t k = 0; k < 3; ++k) raw.mvcaLevel[k] = get(P::mvcaLevel[k]);   // Spec S5.32
     for (std::size_t k = 0; k < 3; ++k) { raw.mix2Level[k] = get(P::mix2Level[k]); raw.mix2Pan[k] = get(P::mix2Pan[k]); } raw.tremolo = get(P::vcaTremolo);
     raw.vcaVelocity = get(P::vcaVelocity);
     raw.revMix = get(P::reverbMix); raw.revSize = get(P::reverbSize);
@@ -547,6 +551,7 @@ void LMWSynthProcessor::pullParameters() noexcept {
     m.glide       = raw.glide->load();                                       // Spec S5.27
     m.glideMode   = static_cast<lmw::dsp::GlideMode>(static_cast<int>(raw.glideMode->load()));
     for (std::size_t k = 0; k < 3; ++k) { m.mix2Level[k] = raw.mix2Level[k]->load(); m.mix2Pan[k] = raw.mix2Pan[k]->load(); }   // S5.26
+    for (std::size_t k = 0; k < 3; ++k) m.mvcaLevel[k] = raw.mvcaLevel[k]->load();   // S5.32
     m.tremolo     = raw.tremolo->load();
     m.vcaVelocity = raw.vcaVelocity->load();
     m.noiseColour = static_cast<lmw::dsp::NoiseColour>(static_cast<int>(raw.noiseColour->load()));
@@ -1100,6 +1105,16 @@ lmw::dsp::UseParams LMWSynthProcessor::useParams() const {
     set(In::FormantRes, v(raw.formantMix));                  // Spec S5.29: as the vowel input, nothing at Mix 0
     set(In::VcaMod, v(raw.tremolo));
     set(In::VcaVel, v(raw.vcaVelocity));
+    // Spec S5.32: a mini VCA's In counts while its Level is above 0 or something is at its CV; its CV only while In
+    // has a cable (nothing at In: nothing to scale).
+    {
+        const auto& pt = currentPatch();
+        for (int n = 0; n < lmw::dsp::numMvcas; ++n) {
+            const auto k = static_cast<std::size_t>(n);
+            set(lmw::dsp::mvcaIn(n), v(raw.mvcaLevel[k]) > 0.0f || pt.isPatched(lmw::dsp::mvcaCv(n)) ? 1.0f : 0.0f);
+            set(lmw::dsp::mvcaCv(n), pt.isPatched(lmw::dsp::mvcaIn(n)) ? 1.0f : 0.0f);
+        }
+    }
     const auto pass = [&](Out o, const std::atomic<float>* mix) { u.passing[static_cast<std::size_t>(o)] = v(mix) <= 0.0f; };
     pass(Out::Formant, raw.formantMix);
     pass(Out::CombOut, raw.combMix);
