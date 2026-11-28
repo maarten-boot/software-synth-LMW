@@ -368,6 +368,7 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
                          "How much the note velocity (vca.vel, normally keys.vel) sets the loudness:\n"
                          "100 % = soft notes quiet, 0 % = every note full"))}, {}});
     const std::size_t outPanel = groups.size();
+    outGroup = static_cast<int>(outPanel);                // Spec S5.31: its limiter lamp
     groups.push_back({"OUT", 2, {addFader(P::gain, "Volume", inputTip(In::OutIn, "All voices summed, then soft limiter (per side)")),
         // Spec S5.25: each voice placed left-right before the sum.
         addFader(P::outPan, "Pan", [this] {
@@ -693,6 +694,9 @@ LMWSynthEditor::LMWSynthEditor(LMWSynthProcessor& p)
     fxMatrix->onLevelDrag = matrix->onLevelDrag;
     rackArea->addChildComponent(*fxMatrix);
     effectComponents.push_back(fxMatrix.get());
+    rackArea->addAndMakeVisible(outLamp);                 // Spec S5.31: the limiter lamps (OUT on the Synth tab,
+    rackArea->addAndMakeVisible(mainLamp);                // MAIN on the Effects tab)
+    effectComponents.push_back(&mainLamp);
     schematic = std::make_unique<SchematicView>([this]() -> const lmw::dsp::Patch& { return processor.currentPatch(); },
         [this] {                                           // VCF Key faders (key-tracking links), LFO Delays (S5.24)
             auto& s = processor.state();
@@ -812,6 +816,18 @@ void LMWSynthEditor::updateUndoButtons() {
                                       : juce::String("Nothing to redo"));
 }
 
+// Spec S5.31: "limit" and a dot, in the text colour: filled while lit, an outline otherwise.
+void LMWSynthEditor::LimitLamp::paint(juce::Graphics& g) {
+    auto b = getLocalBounds().toFloat();
+    const float d = std::min(b.getHeight() - 4.0f, 11.0f);
+    auto dot = b.removeFromRight(d + 2.0f).withSizeKeepingCentre(d, d);
+    g.setColour(lmw::app::kFg);
+    g.setFont(lmw::app::smallFont(std::max(9.0f, b.getHeight() * 0.55f)));
+    g.drawText("limit", b.reduced(1.0f, 0.0f), juce::Justification::centredRight, false);
+    if (lit) g.fillEllipse(dot);
+    else g.drawEllipse(dot.reduced(0.75f), 1.5f);
+}
+
 void LMWSynthEditor::timerCallback() {
     processor.updateKeyboardFromMidiInput();
     // Spec S6.24: the wheels follow MIDI (and 9P) while they are not being dragged.
@@ -819,6 +835,11 @@ void LMWSynthEditor::timerCallback() {
     if (!modWheelCtl.isMouseButtonDown()) modWheelCtl.setValue(processor.modWheel(), juce::dontSendNotification);
     keyboard.followHeldKeys();                           // Spec S3.2: held computer keys across focus changes
     updateUse();                                         // Spec S6.26
+    {                                                    // Spec S5.31: the limiter lamps
+        const auto o = processor.outLamp(), mn = processor.mainLamp();
+        outLamp.show(o.lit, o.db);
+        mainLamp.show(mn.lit, mn.db);
+    }
     if (const int o = processor.effectOrder(); o != shownEffectOrder) {   // Spec S7.14: moved here, over 9P, undo, a patch
         shownEffectOrder = o;
         resized();
@@ -1681,6 +1702,8 @@ void LMWSynthEditor::resized() {
                                           .removeFromRight(it->second->preferredWidth()).reduced(2));
             if (gi >= 1 && gi <= lmw::dsp::numEffects)        // S7.14: the title, left of a preset button
                 effectHeaders[static_cast<std::size_t>(gi - 1)]->setBounds(grp.bounds.withHeight(m.header - 3));
+            if (grp.title == "MAIN")                          // Spec S5.31: its lamp under the title (the title fills the bar)
+                mainLamp.setBounds(grp.bounds.getCentreX() - lampWidth() / 2, grp.bounds.getY() + m.header + 4, lampWidth(), m.header - 6);
             auto inner = grp.bounds.reduced(0, 3).withTrimmedTop(m.header);
             auto jackRow = inner.removeFromBottom(m.jackH).withTrimmedTop(2);   // same fader height as on the Synth tab
             layoutJacks(effectGroupJacks[static_cast<std::size_t>(&grp - effectGroups.data())], grp.columns(), jackRow);
@@ -1709,6 +1732,8 @@ void LMWSynthEditor::resized() {
             row.removeFromLeft(m.gap);
             headers[static_cast<std::size_t>(index)]->setBounds(grp.bounds.getX() + 1, grp.bounds.getY() + 1,
                                                                  grp.bounds.getWidth() - 2, m.header - 4);
+            if (index == outGroup)                           // Spec S5.31: the lamp at the right of OUT's title bar
+                outLamp.setBounds(grp.bounds.getRight() - 4 - lampWidth(), grp.bounds.getY() + 2, lampWidth(), m.header - 6);
             auto inner = grp.bounds.reduced(0, 3).withTrimmedTop(m.header);
             auto jackRow = inner.removeFromBottom(m.jackH).withTrimmedTop(2);   // Spec S6.6
             layoutJacks(groupJacks[static_cast<std::size_t>(index)], grp.columns(), jackRow);

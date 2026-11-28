@@ -138,7 +138,9 @@ private:
              R"({"type":"object","properties":{"cables":{"type":"array","items":{"type":"string"}},"clear_first":{"type":"boolean"}}})"},
             {"get_load", "How heavy the synth runs (Spec S6.28): cpu % of the time each audio block may take, its peak over "
                          "the last 5 s, voices playing, overruns (blocks that took too long: dropouts likely), the audio "
-                         "device's dropouts (standalone) and memory in MB. Above about 70 % lower keys.voices or switch off effects.",
+                         "device's dropouts (standalone) and memory in MB. Above about 70 % lower keys.voices or switch off effects. "
+                         "Also limit_out / limit_main (Spec S5.31): dB the OUT / MAIN limiter took off in the last second "
+                         "(0 = not working; a lot = lower out.gain or the effects' mix).",
              R"({"type":"object","properties":{}})"},
             {"list_presets", "The built-in instrument presets by family (Woodwinds, Brass, Strings, Keyboards, Plucked & mallets, "
                              "Voices, Synth; world ones marked) and the module presets per module kind.",

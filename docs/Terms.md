@@ -645,11 +645,21 @@ Where: a MIDI keyboard.
 See also: [MIDI](#midi), [Envelope](#envelope)
 
 ### Volume
-The loudness of the whole synth, before the effects.
+The loudness of the whole synth, before the effects: from silent up to +12 dB (0 dB at three quarters of
+the fader). Above about 0 dB loud chords reach the limiter: its lamp lights.
 
 Where: OUT › Volume.
 
-See also: [dB](#db)
+See also: [dB](#db), [Limiter](#limiter)
+
+### Limiter
+Squashes peaks that would be too loud, so the output never clips hard. OUT has one before the effects,
+MAIN one after them; each has a lamp ("limit" and a dot) that is filled while it works. If it stays
+lit, lower the Volume (or the effects' Mix); a flicker on the loudest notes is fine.
+
+Where: OUT and MAIN, the lamp at the top.
+
+See also: [Volume](#volume), [dB](#db)
 
 ## Files and control
 

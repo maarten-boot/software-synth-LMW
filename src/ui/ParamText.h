@@ -44,7 +44,7 @@ inline float parsePercent(const std::string& s) {
 inline std::string decibels(float gain) {
     if (gain <= 0.0f) return "-inf dB";
     const double db = 20.0 * std::log10(gain);
-    return printf1("%.1f dB", std::fabs(db) < 0.05 ? 0.0 : db);
+    return std::fabs(db) < 0.05 ? std::string("0.0 dB") : printf1(db > 0.0 ? "+%.1f dB" : "%.1f dB", db);   // S5.31: "+6.0 dB"
 }
 inline float parseDecibels(const std::string& s) {
     if (s.find("inf") != std::string::npos) return 0.0f;

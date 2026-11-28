@@ -28,6 +28,9 @@ APVTS::ParameterLayout LMWSynthProcessor::createLayout(std::map<std::string, Flo
     };
     auto skewed = [](float lo, float hi, float centre) { Range r(lo, hi); r.setSkewForCentre(centre); return Skewed(r, centre); };
     auto time = [&](float maxSec) { return skewed(0.0f, maxSec, maxSec / 10.0f); };
+    // Spec S5.31: OUT Volume 0 .. 4 (+12 dB) with 1 (0 dB) at 75 % of the travel: skew s = ln 0.75 / ln 0.25,
+    // centre (the value at half travel) = 4 x 0.5^(1/s) = 0.1417 (about -17 dB).
+    constexpr float outGainCentre = 0.14169f;
     auto logRange = skewed;
     struct Text {                                    // value text with units (Spec S6.1); no separate host label
         Attr attr;
@@ -128,7 +131,8 @@ APVTS::ParameterLayout LMWSynthProcessor::createLayout(std::map<std::string, Flo
               juce::StringArray{"Bipolar", "Positive", "Negative"}, 0),
           std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{P::lfo2Polarity, 1}, "LFO 2 Polarity",
               juce::StringArray{"Bipolar", "Positive", "Negative"}, 0),
-          f(P::gain, "Volume", Range(0.0f, 1.0f), 0.8f, decibels),
+          // Spec S5.31: up to +12 dB (x 4); skewed so 0 dB is at about three quarters of the travel (centre -17 dB)
+          f(P::gain, "Volume", skewed(0.0f, 4.0f, outGainCentre), 0.8f, decibels),
           f(P::outPan, "Pan", Range(-1.0f, 1.0f), 0.0f, percent),          // Spec S5.25
           f(P::outSpread, "Spread", Range(0.0f, 1.0f), 0.0f, percent),
           std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{P::spreadMode, 1}, "Spread mode",
@@ -480,6 +484,7 @@ void LMWSynthProcessor::processEffects(float* left, float* right, int n) noexcep
             }
         }
         const Stereo out = sum(mainIn);
+        mainPeak = std::fmax(mainPeak, std::fmax(std::fabs(out.l), stereo ? std::fabs(out.r) : 0.0f));   // S5.31
         left[i] = lmw::dsp::MainLimiter::process(out.l);   // Spec S7.4 (2026-11-26): no clipping after the effects
         if (stereo) right[i] = lmw::dsp::MainLimiter::process(out.r);
         prevComb = combOut;
@@ -635,6 +640,12 @@ void LMWSynthProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Mid
     }
     engine.render(left + pos, right ? right + pos : nullptr, n - pos);
     processEffects(left, right, n);                      // Spec S7.4, S7.6
+    {                                                    // Spec S5.31: the limiter lamps
+        const double now = juce::Time::getMillisecondCounterHiRes() / 1000.0;
+        outLimit.block(lmw::dsp::reductionDb<lmw::dsp::SoftLimiter>(engine.takeOutPeak()), now);
+        mainLimit.block(lmw::dsp::reductionDb<lmw::dsp::MainLimiter>(mainPeak), now);
+        mainPeak = 0.0f;
+    }
     for (int ch = 2; ch < buffer.getNumChannels(); ++ch) buffer.clear(ch, 0, n);
 }
 

@@ -196,3 +196,6 @@
 - User: is the local build-u24 rebuilt? No (from Phase 50); rebuilt in the container: rc 0, 50 of 50.
 - User: ok continue. CI for aef6313 green (4 of 4). Next in the agreed order: L34 → Phase 53, Spec S5.31 (OUT Volume to +12 dB, limiter lamps) proposed with choices A–E; Plan, Tests planned.
 - User: all recommended; commit the spec and start 53. S5.31 confirmed (A a … E a); committed; Phase 53 started.
+- 53 built: out.gain 0–4 (skew: 0 dB at 75 %), dB scale kind, '+6.0 dB' text; LimitMeter / reductionDb, Engine::takeOutPeak, MAIN peak; /load limit_out / limit_main; LimitLamp in OUT (title bar) and MAIN (under the title); Terms Limiter (90), Volume; tutorial Lesson 1; AI guide; MCP text; test_outgain + test updates; 51 of 51 incl. host with a display; Xvfb lamps off / lit, hover.
+- Pictures: lesson5-vca.png was a sliver since 51b (VCA right of the 1496 px pictures window) and row-3 crops had the scroll bar over the socket labels → pictures.sh window 1920 × 1000 and shot() scrolls to a panel right of the view; all pictures retaken; Spec S7.12 note.
+- User: yes, commit and do the crosscheck. Committed Phase 53 with the pictures fix; crosscheck next.

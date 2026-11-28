@@ -82,7 +82,9 @@ envelope is up. Audio and gate inputs take 0 to 1 only. A level of 0 keeps a cab
   connections too). Positive where an input adds to a fader at its end: `vca.cv=lfo2.out` with vca.initial 0
   (pulses from silence; Bipolar would be silent half the time), `vcoN.shape=lfo2.out` from shape 0, the
   cutoff only upwards. Positive LFO 1 makes the vibrato go only sharp.
-- **OUT** `out.gain` 0-1 (the default 0.8 ≈ -1.9 dB); a soft limiter catches peaks.
+- **OUT** `out.gain` 0-4 (linear gain: the default 0.8 ≈ -1.9 dB, 1 = 0 dB, 2 ≈ +6 dB, 4 = +12 dB); a soft limiter
+  catches peaks above -6 dBFS. `get_load` shows `limit_out` / `limit_main`: dB the OUT / MAIN limiter took off in
+  the last second. Raise out.gain for a quiet sound until limit_out is only a little above 0 on loud chords.
 - **COMB** (`comb.freq` 20-5000 Hz, `comb.key` 0-1, `comb.feedback` -0.95..0.95, `comb.damping` 0-1,
   `comb.mix` 0-1, 0 = off): a resonant tube or body. Key 1 with Freq 261.6 (C4) follows the notes;
   positive feedback = hollow, all harmonics; negative = odd harmonics, clarinet-like.

@@ -377,7 +377,8 @@ int main(int argc, char* argv[]) {
             std::printf("/load:\n%s", load.c_str());
             CHECK(load.rfind("cpu ", 0) == 0 && load.find("\npeak ") != std::string::npos && load.find("\nvoices ") != std::string::npos
                   && load.find("\noverruns ") != std::string::npos && load.find("\nxruns ") != std::string::npos
-                  && load.find("\nmemory ") != std::string::npos && std::count(load.begin(), load.end(), '\n') == 6);
+                  && load.find("\nmemory ") != std::string::npos && load.find("\nlimit_out ") != std::string::npos
+                  && load.find("\nlimit_main ") != std::string::npos && std::count(load.begin(), load.end(), '\n') == 8);   // S5.31
         }
         const auto version = read9P(sock, {"version"});
         std::printf("/version: %s", version.c_str());
@@ -397,8 +398,8 @@ int main(int argc, char* argv[]) {
                         "\"default\": 0.0, \"unit\": \"st\", \"step\": 0.01, \"scale\": \"pm\"}") != std::string::npos);
         CHECK(info.find("{\"id\": \"voice.count\", \"name\": \"Voices\", \"kind\": \"int\", \"min\": 1, \"max\": 32, \"default\": 8}") != std::string::npos);
         CHECK(info.find("\"choices\": [\"36 dB\", \"24 dB\", \"12 dB\", \"6 dB\"], \"default\": \"24 dB\"}") != std::string::npos);
-        CHECK(info.find("{\"id\": \"out.gain\", \"name\": \"Volume\", \"kind\": \"float\", \"min\": 0.0, \"max\": 1.0, "
-                        "\"default\": 0.8, \"unit\": \"dB\", \"scale\": \"lin\"}") != std::string::npos);
+        CHECK(info.find("{\"id\": \"out.gain\", \"name\": \"Volume\", \"kind\": \"float\", \"min\": 0.0, \"max\": 4.0, "   // S5.31: +12 dB
+                        "\"default\": 0.8, \"unit\": \"dB\", \"centre\": 0.14169, \"scale\": \"db\"}") != std::string::npos);
 
         // 4d. Exact round trip (Kukel request 2026-11-17): a value written within the range (on the step)
         //     reads back as written, for every float parameter: its ends, its default, round values and values

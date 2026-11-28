@@ -122,6 +122,25 @@ private:
     };
     // Spec S7.5: the "Presets" button at the right of a panel's title bar; it opens the preset menu
     // (built-in, Default, the user's own, Save as preset...). Black text and frame on the title colour.
+    // Spec S5.31: a limiter lamp — "limit" and a dot in the text colour, filled while the limiter works (and 0.3 s
+    // after), an outline otherwise; the hover text gives the most it took off in the last second. The hover text is
+    // not changed while the pointer is on it (a tooltip that changes while shown flickers).
+    class LimitLamp final : public juce::Component, public juce::SettableTooltipClient {
+    public:
+        explicit LimitLamp(juce::String unitName) : unit(std::move(unitName)) { setInterceptsMouseClicks(true, false); }
+        void show(bool on, float db) {
+            if (on != lit) { lit = on; repaint(); }
+            if (!isMouseOverOrDragging())
+                setTooltip(unit + " limiter: " + (db > 0.05f ? juce::String::fromUTF8("\xe2\x88\x92") + juce::String(db, 1)
+                                                                  + " dB taken off in the last second" : juce::String("not working"))
+                           + "\nThe lamp lights while it squashes peaks. If it stays lit, lower the Volume.");
+        }
+        bool isLit() const noexcept { return lit; }
+        void paint(juce::Graphics& g) override;
+    private:
+        juce::String unit;
+        bool lit = false;
+    };
     class PresetButton final : public juce::Button {
     public:
         PresetButton(LMWSynthEditor& e, juce::String module, juce::String panelTitle);
@@ -294,7 +313,8 @@ private:
     Item addChoice(const char* paramId, const juce::String& text, const juce::StringArray& options,
                    const juce::String& tip = {});
     void layoutItem(const Item&, juce::Rectangle<int> column) const;
-    int tagH() const { return m.colW >= 80 ? 11 : 9; }    // Spec S6.17: the scale tag under a fader's name
+    int tagH() const { return m.colW >= 80 ? 11 : 9; }
+    int lampWidth() const { return m.colW >= 80 ? 46 : 38; }   // Spec S5.31: "limit" and its dot    // Spec S6.17: the scale tag under a fader's name
     void layoutJacks(const std::vector<Jack*>& js, int columns, juce::Rectangle<int> jackRow) const;
 public:
     // Spec S6.11: the menu's items (About, Contrast, ...), also appended to the standalone window's Options
@@ -475,6 +495,8 @@ private:
     std::map<juce::String, std::unique_ptr<PresetButton>> effectPresets;   // Spec S7.5: COMB, DELAY, REVERB titles
     juce::Label patchLabel;
     juce::Label loadLabel;                                // Spec S6.28: "CPU 7 %"
+    LimitLamp outLamp{"OUT"}, mainLamp{"MAIN"};           // Spec S5.31
+    int outGroup = -1;                                    // the OUT panel's group (for its lamp)
     void updateLoadLabel();
     TitleButton titleButton;              // "LMW-Synth <version>", opens About (S6.10); hover text: 9P address
     void showAbout();

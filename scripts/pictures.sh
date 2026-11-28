@@ -51,7 +51,7 @@ done
 [ -n "$sock" ] || { echo "pictures.sh: the synth did not start (no 9P socket in $sockets)"; exit 1; }
 p9() { "$lmw9p" "unix!$sock" "$@"; }
 
-p9 write view "size 1496 874"
+p9 write view "size 1920 1000"                         # the whole default rack: no scroll bars (S6.5, 51b)
 p9 write view "keyboard on"
 p9 write view "scales on"                               # Spec S6.20: the beginner aids shown
 p9 write view "rings on"
@@ -67,6 +67,23 @@ shot() {
     if [ $# -eq 0 ]; then
         cp "$work/full.png" "$out/$file"
     else
+        # Panels right of the view (a wide default row, S6.5): scroll the rack until they fit, then shoot again.
+        local fit
+        fit=$(p9 cat view | awk -v want="$(printf '%s\n' "$@")" '
+            BEGIN { n = split(want, w, "\n") }
+            $1 == "size" { width = $2 }
+            $1 == "scroll" { sx = $2; sy = $3 }
+            $1 == "panel" {
+                title = $6; for (i = 7; i <= NF; ++i) title = title " " $i
+                for (k = 1; k <= n; ++k) if (w[k] != "" && index(title, w[k]) == 1 && $2 + $4 > x1) x1 = $2 + $4
+            }
+            END { if (x1 + 16 > width) printf "%d %d", sx + x1 + 16 - width, sy }')
+        if [ -n "$fit" ]; then
+            p9 write view "scroll $fit"
+            p9 write view "pointer away"
+            sleep 0.5
+            p9 cat snapshot > "$work/full.png"
+        fi
         local box
         box=$(p9 cat view | awk -v want="$(printf '%s\n' "$@")" '
             BEGIN { n = split(want, w, "\n") }
@@ -81,6 +98,7 @@ shot() {
             END { if (seen) printf "%dx%d+%d+%d", x1 - x0 + 16, y1 - y0 + 16, (x0 > 8 ? x0 - 8 : 0), (y0 > 8 ? y0 - 8 : 0) }')
         [ -n "$box" ] || { echo "pictures.sh: no panel $* on this tab"; exit 1; }
         convert "$work/full.png" -crop "$box" +repage "$out/$file"
+        [ -z "$fit" ] || p9 write view "scroll 0 0"
     fi
     echo "  $out/$file"
 }

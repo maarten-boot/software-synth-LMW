@@ -59,13 +59,16 @@ struct LoadInfo {
     int voices = 0;
     std::uint32_t overruns = 0, xruns = 0;
     double memoryMB = 0.0;                                // 0: not known
+    double limitOut = 0.0, limitMain = 0.0;               // Spec S5.31: dB the OUT / MAIN limiter took off (last second)
 };
 
-// The 9P /load text (S6.28): "cpu 7.2", "peak 12.0", "voices 3", "overruns 0", "xruns 0", "memory 84.2".
+// The 9P /load text (S6.28): "cpu 7.2", "peak 12.0", "voices 3", "overruns 0", "xruns 0", "memory 84.2";
+// S5.31: "limit_out 2.4", "limit_main 0.0" (dB taken off in the last second).
 inline std::string loadText(const LoadInfo& l) {
-    char buf[200];
-    std::snprintf(buf, sizeof buf, "cpu %.1f\npeak %.1f\nvoices %d\noverruns %u\nxruns %u\nmemory %.1f\n",
-                  l.cpu * 100.0, l.peak * 100.0, l.voices, static_cast<unsigned>(l.overruns), static_cast<unsigned>(l.xruns), l.memoryMB);
+    char buf[260];
+    std::snprintf(buf, sizeof buf, "cpu %.1f\npeak %.1f\nvoices %d\noverruns %u\nxruns %u\nmemory %.1f\nlimit_out %.1f\nlimit_main %.1f\n",
+                  l.cpu * 100.0, l.peak * 100.0, l.voices, static_cast<unsigned>(l.overruns), static_cast<unsigned>(l.xruns), l.memoryMB,
+                  l.limitOut, l.limitMain);
     return buf;
 }
 

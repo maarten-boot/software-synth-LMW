@@ -33,6 +33,7 @@ int main() {
     CHECK(decibels(1.0f) == "0.0 dB");
     CHECK(decibels(0.5f) == "-6.0 dB");
     CHECK(decibels(0.8f) == "-1.9 dB");
+    CHECK(decibels(2.0f) == "+6.0 dB" && decibels(4.0f) == "+12.0 dB");   // S5.31: above 0 dB with a sign
     CHECK(near(parseDecibels("-6.0 dB"), 0.501187f));
     CHECK(near(parseDecibels("0"), 1.0f));
     CHECK(parseDecibels("-inf dB") == 0.0f);
@@ -61,7 +62,7 @@ int main() {
 
     // Round trip: text shown for a value parses back to (nearly) the same value.
     for (float v : {0.005f, 0.2f, 0.75f, 3.3f, 9.0f}) CHECK(std::fabs(parseTime(time(v)) - v) <= 0.006f);
-    for (float v : {0.1f, 0.5f, 0.8f, 1.0f})          CHECK(std::fabs(parseDecibels(decibels(v)) - v) <= 0.01f);
+    for (float v : {0.1f, 0.5f, 0.8f, 1.0f, 2.0f, 4.0f}) CHECK(std::fabs(parseDecibels(decibels(v)) - v) <= 0.01f * v);
 
     // matchChoice (9P writes, patch files): names, " dB", "+", unique prefixes, then indices.
     const std::vector<std::string> slope{"36 dB", "24 dB", "12 dB", "6 dB"}, oct{"-2", "-1", "0", "+1", "+2"},

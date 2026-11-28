@@ -4,6 +4,7 @@
 // Kinds: lin (equal steps), pm (linear around 0, shown "±"), log (frequencies and rates, skewed so equal
 // travel is about an equal pitch step), curve (times and depths: more travel at small values). The kind
 // follows from the parameter: skewed with unit Hz = log, skewed otherwise = curve, a range through 0 = pm.
+// Spec S5.31: unit dB (OUT Volume, a gain) = db: marks in decibels (-inf, -12, -6, 0, +6, +12).
 #pragma once
 #include <algorithm>
 #include <cmath>
@@ -15,17 +16,18 @@
 
 namespace lmw::ui::scale {
 
-enum class Kind { Lin, Pm, Log, Curve };
+enum class Kind { Lin, Pm, Log, Curve, Db };
 
 inline Kind kindOf(std::string_view unit, double lo, double hi, std::optional<double> centre) {
+    if (unit == "dB") return Kind::Db;                 // Spec S5.31
     if (centre) return unit == "Hz" ? Kind::Log : Kind::Curve;
     return lo < 0.0 && hi > 0.0 ? Kind::Pm : Kind::Lin;
 }
 inline std::string_view word(Kind k) {          // /info "scale"
-    switch (k) { case Kind::Pm: return "pm"; case Kind::Log: return "log"; case Kind::Curve: return "curve"; default: return "lin"; }
+    switch (k) { case Kind::Pm: return "pm"; case Kind::Log: return "log"; case Kind::Curve: return "curve"; case Kind::Db: return "db"; default: return "lin"; }
 }
 inline std::string_view tag(Kind k) {           // under the fader name (UTF-8)
-    switch (k) { case Kind::Pm: return "\xc2\xb1"; case Kind::Log: return "log"; case Kind::Curve: return "curve"; default: return "lin"; }
+    switch (k) { case Kind::Pm: return "\xc2\xb1"; case Kind::Log: return "log"; case Kind::Curve: return "curve"; case Kind::Db: return "dB"; default: return "lin"; }
 }
 // The hover line; `half` is the value text at half travel (skewed kinds).
 inline std::string describe(Kind k, const std::string& half) {
@@ -33,6 +35,7 @@ inline std::string describe(Kind k, const std::string& half) {
         case Kind::Pm:    return "Scale: linear around 0";
         case Kind::Log:   return "Scale: logarithmic (half way = " + half + ")";
         case Kind::Curve: return "Scale: curved, more travel at small values (half way = " + half + ")";
+        case Kind::Db:    return "Scale: decibels, 0 dB at three quarters (half way = " + half + ")";
         default:          return "Scale: linear";
     }
 }
@@ -51,7 +54,11 @@ inline std::string label(double v, std::string_view unit, bool sign = false) {
     const auto g = [&](double x, const char* fmt) { std::snprintf(b, sizeof b, fmt, x); return std::string(b); };
     if (unit == "Hz") return v >= 1000.0 ? g(v / 1000.0, "%gk") : g(v, "%g");
     if (unit == "%") return g(std::round(v * 100.0), sign && v > 0.0 ? "%+g" : "%g");
-    if (unit == "dB") return v <= 0.0 ? std::string("-inf") : g(std::round(20.0 * std::log10(v)), "%g");
+    if (unit == "dB") {                                // -inf, -6, 0, +6 (S5.31: a sign above 0)
+        if (v <= 0.0) return "-inf";
+        const double db = std::round(20.0 * std::log10(v));
+        return db == 0.0 ? std::string("0") : g(db, "%+g");
+    }
     if (unit == "vowel") { static const char* names[] = {"A", "E", "I", "O", "U"}; return names[std::clamp(static_cast<int>(std::lround(v)), 0, 4)]; }
     return g(v, sign && v > 0.0 ? "%+g" : "%g");
 }
@@ -69,7 +76,13 @@ struct Tick {
 inline std::vector<Tick> ticks(Kind k, std::string_view unit, double lo, double hi, std::optional<double> centre) {
     std::vector<std::pair<double, bool>> v;
     const auto isDecade = [](double x) { const double l = std::log10(x); return std::fabs(l - std::round(l)) < 1e-9; };
-    if (k == Kind::Lin || k == Kind::Pm) {
+    if (k == Kind::Db) {                               // Spec S5.31: -inf, -12, -6, 0, +6, +12 dB (majors -inf, 0, the top)
+        v.push_back({lo, true});
+        for (const double db : {-12.0, -6.0, 0.0, 6.0, 12.0}) {
+            const double x = std::pow(10.0, db / 20.0);
+            if (x > lo && x <= hi * (1 + 1e-6)) v.push_back({x, db == 0.0 || db == 12.0});
+        }
+    } else if (k == Kind::Lin || k == Kind::Pm) {
         for (int i = 0; i <= 4; ++i) v.push_back({lo + (hi - lo) * i / 4.0, i % 2 == 0});
         if (k == Kind::Pm) v[1].second = v[3].second = false, v[2].second = true;
     } else {

@@ -34,7 +34,9 @@ The keys work whichever control you used last, except while you type a value.
    start and a short release.
 2. *KEYS › Voices*: drag it down to 1 and play a chord. Only the last note sounds: one voice, like a
    flute. Back to 8 (double-click): chords again.
-3. *OUT › Volume*: the overall level. The output never clips hard: a soft limiter catches peaks.
+3. *OUT › Volume*: the overall level, up to +12 dB. The output never clips hard: a soft limiter catches
+   peaks, and its lamp (*limit* at the top of OUT) lights while it works. Raise the Volume until the
+   lamp only flickers on the loudest chords.
 4. Look at the tabs: **Synth** (the panels you see), **Matrix**, **Schematic**, **Effects**, **Notes**.
    Open **Schematic**: the whole instrument as a drawing, the sound flowing from left to right.
    A dashed outline marks a unit that has [no effect](../Terms.md#no-effect) on the sound yet (VCO 2 and

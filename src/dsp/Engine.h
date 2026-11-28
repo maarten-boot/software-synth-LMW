@@ -431,6 +431,7 @@ class Engine {
 public:
     static constexpr int maxVoices = 32;
     static constexpr float headroom = 0.25f;
+    float outPeak = 0.0f;                                // Spec S5.31: into OUT's limiter, this block
 
     void prepare(double sr) noexcept {
         for (auto& v : voices) v.prepare(sr);
@@ -520,6 +521,9 @@ public:
     void setPitchBend(double semitones) noexcept { for (auto& v : voices) v.setPitchBend(semitones); }
 
     // Renders `n` samples into left/right (right may be null). Overwrites output.
+    // Spec S5.31: the highest |signal| into OUT's limiter since the last call (the lamp), then 0 again.
+    float takeOutPeak() noexcept { const float p = outPeak; outPeak = 0.0f; return p; }
+
     void render(float* left, float* right, int n) noexcept {
         for (int i = 0; i < n; ++i) {
             if (gain < targetGain)      gain = std::fmin(gain + gainStep, targetGain);
@@ -567,12 +571,16 @@ public:
             const float globals = globalOnOut ? globalOut(g) : 0.0f;   // a global source is output once (S5.5), centred
 
             if (!panning) {
-                const float s = SoftLimiter::process((sum + globals) * gain * headroom);   // Spec S4.6
+                const float x = (sum + globals) * gain * headroom;
+                outPeak = std::fmax(outPeak, std::fabs(x));                              // Spec S5.31: the lamp
+                const float s = SoftLimiter::process(x);                                 // Spec S4.6
                 left[i] = s;
                 if (right) right[i] = s;
             } else {                                                                     // the limiter per side
-                left[i] = SoftLimiter::process((sumL + globals) * gain * headroom);
-                right[i] = SoftLimiter::process((sumR + globals) * gain * headroom);
+                const float xl = (sumL + globals) * gain * headroom, xr = (sumR + globals) * gain * headroom;
+                outPeak = std::fmax(outPeak, std::fmax(std::fabs(xl), std::fabs(xr)));
+                left[i] = SoftLimiter::process(xl);
+                right[i] = SoftLimiter::process(xr);
             }
         }
     }

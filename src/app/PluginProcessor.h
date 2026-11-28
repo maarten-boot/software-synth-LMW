@@ -307,8 +307,15 @@ public:
         l.voices = voicesPlaying.load(std::memory_order_relaxed);
         l.overruns = loadMeter.overruns();
         l.xruns = static_cast<std::uint32_t>(std::max(0, deviceXruns.load(std::memory_order_relaxed)));
+        const double now = juce::Time::getMillisecondCounterHiRes() / 1000.0;   // Spec S5.31
+        l.limitOut = outLimit.worst(now);
+        l.limitMain = mainLimit.worst(now);
         return l;
     }
+    // Spec S5.31: the limiter lamps — lit (working now or within 0.3 s) and the most taken off in the last second.
+    struct Lamp { bool lit = false; float db = 0.0f; };
+    Lamp outLamp() const noexcept { const double t = juce::Time::getMillisecondCounterHiRes() / 1000.0; return {outLimit.lit(t), outLimit.worst(t)}; }
+    Lamp mainLamp() const noexcept { const double t = juce::Time::getMillisecondCounterHiRes() / 1000.0; return {mainLimit.lit(t), mainLimit.worst(t)}; }
     bool loadWarning() const noexcept { return loadMeter.warning(juce::Time::getMillisecondCounterHiRes() / 1000.0); }
     void setDeviceXruns(int n) noexcept { deviceXruns.store(n, std::memory_order_relaxed); }
     // Spec S6.24: the bend wheel's position (-1 .. +1) as last set by MIDI or the on-screen wheel; the on-screen
@@ -371,6 +378,8 @@ private:
     juce::MidiKeyboardState keyboard;   // on-screen + computer keyboard input
     lmw::dsp::Engine engine;
     lmw::dsp::LoadMeter loadMeter;                 // Spec S6.28
+    lmw::dsp::LimitMeter outLimit, mainLimit;      // Spec S5.31: the limiter lamps
+    float mainPeak = 0.0f;                         // into MAIN's limiter this block (audio thread)
     std::atomic<int> voicesPlaying{0}, deviceXruns{0};
 
     // Spec S10.2: no locks on the audio thread. Keyboard notes go GUI -> audio, external MIDI

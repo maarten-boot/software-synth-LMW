@@ -38,7 +38,7 @@ int main() {
         l.cpu = 0.072; l.peak = 0.12; l.voices = 3; l.overruns = 0; l.xruns = 2; l.memoryMB = 84.24;
         const auto text = loadText(l);
         std::printf("%s", text.c_str());
-        CHECK(text == "cpu 7.2\npeak 12.0\nvoices 3\noverruns 0\nxruns 2\nmemory 84.2\n");
+        CHECK(text == "cpu 7.2\npeak 12.0\nvoices 3\noverruns 0\nxruns 2\nmemory 84.2\nlimit_out 0.0\nlimit_main 0.0\n");   // S5.31
     }
     // Benchmark: n voices held (3 VCOs each, all mixed in), 2 s of audio at 48 kHz in 256-sample blocks.
     double eight = 0.0;

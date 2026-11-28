@@ -23,7 +23,7 @@ int main() {
     CHECK(sc::kindOf("Hz", 20, 18000, 600.0) == sc::Kind::Log);
     CHECK(sc::kindOf("s", 0, 5, 0.5) == sc::Kind::Curve && sc::kindOf("st", 0, 12, 1.0) == sc::Kind::Curve);
     CHECK(sc::kindOf("st", -7, 7, std::nullopt) == sc::Kind::Pm && sc::kindOf("%", -0.95, 0.95, std::nullopt) == sc::Kind::Pm);
-    CHECK(sc::kindOf("%", 0, 1, std::nullopt) == sc::Kind::Lin && sc::kindOf("dB", 0, 1, std::nullopt) == sc::Kind::Lin);
+    CHECK(sc::kindOf("%", 0, 1, std::nullopt) == sc::Kind::Lin && sc::kindOf("dB", 0, 1, std::nullopt) == sc::Kind::Db);   // S5.31: dB = db
     CHECK(sc::word(sc::Kind::Pm) == "pm" && sc::tag(sc::Kind::Pm) == "\xc2\xb1" && sc::tag(sc::Kind::Curve) == "curve");
     CHECK(sc::describe(sc::Kind::Log, "600 Hz") == "Scale: logarithmic (half way = 600 Hz)");
     // JUCE's skew: the centre sits at half travel.
